@@ -64,22 +64,30 @@ export default function ReportsPage() {
       return { text: "Chưa hoàn thành", variant: "destructive", icon: XCircle };
   }
 
-  function getTotalTaskCount(report: ShiftReport) {
-      const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
-      return shiftTasks.length;
+  const getCompletedTaskCount = (report: ShiftReport) => {
+    const allTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
+    let completedCount = 0;
+    
+    allTasks.forEach(task => {
+        const status = report.completedTasks[task.id];
+        if (task.timeSlots) {
+            if (Array.isArray(status) && status.length > 0) {
+                completedCount++;
+            }
+        } else {
+            if (typeof status === 'boolean' && status) {
+                completedCount++;
+            }
+        }
+    });
+    
+    return completedCount;
+  };
+  
+  const getTotalTaskCount = (report: ShiftReport) => {
+      return tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks).length || 0;
   }
 
-  function getCompletedTaskCount(report: ShiftReport) {
-      return Object.values(report.completedTasks).reduce((count, status) => {
-        if (typeof status === 'boolean' && status) {
-          return count + 1;
-        } else if (Array.isArray(status)) {
-          // Count timestamped tasks that have at least one entry
-          return count + (status.length > 0 ? 1 : 0);
-        }
-        return count;
-      }, 0);
-  }
 
   const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -112,6 +120,7 @@ export default function ReportsPage() {
                         <TableRow>
                           <TableHead>Nhân viên</TableHead>
                           <TableHead>Ca làm việc</TableHead>
+                          <TableHead>Thời gian gửi</TableHead>
                           <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
                           <TableHead className="text-center">Hình ảnh</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
@@ -128,9 +137,15 @@ export default function ReportsPage() {
                             <TableRow key={report.id}>
                               <TableCell>{report.staffName}</TableCell>
                               <TableCell className="capitalize">{shiftName}</TableCell>
+                               <TableCell>
+                                {new Date(report.submittedAt).toLocaleTimeString('vi-VN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </TableCell>
                               <TableCell className="text-center">
-                                <Badge variant={status.variant} className="gap-1">
-                                    <status.icon className="h-3 w-3" />
+                                <Badge variant={completedTasksCount === allTasksCount ? 'default' : 'secondary'} className="gap-1">
+                                    {completedTasksCount === allTasksCount ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                                     <span>{completedTasksCount}/{allTasksCount}</span>
                                 </Badge>
                               </TableCell>

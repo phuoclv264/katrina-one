@@ -63,11 +63,13 @@ export const dataStore = {
     notifyListeners();
   },
 
-  addReport: (newReport: Omit<ShiftReport, 'id' | 'shiftDate'>) => {
+  addReport: (newReport: Omit<ShiftReport, 'id' | 'shiftDate' | 'submittedAt'>) => {
+    const now = new Date();
     const reportToAdd: ShiftReport = {
         ...newReport,
-        id: `report-${Date.now()}`,
-        shiftDate: new Date().toISOString().split('T')[0],
+        id: `report-${now.getTime()}`,
+        shiftDate: now.toISOString().split('T')[0],
+        submittedAt: now.toISOString(),
     };
     reports = [reportToAdd, ...reports];
      if (isBrowser) {

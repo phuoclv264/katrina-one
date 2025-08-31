@@ -27,6 +27,7 @@ export type ShiftReport = {
   id: string;
   staffName: string;
   shiftDate: string;
+  submittedAt: string; // ISO string for the submission time
   completedTasks: TaskCompletion;
   uploadedPhotos: string[];
   issues: string | null;

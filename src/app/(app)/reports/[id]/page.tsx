@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import type { TaskCompletion } from '@/lib/types';
 
 export default function ReportDetailPage() {
   const params = useParams();
@@ -36,22 +37,28 @@ export default function ReportDetailPage() {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Thông tin ca làm việc không tồn tại.</div>;
   }
   
-  const allTasks = shift.sections.flatMap(s => s.tasks);
+  const getCompletedTaskCount = (completedTasks: TaskCompletion) => {
+    const allTasks = shift.sections.flatMap(s => s.tasks);
+    let completedCount = 0;
+    allTasks.forEach(task => {
+        const status = completedTasks[task.id];
+        if (task.timeSlots) {
+            // A timestamped task is complete if it has at least one timestamp
+            if (Array.isArray(status) && status.length > 0) {
+                completedCount++;
+            }
+        } else {
+            // A simple task is complete if its status is true
+            if (typeof status === 'boolean' && status) {
+                completedCount++;
+            }
+        }
+    });
+    return completedCount;
+  };
   
-  const completedSimpleTasks = Object.entries(report.completedTasks).filter(([taskId, status]) => {
-      const task = allTasks.find(t => t.id === taskId);
-      return task && !task.timeSlots && status === true;
-  }).length;
-
-  const completedTimestampedTasks = Object.entries(report.completedTasks).filter(([taskId, status]) => {
-      const task = allTasks.find(t => t.id === taskId);
-      return task && task.timeSlots && Array.isArray(status) && status.length > 0;
-  }).length;
-
-  const totalSimpleTasks = allTasks.filter(t => !t.timeSlots).length;
-  const totalTimestampedTasks = allTasks.filter(t => t.timeSlots).length;
-  const completedTaskCount = completedSimpleTasks + completedTimestampedTasks;
-  const totalTaskCount = totalSimpleTasks + totalTimestampedTasks;
+  const totalTaskCount = shift.sections.flatMap(s => s.tasks).length;
+  const completedTaskCount = getCompletedTaskCount(report.completedTasks);
 
 
   return (
@@ -65,7 +72,7 @@ export default function ReportDetailPage() {
         </Button>
         <h1 className="text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
         <p className="text-muted-foreground">
-          Báo cáo ca từ <span className="font-semibold">{report.staffName}</span> vào ngày <span className="font-semibold">{new Date(report.shiftDate).toLocaleDateString('vi-VN')}</span>.
+          Báo cáo ca từ <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{new Date(report.submittedAt).toLocaleString('vi-VN')}</span>.
         </p>
       </header>
 
@@ -110,13 +117,9 @@ export default function ReportDetailPage() {
                                     </div>
                                   </div>
                                   {timestamps.length > 0 && (
-                                    <div className="mt-3 pl-2 border-l-2 ml-2 space-y-2">
-                                      {timestamps.map((time, index) => (
-                                        <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="h-4 w-4" />
-                                            <span>Đã thực hiện lúc: {time}</span>
-                                        </div>
-                                      ))}
+                                    <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Clock className="h-4 w-4 flex-shrink-0" />
+                                        <span>Thực hiện lúc: {timestamps.join(', ')}</span>
                                     </div>
                                   )}
                                 </div>
