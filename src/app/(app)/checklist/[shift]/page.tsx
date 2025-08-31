@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
@@ -15,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock, PlusCircle } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import CameraDialog from '@/components/camera-dialog';
 
 export default function ChecklistPage() {
   const { toast } = useToast();
@@ -23,6 +25,10 @@ export default function ChecklistPage() {
   const shiftKey = params.shift as string;
 
   const [tasksByShift, setTasksByShift] = useState<TasksByShift>(dataStore.getTasks());
+  
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -71,22 +77,42 @@ export default function ChecklistPage() {
     });
   };
 
-   const handleTimestampTask = (taskId: string) => {
-    setTaskCompletion(current => {
-      const newCompletion = JSON.parse(JSON.stringify(current));
-      const taskTimestamps = (newCompletion[taskId] as string[]) || [];
-      const now = new Date();
-      const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      taskTimestamps.push(formattedTime);
-      newCompletion[taskId] = taskTimestamps;
-      return newCompletion;
+   const openCameraForTask = (taskId: string) => {
+    setActiveTaskId(taskId);
+    setIsCameraOpen(true);
+  };
+  
+  const handleCapturePhoto = (photoDataUri: string) => {
+    if (activeTaskId) {
+      setPhotos(prev => [...prev, photoDataUri]);
+      // Also mark the task as completed with a timestamp
+      setTaskCompletion(current => {
+        const newCompletion = JSON.parse(JSON.stringify(current));
+        const taskTimestamps = (newCompletion[activeTaskId] as string[]) || [];
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        taskTimestamps.push(formattedTime);
+        newCompletion[activeTaskId] = taskTimestamps;
+        return newCompletion;
+      });
+    }
+    setIsCameraOpen(false);
+    setActiveTaskId(null);
+    toast({
+        title: "Đã chụp ảnh!",
+        description: "Ảnh đã được thêm vào báo cáo của bạn."
     });
   };
   
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      const newPhotos = Array.from(event.target.files).map(file => URL.createObjectURL(file));
-      setPhotos(prev => [...prev, ...newPhotos]);
+       Array.from(event.target.files).forEach(file => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+              setPhotos(prev => [...prev, reader.result as string]);
+          };
+      });
     }
   };
 
@@ -137,6 +163,7 @@ export default function ChecklistPage() {
   }, [taskCompletion]);
 
   return (
+    <>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <Button asChild variant="ghost" className="mb-4 -ml-4">
@@ -177,8 +204,8 @@ export default function ChecklistPage() {
                                     {task.text}
                                   </p>
                                 </div>
-                                <Button size="sm" variant="secondary" onClick={() => handleTimestampTask(task.id)}>
-                                    <PlusCircle className="mr-2 h-4 w-4"/>
+                                <Button size="sm" variant="secondary" onClick={() => openCameraForTask(task.id)}>
+                                    <Camera className="mr-2 h-4 w-4"/>
                                     Đã thực hiện
                                 </Button>
                               </div>
@@ -229,7 +256,7 @@ export default function ChecklistPage() {
         <Card>
           <CardHeader>
             <CardTitle>Hình ảnh chứng thực</CardTitle>
-            <CardDescription>Tải lên hình ảnh về công việc đã hoàn thành.</CardDescription>
+            <CardDescription>Tải lên hoặc chụp ảnh trực tiếp về công việc đã hoàn thành.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
@@ -241,8 +268,8 @@ export default function ChecklistPage() {
             </div>
             <div className="relative flex w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border p-8 hover:bg-muted/50">
               <div className="text-center">
-                <Camera className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">Nhấp để tải ảnh lên</p>
+                <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">Nhấp để tải ảnh lên từ thiết bị</p>
               </div>
               <Input 
                 id="photo-upload" 
@@ -276,5 +303,13 @@ export default function ChecklistPage() {
         </Button>
       </div>
     </div>
+    <CameraDialog 
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCapturePhoto}
+    />
+    </>
   );
 }
+
+    
