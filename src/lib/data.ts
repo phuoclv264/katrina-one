@@ -83,17 +83,17 @@ export const tasksByShift: TasksByShift = {
                 { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true, timeSlots: ['18:00', '20:00'] },
                 { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true, timeSlots: ['18:00', '20:00'] },
                 { id: 'toi-8', text: 'Đảm bảo khu vực khách về đã được dọn sạch sẽ', timeSlots: ['19:00', '21:00'] },
+            ]
+        },
+        {
+            title: 'Cuối ca',
+            tasks: [
                 { id: 'toi-9', text: 'Đảm bảo các bao rác đầy đều đã được thay' },
                 { id: 'toi-10', text: 'Đảm bảo sàn nhà T1, cầu thang sạch sẽ' },
                 { id: 'toi-11', text: 'Đảm bảo sàn nhà, sân T2 sạch sẽ' },
                 { id: 'toi-12', text: 'Đảm bảo WC 2 tầng sạch, thơm, bồn tiểu, bồn cầu sạch' },
                 { id: 'toi-13', text: 'Đảm bảo các ghế dù đều sạch, hoặc đều được rửa' },
                 { id: 'toi-14', text: 'Đảm bảo sân tầng 1 đã được dội nước hết các vết bẩn' },
-            ]
-        },
-        {
-            title: 'Cuối ca',
-            tasks: [
                 { id: 'toi-15', text: 'Đảm bảo dụng cụ vệ sinh đã được mang vào nhà, thùng rác đã được đặt đúng chỗ' },
                 { id: 'toi-16', text: 'Đảm bảo ly trà đã được rửa đầy đủ, xếp chồng kiểu tháp để nước trong ly chảy ra' },
                 { id: 'toi-17', text: 'Đảm bảo thùng tách nước, thùng lau nhà sạch' },
@@ -110,9 +110,18 @@ export const tasksByShift: TasksByShift = {
 export const reports: ShiftReport[] = [
   {
     id: 'report-001',
+    shiftKey: 'sang',
     staffName: 'Jane Doe',
     shiftDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    completedTasks: ['task-1', 'task-2', 'task-3', 'task-4', 'task-5', 'task-6', 'task-7'],
+    completedTasks: {
+        'sang-1': true,
+        'sang-2': true,
+        'sang-3': true,
+        'sang-4': { '08:00': true, '10:00': true, '12:00': true },
+        'sang-5': { '08:00': true, '10:00': true, '12:00': true },
+        'sang-6': true,
+        'sang-7': true,
+    },
     uploadedPhotos: [
       'https://picsum.photos/600/400?random=1',
       'https://picsum.photos/600/400?random=2',
@@ -122,9 +131,17 @@ export const reports: ShiftReport[] = [
   },
   {
     id: 'report-002',
+    shiftKey: 'trua',
     staffName: 'John Smith',
     shiftDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    completedTasks: ['task-1', 'task-3', 'task-5', 'task-6'],
+    completedTasks: {
+        'trua-1': true,
+        'trua-2': false,
+        'trua-3': { '15:00': true, '17:00': false },
+        'trua-4': true,
+        'trua-5': true,
+        'trua-6': false,
+    },
     uploadedPhotos: [
         'https://picsum.photos/600/400?random=4',
         'https://picsum.photos/600/400?random=5',
@@ -133,9 +150,31 @@ export const reports: ShiftReport[] = [
   },
   {
     id: 'report-003',
+    shiftKey: 'toi',
     staffName: 'Emily White',
     shiftDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    completedTasks: ['task-1', 'task-2', 'task-3', 'task-4', 'task-5', 'task-6', 'task-7'],
+    completedTasks: {
+        'toi-1': true,
+        'toi-2': true,
+        'toi-3': true,
+        'toi-4': { '18:00': true, '20:00': true },
+        'toi-5': { '18:00': true, '20:00': true },
+        'toi-6': { '18:00': true, '20:00': true },
+        'toi-7': { '18:00': true, '20:00': true },
+        'toi-8': { '19:00': true, '21:00': true },
+        'toi-9': true,
+        'toi-10': true,
+        'toi-11': true,
+        'toi-12': true,
+        'toi-13': true,
+        'toi-14': true,
+        'toi-15': true,
+        'toi-16': true,
+        'toi-17': true,
+        'toi-18': true,
+        'toi-19': true,
+        'toi-20': true,
+    },
     uploadedPhotos: [
         'https://picsum.photos/600/400?random=6',
         'https://picsum.photos/600/400?random=7',

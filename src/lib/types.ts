@@ -19,11 +19,16 @@ export type TasksByShift = {
   [key: string]: Shift;
 };
 
+export type TaskCompletion = {
+  [taskId: string]: boolean | { [timeSlot: string]: boolean };
+};
+
 export type ShiftReport = {
   id: string;
   staffName: string;
   shiftDate: string;
-  completedTasks: Task['id'][];
+  completedTasks: TaskCompletion;
   uploadedPhotos: string[];
   issues: string | null;
+  shiftKey: string;
 };

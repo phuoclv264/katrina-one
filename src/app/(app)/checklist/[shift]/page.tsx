@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { tasksByShift } from '@/lib/data';
-import type { Task } from '@/lib/types';
+import type { Task, TaskCompletion } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,10 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-type TaskCompletionState = {
-  [taskId: string]: boolean | { [timeSlot: string]: boolean };
-};
-
 export default function ChecklistPage() {
   const { toast } = useToast();
   const params = useParams();
@@ -26,11 +22,11 @@ export default function ChecklistPage() {
 
   const shift = tasksByShift[shiftKey];
 
-  const [taskCompletion, setTaskCompletion] = useState<TaskCompletionState>({});
+  const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
 
   useEffect(() => {
     if (shift) {
-      const initialCompletion: TaskCompletionState = {};
+      const initialCompletion: TaskCompletion = {};
       shift.sections.forEach(section => {
         section.tasks.forEach(task => {
           if (task.timeSlots) {
@@ -89,7 +85,7 @@ export default function ChecklistPage() {
       }
     });
     // Reset state
-    const initialCompletion: TaskCompletionState = {};
+    const initialCompletion: TaskCompletion = {};
     shift.sections.forEach(section => {
       section.tasks.forEach(task => {
         if (task.timeSlots) {

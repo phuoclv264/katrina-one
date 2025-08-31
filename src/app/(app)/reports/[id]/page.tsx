@@ -1,12 +1,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { reports, tasks } from '@/lib/data';
+import { reports, tasksByShift } from '@/lib/data';
 import AiReportSummary from '@/components/ai-report-summary';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
   const report = reports.find(r => r.id === params.id);
@@ -15,7 +16,22 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     notFound();
   }
 
-  const criticalTaskIds = tasks.filter(t => t.isCritical).map(t => t.id);
+  const shift = tasksByShift[report.shiftKey];
+  if (!shift) {
+    notFound();
+  }
+  
+  const allTasks = shift.sections.flatMap(s => s.tasks);
+  const totalTaskCount = allTasks.flatMap(t => t.timeSlots ? t.timeSlots : t).length;
+
+  const completedTaskCount = Object.values(report.completedTasks).reduce((count, status) => {
+      if (typeof status === 'boolean') {
+        return count + (status ? 1 : 0);
+      } else if (status) {
+        return count + Object.values(status).filter(Boolean).length;
+      }
+      return count;
+    }, 0);
 
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -23,12 +39,12 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         <Button asChild variant="ghost" className="mb-4 -ml-4">
             <Link href="/reports">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to All Reports
+                Quay lại tất cả báo cáo
             </Link>
         </Button>
-        <h1 className="text-3xl font-bold font-headline">Report Details</h1>
+        <h1 className="text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
         <p className="text-muted-foreground">
-          Shift report from <span className="font-semibold">{report.staffName}</span> on <span className="font-semibold">{report.shiftDate}</span>.
+          Báo cáo ca từ <span className="font-semibold">{report.staffName}</span> vào ngày <span className="font-semibold">{report.shiftDate}</span>.
         </p>
       </header>
 
@@ -36,7 +52,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         <div className="lg:col-span-2 space-y-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Sparkles className="text-primary" /> AI Generated Summary</CardTitle>
+                    <CardTitle className="flex items-center gap-2"><Sparkles className="text-primary" /> Tóm tắt từ AI</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <AiReportSummary report={report} />
@@ -45,24 +61,67 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
             <Card>
               <CardHeader>
-                <CardTitle>Completed Tasks</CardTitle>
-                <CardDescription>{report.completedTasks.length} of {tasks.length} tasks were marked as complete.</CardDescription>
+                <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
+                <CardDescription>{completedTaskCount} trên {totalTaskCount} nhiệm vụ đã được đánh dấu là hoàn thành.</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
-                  {tasks.map(task => {
-                    const isCompleted = report.completedTasks.includes(task.id);
-                    return (
-                      <li key={task.id} className="flex items-center gap-3 text-sm">
-                        <div className={`flex h-5 w-5 items-center justify-center rounded-full ${isCompleted ? 'bg-accent' : 'bg-muted'}`}>
-                          {isCompleted && <Check className="h-4 w-4 text-accent-foreground" />}
+                 <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full">
+                  {shift.sections.map((section) => (
+                    <AccordionItem value={section.title} key={section.title}>
+                      <AccordionTrigger className="text-lg font-medium">{section.title}</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4 pt-2">
+                          {section.tasks.map((task) => {
+                            const completionStatus = report.completedTasks[task.id];
+                            
+                            if (task.timeSlots) {
+                               const allSlotsCompleted = completionStatus && typeof completionStatus === 'object' && Object.values(completionStatus).every(Boolean);
+                               return (
+                                <div key={task.id} className="rounded-md border p-4">
+                                  <div className="flex items-start gap-4">
+                                    <div className="flex-1">
+                                      <p className="font-medium">
+                                        {task.text}
+                                      </p>
+                                    </div>
+                                    {task.isCritical && <Star className="h-5 w-5 text-yellow-500" />}
+                                  </div>
+                                  <div className="mt-4 space-y-3 pl-2 border-l-2 ml-2">
+                                    {task.timeSlots.map(slot => {
+                                      const isSlotCompleted = completionStatus && typeof completionStatus === 'object' && completionStatus[slot];
+                                      return (
+                                        <div key={slot} className="flex items-center gap-3">
+                                          <div className={`flex h-5 w-5 items-center justify-center rounded-full ${isSlotCompleted ? 'bg-accent' : 'bg-muted'}`}>
+                                            {isSlotCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                                          </div>
+                                          <span className={`text-sm flex items-center gap-2 ${isSlotCompleted ? '' : 'text-muted-foreground'}`}>
+                                            <Clock className="h-4 w-4" />
+                                            {slot}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            }
+                            
+                            const isCompleted = typeof completionStatus === 'boolean' && completionStatus;
+                            return (
+                               <div key={task.id} className="flex items-center gap-3 text-sm p-4 border rounded-md">
+                                <div className={`flex h-5 w-5 items-center justify-center rounded-full ${isCompleted ? 'bg-accent' : 'bg-muted'}`}>
+                                  {isCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                                </div>
+                                <span className={isCompleted ? '' : 'text-muted-foreground'}>{task.text}</span>
+                                {task.isCritical && <Star className={`h-4 w-4 ml-auto ${isCompleted ? 'text-yellow-500' : 'text-yellow-500/30'}`} />}
+                              </div>
+                            );
+                          })}
                         </div>
-                        <span className={isCompleted ? '' : 'text-muted-foreground'}>{task.text}</span>
-                        {task.isCritical && <Star className={`h-4 w-4 ml-auto ${isCompleted ? 'text-yellow-500' : 'text-yellow-500/30'}`} />}
-                      </li>
-                    );
-                  })}
-                </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               </CardContent>
             </Card>
         </div>
@@ -70,7 +129,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         <div className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Camera /> Uploaded Photos</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Camera /> Hình ảnh đã tải lên</CardTitle>
             </CardHeader>
             <CardContent>
               {report.uploadedPhotos.length > 0 ? (
@@ -82,7 +141,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No photos were uploaded for this shift.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">Không có ảnh nào được tải lên cho ca này.</p>
               )}
             </CardContent>
           </Card>
@@ -90,7 +149,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
           {report.issues && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MessageSquareWarning /> Reported Issues</CardTitle>
+                <CardTitle className="flex items-center gap-2"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm italic">"{report.issues}"</p>

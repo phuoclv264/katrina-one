@@ -1,28 +1,56 @@
 import Link from 'next/link';
-import { reports, tasks } from '@/lib/data';
+import { reports, tasksByShift } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
+import type { ShiftReport } from '@/lib/types';
 
-function getCompletionStatus(report: (typeof reports)[0]) {
-    const criticalTasks = tasks.filter(t => t.isCritical).map(t => t.id);
-    const completedCriticalTasks = report.completedTasks.filter(ct => criticalTasks.includes(ct));
-    
+function getCompletionStatus(report: ShiftReport) {
+    const shiftTasks = tasksByShift[report.shiftKey].sections.flatMap(s => s.tasks);
+    const criticalTasks = shiftTasks.filter(t => t.isCritical);
+
     if (criticalTasks.length === 0) {
-        return { text: "Completed", variant: "default", icon: CheckCircle };
-    }
-    
-    if (completedCriticalTasks.length === criticalTasks.length) {
-        return { text: "Completed", variant: "default", icon: CheckCircle };
-    }
-    
-    if (completedCriticalTasks.length > 0) {
-        return { text: "Partially Completed", variant: "secondary", icon: CheckCircle };
+        return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
     }
 
-    return { text: "Incomplete", variant: "destructive", icon: XCircle };
+    const completedCriticalCount = criticalTasks.filter(task => {
+        const completionStatus = report.completedTasks[task.id];
+        if (typeof completionStatus === 'boolean') {
+            return completionStatus;
+        }
+        if (typeof completionStatus === 'object') {
+            return Object.values(completionStatus).every(Boolean);
+        }
+        return false;
+    }).length;
+    
+    if (completedCriticalCount === criticalTasks.length) {
+        return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
+    }
+    
+    if (completedCriticalCount > 0) {
+        return { text: "Hoàn thành một phần", variant: "secondary", icon: CheckCircle };
+    }
+
+    return { text: "Chưa hoàn thành", variant: "destructive", icon: XCircle };
+}
+
+function getTotalTaskCount(report: ShiftReport) {
+    const shiftTasks = tasksByShift[report.shiftKey].sections.flatMap(s => s.tasks);
+    return shiftTasks.flatMap(t => t.timeSlots ? t.timeSlots : t).length;
+}
+
+function getCompletedTaskCount(report: ShiftReport) {
+    return Object.values(report.completedTasks).reduce((count, status) => {
+      if (typeof status === 'boolean') {
+        return count + (status ? 1 : 0);
+      } else if (status) {
+        return count + Object.values(status).filter(Boolean).length;
+      }
+      return count;
+    }, 0);
 }
 
 
@@ -30,38 +58,40 @@ export default function ReportsPage() {
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold font-headline">Shift Reports</h1>
-        <p className="text-muted-foreground">Review submitted reports from all staff members.</p>
+        <h1 className="text-3xl font-bold font-headline">Báo cáo ca</h1>
+        <p className="text-muted-foreground">Xem lại các báo cáo đã gửi từ tất cả nhân viên.</p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Reports</CardTitle>
+          <CardTitle>Báo cáo gần đây</CardTitle>
           <CardDescription>
-            Showing the {reports.length} most recent shift reports.
+            Hiển thị {reports.length} báo cáo ca gần nhất.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Staff Member</TableHead>
-                <TableHead className="text-center">Task Completion</TableHead>
-                <TableHead className="text-center">Photos</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Ngày</TableHead>
+                <TableHead>Nhân viên</TableHead>
+                <TableHead>Ca làm việc</TableHead>
+                <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
+                <TableHead className="text-center">Hình ảnh</TableHead>
+                <TableHead className="text-right">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {reports.map((report) => {
                 const status = getCompletionStatus(report);
-                const allTasksCount = tasks.length;
-                const completedTasksCount = report.completedTasks.length;
+                const allTasksCount = getTotalTaskCount(report);
+                const completedTasksCount = getCompletedTaskCount(report);
                 
                 return (
                   <TableRow key={report.id}>
                     <TableCell className="font-medium">{report.shiftDate}</TableCell>
                     <TableCell>{report.staffName}</TableCell>
+                    <TableCell className="capitalize">{tasksByShift[report.shiftKey].name}</TableCell>
                     <TableCell className="text-center">
                        <Badge variant={status.variant} className="gap-1">
                           <status.icon className="h-3 w-3" />
@@ -69,12 +99,12 @@ export default function ReportsPage() {
                        </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                        <Badge variant="outline">{report.uploadedPhotos.length} uploaded</Badge>
+                        <Badge variant="outline">{report.uploadedPhotos.length} đã tải lên</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="ghost" size="sm">
                         <Link href={`/reports/${report.id}`}>
-                          View Details <ArrowRight className="ml-2 h-4 w-4" />
+                          Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
                         </Link>
                       </Button>
                     </TableCell>

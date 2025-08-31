@@ -3,11 +3,10 @@
 import { useEffect, useState } from 'react';
 import type { ShiftReport } from '@/lib/types';
 import { summarizeShiftReport, SummarizeShiftReportOutput } from '@/ai/flows/summarize-shift-reports';
-import { tasks } from '@/lib/data';
+import { tasksByShift } from '@/lib/data';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { CheckCircle, Info, Lightbulb, XCircle } from 'lucide-react';
-import { Badge } from './ui/badge';
+import { CheckCircle, Lightbulb, XCircle } from 'lucide-react';
 
 type Props = {
   report: ShiftReport;
@@ -23,22 +22,33 @@ export default function AiReportSummary({ report }: Props) {
       try {
         setIsLoading(true);
         setError(null);
-
-        const criticalTasks = tasks.filter(t => t.isCritical).map(t => t.text);
-        const completedTaskTexts = tasks
-          .filter(t => report.completedTasks.includes(t.id))
+        
+        const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
+        const criticalTasks = shiftTasks.filter(t => t.isCritical).map(t => t.text);
+        
+        const completedTaskTexts = shiftTasks
+          .filter(task => {
+            const completionStatus = report.completedTasks[task.id];
+            if (typeof completionStatus === 'boolean') {
+              return completionStatus;
+            }
+            if (typeof completionStatus === 'object' && completionStatus !== null) {
+              return Object.values(completionStatus).every(Boolean);
+            }
+            return false;
+          })
           .map(t => t.text);
 
         const result = await summarizeShiftReport({
           completedTasks: completedTaskTexts,
           uploadedPhotos: report.uploadedPhotos,
           criticalTasks: criticalTasks,
-          commonIssues: report.issues || 'No issues reported.',
+          commonIssues: report.issues || 'Không có vấn đề nào được báo cáo.',
         });
         setSummary(result);
       } catch (e) {
         console.error(e);
-        setError('Failed to generate AI summary.');
+        setError('Không thể tạo tóm tắt AI.');
       } finally {
         setIsLoading(false);
       }
@@ -82,8 +92,8 @@ export default function AiReportSummary({ report }: Props) {
             <XCircle className="h-5 w-5 text-destructive" />
           )}
           <div>
-            <p className="text-xs text-muted-foreground">Critical Tasks</p>
-            <p className="text-sm font-semibold">{summary.criticalTasksStatus}</p>
+            <p className="text-xs text-muted-foreground">Nhiệm vụ quan trọng</p>
+            <p className="text-sm font-semibold">{summary.criticalTasksStatus.replace('All critical tasks completed', 'Tất cả đã hoàn thành').replace('Not all critical tasks completed', 'Chưa hoàn thành tất cả')}</p>
           </div>
         </div>
 
@@ -94,15 +104,15 @@ export default function AiReportSummary({ report }: Props) {
             <XCircle className="h-5 w-5 text-destructive" />
           )}
           <div>
-            <p className="text-xs text-muted-foreground">Photo Proof</p>
-            <p className="text-sm font-semibold">{summary.photoUploadsStatus}</p>
+            <p className="text-xs text-muted-foreground">Bằng chứng hình ảnh</p>
+            <p className="text-sm font-semibold">{summary.photoUploadsStatus.replace('Photos uploaded', 'Đã tải ảnh lên').replace('No photos uploaded', 'Không có ảnh')}</p>
           </div>
         </div>
       </div>
       
       <Alert>
         <Lightbulb className="h-4 w-4" />
-        <AlertTitle>Suggested Improvements</AlertTitle>
+        <AlertTitle>Đề xuất cải thiện</AlertTitle>
         <AlertDescription>
           {summary.suggestedImprovements}
         </AlertDescription>
