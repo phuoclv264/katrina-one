@@ -1,3 +1,4 @@
+
 export type Task = {
   id: string;
   text: string;
@@ -32,4 +33,5 @@ export type ShiftReport = {
   uploadedPhotos: string[];
   issues: string | null;
   shiftKey: string;
+  taskPhotos?: { [taskId: string]: string[] }; // Optional: associates photos with tasks
 };

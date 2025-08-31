@@ -101,6 +101,7 @@ export default function ReportDetailPage() {
                         <div className="space-y-4 pt-2">
                           {section.tasks.map((task) => {
                             const completionStatus = report.completedTasks[task.id];
+                            const photosForTask = report.taskPhotos?.[task.id] || [];
                             
                             if (task.timeSlots) {
                                const timestamps = (Array.isArray(completionStatus) ? completionStatus : []) as string[];
@@ -120,6 +121,15 @@ export default function ReportDetailPage() {
                                     <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                                         <Clock className="h-4 w-4 flex-shrink-0" />
                                         <span>Thực hiện lúc: {timestamps.join(', ')}</span>
+                                    </div>
+                                  )}
+                                  {photosForTask.length > 0 && (
+                                    <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                      {photosForTask.map((photo, index) => (
+                                        <div key={index} className="relative aspect-square overflow-hidden rounded-md">
+                                          <Image src={photo} alt={`Ảnh bằng chứng ${index + 1}`} fill className="object-cover" />
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
                                 </div>
@@ -180,3 +190,4 @@ export default function ReportDetailPage() {
     </div>
   );
 }
+

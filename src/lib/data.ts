@@ -1,3 +1,4 @@
+
 import type { ShiftReport, Task, TasksByShift } from './types';
 
 export const tasks: Task[] = [
@@ -107,6 +108,7 @@ export const reports: ShiftReport[] = [
     uploadedPhotos: [],
     issues: 'Khách hàng phàn nàn về wifi chậm.',
     shiftKey: 'sang',
+    taskPhotos: { 'sang-4': [], 'sang-5': [] },
   },
   {
     id: 'report-2',
@@ -117,6 +119,7 @@ export const reports: ShiftReport[] = [
     uploadedPhotos: [],
     issues: null,
     shiftKey: 'trua',
+    taskPhotos: { 'trua-3': [] },
   },
   {
     id: 'report-3',
@@ -127,5 +130,6 @@ export const reports: ShiftReport[] = [
     uploadedPhotos: [],
     issues: 'Hết giấy in hóa đơn.',
     shiftKey: 'toi',
+    taskPhotos: { 'toi-4': [], 'toi-5': [], 'toi-6': [], 'toi-7': [] },
   }
 ];
