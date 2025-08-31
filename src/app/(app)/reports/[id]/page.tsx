@@ -37,16 +37,22 @@ export default function ReportDetailPage() {
   }
   
   const allTasks = shift.sections.flatMap(s => s.tasks);
-  const totalTaskCount = allTasks.flatMap(t => t.timeSlots ? t.timeSlots : t).length;
+  
+  const completedSimpleTasks = Object.entries(report.completedTasks).filter(([taskId, status]) => {
+      const task = allTasks.find(t => t.id === taskId);
+      return task && !task.timeSlots && status === true;
+  }).length;
 
-  const completedTaskCount = Object.values(report.completedTasks).reduce((count, status) => {
-      if (typeof status === 'boolean') {
-        return count + (status ? 1 : 0);
-      } else if (status) {
-        return count + Object.values(status).filter(Boolean).length;
-      }
-      return count;
-    }, 0);
+  const completedTimestampedTasks = Object.entries(report.completedTasks).filter(([taskId, status]) => {
+      const task = allTasks.find(t => t.id === taskId);
+      return task && task.timeSlots && Array.isArray(status) && status.length > 0;
+  }).length;
+
+  const totalSimpleTasks = allTasks.filter(t => !t.timeSlots).length;
+  const totalTimestampedTasks = allTasks.filter(t => t.timeSlots).length;
+  const completedTaskCount = completedSimpleTasks + completedTimestampedTasks;
+  const totalTaskCount = totalSimpleTasks + totalTimestampedTasks;
+
 
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -90,6 +96,7 @@ export default function ReportDetailPage() {
                             const completionStatus = report.completedTasks[task.id];
                             
                             if (task.timeSlots) {
+                               const timestamps = (Array.isArray(completionStatus) ? completionStatus : []) as string[];
                                return (
                                 <div key={task.id} className="rounded-md border p-4">
                                   <div className="flex items-start gap-4">
@@ -98,24 +105,20 @@ export default function ReportDetailPage() {
                                         {task.text}
                                       </p>
                                     </div>
-                                    {task.isCritical && <Star className="h-5 w-5 text-yellow-500" />}
+                                    <div className={`flex h-5 w-5 items-center justify-center rounded-full ${timestamps.length > 0 ? 'bg-accent' : 'bg-muted'}`}>
+                                      {timestamps.length > 0 ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                                    </div>
                                   </div>
-                                  <div className="mt-4 space-y-3 pl-2 border-l-2 ml-2">
-                                    {task.timeSlots.map(slot => {
-                                      const isSlotCompleted = completionStatus && typeof completionStatus === 'object' && completionStatus[slot];
-                                      return (
-                                        <div key={slot} className="flex items-center gap-3">
-                                          <div className={`flex h-5 w-5 items-center justify-center rounded-full ${isSlotCompleted ? 'bg-accent' : 'bg-muted'}`}>
-                                            {isSlotCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                                          </div>
-                                          <span className={`text-sm flex items-center gap-2 ${isSlotCompleted ? '' : 'text-muted-foreground'}`}>
+                                  {timestamps.length > 0 && (
+                                    <div className="mt-3 pl-2 border-l-2 ml-2 space-y-2">
+                                      {timestamps.map((time, index) => (
+                                        <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                                             <Clock className="h-4 w-4" />
-                                            {slot}
-                                          </span>
+                                            <span>Đã thực hiện lúc: {time}</span>
                                         </div>
-                                      )
-                                    })}
-                                  </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )
                             }
@@ -127,7 +130,6 @@ export default function ReportDetailPage() {
                                   {isCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
                                 </div>
                                 <span className={isCompleted ? '' : 'text-muted-foreground'}>{task.text}</span>
-                                {task.isCritical && <Star className={`h-4 w-4 ml-auto ${isCompleted ? 'text-yellow-500' : 'text-yellow-500/30'}`} />}
                               </div>
                             );
                           })}

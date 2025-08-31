@@ -2,7 +2,7 @@ export type Task = {
   id: string;
   text: string;
   isCritical?: boolean;
-  timeSlots?: string[];
+  timeSlots?: boolean; // Changed to boolean to indicate it's a timestamp-based task
 };
 
 export type TaskSection = {
@@ -20,7 +20,7 @@ export type TasksByShift = {
 };
 
 export type TaskCompletion = {
-  [taskId: string]: boolean | { [timeSlot: string]: boolean };
+  [taskId: string]: boolean | string[]; // boolean for simple tasks, string[] for timestamps
 };
 
 export type ShiftReport = {

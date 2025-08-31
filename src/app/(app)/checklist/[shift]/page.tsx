@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
@@ -14,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock } from 'lucide-react';
+import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock, PlusCircle } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function ChecklistPage() {
@@ -42,10 +41,7 @@ export default function ChecklistPage() {
       shift.sections.forEach(section => {
         section.tasks.forEach(task => {
           if (task.timeSlots) {
-            initialCompletion[task.id] = {};
-            task.timeSlots.forEach(slot => {
-              (initialCompletion[task.id] as { [timeSlot: string]: boolean })[slot] = false;
-            });
+             initialCompletion[task.id] = [];
           } else {
             initialCompletion[task.id] = false;
           }
@@ -64,19 +60,25 @@ export default function ChecklistPage() {
   }
   
   const totalTasks = useMemo(() => {
-    return shift.sections.flatMap(s => s.tasks.flatMap(t => t.timeSlots ? t.timeSlots : t)).length;
+    return shift.sections.flatMap(s => s.tasks.flatMap(t => t.timeSlots ? t.timeSlots.length : 1)).length;
   }, [shift]);
 
-  const handleTaskToggle = (taskId: string, timeSlot?: string) => {
+  const handleTaskToggle = (taskId: string) => {
     setTaskCompletion(current => {
       const newCompletion = JSON.parse(JSON.stringify(current));
-      const taskState = newCompletion[taskId];
-      
-      if (typeof taskState === 'object' && timeSlot && taskState !== null) {
-        taskState[timeSlot] = !taskState[timeSlot];
-      } else {
-        newCompletion[taskId] = !taskState;
-      }
+      newCompletion[taskId] = !newCompletion[taskId];
+      return newCompletion;
+    });
+  };
+
+   const handleTimestampTask = (taskId: string) => {
+    setTaskCompletion(current => {
+      const newCompletion = JSON.parse(JSON.stringify(current));
+      const taskTimestamps = (newCompletion[taskId] as string[]) || [];
+      const now = new Date();
+      const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      taskTimestamps.push(formattedTime);
+      newCompletion[taskId] = taskTimestamps;
       return newCompletion;
     });
   };
@@ -111,10 +113,7 @@ export default function ChecklistPage() {
     shift.sections.forEach(section => {
       section.tasks.forEach(task => {
         if (task.timeSlots) {
-          initialCompletion[task.id] = {};
-          task.timeSlots.forEach(slot => {
-            (initialCompletion[task.id] as { [timeSlot: string]: boolean })[slot] = false;
-          });
+          initialCompletion[task.id] = [];
         } else {
           initialCompletion[task.id] = false;
         }
@@ -129,8 +128,9 @@ export default function ChecklistPage() {
     return Object.values(taskCompletion).reduce((count, status) => {
       if (typeof status === 'boolean') {
         return count + (status ? 1 : 0);
-      } else if (status) {
-        return count + Object.values(status).filter(Boolean).length;
+      } else if (Array.isArray(status)) {
+        // For timestamped tasks, we can count each timestamp as one completion
+        return count + status.length;
       }
       return count;
     }, 0);
@@ -154,7 +154,7 @@ export default function ChecklistPage() {
           <CardHeader>
             <CardTitle>Nhiệm vụ</CardTitle>
             <CardDescription>
-              {completedCount} trên {totalTasks} nhiệm vụ đã hoàn thành.
+              Bạn đã hoàn thành các công việc.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -168,37 +168,30 @@ export default function ChecklistPage() {
                         const taskState = taskCompletion[task.id];
                         
                         if (task.timeSlots) {
-                          const allSlotsCompleted = taskState && typeof taskState === 'object' && Object.values(taskState).every(Boolean);
+                          const timestamps = (Array.isArray(taskState) ? taskState : []) as string[];
                           return (
-                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${allSlotsCompleted ? 'bg-accent/20' : ''}`}>
-                              <div className="flex items-start gap-4">
+                             <div key={task.id} className="rounded-md border p-4 transition-colors">
+                              <div className="flex items-center gap-4">
                                 <div className="flex-1">
-                                  <p className={`font-medium transition-colors ${allSlotsCompleted ? 'text-muted-foreground line-through' : ''}`}>
+                                  <p className="font-medium">
                                     {task.text}
                                   </p>
                                 </div>
-                                {task.isCritical && <Star className="h-5 w-5 text-yellow-500" />}
+                                <Button size="sm" variant="secondary" onClick={() => handleTimestampTask(task.id)}>
+                                    <PlusCircle className="mr-2 h-4 w-4"/>
+                                    Đã thực hiện
+                                </Button>
                               </div>
-                              <div className="mt-4 space-y-3 pl-2 border-l-2 ml-2">
-                                {task.timeSlots.map(slot => {
-                                  const isSlotCompleted = taskState && typeof taskState === 'object' && taskState[slot];
-                                  return (
-                                    <div key={slot} className="flex items-center gap-3">
-                                       <Checkbox
-                                        id={`task-${task.id}-${slot}`}
-                                        checked={!!isSlotCompleted}
-                                        onCheckedChange={() => handleTaskToggle(task.id, slot)}
-                                        className="h-5 w-5"
-                                        aria-label={`Đánh dấu công việc lúc ${slot} là ${isSlotCompleted ? 'chưa hoàn thành' : 'hoàn thành'}`}
-                                      />
-                                      <Label htmlFor={`task-${task.id}-${slot}`} className={`text-sm transition-colors flex items-center gap-2 ${isSlotCompleted ? 'text-muted-foreground line-through' : ''}`}>
-                                        <Clock className="h-4 w-4" />
-                                        {slot}
-                                      </Label>
-                                    </div>
-                                  )
-                                })}
-                              </div>
+                              {timestamps.length > 0 && (
+                                <div className="mt-3 pl-2 border-l-2 ml-2 space-y-2">
+                                    {timestamps.map((time, index) => (
+                                        <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Clock className="h-4 w-4" />
+                                            <span>Thực hiện lúc: {time}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
                           )
                         }
@@ -226,7 +219,6 @@ export default function ChecklistPage() {
                             >
                               {task.text}
                             </label>
-                            {task.isCritical && <Star className="h-5 w-5 text-yellow-500" />}
                           </div>
                         )
                       })}
