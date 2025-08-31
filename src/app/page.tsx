@@ -7,18 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
+import StaffNameDialog from '@/components/staff-name-dialog';
 
 export default function LoginPage() {
-  const { login, role } = useAuth();
+  const { login, role, isLoading, showStaffNameDialog, staffName, setShowStaffNameDialog, confirmStaffLogin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (role === 'staff') {
-      router.replace('/shifts');
-    } else if (role === 'manager') {
-      router.replace('/reports');
+    if (!isLoading && role) {
+        if (role === 'staff') {
+            router.replace('/shifts');
+        } else if (role === 'manager') {
+            router.replace('/reports');
+        }
     }
-  }, [role, router]);
+  }, [role, router, isLoading]);
+
+  if (isLoading) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
@@ -48,6 +55,11 @@ export default function LoginPage() {
       <footer className="absolute bottom-4 text-xs text-muted-foreground">
         Xây dựng với Firebase và Genkit
       </footer>
+      <StaffNameDialog 
+        isOpen={showStaffNameDialog} 
+        onClose={() => setShowStaffNameDialog(false)}
+        onSubmit={confirmStaffLogin}
+      />
     </main>
   );
 }

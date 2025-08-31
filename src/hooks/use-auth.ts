@@ -11,6 +11,7 @@ export const useAuth = () => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [staffName, setStaffName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showStaffNameDialog, setShowStaffNameDialog] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -24,33 +25,33 @@ export const useAuth = () => {
             setStaffName(storedStaffName);
         }
       } else if (pathname !== '/') {
-        router.replace('/');
+        // Don't redirect if we are already on the login page
       }
     } catch (error) {
       console.error("Could not access localStorage", error);
-       if (pathname !== '/') {
-        router.replace('/');
-      }
     } finally {
       setIsLoading(false);
     }
   }, [pathname, router]);
 
   const login = useCallback((newRole: UserRole) => {
-    let name = '';
     if (newRole === 'staff') {
-        // In a real app, you'd get this from a login form
-        name = `Nhân viên ${Math.floor(Math.random() * 100) + 1}`;
-        localStorage.setItem('staffName', name);
-        setStaffName(name);
-    }
-    localStorage.setItem('userRole', newRole);
-    setRole(newRole);
-
-    if (newRole === 'staff') {
-      router.push('/shifts');
+        setShowStaffNameDialog(true);
     } else {
-      router.push('/reports');
+        localStorage.setItem('userRole', newRole);
+        setRole(newRole);
+        router.push('/reports');
+    }
+  }, [router]);
+
+  const confirmStaffLogin = useCallback((name: string) => {
+    if (name) {
+        localStorage.setItem('userRole', 'staff');
+        localStorage.setItem('staffName', name);
+        setRole('staff');
+        setStaffName(name);
+        setShowStaffNameDialog(false);
+        router.push('/shifts');
     }
   }, [router]);
 
@@ -59,8 +60,18 @@ export const useAuth = () => {
     localStorage.removeItem('staffName');
     setRole(null);
     setStaffName(null);
+    setShowStaffNameDialog(false);
     router.push('/');
   }, [router]);
 
-  return { role, login, logout, isLoading, staffName };
+  return { 
+      role, 
+      login, 
+      logout, 
+      isLoading, 
+      staffName, 
+      showStaffNameDialog, 
+      setShowStaffNameDialog,
+      confirmStaffLogin
+  };
 };
