@@ -19,12 +19,12 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   const staffMenu = [
-    { href: '/shifts', label: 'My Shifts', icon: CheckSquare },
+    { href: '/shifts', label: 'Ca làm việc của tôi', icon: CheckSquare },
   ];
 
   const managerMenu = [
-    { href: '/reports', label: 'Shift Reports', icon: FileText },
-    { href: '/task-lists', label: 'Task Lists', icon: ClipboardList },
+    { href: '/reports', label: 'Báo cáo ca', icon: FileText },
+    { href: '/task-lists', label: 'Danh sách công việc', icon: ClipboardList },
   ];
 
   const menuItems = role === 'staff' ? staffMenu : managerMenu;
@@ -58,7 +58,7 @@ export function AppSidebar() {
                 {role === 'staff' ? <User /> : <Building />}
             </div>
             <div className="flex flex-col overflow-hidden">
-                <span className="font-semibold truncate">{role === 'staff' ? 'Staff Member' : 'Manager'}</span>
+                <span className="font-semibold truncate">{role === 'staff' ? 'Nhân viên' : 'Quản lý'}</span>
                 <span className="text-xs text-muted-foreground capitalize">{role}</span>
             </div>
             <SidebarMenuButton
@@ -66,7 +66,7 @@ export function AppSidebar() {
               size="icon"
               className="ml-auto h-8 w-8 shrink-0"
               onClick={logout}
-              tooltip="Logout"
+              tooltip="Đăng xuất"
             >
               <LogOut />
             </SidebarMenuButton>

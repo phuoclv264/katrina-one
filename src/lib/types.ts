@@ -4,9 +4,14 @@ export type Task = {
   isCritical?: boolean;
 };
 
+export type TaskSection = {
+  title: string;
+  tasks: Task[];
+}
+
 export type Shift = {
   name: string;
-  tasks: Task[];
+  sections: TaskSection[];
 };
 
 export type TasksByShift = {

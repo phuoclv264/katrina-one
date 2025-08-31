@@ -25,28 +25,28 @@ export default function LoginPage() {
       <div className="flex flex-col items-center gap-2 text-center mb-8">
         <h1 className="text-4xl font-bold text-primary font-headline">ShiftCheck</h1>
         <p className="text-muted-foreground max-w-sm">
-          A simple and efficient way to manage daily shift tasks and reports.
+          Cách đơn giản và hiệu quả để quản lý công việc và báo cáo hàng ngày.
         </p>
       </div>
 
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Welcome</CardTitle>
-          <CardDescription>Please select your role to continue.</CardDescription>
+          <CardTitle>Chào mừng</CardTitle>
+          <CardDescription>Vui lòng chọn vai trò của bạn để tiếp tục.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <Button size="lg" onClick={() => login('staff')}>
             <User className="mr-2 h-5 w-5" />
-            Login as Staff
+            Đăng nhập với tư cách Nhân viên
           </Button>
           <Button size="lg" variant="secondary" onClick={() => login('manager')}>
             <Building className="mr-2 h-5 w-5" />
-            Login as Manager
+            Đăng nhập với tư cách Quản lý
           </Button>
         </CardContent>
       </Card>
       <footer className="absolute bottom-4 text-xs text-muted-foreground">
-        Built with Firebase and Genkit
+        Xây dựng với Firebase và Genkit
       </footer>
     </main>
   );
