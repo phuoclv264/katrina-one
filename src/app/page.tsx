@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (role === 'staff') {
-      router.replace('/checklist');
+      router.replace('/shifts');
     } else if (role === 'manager') {
       router.replace('/reports');
     }

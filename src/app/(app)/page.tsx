@@ -13,7 +13,7 @@ export default function AppRootPage() {
   useEffect(() => {
     if (!isLoading && role) {
       if (role === 'staff') {
-        router.replace('/checklist');
+        router.replace('/shifts');
       } else if (role === 'manager') {
         router.replace('/reports');
       }

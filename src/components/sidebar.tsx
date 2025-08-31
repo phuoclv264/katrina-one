@@ -10,7 +10,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -19,7 +19,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   const staffMenu = [
-    { href: '/checklist', label: 'My Checklist', icon: CheckSquare },
+    { href: '/shifts', label: 'My Shifts', icon: CheckSquare },
   ];
 
   const managerMenu = [

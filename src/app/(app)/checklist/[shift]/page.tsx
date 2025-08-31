@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { tasks as initialTasks } from '@/lib/data';
+import Link from 'next/link';
+import { notFound, useParams } from 'next/navigation';
+import { tasksByShift } from '@/lib/data';
 import type { Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,13 +12,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Paperclip, Send, Star, Upload } from 'lucide-react';
+import { Camera, Paperclip, Send, Star, Upload, ArrowLeft } from 'lucide-react';
 
 export default function ChecklistPage() {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState(initialTasks.map(task => ({ ...task, completed: false })));
+  const params = useParams();
+  const shiftKey = params.shift as string;
+
+  const shift = tasksByShift[shiftKey];
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    if (shift) {
+      setTasks(shift.tasks.map(task => ({ ...task, completed: false })));
+    }
+  }, [shift]);
+
   const [photos, setPhotos] = useState<string[]>([]);
   const [issues, setIssues] = useState('');
+
+  if (!shift) {
+    notFound();
+  }
 
   const handleTaskToggle = (taskId: string) => {
     setTasks(currentTasks =>
@@ -44,7 +62,7 @@ export default function ChecklistPage() {
       }
     });
     // Reset state
-    setTasks(initialTasks.map(task => ({ ...task, completed: false })));
+    setTasks(shift.tasks.map(task => ({ ...task, completed: false })));
     setPhotos([]);
     setIssues('');
   };
@@ -55,7 +73,13 @@ export default function ChecklistPage() {
   return (
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold font-headline">Daily Shift Checklist</h1>
+        <Button asChild variant="ghost" className="mb-4 -ml-4">
+            <Link href="/shifts">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Shifts
+            </Link>
+        </Button>
+        <h1 className="text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
         <p className="text-muted-foreground">Complete your tasks and submit your end-of-shift report.</p>
       </header>
 

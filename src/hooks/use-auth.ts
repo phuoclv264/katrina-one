@@ -34,7 +34,7 @@ export const useAuth = () => {
     localStorage.setItem('userRole', newRole);
     setRole(newRole);
     if (newRole === 'staff') {
-      router.push('/checklist');
+      router.push('/shifts');
     } else {
       router.push('/reports');
     }
