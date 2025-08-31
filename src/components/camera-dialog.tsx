@@ -65,7 +65,7 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
             stream.getTracks().forEach(track => track.stop());
         }
     }
-  }, [isOpen, getCameraPermission]);
+  }, [isOpen, getCameraPermission, stream]);
 
 
   const handleCapture = () => {
