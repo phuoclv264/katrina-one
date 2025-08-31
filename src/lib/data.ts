@@ -25,8 +25,8 @@ export const tasksByShift: TasksByShift = {
       {
         title: 'Trong ca',
         tasks: [
-            { id: 'sang-4', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true },
-            { id: 'sang-5', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true },
+            { id: 'sang-4', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true, timeSlots: ['08:00', '10:00', '12:00'] },
+            { id: 'sang-5', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true, timeSlots: ['08:00', '10:00', '12:00'] },
         ]
       },
       {
@@ -75,8 +75,8 @@ export const tasksByShift: TasksByShift = {
                 { id: 'toi-3', text: 'Đảm bảo các cửa kính đã được lau sạch sẽ' },
                 { id: 'toi-4', text: 'Đảm bảo trà nước của khách luôn đầy đủ' },
                 { id: 'toi-5', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng' },
-                { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true },
-                { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true },
+                { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true, timeSlots: ['18:00', '20:00'] },
+                { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', isCritical: true, timeSlots: ['18:00', '20:00'] },
             ]
         },
         {

@@ -2,6 +2,7 @@ export type Task = {
   id: string;
   text: string;
   isCritical?: boolean;
+  timeSlots?: string[];
 };
 
 export type TaskSection = {

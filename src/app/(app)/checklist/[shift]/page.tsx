@@ -12,10 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Paperclip, Send, Star, Upload, ArrowLeft } from 'lucide-react';
+import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-type TaskWithCompletion = Task & { completed: boolean };
+type TaskCompletionState = {
+  [taskId: string]: boolean | { [timeSlot: string]: boolean };
+};
 
 export default function ChecklistPage() {
   const { toast } = useToast();
@@ -24,12 +26,24 @@ export default function ChecklistPage() {
 
   const shift = tasksByShift[shiftKey];
 
-  const [tasks, setTasks] = useState<TaskWithCompletion[]>([]);
+  const [taskCompletion, setTaskCompletion] = useState<TaskCompletionState>({});
 
   useEffect(() => {
     if (shift) {
-      const allTasks = shift.sections.flatMap(section => section.tasks);
-      setTasks(allTasks.map(task => ({ ...task, completed: false })));
+      const initialCompletion: TaskCompletionState = {};
+      shift.sections.forEach(section => {
+        section.tasks.forEach(task => {
+          if (task.timeSlots) {
+            initialCompletion[task.id] = {};
+            task.timeSlots.forEach(slot => {
+              (initialCompletion[task.id] as { [timeSlot: string]: boolean })[slot] = false;
+            });
+          } else {
+            initialCompletion[task.id] = false;
+          }
+        });
+      });
+      setTaskCompletion(initialCompletion);
     }
   }, [shift]);
   
@@ -40,14 +54,22 @@ export default function ChecklistPage() {
     notFound();
   }
   
-  const totalTasks = useMemo(() => shift.sections.flatMap(s => s.tasks).length, [shift]);
+  const totalTasks = useMemo(() => {
+    return shift.sections.flatMap(s => s.tasks.flatMap(t => t.timeSlots ? t.timeSlots : t)).length;
+  }, [shift]);
 
-  const handleTaskToggle = (taskId: string) => {
-    setTasks(currentTasks =>
-      currentTasks.map(task =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
-    );
+  const handleTaskToggle = (taskId: string, timeSlot?: string) => {
+    setTaskCompletion(current => {
+      const newCompletion = { ...current };
+      const taskState = newCompletion[taskId];
+      if (typeof taskState === 'object' && timeSlot) {
+        (newCompletion[taskId] as { [timeSlot: string]: boolean })[timeSlot] = 
+          !(newCompletion[taskId] as { [timeSlot: string]: boolean })[timeSlot];
+      } else {
+        newCompletion[taskId] = !taskState;
+      }
+      return newCompletion;
+    });
   };
   
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,13 +89,33 @@ export default function ChecklistPage() {
       }
     });
     // Reset state
-    const allTasks = shift.sections.flatMap(section => section.tasks);
-    setTasks(allTasks.map(task => ({ ...task, completed: false })));
+    const initialCompletion: TaskCompletionState = {};
+    shift.sections.forEach(section => {
+      section.tasks.forEach(task => {
+        if (task.timeSlots) {
+          initialCompletion[task.id] = {};
+          task.timeSlots.forEach(slot => {
+            (initialCompletion[task.id] as { [timeSlot: string]: boolean })[slot] = false;
+          });
+        } else {
+          initialCompletion[task.id] = false;
+        }
+      });
+    });
+    setTaskCompletion(initialCompletion);
     setPhotos([]);
     setIssues('');
   };
 
-  const completedCount = tasks.filter(t => t.completed).length;
+  const completedCount = useMemo(() => {
+    return Object.values(taskCompletion).reduce((count, status) => {
+      if (typeof status === 'boolean') {
+        return count + (status ? 1 : 0);
+      } else {
+        return count + Object.values(status).filter(Boolean).length;
+      }
+    }, 0);
+  }, [taskCompletion]);
 
   return (
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
@@ -104,8 +146,45 @@ export default function ChecklistPage() {
                   <AccordionContent>
                     <div className="space-y-4 pt-2">
                       {section.tasks.map((task) => {
-                        const taskState = tasks.find(t => t.id === task.id);
-                        const isCompleted = taskState?.completed || false;
+                        const taskState = taskCompletion[task.id];
+                        
+                        if (task.timeSlots) {
+                          const allSlotsCompleted = Object.values(taskState || {}).every(Boolean);
+                          return (
+                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${allSlotsCompleted ? 'bg-accent/20' : ''}`}>
+                              <div className="flex items-start gap-4">
+                                <div className="flex-1">
+                                  <p className={`font-medium transition-colors ${allSlotsCompleted ? 'text-muted-foreground line-through' : ''}`}>
+                                    {task.text}
+                                  </p>
+                                </div>
+                                {task.isCritical && <Star className="h-5 w-5 text-yellow-500" />}
+                              </div>
+                              <div className="mt-4 space-y-3 pl-2 border-l-2 ml-2">
+                                {task.timeSlots.map(slot => {
+                                  const isSlotCompleted = typeof taskState === 'object' && taskState[slot];
+                                  return (
+                                    <div key={slot} className="flex items-center gap-3">
+                                       <Checkbox
+                                        id={`task-${task.id}-${slot}`}
+                                        checked={isSlotCompleted}
+                                        onCheckedChange={() => handleTaskToggle(task.id, slot)}
+                                        className="h-5 w-5"
+                                        aria-label={`Đánh dấu công việc lúc ${slot} là ${isSlotCompleted ? 'chưa hoàn thành' : 'hoàn thành'}`}
+                                      />
+                                      <Label htmlFor={`task-${task.id}-${slot}`} className={`text-sm transition-colors flex items-center gap-2 ${isSlotCompleted ? 'text-muted-foreground line-through' : ''}`}>
+                                        <Clock className="h-4 w-4" />
+                                        {slot}
+                                      </Label>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        const isCompleted = typeof taskState === 'boolean' && taskState;
                         return (
                           <div
                             key={task.id}
