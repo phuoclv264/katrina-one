@@ -24,16 +24,22 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const cleanupStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
   const getCameraPermission = useCallback(async () => {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
+    cleanupStream();
+    setHasCameraPermission(null);
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      setStream(newStream);
+      streamRef.current = newStream;
       setHasCameraPermission(true);
 
       if (videoRef.current) {
@@ -48,28 +54,23 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
         description: 'Vui lòng cho phép truy cập camera trong cài đặt trình duyệt của bạn.',
       });
     }
-  }, [toast, stream]);
+  }, [toast, cleanupStream]);
 
   useEffect(() => {
     if (isOpen) {
       getCameraPermission();
     } else {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            setStream(null);
-        }
+      cleanupStream();
     }
     
     return () => {
-         if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
+      cleanupStream();
     }
-  }, [isOpen, getCameraPermission, stream]);
+  }, [isOpen, getCameraPermission, cleanupStream]);
 
 
   const handleCapture = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && hasCameraPermission) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
@@ -86,7 +87,7 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Chụp ảnh bằng chứng</DialogTitle>
@@ -98,13 +99,18 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
         <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
             <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
             {hasCameraPermission === false && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
-                    <VideoOff className="h-12 w-12 mb-4" />
-                    <p className="text-center">Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.</p>
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center text-white">
+                    <VideoOff className="mb-4 h-12 w-12" />
+                    <p>Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập của bạn.</p>
                      <Button variant="secondary" size="sm" className="mt-4" onClick={getCameraPermission}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Thử lại
                     </Button>
+                </div>
+            )}
+            {hasCameraPermission === null && (
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center text-white">
+                    <p>Đang yêu cầu quyền truy cập camera...</p>
                 </div>
             )}
         </div>
