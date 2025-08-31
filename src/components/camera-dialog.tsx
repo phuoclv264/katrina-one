@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { Camera, VideoOff, RefreshCw } from 'lucide-react';
 
 type CameraDialogProps = {
@@ -26,47 +25,64 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const cleanupStream = useCallback(() => {
+  const requestCamera = useCallback(async () => {
+    // Stop any existing stream before requesting a new one
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-  }, []);
-
-  const getCameraPermission = useCallback(async () => {
-    cleanupStream();
     setHasCameraPermission(null);
 
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      streamRef.current = newStream;
-      setHasCameraPermission(true);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not supported on this browser.');
       }
-    } catch (error) {
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          setHasCameraPermission(true);
+        };
+      }
+    } catch (error: any) {
       console.error('Error accessing camera:', error);
       setHasCameraPermission(false);
+      let description = 'Vui lòng cho phép truy cập camera trong cài đặt trình duyệt của bạn.';
+      if (error.name === 'NotAllowedError') {
+        description = 'Bạn đã từ chối quyền truy cập camera. Vui lòng bật lại trong cài đặt.';
+      } else if (error.name === 'NotFoundError') {
+        description = 'Không tìm thấy camera nào trên thiết bị của bạn.';
+      }
       toast({
         variant: 'destructive',
         title: 'Không thể truy cập camera',
-        description: 'Vui lòng cho phép truy cập camera trong cài đặt trình duyệt của bạn.',
+        description: description,
       });
     }
-  }, [toast, cleanupStream]);
-
+  }, [toast]);
+  
+  // Effect to handle opening/closing the dialog
   useEffect(() => {
     if (isOpen) {
-      getCameraPermission();
+      requestCamera();
     } else {
-      cleanupStream();
+      // Cleanup when dialog is closed
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     }
-    
+    // Cleanup function when the component unmounts
     return () => {
-      cleanupStream();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     }
-  }, [isOpen, getCameraPermission, cleanupStream]);
+  }, [isOpen, requestCamera]);
 
 
   const handleCapture = () => {
@@ -102,7 +118,7 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center text-white">
                     <VideoOff className="mb-4 h-12 w-12" />
                     <p>Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập của bạn.</p>
-                     <Button variant="secondary" size="sm" className="mt-4" onClick={getCameraPermission}>
+                     <Button variant="secondary" size="sm" className="mt-4" onClick={requestCamera}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Thử lại
                     </Button>
