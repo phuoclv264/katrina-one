@@ -26,18 +26,10 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
 
-  const stopCameraStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
   const startCamera = useCallback(async () => {
     if (isStarting) return;
     setIsStarting(true);
     setHasCameraPermission(null);
-    stopCameraStream(); // Ensure any previous stream is stopped
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -49,8 +41,11 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play(); // Explicitly play the video
-        setHasCameraPermission(true);
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+          setHasCameraPermission(true);
+          setIsStarting(false);
+        };
       }
     } catch (error: any) {
       console.error('Error accessing camera:', error);
@@ -66,10 +61,19 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
         title: 'Không thể truy cập camera',
         description: description,
       });
-    } finally {
-        setIsStarting(false);
+      setIsStarting(false);
     }
-  }, [isStarting, stopCameraStream, toast]);
+  }, [isStarting, toast]);
+
+  const stopCameraStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if(videoRef.current) {
+        videoRef.current.srcObject = null;
+    }
+  }, []);
   
   useEffect(() => {
     if (isOpen) {
@@ -81,7 +85,8 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
     return () => {
       stopCameraStream();
     };
-  }, [isOpen, startCamera, stopCameraStream]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
 
   const handleCapture = () => {
@@ -122,6 +127,9 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-4 text-center text-white transition-opacity duration-300"
                 style={{ opacity: hasCameraPermission !== true ? 1 : 0, pointerEvents: hasCameraPermission !== true ? 'auto' : 'none' }}
             >
+                {isStarting && (
+                    <p>Đang yêu cầu quyền truy cập camera...</p>
+                )}
                 {hasCameraPermission === false && (
                     <>
                         <VideoOff className="mb-4 h-12 w-12" />
@@ -131,9 +139,6 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
                             Thử lại
                         </Button>
                     </>
-                )}
-                {hasCameraPermission === null && (
-                    <p>Đang yêu cầu quyền truy cập camera...</p>
                 )}
             </div>
         </div>
