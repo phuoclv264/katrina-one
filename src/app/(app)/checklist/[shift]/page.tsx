@@ -60,11 +60,11 @@ export default function ChecklistPage() {
 
   const handleTaskToggle = (taskId: string, timeSlot?: string) => {
     setTaskCompletion(current => {
-      const newCompletion = { ...current };
+      const newCompletion = JSON.parse(JSON.stringify(current));
       const taskState = newCompletion[taskId];
-      if (typeof taskState === 'object' && timeSlot) {
-        (newCompletion[taskId] as { [timeSlot: string]: boolean })[timeSlot] = 
-          !(newCompletion[taskId] as { [timeSlot: string]: boolean })[timeSlot];
+      
+      if (typeof taskState === 'object' && timeSlot && taskState !== null) {
+        taskState[timeSlot] = !taskState[timeSlot];
       } else {
         newCompletion[taskId] = !taskState;
       }
@@ -111,9 +111,10 @@ export default function ChecklistPage() {
     return Object.values(taskCompletion).reduce((count, status) => {
       if (typeof status === 'boolean') {
         return count + (status ? 1 : 0);
-      } else {
+      } else if (status) {
         return count + Object.values(status).filter(Boolean).length;
       }
+      return count;
     }, 0);
   }, [taskCompletion]);
 
@@ -149,7 +150,7 @@ export default function ChecklistPage() {
                         const taskState = taskCompletion[task.id];
                         
                         if (task.timeSlots) {
-                          const allSlotsCompleted = Object.values(taskState || {}).every(Boolean);
+                          const allSlotsCompleted = taskState && typeof taskState === 'object' && Object.values(taskState).every(Boolean);
                           return (
                             <div key={task.id} className={`rounded-md border p-4 transition-colors ${allSlotsCompleted ? 'bg-accent/20' : ''}`}>
                               <div className="flex items-start gap-4">
@@ -162,12 +163,12 @@ export default function ChecklistPage() {
                               </div>
                               <div className="mt-4 space-y-3 pl-2 border-l-2 ml-2">
                                 {task.timeSlots.map(slot => {
-                                  const isSlotCompleted = typeof taskState === 'object' && taskState[slot];
+                                  const isSlotCompleted = taskState && typeof taskState === 'object' && taskState[slot];
                                   return (
                                     <div key={slot} className="flex items-center gap-3">
                                        <Checkbox
                                         id={`task-${task.id}-${slot}`}
-                                        checked={isSlotCompleted}
+                                        checked={!!isSlotCompleted}
                                         onCheckedChange={() => handleTaskToggle(task.id, slot)}
                                         className="h-5 w-5"
                                         aria-label={`Đánh dấu công việc lúc ${slot} là ${isSlotCompleted ? 'chưa hoàn thành' : 'hoàn thành'}`}
