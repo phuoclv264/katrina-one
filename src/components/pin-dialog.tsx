@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp"
+
 import { Label } from '@/components/ui/label';
 import { KeyRound } from 'lucide-react';
 
@@ -32,8 +37,8 @@ export default function PinDialog({ isOpen, onClose, onSubmit }: Props) {
   }, [isOpen]);
 
   const handleSubmit = () => {
-    if (pin.trim()) {
-      onSubmit(pin.trim());
+    if (pin.length === 4) {
+      onSubmit(pin);
     }
   };
 
@@ -46,28 +51,27 @@ export default function PinDialog({ isOpen, onClose, onSubmit }: Props) {
             Xác thực nhân viên
           </DialogTitle>
           <DialogDescription>
-            Vui lòng nhập mã PIN của bạn để bắt đầu ca làm việc.
+            Vui lòng nhập mã PIN 4 số của bạn để bắt đầu ca làm việc.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pin" className="text-right">
-              Mã PIN
-            </Label>
-            <Input
-              id="pin"
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className="col-span-3"
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              pattern="\d*"
-              maxLength={4}
-            />
-          </div>
+            <div className="flex flex-col items-center justify-center gap-4">
+                <InputOTP 
+                    maxLength={4} 
+                    value={pin}
+                    onChange={(value) => setPin(value)}
+                >
+                    <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    </InputOTPGroup>
+                </InputOTP>
+            </div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit}>Đăng nhập</Button>
+          <Button type="submit" onClick={handleSubmit} disabled={pin.length < 4}>Đăng nhập</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
