@@ -1,4 +1,9 @@
 
+export type Staff = {
+  pin: string;
+  name: string;
+};
+
 export type Task = {
   id: string;
   text: string;
@@ -21,7 +26,7 @@ export type TasksByShift = {
 };
 
 export type TaskCompletion = {
-  [taskId: string]: boolean | string[]; // boolean for simple tasks, string[] for timestamps
+  [taskId:string]: boolean | string[]; // boolean for simple tasks, string[] for timestamps
 };
 
 export type ShiftReport = {

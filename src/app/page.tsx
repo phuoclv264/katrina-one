@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -7,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
-import StaffNameDialog from '@/components/staff-name-dialog';
+import PinDialog from '@/components/pin-dialog';
 
 export default function LoginPage() {
-  const { login, role, isLoading, showStaffNameDialog, staffName, setShowStaffNameDialog, confirmStaffLogin } = useAuth();
+  const { login, role, isLoading, showPinDialog, setShowPinDialog, confirmStaffPin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -55,10 +56,10 @@ export default function LoginPage() {
       <footer className="absolute bottom-4 text-xs text-muted-foreground">
         Xây dựng với Firebase và Genkit
       </footer>
-      <StaffNameDialog 
-        isOpen={showStaffNameDialog} 
-        onClose={() => setShowStaffNameDialog(false)}
-        onSubmit={confirmStaffLogin}
+       <PinDialog 
+        isOpen={showPinDialog}
+        onClose={() => setShowPinDialog(false)}
+        onSubmit={confirmStaffPin}
       />
     </main>
   );

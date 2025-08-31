@@ -1,8 +1,8 @@
 
 'use client';
 
-import type { ShiftReport, TasksByShift, Task } from './types';
-import { tasksByShift as initialTasksByShift, reports as initialReports } from './data';
+import type { ShiftReport, TasksByShift, Task, Staff } from './types';
+import { tasksByShift as initialTasksByShift, reports as initialReports, staff as initialStaff } from './data';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -36,11 +36,26 @@ function getInitialReports(): ShiftReport[] {
     return initialReports;
 }
 
+function getInitialStaff(): Staff[] {
+  if (!isBrowser) return initialStaff;
+  try {
+    const storedStaff = localStorage.getItem('staff');
+    if (storedStaff) {
+      return JSON.parse(storedStaff);
+    }
+  } catch (error) {
+    console.error("Failed to parse staff from localStorage", error);
+  }
+   localStorage.setItem('staff', JSON.stringify(initialStaff));
+  return initialStaff;
+}
+
 
 // We will use these as a reactive store.
 // In a real app, you'd use a state management library or a backend API.
 let tasks = getInitialTasks();
 let reports = getInitialReports();
+let staff = getInitialStaff();
 const listeners: (() => void)[] = [];
 
 function notifyListeners() {
@@ -50,6 +65,7 @@ function notifyListeners() {
 export const dataStore = {
   getTasks: (): TasksByShift => tasks,
   getReports: (): ShiftReport[] => reports,
+  getStaff: (): Staff[] => staff,
   
   updateTasks: (newTasks: TasksByShift) => {
     tasks = newTasks;

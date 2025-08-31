@@ -1,5 +1,10 @@
 
-import type { ShiftReport, Task, TasksByShift } from './types';
+import type { ShiftReport, Task, TasksByShift, Staff } from './types';
+
+export const staff: Staff[] = [
+  { pin: '0001', name: 'Phước' },
+  { pin: '0002', name: 'Thảo' },
+];
 
 export const tasks: Task[] = [
   { id: 'task-1', text: 'Clean front entrance and welcome mat' },
