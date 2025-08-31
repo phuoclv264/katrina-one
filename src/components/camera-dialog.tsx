@@ -22,16 +22,22 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
 
-  const requestCamera = useCallback(async () => {
-    // Stop any existing stream before requesting a new one
+  const stopCameraStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    if (isStarting) return;
+    setIsStarting(true);
     setHasCameraPermission(null);
+    stopCameraStream(); // Ensure any previous stream is stopped
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -43,9 +49,8 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          setHasCameraPermission(true);
-        };
+        await videoRef.current.play(); // Explicitly play the video
+        setHasCameraPermission(true);
       }
     } catch (error: any) {
       console.error('Error accessing camera:', error);
@@ -53,7 +58,7 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
       let description = 'Vui lòng cho phép truy cập camera trong cài đặt trình duyệt của bạn.';
       if (error.name === 'NotAllowedError') {
         description = 'Bạn đã từ chối quyền truy cập camera. Vui lòng bật lại trong cài đặt.';
-      } else if (error.name === 'NotFoundError') {
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         description = 'Không tìm thấy camera nào trên thiết bị của bạn.';
       }
       toast({
@@ -61,28 +66,22 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
         title: 'Không thể truy cập camera',
         description: description,
       });
+    } finally {
+        setIsStarting(false);
     }
-  }, [toast]);
+  }, [isStarting, stopCameraStream, toast]);
   
-  // Effect to handle opening/closing the dialog
   useEffect(() => {
     if (isOpen) {
-      requestCamera();
+      startCamera();
     } else {
-      // Cleanup when dialog is closed
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+      stopCameraStream();
     }
-    // Cleanup function when the component unmounts
+
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-    }
-  }, [isOpen, requestCamera]);
+      stopCameraStream();
+    };
+  }, [isOpen, startCamera, stopCameraStream]);
 
 
   const handleCapture = () => {
@@ -101,9 +100,15 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
       }
     }
   };
+  
+  const handleDialogClose = () => {
+    if (!isStarting) {
+        onClose();
+    }
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleDialogClose(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Chụp ảnh bằng chứng</DialogTitle>
@@ -114,26 +119,28 @@ export default function CameraDialog({ isOpen, onClose, onCapture }: CameraDialo
 
         <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
             <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
-            {hasCameraPermission === false && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center text-white">
-                    <VideoOff className="mb-4 h-12 w-12" />
-                    <p>Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập của bạn.</p>
-                     <Button variant="secondary" size="sm" className="mt-4" onClick={requestCamera}>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Thử lại
-                    </Button>
-                </div>
-            )}
-            {hasCameraPermission === null && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center text-white">
+             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-4 text-center text-white transition-opacity duration-300"
+                style={{ opacity: hasCameraPermission !== true ? 1 : 0, pointerEvents: hasCameraPermission !== true ? 'auto' : 'none' }}
+            >
+                {hasCameraPermission === false && (
+                    <>
+                        <VideoOff className="mb-4 h-12 w-12" />
+                        <p>Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập của bạn.</p>
+                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={isStarting}>
+                            <RefreshCw className={`mr-2 h-4 w-4 ${isStarting ? 'animate-spin' : ''}`} />
+                            Thử lại
+                        </Button>
+                    </>
+                )}
+                {hasCameraPermission === null && (
                     <p>Đang yêu cầu quyền truy cập camera...</p>
-                </div>
-            )}
+                )}
+            </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Hủy</Button>
-          <Button onClick={handleCapture} disabled={!hasCameraPermission}>
+          <Button variant="outline" onClick={handleDialogClose}>Hủy</Button>
+          <Button onClick={handleCapture} disabled={!hasCameraPermission || isStarting}>
             <Camera className="mr-2 h-4 w-4" />
             Chụp ảnh
           </Button>
