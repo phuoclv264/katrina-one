@@ -1,7 +1,10 @@
+
+'use client';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { reports, tasksByShift } from '@/lib/data';
+import { notFound, useParams } from 'next/navigation';
+import { dataStore } from '@/lib/data-store';
 import AiReportSummary from '@/components/ai-report-summary';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,16 +12,28 @@ import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, 
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-export default function ReportDetailPage({ params }: { params: { id: string } }) {
+export default function ReportDetailPage() {
+  const params = useParams();
+  const [reports, setReports] = useState(dataStore.getReports());
+  const [tasksByShift, setTasksByShift] = useState(dataStore.getTasks());
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribe(() => {
+      setReports(dataStore.getReports());
+      setTasksByShift(dataStore.getTasks());
+    });
+    return () => unsubscribe();
+  }, []);
+  
   const report = reports.find(r => r.id === params.id);
 
   if (!report) {
-    notFound();
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy.</div>;
   }
 
   const shift = tasksByShift[report.shiftKey];
   if (!shift) {
-    notFound();
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Thông tin ca làm việc không tồn tại.</div>;
   }
   
   const allTasks = shift.sections.flatMap(s => s.tasks);
@@ -44,7 +59,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         </Button>
         <h1 className="text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
         <p className="text-muted-foreground">
-          Báo cáo ca từ <span className="font-semibold">{report.staffName}</span> vào ngày <span className="font-semibold">{report.shiftDate}</span>.
+          Báo cáo ca từ <span className="font-semibold">{report.staffName}</span> vào ngày <span className="font-semibold">{new Date(report.shiftDate).toLocaleDateString('vi-VN')}</span>.
         </p>
       </header>
 
@@ -75,7 +90,6 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                             const completionStatus = report.completedTasks[task.id];
                             
                             if (task.timeSlots) {
-                               const allSlotsCompleted = completionStatus && typeof completionStatus === 'object' && Object.values(completionStatus).every(Boolean);
                                return (
                                 <div key={task.id} className="rounded-md border p-4">
                                   <div className="flex items-start gap-4">

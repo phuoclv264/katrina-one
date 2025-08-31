@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import type { ShiftReport } from '@/lib/types';
 import { summarizeShiftReport, SummarizeShiftReportOutput } from '@/ai/flows/summarize-shift-reports';
-import { tasksByShift } from '@/lib/data';
+import { dataStore } from '@/lib/data-store';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { CheckCircle, Lightbulb, XCircle } from 'lucide-react';
@@ -23,6 +24,7 @@ export default function AiReportSummary({ report }: Props) {
         setIsLoading(true);
         setError(null);
         
+        const tasksByShift = dataStore.getTasks();
         const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
         const criticalTasks = shiftTasks.filter(t => t.isCritical).map(t => t.text);
         

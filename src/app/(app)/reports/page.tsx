@@ -1,60 +1,74 @@
+
+'use client';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { reports, tasksByShift } from '@/lib/data';
+import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
-import type { ShiftReport } from '@/lib/types';
-
-function getCompletionStatus(report: ShiftReport) {
-    const shiftTasks = tasksByShift[report.shiftKey].sections.flatMap(s => s.tasks);
-    const criticalTasks = shiftTasks.filter(t => t.isCritical);
-
-    if (criticalTasks.length === 0) {
-        return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
-    }
-
-    const completedCriticalCount = criticalTasks.filter(task => {
-        const completionStatus = report.completedTasks[task.id];
-        if (typeof completionStatus === 'boolean') {
-            return completionStatus;
-        }
-        if (typeof completionStatus === 'object') {
-            return Object.values(completionStatus).every(Boolean);
-        }
-        return false;
-    }).length;
-    
-    if (completedCriticalCount === criticalTasks.length) {
-        return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
-    }
-    
-    if (completedCriticalCount > 0) {
-        return { text: "Hoàn thành một phần", variant: "secondary", icon: CheckCircle };
-    }
-
-    return { text: "Chưa hoàn thành", variant: "destructive", icon: XCircle };
-}
-
-function getTotalTaskCount(report: ShiftReport) {
-    const shiftTasks = tasksByShift[report.shiftKey].sections.flatMap(s => s.tasks);
-    return shiftTasks.flatMap(t => t.timeSlots ? t.timeSlots : t).length;
-}
-
-function getCompletedTaskCount(report: ShiftReport) {
-    return Object.values(report.completedTasks).reduce((count, status) => {
-      if (typeof status === 'boolean') {
-        return count + (status ? 1 : 0);
-      } else if (status) {
-        return count + Object.values(status).filter(Boolean).length;
-      }
-      return count;
-    }, 0);
-}
-
+import type { ShiftReport, TasksByShift } from '@/lib/types';
 
 export default function ReportsPage() {
+  const [reports, setReports] = useState(dataStore.getReports());
+  const [tasksByShift, setTasksByShift] = useState(dataStore.getTasks());
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribe(() => {
+      setReports(dataStore.getReports());
+      setTasksByShift(dataStore.getTasks());
+    });
+    return () => unsubscribe();
+  }, []);
+
+  function getCompletionStatus(report: ShiftReport) {
+      const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
+      const criticalTasks = shiftTasks.filter(t => t.isCritical);
+
+      if (criticalTasks.length === 0) {
+          return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
+      }
+
+      const completedCriticalCount = criticalTasks.filter(task => {
+          const completionStatus = report.completedTasks[task.id];
+          if (typeof completionStatus === 'boolean') {
+              return completionStatus;
+          }
+          if (typeof completionStatus === 'object' && completionStatus !== null) {
+              return Object.values(completionStatus).every(Boolean);
+          }
+          return false;
+      }).length;
+      
+      if (completedCriticalCount === criticalTasks.length) {
+          return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
+      }
+      
+      if (completedCriticalCount > 0) {
+          return { text: "Hoàn thành một phần", variant: "secondary", icon: CheckCircle };
+      }
+
+      return { text: "Chưa hoàn thành", variant: "destructive", icon: XCircle };
+  }
+
+  function getTotalTaskCount(report: ShiftReport) {
+      const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
+      return shiftTasks.flatMap(t => t.timeSlots ? t.timeSlots : t).length;
+  }
+
+  function getCompletedTaskCount(report: ShiftReport) {
+      return Object.values(report.completedTasks).reduce((count, status) => {
+        if (typeof status === 'boolean') {
+          return count + (status ? 1 : 0);
+        } else if (status) {
+          return count + Object.values(status).filter(Boolean).length;
+        }
+        return count;
+      }, 0);
+  }
+
+
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
@@ -86,12 +100,13 @@ export default function ReportsPage() {
                 const status = getCompletionStatus(report);
                 const allTasksCount = getTotalTaskCount(report);
                 const completedTasksCount = getCompletedTaskCount(report);
+                const shiftName = tasksByShift[report.shiftKey]?.name || report.shiftKey;
                 
                 return (
                   <TableRow key={report.id}>
-                    <TableCell className="font-medium">{report.shiftDate}</TableCell>
+                    <TableCell className="font-medium">{new Date(report.shiftDate).toLocaleDateString('vi-VN')}</TableCell>
                     <TableCell>{report.staffName}</TableCell>
-                    <TableCell className="capitalize">{tasksByShift[report.shiftKey].name}</TableCell>
+                    <TableCell className="capitalize">{shiftName}</TableCell>
                     <TableCell className="text-center">
                        <Badge variant={status.variant} className="gap-1">
                           <status.icon className="h-3 w-3" />

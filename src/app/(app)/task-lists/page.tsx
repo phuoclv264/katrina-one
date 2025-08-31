@@ -1,6 +1,7 @@
+
 'use client';
-import { useState } from 'react';
-import { tasksByShift as initialTasksByShift } from '@/lib/data';
+import { useState, useEffect } from 'react';
+import { dataStore } from '@/lib/data-store';
 import type { Task, TasksByShift, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,10 +13,27 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sun, Moon, Sunset } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function TaskListsPage() {
-  const [tasksByShift, setTasksByShift] = useState<TasksByShift>(initialTasksByShift);
+  const { toast } = useToast();
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift>(dataStore.getTasks());
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribe(() => {
+      setTasksByShift(dataStore.getTasks());
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleUpdateAndSave = (newTasks: TasksByShift) => {
+    dataStore.updateTasks(newTasks);
+    toast({
+        title: "Đã lưu thay đổi!",
+        description: "Danh sách công việc đã được cập nhật.",
+    });
+  }
 
   const handleAddTask = (shiftKey: string, sectionTitle: string) => {
     const taskDetails = newTask[shiftKey]?.[sectionTitle];
@@ -27,33 +45,30 @@ export default function TaskListsPage() {
       isCritical: taskDetails.isCritical,
     };
 
-    setTasksByShift(current => {
-      const newTasks = JSON.parse(JSON.stringify(current));
-      const section = newTasks[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
-      if (section) {
-        section.tasks.push(newTaskToAdd);
-      }
-      return newTasks;
-    });
+    const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+    const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+    if (section) {
+      section.tasks.push(newTaskToAdd);
+    }
+    
+    handleUpdateAndSave(newTasksState);
 
     setNewTask(current => {
-      const newTasksState = JSON.parse(JSON.stringify(current));
-      if (newTasksState[shiftKey]) {
-        delete newTasksState[shiftKey][sectionTitle];
+      const newTasksInputState = JSON.parse(JSON.stringify(current));
+      if (newTasksInputState[shiftKey]) {
+        delete newTasksInputState[shiftKey][sectionTitle];
       }
-      return newTasksState;
+      return newTasksInputState;
     });
   };
 
   const handleDeleteTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
-    setTasksByShift(current => {
-      const newTasks = JSON.parse(JSON.stringify(current));
-      const section = newTasks[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
-      if (section) {
-        section.tasks = section.tasks.filter((task: Task) => task.id !== taskId);
-      }
-      return newTasks;
-    });
+    const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+    const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+    if (section) {
+      section.tasks = section.tasks.filter((task: Task) => task.id !== taskId);
+    }
+    handleUpdateAndSave(newTasksState);
   };
 
   const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical', value: string | boolean) => {

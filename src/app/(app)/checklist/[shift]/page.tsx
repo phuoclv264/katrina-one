@@ -1,10 +1,11 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
-import { tasksByShift } from '@/lib/data';
-import type { Task, TaskCompletion } from '@/lib/types';
+import { dataStore } from '@/lib/data-store';
+import type { Task, TaskCompletion, TasksByShift } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,14 +13,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function ChecklistPage() {
   const { toast } = useToast();
+  const { role, staffName } = useAuth();
   const params = useParams();
   const shiftKey = params.shift as string;
 
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift>(dataStore.getTasks());
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribe(() => {
+      setTasksByShift(dataStore.getTasks());
+    });
+    return () => unsubscribe();
+  }, []);
+  
   const shift = tasksByShift[shiftKey];
 
   const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
@@ -47,7 +59,8 @@ export default function ChecklistPage() {
   const [issues, setIssues] = useState('');
 
   if (!shift) {
-    notFound();
+    // Data might be loading, show a skeleton or loading state
+    return <div>Đang tải...</div>;
   }
   
   const totalTasks = useMemo(() => {
@@ -76,6 +89,14 @@ export default function ChecklistPage() {
   };
 
   const handleSubmit = () => {
+    dataStore.addReport({
+        shiftKey,
+        staffName: staffName || 'Nhân viên',
+        completedTasks: taskCompletion,
+        uploadedPhotos: photos,
+        issues: issues || null,
+    });
+    
     toast({
       title: "Đã gửi báo cáo!",
       description: "Báo cáo ca làm việc của bạn đã được gửi thành công.",
@@ -84,6 +105,7 @@ export default function ChecklistPage() {
         color: 'var(--accent-foreground)'
       }
     });
+
     // Reset state
     const initialCompletion: TaskCompletion = {};
     shift.sections.forEach(section => {
