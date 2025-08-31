@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
 import type { ShiftReport, TasksByShift } from '@/lib/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function ReportsPage() {
   const [reports, setReports] = useState(dataStore.getReports());
@@ -21,6 +22,17 @@ export default function ReportsPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  const groupedReports = useMemo(() => {
+    return reports.reduce((acc, report) => {
+      const date = report.shiftDate;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(report);
+      return acc;
+    }, {} as Record<string, ShiftReport[]>);
+  }, [reports]);
 
   function getCompletionStatus(report: ShiftReport) {
       const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
@@ -35,7 +47,7 @@ export default function ReportsPage() {
           if (typeof completionStatus === 'boolean') {
               return completionStatus;
           }
-          if (typeof completionStatus === 'object' && completionStatus !== null) {
+          if (typeof completionStatus === 'object' && completionStatus !== null && !Array.isArray(completionStatus)) {
               return Object.values(completionStatus).every(Boolean);
           }
           return false;
@@ -54,19 +66,22 @@ export default function ReportsPage() {
 
   function getTotalTaskCount(report: ShiftReport) {
       const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
-      return shiftTasks.flatMap(t => t.timeSlots ? t.timeSlots : t).length;
+      return shiftTasks.length;
   }
 
   function getCompletedTaskCount(report: ShiftReport) {
       return Object.values(report.completedTasks).reduce((count, status) => {
-        if (typeof status === 'boolean') {
-          return count + (status ? 1 : 0);
-        } else if (status) {
-          return count + Object.values(status).filter(Boolean).length;
+        if (typeof status === 'boolean' && status) {
+          return count + 1;
+        } else if (Array.isArray(status)) {
+          // Count timestamped tasks that have at least one entry
+          return count + (status.length > 0 ? 1 : 0);
         }
         return count;
       }, 0);
   }
+
+  const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
 
   return (
@@ -80,54 +95,69 @@ export default function ReportsPage() {
         <CardHeader>
           <CardTitle>Báo cáo gần đây</CardTitle>
           <CardDescription>
-            Hiển thị {reports.length} báo cáo ca gần nhất.
+            Hiển thị {reports.length} báo cáo ca gần nhất, được nhóm theo ngày.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ngày</TableHead>
-                <TableHead>Nhân viên</TableHead>
-                <TableHead>Ca làm việc</TableHead>
-                <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
-                <TableHead className="text-center">Hình ảnh</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reports.map((report) => {
-                const status = getCompletionStatus(report);
-                const allTasksCount = getTotalTaskCount(report);
-                const completedTasksCount = getCompletedTaskCount(report);
-                const shiftName = tasksByShift[report.shiftKey]?.name || report.shiftKey;
-                
-                return (
-                  <TableRow key={report.id}>
-                    <TableCell className="font-medium">{new Date(report.shiftDate).toLocaleDateString('vi-VN')}</TableCell>
-                    <TableCell>{report.staffName}</TableCell>
-                    <TableCell className="capitalize">{shiftName}</TableCell>
-                    <TableCell className="text-center">
-                       <Badge variant={status.variant} className="gap-1">
-                          <status.icon className="h-3 w-3" />
-                          <span>{completedTasksCount}/{allTasksCount}</span>
-                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                        <Badge variant="outline">{report.uploadedPhotos.length} đã tải lên</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/reports/${report.id}`}>
-                          Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {sortedDates.length > 0 ? (
+            <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
+              {sortedDates.map((date) => (
+                <AccordionItem value={date} key={date}>
+                  <AccordionTrigger className="text-lg font-medium">
+                    Ngày {new Date(date).toLocaleDateString('vi-VN')}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nhân viên</TableHead>
+                          <TableHead>Ca làm việc</TableHead>
+                          <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
+                          <TableHead className="text-center">Hình ảnh</TableHead>
+                          <TableHead className="text-right">Hành động</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {groupedReports[date].map((report) => {
+                          const status = getCompletionStatus(report);
+                          const allTasksCount = getTotalTaskCount(report);
+                          const completedTasksCount = getCompletedTaskCount(report);
+                          const shiftName = tasksByShift[report.shiftKey]?.name || report.shiftKey;
+                          
+                          return (
+                            <TableRow key={report.id}>
+                              <TableCell>{report.staffName}</TableCell>
+                              <TableCell className="capitalize">{shiftName}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant={status.variant} className="gap-1">
+                                    <status.icon className="h-3 w-3" />
+                                    <span>{completedTasksCount}/{allTasksCount}</span>
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                  <Badge variant="outline">{report.uploadedPhotos.length} đã tải lên</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button asChild variant="ghost" size="sm">
+                                  <Link href={`/reports/${report.id}`}>
+                                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+             <div className="text-center text-muted-foreground py-8">
+                <p>Không có báo cáo nào để hiển thị.</p>
+             </div>
+          )}
         </CardContent>
       </Card>
     </div>
