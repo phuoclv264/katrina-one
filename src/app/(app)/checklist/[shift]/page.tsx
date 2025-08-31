@@ -183,13 +183,9 @@ export default function ChecklistPage() {
                                 </Button>
                               </div>
                               {timestamps.length > 0 && (
-                                <div className="mt-3 pl-2 border-l-2 ml-2 space-y-2">
-                                    {timestamps.map((time, index) => (
-                                        <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="h-4 w-4" />
-                                            <span>Thực hiện lúc: {time}</span>
-                                        </div>
-                                    ))}
+                                <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Clock className="h-4 w-4 flex-shrink-0" />
+                                    <span>Thực hiện lúc: {timestamps.join(', ')}</span>
                                 </div>
                               )}
                             </div>
