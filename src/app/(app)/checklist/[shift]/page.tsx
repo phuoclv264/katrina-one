@@ -15,7 +15,7 @@ import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import type { CarouselApi } from '@/components/ui/carousel';
 
@@ -406,12 +406,7 @@ export default function ChecklistPage() {
         initialPhotos={getInitialPhotosForCamera()}
     />
      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-3xl p-0 border-0">
-            <DialogHeader className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-2">
-                <DialogTitle className="text-center text-white text-sm font-normal pointer-events-none">
-                    Xem trước ảnh ({currentSlide + 1} / {slideCount})
-                </DialogTitle>
-            </DialogHeader>
+        <DialogContent className="max-w-3xl p-0 border-0 bg-transparent shadow-none">
             <Carousel
                 setApi={setCarouselApi}
                 opts={{
@@ -429,13 +424,22 @@ export default function ChecklistPage() {
                     </CarouselItem>
                     ))}
                 </CarouselContent>
-                <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
-                <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                {allPagePhotos.length > 1 && (
+                    <>
+                        <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                        <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                    </>
+                )}
             </Carousel>
+             <DialogClose className="absolute right-0 -top-10 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                <X className="h-6 w-6" />
+                <span className="sr-only">Đóng</span>
+            </DialogClose>
+            <div className="text-center text-white text-sm mt-2 pointer-events-none">
+                Ảnh {currentSlide + 1} / {slideCount}
+            </div>
         </DialogContent>
     </Dialog>
     </>
   );
 }
-
-    
