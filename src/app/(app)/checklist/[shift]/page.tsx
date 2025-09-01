@@ -247,10 +247,12 @@ export default function ChecklistPage() {
                                           <span>Thực hiện lúc: {completion.timestamp}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
-                                          <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)} disabled={isDisabled}>
-                                              <Camera className="mr-1.5 h-3 w-3" />
-                                              Sửa ảnh
-                                          </Button>
+                                          {!isDisabled && (
+                                            <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)}>
+                                                <Camera className="mr-1.5 h-3 w-3" />
+                                                Sửa ảnh
+                                            </Button>
+                                          )}
                                           
                                           <AlertDialog>
                                             <AlertDialogTrigger asChild>
