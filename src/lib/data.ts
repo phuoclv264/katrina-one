@@ -6,16 +6,6 @@ export const staff: Staff[] = [
   { pin: '0002', name: 'Thảo' },
 ];
 
-export const tasks: Task[] = [
-  { id: 'task-1', text: 'Clean front entrance and welcome mat' },
-  { id: 'task-2', text: 'Wipe down all tables and chairs', isCritical: true },
-  { id: 'task-3', text: 'Restock napkins and condiments' },
-  { id: 'task-4', text: 'Clean and sanitize restrooms', isCritical: true },
-  { id: 'task-5', text: 'Empty all trash bins and replace liners' },
-  { id: 'task-6', text: 'Sweep and mop all floors' },
-  { id: 'task-7', text: 'Check and report any equipment malfunctions' },
-];
-
 export const tasksByShift: TasksByShift = {
   sang: {
     name: 'Ca Sáng',
@@ -31,8 +21,8 @@ export const tasksByShift: TasksByShift = {
       {
         title: 'Trong ca',
         tasks: [
-            { id: 'sang-4', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', timeSlots: true },
-            { id: 'sang-5', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', timeSlots: true },
+            { id: 'sang-4', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch' },
+            { id: 'sang-5', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch' },
         ]
       },
       {
@@ -57,7 +47,7 @@ export const tasksByShift: TasksByShift = {
         {
             title: 'Trong ca',
             tasks: [
-                { id: 'trua-3', text: 'Đảm bảo thùng tách nước, thùng lau nhà đã được dọn sạch, các bao rác đã được kiểm tra, thay thế', timeSlots: true },
+                { id: 'trua-3', text: 'Đảm bảo thùng tách nước, thùng lau nhà đã được dọn sạch, các bao rác đã được kiểm tra, thay thế' },
             ]
         },
         {
@@ -84,10 +74,10 @@ export const tasksByShift: TasksByShift = {
         {
             title: 'Trong ca',
             tasks: [
-                { id: 'toi-4', text: 'Đảm bảo trà nước của khách luôn đầy đủ', timeSlots: true },
-                { id: 'toi-5', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng', timeSlots: true },
-                { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', timeSlots: true },
-                { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', timeSlots: true },
+                { id: 'toi-4', text: 'Đảm bảo trà nước của khách luôn đầy đủ' },
+                { id: 'toi-5', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng' },
+                { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch' },
+                { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch' },
             ]
         },
         {
@@ -109,32 +99,54 @@ export const reports: ShiftReport[] = [
     staffName: 'Alice',
     shiftDate: '2024-07-22',
     submittedAt: '2024-07-22T14:05:00.000Z',
-    completedTasks: { 'sang-1': true, 'sang-2': true, 'sang-3': false, 'sang-4': ['08:00', '10:00'], 'sang-5': ['09:00'] },
+    completedTasks: { 
+        'sang-1': [{ timestamp: '08:00', photos: [] }], 
+        'sang-2': [{ timestamp: '08:05', photos: [] }], 
+        'sang-3': [], 
+        'sang-4': [{ timestamp: '09:00', photos: [] }, { timestamp: '11:00', photos: [] }],
+        'sang-5': [{ timestamp: '10:00', photos: [] }]
+    },
     uploadedPhotos: [],
     issues: 'Khách hàng phàn nàn về wifi chậm.',
     shiftKey: 'sang',
-    taskPhotos: { 'sang-4': [], 'sang-5': [] },
   },
   {
     id: 'report-2',
     staffName: 'Bob',
     shiftDate: '2024-07-22',
     submittedAt: '2024-07-22T17:00:00.000Z',
-    completedTasks: { 'trua-1': true, 'trua-2': true, 'trua-3': ['14:00', '16:00'], 'trua-4': true, 'trua-5': true, 'trua-6': false },
+    completedTasks: { 
+        'trua-1': [{ timestamp: '13:00', photos: [] }], 
+        'trua-2': [{ timestamp: '13:05', photos: [] }], 
+        'trua-3': [{ timestamp: '14:00', photos: [] }, { timestamp: '16:00', photos: [] }], 
+        'trua-4': [{ timestamp: '16:30', photos: [] }], 
+        'trua-5': [{ timestamp: '16:35', photos: [] }], 
+        'trua-6': [] 
+    },
     uploadedPhotos: [],
     issues: null,
     shiftKey: 'trua',
-    taskPhotos: { 'trua-3': [] },
   },
   {
     id: 'report-3',
     staffName: 'Charlie',
     shiftDate: '2024-07-21',
     submittedAt: '2024-07-21T22:30:00.000Z',
-    completedTasks: { 'toi-1': true, 'toi-2': true, 'toi-3': true, 'toi-4': ['19:00', '21:00'], 'toi-5': ['20:00'], 'toi-6': ['18:30'], 'toi-7': ['20:30'], 'toi-8': true, 'toi-9': true, 'toi-10': true, 'toi-11': true },
+    completedTasks: { 
+        'toi-1': [{ timestamp: '18:00', photos: [] }],
+        'toi-2': [{ timestamp: '18:01', photos: [] }],
+        'toi-3': [{ timestamp: '18:02', photos: [] }],
+        'toi-4': [{ timestamp: '19:00', photos: [] }, { timestamp: '21:00', photos: [] }],
+        'toi-5': [{ timestamp: '20:00', photos: [] }],
+        'toi-6': [{ timestamp: '18:30', photos: [] }],
+        'toi-7': [{ timestamp: '20:30', photos: [] }],
+        'toi-8': [{ timestamp: '22:00', photos: [] }],
+        'toi-9': [{ timestamp: '22:05', photos: [] }],
+        'toi-10': [{ timestamp: '22:10', photos: [] }],
+        'toi-11': [{ timestamp: '22:15', photos: [] }]
+    },
     uploadedPhotos: [],
     issues: 'Hết giấy in hóa đơn.',
     shiftKey: 'toi',
-    taskPhotos: { 'toi-4': [], 'toi-5': [], 'toi-6': [], 'toi-7': [] },
   }
 ];

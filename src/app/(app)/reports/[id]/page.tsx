@@ -8,10 +8,10 @@ import { dataStore } from '@/lib/data-store';
 import AiReportSummary from '@/components/ai-report-summary';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, X } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, X, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { TaskCompletion } from '@/lib/types';
+import type { TaskCompletion, CompletionRecord } from '@/lib/types';
 
 export default function ReportDetailPage() {
   const params = useParams();
@@ -41,17 +41,9 @@ export default function ReportDetailPage() {
     const allTasks = shift.sections.flatMap(s => s.tasks);
     let completedCount = 0;
     allTasks.forEach(task => {
-        const status = completedTasks[task.id];
-        if (task.timeSlots) {
-            // A timestamped task is complete if it has at least one timestamp
-            if (Array.isArray(status) && status.length > 0) {
-                completedCount++;
-            }
-        } else {
-            // A simple task is complete if its status is true
-            if (typeof status === 'boolean' && status) {
-                completedCount++;
-            }
+        const completions = completedTasks[task.id];
+        if (Array.isArray(completions) && completions.length > 0) {
+            completedCount++;
         }
     });
     return completedCount;
@@ -100,49 +92,37 @@ export default function ReportDetailPage() {
                       <AccordionContent>
                         <div className="space-y-4 pt-2">
                           {section.tasks.map((task) => {
-                            const completionStatus = report.completedTasks[task.id];
-                            const photosForTask = report.taskPhotos?.[task.id] || [];
+                            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+                            const isCompleted = completions.length > 0;
                             
-                            if (task.timeSlots) {
-                               const timestamps = (Array.isArray(completionStatus) ? completionStatus : []) as string[];
-                               return (
-                                <div key={task.id} className="rounded-md border p-4">
-                                  <div className="flex items-start gap-4">
-                                    <div className="flex-1">
-                                      <p className="font-medium">
-                                        {task.text}
-                                      </p>
-                                    </div>
-                                    <div className={`flex h-5 w-5 items-center justify-center rounded-full ${timestamps.length > 0 ? 'bg-accent' : 'bg-muted'}`}>
-                                      {timestamps.length > 0 ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                                    </div>
-                                  </div>
-                                  {timestamps.length > 0 && (
-                                    <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Clock className="h-4 w-4 flex-shrink-0" />
-                                        <span>Thực hiện lúc: {timestamps.join(', ')}</span>
-                                    </div>
-                                  )}
-                                  {photosForTask.length > 0 && (
-                                    <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                      {photosForTask.map((photo, index) => (
-                                        <div key={index} className="relative aspect-square overflow-hidden rounded-md">
-                                          <Image src={photo} alt={`Ảnh bằng chứng ${index + 1}`} fill className="object-cover" />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            }
-                            
-                            const isCompleted = typeof completionStatus === 'boolean' && completionStatus;
                             return (
-                               <div key={task.id} className="flex items-center gap-3 text-sm p-4 border rounded-md">
-                                <div className={`flex h-5 w-5 items-center justify-center rounded-full ${isCompleted ? 'bg-accent' : 'bg-muted'}`}>
-                                  {isCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                               <div key={task.id} className="flex flex-col gap-3 text-sm p-4 border rounded-md">
+                                <div className="flex items-start gap-4">
+                                  <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-accent' : 'bg-muted'}`}>
+                                    {isCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                                  </div>
+                                  <span className={`flex-1 ${!isCompleted ? 'text-muted-foreground' : ''}`}>{task.text}</span>
                                 </div>
-                                <span className={isCompleted ? '' : 'text-muted-foreground'}>{task.text}</span>
+                                
+                                {completions.map((completion, cIndex) => (
+                                  <div key={cIndex} className="mt-2 ml-9 rounded-md border bg-card p-3">
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                                          <Clock className="h-4 w-4 flex-shrink-0" />
+                                          <span>Thực hiện lúc: {completion.timestamp}</span>
+                                      </div>
+                                    {completion.photos.length > 0 ? (
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                        {completion.photos.map((photo, pIndex) => (
+                                            <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md">
+                                            <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                            </div>
+                                        ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground italic">Không có ảnh nào được cung cấp.</p>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             );
                           })}
@@ -158,7 +138,7 @@ export default function ReportDetailPage() {
         <div className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Camera /> Hình ảnh đã tải lên</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Camera /> Tổng hợp hình ảnh</CardTitle>
             </CardHeader>
             <CardContent>
               {report.uploadedPhotos.length > 0 ? (
@@ -190,4 +170,3 @@ export default function ReportDetailPage() {
     </div>
   );
 }
-

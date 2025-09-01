@@ -8,7 +8,6 @@ export type Task = {
   id: string;
   text: string;
   isCritical?: boolean;
-  timeSlots?: boolean; // Changed to boolean to indicate it's a timestamp-based task
 };
 
 export type TaskSection = {
@@ -25,8 +24,13 @@ export type TasksByShift = {
   [key: string]: Shift;
 };
 
+export type CompletionRecord = {
+  timestamp: string;
+  photos: string[];
+};
+
 export type TaskCompletion = {
-  [taskId:string]: boolean | string[]; // boolean for simple tasks, string[] for timestamps
+  [taskId:string]: CompletionRecord[];
 };
 
 export type ShiftReport = {
@@ -38,5 +42,5 @@ export type ShiftReport = {
   uploadedPhotos: string[];
   issues: string | null;
   shiftKey: string;
-  taskPhotos?: { [taskId: string]: string[] }; // Optional: associates photos with tasks
+  taskPhotos?: { [taskId: string]: string[] }; // Can be deprecated
 };

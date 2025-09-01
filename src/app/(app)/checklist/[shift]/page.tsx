@@ -5,16 +5,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { Task, TaskCompletion, TasksByShift } from '@/lib/types';
+import type { Task, TaskCompletion, TasksByShift, CompletionRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Paperclip, Send, Star, Upload, ArrowLeft, Clock, PlusCircle, X } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 
@@ -28,7 +25,7 @@ export default function ChecklistPage() {
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-
+  const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -41,123 +38,108 @@ export default function ChecklistPage() {
 
   const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
   
-  // Changed photos state to associate photos with task IDs
-  const [taskPhotos, setTaskPhotos] = useState<{[taskId: string]: string[]}>({});
-
   useEffect(() => {
     if (shift) {
       const initialCompletion: TaskCompletion = {};
-      const initialPhotos: {[taskId: string]: string[]} = {};
       shift.sections.forEach(section => {
         section.tasks.forEach(task => {
-          if (task.timeSlots) {
-             initialCompletion[task.id] = [];
-             initialPhotos[task.id] = [];
-          } else {
-            initialCompletion[task.id] = false;
-          }
+          initialCompletion[task.id] = [];
         });
       });
       setTaskCompletion(initialCompletion);
-      setTaskPhotos(initialPhotos);
     }
   }, [shift]);
   
   const [issues, setIssues] = useState('');
 
   if (!shift) {
-    // Data might be loading, show a skeleton or loading state
     return <div>Đang tải...</div>;
   }
   
-  const totalTasks = useMemo(() => {
-    return shift.sections.flatMap(s => s.tasks.flatMap(t => t.timeSlots ? t.timeSlots.length : 1)).length;
-  }, [shift]);
-
-  const handleTaskToggle = (taskId: string) => {
-    setTaskCompletion(current => {
-      const newCompletion = JSON.parse(JSON.stringify(current));
-      newCompletion[taskId] = !newCompletion[taskId];
-      return newCompletion;
-    });
+  const handleTaskAction = (taskId: string) => {
+    setActiveTaskId(taskId);
+    setActiveCompletionIndex(null); // New completion
+    setIsCameraOpen(true);
   };
 
-   const openCameraForTask = (taskId: string) => {
+  const handleEditPhotos = (taskId: string, completionIndex: number) => {
     setActiveTaskId(taskId);
+    setActiveCompletionIndex(completionIndex);
     setIsCameraOpen(true);
   };
   
   const handleCapturePhotos = (photos: string[]) => {
     if (activeTaskId) {
-       setTaskPhotos(prev => ({
-        ...prev,
-        [activeTaskId]: photos
-      }));
+      setTaskCompletion(current => {
+        const newCompletion = JSON.parse(JSON.stringify(current));
+        const taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
 
-      // Only add timestamp if photos are added
-      if (photos.length > 0) {
-        setTaskCompletion(current => {
-          const newCompletion = JSON.parse(JSON.stringify(current));
-          const taskTimestamps = (newCompletion[activeTaskId] as string[]) || [];
+        if (activeCompletionIndex !== null) {
+          // Editing existing completion
+          taskCompletions[activeCompletionIndex].photos = photos;
+        } else {
+          // Adding new completion
           const now = new Date();
           const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          taskCompletions.push({
+            timestamp: formattedTime,
+            photos: photos
+          });
+        }
+        
+        newCompletion[activeTaskId] = taskCompletions;
+        return newCompletion;
+      });
 
-          // Add a timestamp for each new photo, but avoid duplicates if called multiple times
-          // A simpler approach: just ensure at least one timestamp exists if there are photos
-          if (taskTimestamps.length === 0) {
-            taskTimestamps.push(formattedTime);
-          }
-          newCompletion[activeTaskId] = taskTimestamps;
-          return newCompletion;
-        });
-      }
+      toast({
+          title: `Đã lưu ${photos.length} ảnh!`,
+          description: "Ảnh đã được thêm vào báo cáo của bạn."
+      });
     }
     setIsCameraOpen(false);
     setActiveTaskId(null);
-    toast({
-        title: `Đã lưu ${photos.length} ảnh!`,
-        description: "Ảnh đã được thêm vào báo cáo của bạn."
-    });
+    setActiveCompletionIndex(null);
   };
   
-  const handleDeletePhoto = (taskId: string, photoIndex: number) => {
-    setTaskPhotos(prev => {
-      const newPhotos = [...(prev[taskId] || [])];
-      newPhotos.splice(photoIndex, 1);
-      return {
-        ...prev,
-        [taskId]: newPhotos
-      };
+  const handleDeletePhoto = (taskId: string, completionIndex: number, photoIndex: number) => {
+    setTaskCompletion(prev => {
+      const newCompletion = JSON.parse(JSON.stringify(prev));
+      const taskCompletions = newCompletion[taskId] as CompletionRecord[];
+      taskCompletions[completionIndex].photos.splice(photoIndex, 1);
+      newCompletion[taskId] = taskCompletions;
+      return newCompletion;
     });
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => {
-    if (event.target.files) {
-       Array.from(event.target.files).forEach(file => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => {
-              setTaskPhotos(prev => ({
-                ...prev,
-                [taskId]: [...(prev[taskId] || []), reader.result as string]
-              }));
-          };
-      });
-    }
-  };
+  const handleDeleteCompletion = (taskId: string, completionIndex: number) => {
+     setTaskCompletion(prev => {
+      const newCompletion = JSON.parse(JSON.stringify(prev));
+      const taskCompletions = newCompletion[taskId] as CompletionRecord[];
+      taskCompletions.splice(completionIndex, 1);
+      newCompletion[taskId] = taskCompletions;
+      return newCompletion;
+    });
+     toast({
+        title: "Đã xóa lần thực hiện",
+        description: "Lần hoàn thành công việc đã được xóa khỏi báo cáo.",
+        variant: "destructive"
+    });
+  }
 
 
   const handleSubmit = () => {
-    // Consolidate all photos from taskPhotos into a single array for the report
-    const allUploadedPhotos = Object.values(taskPhotos).flat();
-
+    // Consolidate all photos from taskCompletions into a single array for the report
+    const allUploadedPhotos = Object.values(taskCompletion)
+      .flat()
+      .flatMap((record: CompletionRecord) => record.photos);
+      
     dataStore.addReport({
         shiftKey,
         staffName: staffName || 'Nhân viên',
         completedTasks: taskCompletion,
-        uploadedPhotos: allUploadedPhotos, // Send the consolidated list
+        uploadedPhotos: allUploadedPhotos,
         issues: issues || null,
-        taskPhotos, // Keep the association for the detailed report view
+        taskPhotos: {}, // This can be deprecated or re-purposed if needed
     });
     
     toast({
@@ -171,33 +153,23 @@ export default function ChecklistPage() {
 
     // Reset state
     const initialCompletion: TaskCompletion = {};
-    const initialPhotos: {[taskId: string]: string[]} = {};
     shift.sections.forEach(section => {
       section.tasks.forEach(task => {
-        if (task.timeSlots) {
-          initialCompletion[task.id] = [];
-          initialPhotos[task.id] = [];
-        } else {
-          initialCompletion[task.id] = false;
-        }
+        initialCompletion[task.id] = [];
       });
     });
     setTaskCompletion(initialCompletion);
-    setTaskPhotos(initialPhotos);
     setIssues('');
   };
+  
+  const getInitialPhotosForCamera = () => {
+    if (activeTaskId && activeCompletionIndex !== null) {
+      const completions = taskCompletion[activeTaskId] as CompletionRecord[];
+      return completions[activeCompletionIndex]?.photos || [];
+    }
+    return [];
+  }
 
-  const completedCount = useMemo(() => {
-    return Object.values(taskCompletion).reduce((count, status) => {
-      if (typeof status === 'boolean') {
-        return count + (status ? 1 : 0);
-      } else if (Array.isArray(status)) {
-        // For timestamped tasks, we can count each timestamp as one completion
-        return count + status.length;
-      }
-      return count;
-    }, 0);
-  }, [taskCompletion]);
 
   return (
     <>
@@ -218,7 +190,7 @@ export default function ChecklistPage() {
           <CardHeader>
             <CardTitle>Nhiệm vụ</CardTitle>
             <CardDescription>
-              Bạn đã hoàn thành các công việc.
+              Nhấn "Đã hoàn thành" để ghi nhận công việc bằng hình ảnh.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -229,75 +201,62 @@ export default function ChecklistPage() {
                   <AccordionContent>
                     <div className="space-y-4 pt-2">
                       {section.tasks.map((task) => {
-                        const taskState = taskCompletion[task.id];
+                        const completions = (taskCompletion[task.id] || []) as CompletionRecord[];
+                        const isCompleted = completions.length > 0;
                         
-                        if (task.timeSlots) {
-                          const timestamps = (Array.isArray(taskState) ? taskState : []) as string[];
-                          const photosForTask = taskPhotos[task.id] || [];
-                          return (
-                             <div key={task.id} className="rounded-md border p-4 transition-colors">
-                              <div className="flex items-center gap-4">
-                                <div className="flex-1">
-                                  <p className="font-medium">
-                                    {task.text}
-                                  </p>
-                                </div>
-                                <Button size="sm" variant="secondary" onClick={() => openCameraForTask(task.id)}>
-                                    <Camera className="mr-2 h-4 w-4"/>
-                                    Chụp ảnh
-                                </Button>
-                              </div>
-                              {timestamps.length > 0 && (
-                                <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Clock className="h-4 w-4 flex-shrink-0" />
-                                    <span>Thực hiện lúc: {timestamps.join(', ')}</span>
-                                </div>
-                              )}
-                              {photosForTask.length > 0 && (
-                                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                  {photosForTask.map((photo, index) => (
-                                    <div key={index} className="relative aspect-square overflow-hidden rounded-md">
-                                      <Image src={photo} alt={`Ảnh bằng chứng ${index + 1}`} fill className="object-cover" />
-                                      <Button 
-                                        variant="destructive"
-                                        size="icon"
-                                        className="absolute top-1 right-1 h-6 w-6 rounded-full"
-                                        onClick={() => handleDeletePhoto(task.id, index)}
-                                      >
-                                        <X className="h-4 w-4" />
-                                        <span className="sr-only">Xóa ảnh</span>
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        }
-
-                        const isCompleted = typeof taskState === 'boolean' && taskState;
                         return (
-                          <div
-                            key={task.id}
-                            className={`flex items-center gap-4 rounded-md border p-4 transition-colors ${
-                              isCompleted ? 'bg-accent/20' : ''
-                            }`}
-                          >
-                            <Checkbox
-                              id={`task-${task.id}`}
-                              checked={isCompleted}
-                              onCheckedChange={() => handleTaskToggle(task.id)}
-                              className="h-6 w-6"
-                              aria-label={`Đánh dấu công việc là ${isCompleted ? 'chưa hoàn thành' : 'hoàn thành'}`}
-                            />
-                            <label
-                              htmlFor={`task-${task.id}`}
-                              className={`flex-1 text-sm font-medium transition-colors ${
-                                isCompleted ? 'text-muted-foreground line-through' : ''
-                              }`}
-                            >
-                              {task.text}
-                            </label>
+                           <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
+                            <div className="flex items-center gap-4">
+                              <div className="flex-1">
+                                <p className="font-medium">
+                                  {task.text}
+                                </p>
+                              </div>
+                              <Button size="sm" variant="secondary" onClick={() => handleTaskAction(task.id)}>
+                                  <Camera className="mr-2 h-4 w-4"/>
+                                  Đã hoàn thành
+                              </Button>
+                            </div>
+                            
+                            {completions.map((completion, cIndex) => (
+                              <div key={cIndex} className="mt-4 rounded-md border bg-card p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                          <Clock className="h-4 w-4 flex-shrink-0" />
+                                          <span>Thực hiện lúc: {completion.timestamp}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                          <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)}>
+                                              <Camera className="mr-1.5 h-3 w-3" />
+                                              Sửa ảnh
+                                          </Button>
+                                          <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteCompletion(task.id, cIndex)}>
+                                              <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                      </div>
+                                  </div>
+                                {completion.photos.length > 0 ? (
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                    {completion.photos.map((photo, pIndex) => (
+                                        <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md">
+                                        <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                        <Button 
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                                            onClick={() => handleDeletePhoto(task.id, cIndex, pIndex)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                            <span className="sr-only">Xóa ảnh</span>
+                                        </Button>
+                                        </div>
+                                    ))}
+                                    </div>
+                                ): (
+                                    <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )
                       })}
@@ -331,9 +290,13 @@ export default function ChecklistPage() {
     </div>
     <CameraDialog 
         isOpen={isCameraOpen}
-        onClose={() => setIsCameraOpen(false)}
+        onClose={() => {
+            setIsCameraOpen(false);
+            setActiveTaskId(null);
+            setActiveCompletionIndex(null);
+        }}
         onSubmit={handleCapturePhotos}
-        initialPhotos={activeTaskId ? taskPhotos[activeTaskId] : []}
+        initialPhotos={getInitialPhotosForCamera()}
     />
     </>
   );

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
-import type { ShiftReport, TasksByShift } from '@/lib/types';
+import type { ShiftReport, TasksByShift, CompletionRecord } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function ReportsPage() {
@@ -43,14 +43,8 @@ export default function ReportsPage() {
       }
 
       const completedCriticalCount = criticalTasks.filter(task => {
-          const completionStatus = report.completedTasks[task.id];
-          if (typeof completionStatus === 'boolean') {
-              return completionStatus;
-          }
-          if (typeof completionStatus === 'object' && completionStatus !== null && !Array.isArray(completionStatus)) {
-              return Object.values(completionStatus).every(Boolean);
-          }
-          return false;
+          const completions = report.completedTasks[task.id];
+          return Array.isArray(completions) && completions.length > 0;
       }).length;
       
       if (completedCriticalCount === criticalTasks.length) {
@@ -69,15 +63,9 @@ export default function ReportsPage() {
     let completedCount = 0;
     
     allTasks.forEach(task => {
-        const status = report.completedTasks[task.id];
-        if (task.timeSlots) {
-            if (Array.isArray(status) && status.length > 0) {
-                completedCount++;
-            }
-        } else {
-            if (typeof status === 'boolean' && status) {
-                completedCount++;
-            }
+        const completions = report.completedTasks[task.id];
+        if (Array.isArray(completions) && completions.length > 0) {
+            completedCount++;
         }
     });
     
