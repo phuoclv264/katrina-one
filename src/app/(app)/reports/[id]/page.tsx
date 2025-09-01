@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { TaskCompletion, CompletionRecord } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import type { CarouselApi } from '@/components/ui/carousel';
 
 export default function ReportDetailPage() {
   const params = useParams();
@@ -20,7 +22,10 @@ export default function ReportDetailPage() {
   const [tasksByShift, setTasksByShift] = useState(dataStore.getTasks());
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideCount, setSlideCount] = useState(0);
 
 
   useEffect(() => {
@@ -32,6 +37,45 @@ export default function ReportDetailPage() {
   }, []);
   
   const report = reports.find(r => r.id === params.id);
+  
+  const allPagePhotos = useMemo(() => {
+    if (!report || !tasksByShift[report.shiftKey]) return [];
+    
+    const photos: string[] = [];
+    const shift = tasksByShift[report.shiftKey];
+
+    // Photos from tasks
+    shift.sections.forEach(section => {
+        section.tasks.forEach(task => {
+            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+            completions.forEach(comp => {
+                photos.push(...comp.photos);
+            });
+        });
+    });
+
+    // Photos from general upload (if any, for backward compatibility or other features)
+    // and ensuring no duplicates
+    report.uploadedPhotos.forEach(photo => {
+        if (!photos.includes(photo)) {
+            photos.push(photo);
+        }
+    });
+
+    return photos;
+  }, [report, tasksByShift]);
+
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    setSlideCount(carouselApi.scrollSnapList().length);
+    setCurrentSlide(carouselApi.selectedScrollSnap());
+
+    carouselApi.on("select", () => {
+      setCurrentSlide(carouselApi.selectedScrollSnap());
+    });
+  }, [carouselApi]);
+
 
   if (!report) {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy.</div>;
@@ -58,8 +102,11 @@ export default function ReportDetailPage() {
   const completedTaskCount = getCompletedTaskCount(report.completedTasks);
 
   const openImagePreview = (url: string) => {
-    setPreviewImageUrl(url);
-    setIsPreviewOpen(true);
+    const photoIndex = allPagePhotos.indexOf(url);
+    if (photoIndex !== -1) {
+        setPreviewImageIndex(photoIndex);
+        setIsPreviewOpen(true);
+    }
   };
 
 
@@ -180,15 +227,32 @@ export default function ReportDetailPage() {
       </div>
     </div>
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-3xl">
-            <DialogHeader>
-                <DialogTitle>Xem trước ảnh</DialogTitle>
+        <DialogContent className="max-w-3xl p-0 border-0">
+            <DialogHeader className="p-2">
+                <DialogTitle className="text-center">
+                     Xem trước ảnh ({currentSlide + 1} / {slideCount})
+                </DialogTitle>
             </DialogHeader>
-            {previewImageUrl && (
-                <div className="relative aspect-video">
-                    <Image src={previewImageUrl} alt="Ảnh xem trước" fill className="object-contain rounded-md" />
-                </div>
-            )}
+            <Carousel
+                setApi={setCarouselApi}
+                opts={{
+                    startIndex: previewImageIndex,
+                    loop: false,
+                }}
+                className="w-full"
+            >
+                <CarouselContent>
+                    {allPagePhotos.map((url, index) => (
+                    <CarouselItem key={index}>
+                        <div className="relative aspect-video">
+                            <Image src={url} alt={`Ảnh xem trước ${index + 1}`} fill className="object-contain" />
+                        </div>
+                    </CarouselItem>
+                    ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+            </Carousel>
         </DialogContent>
     </Dialog>
     </>

@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -16,6 +16,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import type { CarouselApi } from '@/components/ui/carousel';
 
 
 export default function ChecklistPage() {
@@ -31,7 +33,11 @@ export default function ChecklistPage() {
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideCount, setSlideCount] = useState(0);
+
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -57,6 +63,31 @@ export default function ChecklistPage() {
   }, [shift]);
   
   const [issues, setIssues] = useState('');
+  
+  const allPagePhotos = useMemo(() => {
+    if (!shift) return [];
+    const photos: string[] = [];
+    shift.sections.forEach(section => {
+        section.tasks.forEach(task => {
+            const completions = (taskCompletion[task.id] || []) as CompletionRecord[];
+            completions.forEach(comp => {
+                photos.push(...comp.photos);
+            });
+        });
+    });
+    return photos;
+  }, [shift, taskCompletion]);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    setSlideCount(carouselApi.scrollSnapList().length);
+    setCurrentSlide(carouselApi.selectedScrollSnap());
+
+    carouselApi.on("select", () => {
+      setCurrentSlide(carouselApi.selectedScrollSnap());
+    });
+  }, [carouselApi]);
+
 
   if (!shift) {
     return <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">Đang tải...</div>;
@@ -197,8 +228,11 @@ export default function ChecklistPage() {
   }
   
   const openImagePreview = (url: string) => {
-    setPreviewImageUrl(url);
-    setIsPreviewOpen(true);
+    const photoIndex = allPagePhotos.indexOf(url);
+    if(photoIndex !== -1) {
+        setPreviewImageIndex(photoIndex);
+        setIsPreviewOpen(true);
+    }
   };
 
 
@@ -372,15 +406,32 @@ export default function ChecklistPage() {
         initialPhotos={getInitialPhotosForCamera()}
     />
      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-3xl">
-            <DialogHeader>
-                <DialogTitle>Xem trước ảnh</DialogTitle>
+        <DialogContent className="max-w-3xl p-0 border-0">
+            <DialogHeader className="p-2">
+                <DialogTitle className="text-center">
+                    Xem trước ảnh ({currentSlide + 1} / {slideCount})
+                </DialogTitle>
             </DialogHeader>
-            {previewImageUrl && (
-                <div className="relative aspect-video">
-                    <Image src={previewImageUrl} alt="Ảnh xem trước" fill className="object-contain rounded-md" />
-                </div>
-            )}
+            <Carousel
+                setApi={setCarouselApi}
+                opts={{
+                    startIndex: previewImageIndex,
+                    loop: false,
+                }}
+                className="w-full"
+            >
+                <CarouselContent>
+                    {allPagePhotos.map((url, index) => (
+                    <CarouselItem key={index}>
+                        <div className="relative aspect-video">
+                            <Image src={url} alt={`Ảnh xem trước ${index + 1}`} fill className="object-contain" />
+                        </div>
+                    </CarouselItem>
+                    ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+            </Carousel>
         </DialogContent>
     </Dialog>
     </>
