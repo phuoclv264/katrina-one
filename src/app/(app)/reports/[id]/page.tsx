@@ -228,8 +228,8 @@ export default function ReportDetailPage() {
     </div>
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-3xl p-0 border-0">
-            <DialogHeader className="p-2">
-                <DialogTitle className="text-center">
+             <DialogHeader className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-2">
+                <DialogTitle className="text-center text-white text-sm font-normal pointer-events-none">
                      Xem trước ảnh ({currentSlide + 1} / {slideCount})
                 </DialogTitle>
             </DialogHeader>
@@ -244,17 +244,19 @@ export default function ReportDetailPage() {
                 <CarouselContent>
                     {allPagePhotos.map((url, index) => (
                     <CarouselItem key={index}>
-                        <div className="relative aspect-video">
+                        <div className="relative aspect-video w-full h-[80vh] sm:h-auto">
                             <Image src={url} alt={`Ảnh xem trước ${index + 1}`} fill className="object-contain" />
                         </div>
                     </CarouselItem>
                     ))}
                 </CarouselContent>
-                <CarouselPrevious />
-                <CarouselNext />
+                <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
             </Carousel>
         </DialogContent>
     </Dialog>
     </>
   );
 }
+
+    
