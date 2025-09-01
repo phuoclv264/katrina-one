@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -25,6 +25,7 @@ export default function ChecklistPage() {
   const { staffName } = useAuth();
   const params = useParams();
   const shiftKey = params.shift as string;
+  const dailyStorageKey = `${staffName}-${shiftKey}`;
 
   const [tasksByShift, setTasksByShift] = useState<TasksByShift>(dataStore.getTasks());
   
@@ -38,31 +39,44 @@ export default function ChecklistPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
 
+  const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
+  const [issues, setIssues] = useState('');
+  
+  const shift = tasksByShift[shiftKey];
+  
+  const updateCompletionState = useCallback((newCompletion: TaskCompletion) => {
+    setTaskCompletion(newCompletion);
+    dataStore.updateDailyCompletions(dailyStorageKey, newCompletion);
+  }, [dailyStorageKey]);
+
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
       setTasksByShift(dataStore.getTasks());
+      // This will also re-run if daily data is cleared
+      const storedCompletion = dataStore.getDailyCompletions(dailyStorageKey);
+      if (storedCompletion) {
+        setTaskCompletion(storedCompletion);
+      }
     });
-    return () => unsubscribe();
-  }, []);
-  
-  const shift = tasksByShift[shiftKey];
 
-  const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
-  
-  useEffect(() => {
     if (shift) {
-      const initialCompletion: TaskCompletion = {};
-      shift.sections.forEach(section => {
-        section.tasks.forEach(task => {
-          initialCompletion[task.id] = [];
-        });
-      });
-      setTaskCompletion(initialCompletion);
+        const storedCompletion = dataStore.getDailyCompletions(dailyStorageKey);
+        if (storedCompletion) {
+            setTaskCompletion(storedCompletion);
+        } else {
+             const initialCompletion: TaskCompletion = {};
+            shift.sections.forEach(section => {
+                section.tasks.forEach(task => {
+                initialCompletion[task.id] = [];
+                });
+            });
+            setTaskCompletion(initialCompletion);
+        }
     }
-  }, [shift]);
-  
-  const [issues, setIssues] = useState('');
+    
+    return () => unsubscribe();
+  }, [shift, dailyStorageKey]);
   
   const allPagePhotos = useMemo(() => {
     if (!shift) return [];
@@ -107,26 +121,24 @@ export default function ChecklistPage() {
   
   const handleCapturePhotos = (photos: string[]) => {
     if (activeTaskId) {
-      setTaskCompletion(current => {
-        const newCompletion = JSON.parse(JSON.stringify(current));
-        const taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
+      const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
+      const taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
 
-        if (activeCompletionIndex !== null) {
-          // Editing existing completion
-          taskCompletions[activeCompletionIndex].photos = photos;
-        } else {
-          // Adding new completion
-          const now = new Date();
-          const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          taskCompletions.push({
-            timestamp: formattedTime,
-            photos: photos
-          });
-        }
-        
-        newCompletion[activeTaskId] = taskCompletions;
-        return newCompletion;
-      });
+      if (activeCompletionIndex !== null) {
+        // Editing existing completion
+        taskCompletions[activeCompletionIndex].photos = photos;
+      } else {
+        // Adding new completion
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        taskCompletions.push({
+          timestamp: formattedTime,
+          photos: photos
+        });
+      }
+      
+      newCompletion[activeTaskId] = taskCompletions;
+      updateCompletionState(newCompletion);
     }
     setIsCameraOpen(false);
     setActiveTaskId(null);
@@ -134,8 +146,7 @@ export default function ChecklistPage() {
   };
   
   const handleDeletePhoto = (taskId: string, completionIndex: number, photoIndex: number) => {
-    setTaskCompletion(prev => {
-      const newCompletion = JSON.parse(JSON.stringify(prev));
+      const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       const targetCompletion = taskCompletions[completionIndex];
 
@@ -148,19 +159,16 @@ export default function ChecklistPage() {
       }
       
       newCompletion[taskId] = taskCompletions;
-      return newCompletion;
-    });
+      updateCompletionState(newCompletion);
   };
 
   const handleDeleteCompletion = (taskId: string, completionIndex: number) => {
-     setTaskCompletion(prev => {
-      const newCompletion = JSON.parse(JSON.stringify(prev));
+      const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       taskCompletions.splice(completionIndex, 1);
       newCompletion[taskId] = taskCompletions;
-      return newCompletion;
-    });
-     toast({
+      updateCompletionState(newCompletion);
+      toast({
         title: "Đã xóa lần thực hiện",
         description: "Lần hoàn thành công việc đã được xóa khỏi báo cáo.",
         variant: "destructive"
@@ -173,7 +181,7 @@ export default function ChecklistPage() {
       .flat()
       .flatMap((record: CompletionRecord) => record.photos);
       
-    dataStore.addReport({
+    dataStore.addOrUpdateReport({
         shiftKey,
         staffName: staffName || 'Nhân viên',
         completedTasks: taskCompletion,
@@ -182,23 +190,13 @@ export default function ChecklistPage() {
     });
     
     toast({
-      title: "Đã gửi báo cáo!",
-      description: "Báo cáo ca làm việc của bạn đã được gửi thành công.",
+      title: "Đã cập nhật báo cáo!",
+      description: "Báo cáo ca làm việc của bạn đã được cập nhật thành công.",
       style: {
         backgroundColor: 'var(--accent)',
         color: 'var(--accent-foreground)'
       }
     });
-
-    // Reset state
-    const initialCompletion: TaskCompletion = {};
-    shift.sections.forEach(section => {
-      section.tasks.forEach(task => {
-        initialCompletion[task.id] = [];
-      });
-    });
-    setTaskCompletion(initialCompletion);
-    setIssues('');
   };
   
   const getInitialPhotosForCamera = () => {
@@ -230,6 +228,9 @@ export default function ChecklistPage() {
   const openImagePreview = (url: string) => {
     const photoIndex = allPagePhotos.indexOf(url);
     if(photoIndex !== -1) {
+        if (carouselApi) {
+            carouselApi.scrollTo(photoIndex, true);
+        }
         setPreviewImageIndex(photoIndex);
         setIsPreviewOpen(true);
     }
@@ -247,7 +248,7 @@ export default function ChecklistPage() {
             </Link>
         </Button>
         <h1 className="text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
-        <p className="text-muted-foreground">Hoàn thành nhiệm vụ của bạn và gửi báo cáo cuối ca.</p>
+        <p className="text-muted-foreground">Hoàn thành nhiệm vụ của bạn và cập nhật báo cáo cuối ca.</p>
       </header>
 
       <div className="space-y-8">
@@ -391,7 +392,7 @@ export default function ChecklistPage() {
         
         <Button size="lg" className="w-full" onClick={handleSubmit}>
           <Send className="mr-2" />
-          Gửi báo cáo cuối cùng
+          Gửi/Cập nhật Báo cáo
         </Button>
       </div>
     </div>
@@ -407,11 +408,17 @@ export default function ChecklistPage() {
     />
      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-3xl p-0 border-0 bg-transparent shadow-none">
+            <DialogHeader className="absolute top-2 right-2 z-20">
+                 <DialogClose className="text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                    <X className="h-6 w-6" />
+                    <span className="sr-only">Đóng</span>
+                </DialogClose>
+            </DialogHeader>
             <Carousel
                 setApi={setCarouselApi}
                 opts={{
                     startIndex: previewImageIndex,
-                    loop: false,
+                    loop: allPagePhotos.length > 1,
                 }}
                 className="w-full"
             >
@@ -419,7 +426,12 @@ export default function ChecklistPage() {
                     {allPagePhotos.map((url, index) => (
                     <CarouselItem key={index}>
                         <div className="relative aspect-video w-full h-[80vh] sm:h-auto">
-                            <Image src={url} alt={`Ảnh xem trước ${index + 1}`} fill className="object-contain" />
+                             <Image 
+                                src={url} 
+                                alt={`Ảnh xem trước ${index + 1}`} 
+                                fill 
+                                className="object-contain"
+                            />
                         </div>
                     </CarouselItem>
                     ))}
@@ -431,15 +443,15 @@ export default function ChecklistPage() {
                     </>
                 )}
             </Carousel>
-             <DialogClose className="absolute right-0 -top-10 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                <X className="h-6 w-6" />
-                <span className="sr-only">Đóng</span>
-            </DialogClose>
-            <div className="text-center text-white text-sm mt-2 pointer-events-none">
-                Ảnh {currentSlide + 1} / {slideCount}
-            </div>
+           
+            {allPagePhotos.length > 1 && (
+                 <div className="text-center text-white text-sm mt-2 pointer-events-none">
+                    Ảnh {currentSlide + 1} / {slideCount}
+                </div>
+            )}
         </DialogContent>
     </Dialog>
     </>
   );
 }
+
