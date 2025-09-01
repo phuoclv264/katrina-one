@@ -92,11 +92,6 @@ export default function ChecklistPage() {
         newCompletion[activeTaskId] = taskCompletions;
         return newCompletion;
       });
-
-      toast({
-          title: `Đã lưu ${photos.length} ảnh!`,
-          description: "Ảnh đã được thêm vào báo cáo của bạn."
-      });
     }
     setIsCameraOpen(false);
     setActiveTaskId(null);
