@@ -15,6 +15,7 @@ import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 
 export default function ChecklistPage() {
@@ -28,6 +29,9 @@ export default function ChecklistPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
+  
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -188,9 +192,14 @@ export default function ChecklistPage() {
         case 'Đầu ca': return 'border-yellow-500/50';
         case 'Trong ca': return 'border-sky-500/50';
         case 'Cuối ca': return 'border-indigo-500/50';
-        default: return 'border';
+        default: return 'border-border';
     }
   }
+  
+  const openImagePreview = (url: string) => {
+    setPreviewImageUrl(url);
+    setIsPreviewOpen(true);
+  };
 
 
   return (
@@ -299,17 +308,19 @@ export default function ChecklistPage() {
                                 {completion.photos.length > 0 ? (
                                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                     {completion.photos.map((photo, pIndex) => (
-                                        <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md">
-                                        <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                        <Button 
-                                            variant="destructive"
-                                            size="icon"
-                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full"
-                                            onClick={() => handleDeletePhoto(task.id, cIndex, pIndex)}
-                                        >
-                                            <X className="h-3 w-3" />
-                                            <span className="sr-only">Xóa ảnh</span>
-                                        </Button>
+                                        <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md group">
+                                            <button onClick={() => openImagePreview(photo)} className="w-full h-full">
+                                                <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                            </button>
+                                            <Button 
+                                                variant="destructive"
+                                                size="icon"
+                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full"
+                                                onClick={() => handleDeletePhoto(task.id, cIndex, pIndex)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                                <span className="sr-only">Xóa ảnh</span>
+                                            </Button>
                                         </div>
                                     ))}
                                     </div>
@@ -360,6 +371,18 @@ export default function ChecklistPage() {
         onSubmit={handleCapturePhotos}
         initialPhotos={getInitialPhotosForCamera()}
     />
+     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Xem trước ảnh</DialogTitle>
+            </DialogHeader>
+            {previewImageUrl && (
+                <div className="relative aspect-video">
+                    <Image src={previewImageUrl} alt="Ảnh xem trước" fill className="object-contain rounded-md" />
+                </div>
+            )}
+        </DialogContent>
+    </Dialog>
     </>
   );
 }

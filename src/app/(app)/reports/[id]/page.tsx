@@ -12,11 +12,16 @@ import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, 
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { TaskCompletion, CompletionRecord } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function ReportDetailPage() {
   const params = useParams();
   const [reports, setReports] = useState(dataStore.getReports());
   const [tasksByShift, setTasksByShift] = useState(dataStore.getTasks());
+  
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe(() => {
@@ -52,8 +57,14 @@ export default function ReportDetailPage() {
   const totalTaskCount = shift.sections.flatMap(s => s.tasks).length;
   const completedTaskCount = getCompletedTaskCount(report.completedTasks);
 
+  const openImagePreview = (url: string) => {
+    setPreviewImageUrl(url);
+    setIsPreviewOpen(true);
+  };
+
 
   return (
+    <>
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <Button asChild variant="ghost" className="mb-4 -ml-4">
@@ -113,9 +124,9 @@ export default function ReportDetailPage() {
                                     {completion.photos.length > 0 ? (
                                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                         {completion.photos.map((photo, pIndex) => (
-                                            <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md">
-                                            <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                            </div>
+                                            <button key={pIndex} onClick={() => openImagePreview(photo)} className="relative aspect-square overflow-hidden rounded-md group">
+                                                <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                            </button>
                                         ))}
                                         </div>
                                     ) : (
@@ -144,9 +155,9 @@ export default function ReportDetailPage() {
               {report.uploadedPhotos.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
                   {report.uploadedPhotos.map((photo, index) => (
-                    <div key={index} className="relative aspect-video overflow-hidden rounded-md">
+                    <button key={index} onClick={() => openImagePreview(photo)} className="relative aspect-video overflow-hidden rounded-md group">
                       <Image src={photo} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -168,5 +179,18 @@ export default function ReportDetailPage() {
         </div>
       </div>
     </div>
+    <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Xem trước ảnh</DialogTitle>
+            </DialogHeader>
+            {previewImageUrl && (
+                <div className="relative aspect-video">
+                    <Image src={previewImageUrl} alt="Ảnh xem trước" fill className="object-contain rounded-md" />
+                </div>
+            )}
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
