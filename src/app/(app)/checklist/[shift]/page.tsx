@@ -1,23 +1,25 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { Task, TaskCompletion, TasksByShift, CompletionRecord } from '@/lib/types';
+import type { TaskCompletion, TasksByShift, CompletionRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2 } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 export default function ChecklistPage() {
   const { toast } = useToast();
-  const { role, staffName } = useAuth();
+  const { staffName } = useAuth();
   const params = useParams();
   const shiftKey = params.shift as string;
 
@@ -53,7 +55,7 @@ export default function ChecklistPage() {
   const [issues, setIssues] = useState('');
 
   if (!shift) {
-    return <div>Đang tải...</div>;
+    return <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">Đang tải...</div>;
   }
   
   const handleTaskAction = (taskId: string) => {
@@ -128,7 +130,6 @@ export default function ChecklistPage() {
 
 
   const handleSubmit = () => {
-    // Consolidate all photos from taskCompletions into a single array for the report
     const allUploadedPhotos = Object.values(taskCompletion)
       .flat()
       .flatMap((record: CompletionRecord) => record.photos);
@@ -139,7 +140,6 @@ export default function ChecklistPage() {
         completedTasks: taskCompletion,
         uploadedPhotos: allUploadedPhotos,
         issues: issues || null,
-        taskPhotos: {}, // This can be deprecated or re-purposed if needed
     });
     
     toast({
@@ -190,7 +190,7 @@ export default function ChecklistPage() {
           <CardHeader>
             <CardTitle>Nhiệm vụ</CardTitle>
             <CardDescription>
-              Nhấn "Đã hoàn thành" để ghi nhận công việc bằng hình ảnh.
+              Nhấn "Đã hoàn thành" để ghi nhận công việc bằng hình ảnh. Bạn có thể thực hiện một công việc nhiều lần.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -212,7 +212,15 @@ export default function ChecklistPage() {
                                   {task.text}
                                 </p>
                               </div>
-                              <Button size="sm" variant="secondary" onClick={() => handleTaskAction(task.id)}>
+                              <Button 
+                                size="sm" 
+                                style={{
+                                  backgroundColor: 'hsl(var(--accent)/0.8)',
+                                  color: 'hsl(var(--accent-foreground))'
+                                }}
+                                className="active:scale-95 transition-transform"
+                                onClick={() => handleTaskAction(task.id)}
+                              >
                                   <Camera className="mr-2 h-4 w-4"/>
                                   Đã hoàn thành
                               </Button>
@@ -230,23 +238,43 @@ export default function ChecklistPage() {
                                               <Camera className="mr-1.5 h-3 w-3" />
                                               Sửa ảnh
                                           </Button>
-                                          <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteCompletion(task.id, cIndex)}>
-                                              <Trash2 className="h-3 w-3" />
-                                          </Button>
+                                          
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                               <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle className="flex items-center gap-2">
+                                                        <AlertCircle className="text-destructive"/>
+                                                        Bạn có chắc chắn không?
+                                                    </AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Hành động này sẽ xóa lần hoàn thành công việc này và tất cả các ảnh liên quan. Bạn không thể hoàn tác hành động này.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
                                       </div>
                                   </div>
                                 {completion.photos.length > 0 ? (
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                     {completion.photos.map((photo, pIndex) => (
                                         <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md">
                                         <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
                                         <Button 
                                             variant="destructive"
                                             size="icon"
-                                            className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full"
                                             onClick={() => handleDeletePhoto(task.id, cIndex, pIndex)}
                                         >
-                                            <X className="h-4 w-4" />
+                                            <X className="h-3 w-3" />
                                             <span className="sr-only">Xóa ảnh</span>
                                         </Button>
                                         </div>
@@ -301,3 +329,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
