@@ -107,7 +107,16 @@ export default function ChecklistPage() {
     setTaskCompletion(prev => {
       const newCompletion = JSON.parse(JSON.stringify(prev));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
-      taskCompletions[completionIndex].photos.splice(photoIndex, 1);
+      const targetCompletion = taskCompletions[completionIndex];
+
+      if (targetCompletion) {
+          targetCompletion.photos.splice(photoIndex, 1);
+          // If this was the last photo, remove the entire completion record.
+          if (targetCompletion.photos.length === 0) {
+              taskCompletions.splice(completionIndex, 1);
+          }
+      }
+      
       newCompletion[taskId] = taskCompletions;
       return newCompletion;
     });
@@ -195,17 +204,20 @@ export default function ChecklistPage() {
           </CardHeader>
           <CardContent>
             <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full">
-              {shift.sections.map((section) => (
+              {shift.sections.map((section) => {
+                const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
+                return (
                 <AccordionItem value={section.title} key={section.title}>
                   <AccordionTrigger className="text-lg font-medium">{section.title}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4 pt-2">
                       {section.tasks.map((task) => {
                         const completions = (taskCompletion[task.id] || []) as CompletionRecord[];
-                        const isCompleted = completions.length > 0;
+                        const isCompletedOnce = completions.length > 0;
+                        const isDisabled = isSingleCompletionSection && isCompletedOnce;
                         
                         return (
-                           <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
+                           <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
                             <div className="flex items-center gap-4">
                               <div className="flex-1">
                                 <p className="font-medium">
@@ -214,12 +226,13 @@ export default function ChecklistPage() {
                               </div>
                               <Button 
                                 size="sm" 
-                                style={{
+                                style={!isDisabled ? {
                                   backgroundColor: 'hsl(var(--accent)/0.8)',
                                   color: 'hsl(var(--accent-foreground))'
-                                }}
+                                } : {}}
                                 className="active:scale-95 transition-transform"
                                 onClick={() => handleTaskAction(task.id)}
+                                disabled={isDisabled}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>
                                   Đã hoàn thành
@@ -234,7 +247,7 @@ export default function ChecklistPage() {
                                           <span>Thực hiện lúc: {completion.timestamp}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
-                                          <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)}>
+                                          <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)} disabled={isDisabled}>
                                               <Camera className="mr-1.5 h-3 w-3" />
                                               Sửa ảnh
                                           </Button>
@@ -291,7 +304,8 @@ export default function ChecklistPage() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              ))}
+                )
+              })}
             </Accordion>
           </CardContent>
         </Card>
@@ -329,5 +343,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    
