@@ -193,8 +193,9 @@ export default function ChecklistPage() {
       title: "Đã cập nhật báo cáo!",
       description: "Báo cáo ca làm việc của bạn đã được cập nhật thành công.",
       style: {
-        backgroundColor: 'var(--accent)',
-        color: 'var(--accent-foreground)'
+        backgroundColor: 'hsl(var(--accent))',
+        color: 'hsl(var(--accent-foreground))',
+        border: '1px solid hsl(var(--accent))'
       }
     });
   };
