@@ -5,10 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import AiReportSummary from '@/components/ai-report-summary';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Sparkles, Star, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Star, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { TaskCompletion, CompletionRecord } from '@/lib/types';
@@ -101,6 +100,9 @@ export default function ReportDetailPage() {
   const openImagePreview = (url: string) => {
     const photoIndex = allPagePhotos.indexOf(url);
     if (photoIndex !== -1) {
+        if (carouselApi) {
+            carouselApi.scrollTo(photoIndex, true);
+        }
         setPreviewImageIndex(photoIndex);
         setIsPreviewOpen(true);
     }
@@ -143,15 +145,6 @@ export default function ReportDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Sparkles className="text-primary" /> Tóm tắt từ AI</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <AiReportSummary report={report} />
-                </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
@@ -248,11 +241,17 @@ export default function ReportDetailPage() {
     </div>
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-3xl p-0 border-0 bg-transparent shadow-none">
+            <DialogHeader className="absolute top-2 right-2 z-20">
+                 <DialogClose className="text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                    <X className="h-6 w-6" />
+                    <span className="sr-only">Đóng</span>
+                </DialogClose>
+            </DialogHeader>
             <Carousel
                 setApi={setCarouselApi}
                 opts={{
                     startIndex: previewImageIndex,
-                    loop: false,
+                    loop: allPagePhotos.length > 1,
                 }}
                 className="w-full"
             >
@@ -272,13 +271,11 @@ export default function ReportDetailPage() {
                     </>
                 )}
             </Carousel>
-             <DialogClose className="absolute right-0 -top-10 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                <X className="h-6 w-6" />
-                <span className="sr-only">Đóng</span>
-            </DialogClose>
-            <div className="text-center text-white text-sm mt-2 pointer-events-none">
-                Ảnh {currentSlide + 1} / {slideCount}
-            </div>
+            {allPagePhotos.length > 1 && (
+                <div className="text-center text-white text-sm mt-2 pointer-events-none">
+                    Ảnh {currentSlide + 1} / {slideCount}
+                </div>
+            )}
         </DialogContent>
     </Dialog>
     </>
