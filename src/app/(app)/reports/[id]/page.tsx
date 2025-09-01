@@ -88,7 +88,7 @@ export default function ReportDetailPage() {
                  <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full">
                   {shift.sections.map((section) => (
                     <AccordionItem value={section.title} key={section.title}>
-                      <AccordionTrigger className="text-lg font-medium">{section.title}</AccordionTrigger>
+                      <AccordionTrigger className="text-lg font-bold">{section.title}</AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-4 pt-2">
                           {section.tasks.map((task) => {
