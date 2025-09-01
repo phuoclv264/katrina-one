@@ -176,10 +176,19 @@ export default function ChecklistPage() {
   
   const getSectionIcon = (title: string) => {
     switch(title) {
-        case 'Đầu ca': return <Sunrise className="mr-3 h-5 w-5 text-primary" />;
-        case 'Trong ca': return <Activity className="mr-3 h-5 w-5 text-primary" />;
-        case 'Cuối ca': return <Sunset className="mr-3 h-5 w-5 text-primary" />;
+        case 'Đầu ca': return <Sunrise className="mr-3 h-5 w-5 text-yellow-500" />;
+        case 'Trong ca': return <Activity className="mr-3 h-5 w-5 text-sky-500" />;
+        case 'Cuối ca': return <Sunset className="mr-3 h-5 w-5 text-indigo-500" />;
         default: return null;
+    }
+  }
+
+  const getSectionBorderColor = (title: string) => {
+    switch(title) {
+        case 'Đầu ca': return 'border-yellow-500/50';
+        case 'Trong ca': return 'border-sky-500/50';
+        case 'Cuối ca': return 'border-indigo-500/50';
+        default: return 'border';
     }
   }
 
@@ -211,7 +220,7 @@ export default function ChecklistPage() {
               {shift.sections.map((section) => {
                 const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                 return (
-                <AccordionItem value={section.title} key={section.title} className="rounded-lg border bg-card">
+                <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-2 bg-card ${getSectionBorderColor(section.title)}`}>
                   <AccordionTrigger className="text-lg font-medium p-4 hover:no-underline">
                      <div className="flex items-center">
                         {getSectionIcon(section.title)}
