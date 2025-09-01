@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -173,6 +173,15 @@ export default function ChecklistPage() {
     }
     return [];
   }
+  
+  const getSectionIcon = (title: string) => {
+    switch(title) {
+        case 'Đầu ca': return <Sunrise className="mr-3 h-5 w-5 text-primary" />;
+        case 'Trong ca': return <Activity className="mr-3 h-5 w-5 text-primary" />;
+        case 'Cuối ca': return <Sunset className="mr-3 h-5 w-5 text-primary" />;
+        default: return null;
+    }
+  }
 
 
   return (
@@ -198,13 +207,18 @@ export default function ChecklistPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full">
+            <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
               {shift.sections.map((section) => {
                 const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                 return (
-                <AccordionItem value={section.title} key={section.title}>
-                  <AccordionTrigger className="text-lg font-medium">{section.title}</AccordionTrigger>
-                  <AccordionContent>
+                <AccordionItem value={section.title} key={section.title} className="rounded-lg border bg-card">
+                  <AccordionTrigger className="text-lg font-medium p-4 hover:no-underline">
+                     <div className="flex items-center">
+                        {getSectionIcon(section.title)}
+                        {section.title}
+                     </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="border-t p-4">
                     <div className="space-y-4 pt-2">
                       {section.tasks.map((task) => {
                         const completions = (taskCompletion[task.id] || []) as CompletionRecord[];
