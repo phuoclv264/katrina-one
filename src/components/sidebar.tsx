@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -15,7 +16,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export function AppSidebar() {
-  const { role, logout } = useAuth();
+  const { role, staffName, logout } = useAuth();
   const pathname = usePathname();
 
   const staffMenu = [
@@ -28,6 +29,7 @@ export function AppSidebar() {
   ];
 
   const menuItems = role === 'staff' ? staffMenu : managerMenu;
+  const displayName = role === 'staff' ? staffName : 'Quản lý';
 
   return (
     <>
@@ -58,7 +60,7 @@ export function AppSidebar() {
                 {role === 'staff' ? <User /> : <Building />}
             </div>
             <div className="flex flex-col overflow-hidden">
-                <span className="font-semibold truncate">{role === 'staff' ? 'Nhân viên' : 'Quản lý'}</span>
+                <span className="font-semibold truncate">{displayName}</span>
                 <span className="text-xs text-muted-foreground capitalize">{role}</span>
             </div>
             <SidebarMenuButton

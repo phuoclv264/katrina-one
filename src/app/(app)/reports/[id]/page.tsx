@@ -159,9 +159,9 @@ export default function ReportDetailPage() {
 
   return (
     <>
-    <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-      <header className="mb-8">
-        <Button asChild variant="ghost" className="mb-4 -ml-4">
+    <div className="flex flex-col flex-1 p-4 sm:p-6 md:p-8 gap-8">
+      <header className="flex flex-col gap-4">
+        <Button asChild variant="ghost" className="mb-0 -ml-4 self-start">
             <Link href="/reports">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại tất cả báo cáo
@@ -169,7 +169,7 @@ export default function ReportDetailPage() {
         </Button>
         <div className="flex justify-between items-start">
             <div>
-                 <h1 className="text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
+                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
                 <p className="text-muted-foreground">
                 Báo cáo ca từ <span className="font-semibold">{report.staffName}</span>, cập nhật lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
                 </p>
@@ -325,5 +325,3 @@ export default function ReportDetailPage() {
     </>
   );
 }
-
-    
