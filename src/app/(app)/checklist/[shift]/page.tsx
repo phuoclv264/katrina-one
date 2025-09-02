@@ -266,7 +266,7 @@ export default function ChecklistPage() {
 
   return (
     <>
-    <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
+    <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-24">
       <header className="mb-8">
          <div className="flex justify-between items-center mb-4">
             <Button asChild variant="ghost" className="-ml-4">
@@ -446,6 +446,19 @@ export default function ChecklistPage() {
         </Card>
       </div>
     </div>
+
+    <div className="fixed bottom-6 right-6 z-50 md:hidden">
+        <Button 
+            size="lg"
+            className="rounded-full shadow-lg h-16 w-16" 
+            onClick={handleSyncReport} 
+            disabled={isReadonly}
+            aria-label="Gửi báo cáo"
+        >
+            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+        </Button>
+    </div>
+
     <CameraDialog 
         isOpen={isCameraOpen}
         onClose={handleCameraClose}
