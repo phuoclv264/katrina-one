@@ -21,7 +21,6 @@ export default function ReportDetailPage() {
   const reportId = params.id as string;
   const [report, setReport] = useState<ShiftReport | null | undefined>(undefined);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
-  const [error, setError] = useState<string | null>(null);
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -32,39 +31,22 @@ export default function ReportDetailPage() {
   const isLoading = report === undefined || tasksByShift === null;
 
   useEffect(() => {
-    if(!reportId) {
-        setError("ID báo cáo không tồn tại.");
-        setReport(null);
-        setTasksByShift({}); // Set to empty to stop loading
-        return;
-    };
-    
-    let reportUnsub: (() => void) | null = null;
-    let tasksUnsub: (() => void) | null = null;
-
-    // 1. Subscribe to tasks first
-    tasksUnsub = dataStore.subscribeToTasks((tasks) => {
-        setTasksByShift(tasks);
-        
-        // 2. Once tasks are loaded, subscribe to the specific report
-        if (reportUnsub) reportUnsub(); // Unsubscribe from previous listener if any
-
-        reportUnsub = dataStore.subscribeToReport(reportId, (fetchedReport) => {
-            if (fetchedReport === null) {
-                setError("Báo cáo không tìm thấy. Có thể nó đã bị xóa.");
-                setReport(null);
-            } else {
-                setReport(fetchedReport);
-                setError(null);
-            }
-        });
-    });
-    
-    return () => {
-      if(reportUnsub) reportUnsub();
-      if(tasksUnsub) tasksUnsub();
+    if (!reportId) {
+      setReport(null); // Set to null if no ID, indicating not found
+      return;
     }
+    const unsubscribe = dataStore.subscribeToReport(reportId, (fetchedReport) => {
+        setReport(fetchedReport);
+    });
+    return () => unsubscribe();
   }, [reportId]);
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribeToTasks((tasks) => {
+        setTasksByShift(tasks);
+    });
+    return () => unsubscribe();
+  }, []);
   
   const allPagePhotos = useMemo(() => {
     if (!report) return [];
@@ -132,8 +114,8 @@ export default function ReportDetailPage() {
     )
   }
 
-  if (error || !report || !tasksByShift) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">{error || "Báo cáo không tìm thấy hoặc không thể tải dữ liệu ca làm việc."}</div>;
+  if (!report || !tasksByShift) {
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy. Có thể nó đã bị xóa.</div>;
   }
 
   const shift = tasksByShift[report.shiftKey];
@@ -325,4 +307,6 @@ export default function ReportDetailPage() {
     </>
   );
 }
+    
+
     
