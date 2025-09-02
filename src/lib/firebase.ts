@@ -1,6 +1,6 @@
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDo4AmEEV-O0AhLJi0hnVHwGiApNl3j9sE",
   authDomain: "katrinaone.firebaseapp.com",
   projectId: "katrinaone",
-  storageBucket: "katrinaone.firebasestorage.app",
+  storageBucket: "katrinaone.appspot.com",
   messagingSenderId: "79531218569",
   appId: "1:79531218569:web:7f05767af45e3aa12f1858",
   measurementId: "G-2F66CP4D92"
@@ -24,15 +24,21 @@ function initializeFirebase() {
   if (typeof window !== 'undefined') {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
     } else {
       app = getApp();
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
     }
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    
+    // Automatically sign in anonymously
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        signInAnonymously(auth).catch((error) => {
+          console.error("Anonymous sign-in failed: ", error);
+        });
+      }
+    });
   }
 }
 
