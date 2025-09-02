@@ -65,9 +65,7 @@ export default function ChecklistPage() {
     const loadReport = async () => {
         setIsLoading(true);
         const initialReport = await dataStore.getOrCreateReport(staffName, shiftKey);
-        setReport(initialReport);
-        setIsLoading(false);
-
+        
         if (initialReport.status === 'submitted') {
             toast({
                 title: "Ca đã hoàn thành",
@@ -75,6 +73,8 @@ export default function ChecklistPage() {
                 duration: 5000,
             });
         }
+        setReport(initialReport);
+        setIsLoading(false);
     };
 
     loadReport();
@@ -116,7 +116,7 @@ export default function ChecklistPage() {
         console.error(error);
         toast({ title: "Lỗi đồng bộ", description: "Không thể kết nối tới server. Vui lòng kiểm tra lại mạng.", variant: "destructive" });
         // The data-store reverts the isSyncing state automatically
-        const currentReport = await dataStore.getOrCreateReport(staffName, shiftKey);
+        const currentReport = await dataStore.getOrCreateReport(staffName!, shiftKey);
         setReport(currentReport);
       }
   };
@@ -197,13 +197,19 @@ export default function ChecklistPage() {
       await updateLocalReport(newReport);
   }
   
-  const getInitialPhotosForCamera = useMemo(() => {
+  const cameraInitialPhotos = useMemo(() => {
     if (activeTaskId && activeCompletionIndex !== null && report) {
       const completions = (report.completedTasks[activeTaskId] || []) as CompletionRecord[];
       return completions[activeCompletionIndex]?.photos || [];
     }
     return [];
   }, [activeTaskId, activeCompletionIndex, report]);
+
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTaskId(null);
+    setActiveCompletionIndex(null);
+  }, []);
   
   const getSectionIcon = (title: string) => {
     switch(title) {
@@ -290,10 +296,11 @@ export default function ChecklistPage() {
         </div>
       </header>
       
-      {isReadonly && (
-        <AlertCircle className="mb-4 bg-yellow-100 border-yellow-400 text-yellow-800 p-4 rounded-md text-sm">
-            Báo cáo này đã được gửi và không thể chỉnh sửa.
-        </AlertCircle>
+      {report.status === 'submitted' && (
+        <div className="mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+            <p className="font-bold">Ca đã hoàn thành</p>
+            <p>Báo cáo này đã được gửi và không thể chỉnh sửa.</p>
+        </div>
       )}
 
       <div className="space-y-8">
@@ -389,21 +396,22 @@ export default function ChecklistPage() {
                                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                     {completion.photos.map((photo, pIndex) => {
                                       return (
-                                        <div key={photo.slice(0, 50)} className="relative aspect-square overflow-hidden rounded-md group bg-muted">
+                                        <div key={photo.slice(0, 50) + pIndex} className="relative aspect-square overflow-hidden rounded-md group bg-muted">
                                             <button onClick={() => openImagePreview(photo)} className="w-full h-full">
                                                 <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
                                             </button>
                                             
-                                            <Button 
-                                                variant="destructive"
-                                                size="icon"
-                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-20"
-                                                onClick={() => handleDeletePhoto(task.id, cIndex, photo)}
-                                                disabled={isReadonly}
-                                            >
-                                                <X className="h-3 w-3" />
-                                                <span className="sr-only">Xóa ảnh</span>
-                                            </Button>
+                                            {!isReadonly && (
+                                                <Button 
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-20"
+                                                    onClick={() => handleDeletePhoto(task.id, cIndex, photo)}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                    <span className="sr-only">Xóa ảnh</span>
+                                                </Button>
+                                            )}
                                         </div>
                                     )})}
                                     </div>
@@ -442,13 +450,9 @@ export default function ChecklistPage() {
     </div>
     <CameraDialog 
         isOpen={isCameraOpen}
-        onClose={() => {
-            setIsCameraOpen(false);
-            setActiveTaskId(null);
-            setActiveCompletionIndex(null);
-        }}
+        onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
-        initialPhotos={getInitialPhotosForCamera}
+        initialPhotos={cameraInitialPhotos}
     />
      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-3xl p-0 border-0 bg-transparent shadow-none">

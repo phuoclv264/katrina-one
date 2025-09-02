@@ -39,7 +39,10 @@ const cleanupOldLocalStorage = () => {
 };
 
 // Run cleanup once on app load
-cleanupOldLocalStorage();
+if (typeof window !== 'undefined') {
+    cleanupOldLocalStorage();
+}
+
 
 export const dataStore = {
 
@@ -86,16 +89,26 @@ export const dataStore = {
         return JSON.parse(localData);
     }
     
-    // 2. If not in local, check if it was already submitted on Firestore
-    const submittedReport = await this.getSubmittedReport(staffName, shiftKey, date);
-    if (submittedReport) {
-        // A report for this shift/day has already been submitted.
-        // We save it locally to prevent re-creation and signal it's done.
-        localStorage.setItem(reportId, JSON.stringify(submittedReport));
-        return submittedReport;
+    // 2. If not in local, check Firestore for an existing report for today
+    const firestoreDocRef = doc(db, 'reports', reportId);
+    const firestoreDocSnap = await getDoc(firestoreDocRef);
+
+    if (firestoreDocSnap.exists()) {
+        const firestoreData = firestoreDocSnap.data() as ShiftReport;
+        const report = {
+             ...firestoreData,
+             id: firestoreDocSnap.id,
+             // Convert Firestore Timestamps to ISO strings for consistency
+             startedAt: (firestoreData.startedAt as any)?.toDate ? (firestoreData.startedAt as any).toDate().toISOString() : firestoreData.startedAt,
+             submittedAt: (firestoreData.submittedAt as any)?.toDate ? (firestoreData.submittedAt as any).toDate().toISOString() : firestoreData.submittedAt,
+             lastSynced: (firestoreData.lastSynced as any)?.toDate ? (firestoreData.lastSynced as any).toDate().toISOString() : firestoreData.lastSynced,
+        };
+        // Save the fetched report to local storage to continue the session
+        localStorage.setItem(reportId, JSON.stringify(report));
+        return report;
     }
 
-    // 3. If nothing exists, create a new local report
+    // 3. If nothing exists anywhere, create a new local report
     const newReport: ShiftReport = {
         id: reportId,
         staffName,
@@ -116,15 +129,19 @@ export const dataStore = {
   },
   
   async syncReport(reportId: string): Promise<ShiftReport> {
-      let report: ShiftReport = JSON.parse(localStorage.getItem(reportId)!);
-      if (!report) throw new Error("Báo cáo không tìm thấy để đồng bộ.");
+      let reportString = localStorage.getItem(reportId);
+      if (!reportString) throw new Error("Báo cáo không tìm thấy để đồng bộ.");
 
+      let report: ShiftReport = JSON.parse(reportString);
+
+      // Set syncing state in UI
       report = { ...report, isSyncing: true };
       await this.saveLocalReport(report);
       
       try {
         const firestoreRef = doc(db, 'reports', report.id);
-        const reportToSync = JSON.parse(JSON.stringify(report)); // Deep copy
+        // Create a deep copy for manipulation to avoid race conditions with React state
+        const reportToSync = JSON.parse(JSON.stringify(report));
 
         let allUploadedUrls: string[] = reportToSync.uploadedPhotos || [];
 
@@ -139,7 +156,11 @@ export const dataStore = {
                         const snapshot = await uploadString(storageRef, photo, 'data_url');
                         const downloadURL = await getDownloadURL(snapshot.ref);
                         uploadedPhotosInCompletion.push(downloadURL);
-                        allUploadedUrls.push(downloadURL);
+                        
+                        // Add to master list if not already there
+                        if (!allUploadedUrls.includes(downloadURL)) {
+                           allUploadedUrls.push(downloadURL);
+                        }
                     } else {
                         // It's already a URL, keep it
                         uploadedPhotosInCompletion.push(photo);
@@ -155,11 +176,20 @@ export const dataStore = {
         delete reportToSync.isSyncing;
 
         // Use setDoc with merge: true to create or update
+        // We convert startedAt back to a Timestamp if it's the first sync
+        const docExists = (await getDoc(firestoreRef)).exists();
+        if(!docExists) {
+            reportToSync.startedAt = Timestamp.fromDate(new Date(reportToSync.startedAt));
+        } else {
+            delete reportToSync.startedAt; // Don't overwrite the original start time
+        }
+        
         await setDoc(firestoreRef, reportToSync, { merge: true });
         
         // Save the final, synced state back to local storage
-        await this.saveLocalReport(reportToSync);
-        return reportToSync;
+        const finalReportState = { ...report, ...reportToSync, startedAt: new Date(report.startedAt).toISOString() };
+        await this.saveLocalReport(finalReportState);
+        return finalReportState;
 
       } catch (error) {
           console.error("Sync failed:", error);
@@ -176,16 +206,15 @@ export const dataStore = {
      
      // Then, mark as submitted
      report.status = 'submitted';
-     report.submittedAt = serverTimestamp(); // Use server time for final submission
+     report.submittedAt = new Date().toISOString(); // Set local submitted time
      
      const firestoreRef = doc(db, 'reports', report.id);
-     await setDoc(firestoreRef, {
+     await updateDoc(firestoreRef, {
         status: 'submitted',
-        submittedAt: serverTimestamp()
-     }, { merge: true });
+        submittedAt: serverTimestamp() // Use server time for final submission
+     });
 
      // Save final state to local storage
-     report.submittedAt = new Date().toISOString(); // Approximate for local
      await this.saveLocalReport(report);
      
      return report;
@@ -219,15 +248,14 @@ export const dataStore = {
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-        const data = docSnap.data() as ShiftReport;
-        if(data.status === 'submitted') {
-            return {
-                ...data,
-                id: docSnap.id,
-                startedAt: (data.startedAt as any)?.toDate ? (data.startedAt as any).toDate().toISOString() : data.startedAt,
-                submittedAt: (data.submittedAt as any)?.toDate ? (data.submittedAt as any).toDate().toISOString() : data.submittedAt,
-            };
-        }
+        const data = docSnap.data();
+        // Return the report regardless of status, the caller can decide what to do
+        return {
+            ...data,
+            id: docSnap.id,
+            startedAt: (data.startedAt as any)?.toDate ? (data.startedAt as any).toDate().toISOString() : data.startedAt,
+            submittedAt: (data.submittedAt as any)?.toDate ? (data.submittedAt as any).toDate().toISOString() : data.submittedAt,
+        } as ShiftReport;
     }
     return null;
   },
