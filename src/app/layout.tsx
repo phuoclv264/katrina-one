@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'ShiftCheck',
+  title: 'Katrina One',
   description: 'Ứng dụng đơn giản để quản lý công việc theo ca.',
 };
 

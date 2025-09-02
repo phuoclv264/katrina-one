@@ -31,7 +31,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
       <div className="flex flex-col items-center gap-2 text-center mb-8">
-        <h1 className="text-4xl font-bold text-primary font-headline">ShiftCheck</h1>
+        <h1 className="text-4xl font-bold text-primary font-headline">Katrina One</h1>
         <p className="text-muted-foreground max-w-sm">
           Cách đơn giản và hiệu quả để quản lý công việc và báo cáo hàng ngày.
         </p>
