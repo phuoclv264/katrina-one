@@ -33,40 +33,32 @@ export default function ReportDetailPage() {
 
   useEffect(() => {
     if(!reportId) {
-        setReport(null); // Explicitly set to null if no ID
-        setError("Report ID is missing.");
+        setError("ID báo cáo không tồn tại.");
+        setReport(null);
+        setTasksByShift({}); // Set to empty to stop loading
         return;
     };
     
     let reportUnsub: (() => void) | null = null;
     let tasksUnsub: (() => void) | null = null;
 
-    const loadData = async () => {
-        try {
-            tasksUnsub = dataStore.subscribeToTasks((tasks) => {
-                setTasksByShift(tasks);
-            });
+    // 1. Subscribe to tasks first
+    tasksUnsub = dataStore.subscribeToTasks((tasks) => {
+        setTasksByShift(tasks);
+        
+        // 2. Once tasks are loaded, subscribe to the specific report
+        if (reportUnsub) reportUnsub(); // Unsubscribe from previous listener if any
 
-            reportUnsub = dataStore.subscribeToReport(reportId, (fetchedReport) => {
-                 if (fetchedReport === null) {
-                    setError("Báo cáo không tìm thấy. Có thể nó đã bị xóa.");
-                    setReport(null);
-                } else {
-                    setReport(fetchedReport); // This could be the report object or undefined
-                    if (fetchedReport) {
-                       setError(null); // Clear previous error if we get a valid report
-                    }
-                }
-            });
-
-        } catch (e) {
-            console.error(e);
-            setError("Đã xảy ra lỗi khi tải dữ liệu.");
-            setReport(null);
-        }
-    };
-    
-    loadData();
+        reportUnsub = dataStore.subscribeToReport(reportId, (fetchedReport) => {
+            if (fetchedReport === null) {
+                setError("Báo cáo không tìm thấy. Có thể nó đã bị xóa.");
+                setReport(null);
+            } else {
+                setReport(fetchedReport);
+                setError(null);
+            }
+        });
+    });
     
     return () => {
       if(reportUnsub) reportUnsub();
@@ -333,5 +325,4 @@ export default function ReportDetailPage() {
     </>
   );
 }
-
     
