@@ -22,6 +22,7 @@ export default function ReportDetailPage() {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -31,37 +32,56 @@ export default function ReportDetailPage() {
 
 
   useEffect(() => {
-    if(!reportId) return;
+    if(!reportId) {
+        setIsLoading(false);
+        setError("Report ID is missing.");
+        return;
+    };
     
-    let isReportLoaded = false;
-    let isTasksLoaded = false;
-    let loadedReport: ShiftReport | null = null;
-    let loadedTasks: TasksByShift | null = null;
+    let reportUnsub: (() => void) | null = null;
+    let tasksUnsub: (() => void) | null = null;
 
-    const checkAndSetLoading = () => {
-        if (isReportLoaded && isTasksLoaded) {
+    const loadData = async () => {
+        try {
+            tasksUnsub = dataStore.subscribeToTasks((tasks) => {
+                setTasksByShift(tasks);
+            });
+
+            reportUnsub = dataStore.subscribeToReport(reportId, (fetchedReport) => {
+                 if (fetchedReport === undefined) {
+                    // Still loading, do nothing
+                    return;
+                }
+                if (fetchedReport === null) {
+                    setError("Báo cáo không tìm thấy. Có thể nó đã bị xóa.");
+                    setReport(null);
+                } else {
+                    setReport(fetchedReport);
+                    setError(null); // Clear previous error if any
+                }
+            });
+
+        } catch (e) {
+            console.error(e);
+            setError("Đã xảy ra lỗi khi tải dữ liệu.");
             setIsLoading(false);
         }
-    }
-
-    const unsubscribeReport = dataStore.subscribeToReport(reportId, (fetchedReport) => {
-        setReport(fetchedReport);
-        isReportLoaded = true;
-        checkAndSetLoading();
-    });
+    };
     
-    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
-        setTasksByShift(tasks);
-        isTasksLoaded = true;
-        checkAndSetLoading();
-    });
+    loadData();
     
     return () => {
-      unsubscribeReport();
-      unsubscribeTasks();
+      if(reportUnsub) reportUnsub();
+      if(tasksUnsub) tasksUnsub();
     }
   }, [reportId]);
   
+  useEffect(() => {
+    // Only stop loading when we have a definitive answer (either data or an error)
+    if ((report !== null && tasksByShift !== null) || error) {
+      setIsLoading(false);
+    }
+  }, [report, tasksByShift, error]);
   
   const allPagePhotos = useMemo(() => {
     if (!report) return [];
@@ -129,8 +149,8 @@ export default function ReportDetailPage() {
     )
   }
 
-  if (!report || !tasksByShift) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy hoặc không thể tải dữ liệu ca làm việc.</div>;
+  if (error || !report || !tasksByShift) {
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">{error || "Báo cáo không tìm thấy hoặc không thể tải dữ liệu ca làm việc."}</div>;
   }
 
   const shift = tasksByShift[report.shiftKey];
@@ -322,3 +342,5 @@ export default function ReportDetailPage() {
     </>
   );
 }
+
+    

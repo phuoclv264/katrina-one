@@ -67,8 +67,9 @@ export const dataStore = {
   
   // --- Live Reports ---
 
-  subscribeToReport(reportId: string, callback: (report: ShiftReport | null) => void): () => void {
+  subscribeToReport(reportId: string, callback: (report: ShiftReport | null | undefined) => void): () => void {
     const docRef = doc(db, 'reports', reportId);
+    callback(undefined); // Indicate loading has started
     return onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -79,8 +80,11 @@ export const dataStore = {
             submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as ShiftReport);
       } else {
-        callback(null);
+        callback(null); // Document does not exist
       }
+    }, (error) => {
+        console.error("Error subscribing to report:", error);
+        callback(null); // On error, treat as not found
     });
   },
 
@@ -169,6 +173,56 @@ export const dataStore = {
     return null;
   },
   
+  async deletePreviousDayReportsAndPhotos() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(23, 59, 59, 999);
+    
+    const reportsCollection = collection(db, 'reports');
+    const q = query(reportsCollection, where('submittedAt', '<=', Timestamp.fromDate(yesterday)));
+    
+    try {
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            console.log("No old reports to delete.");
+            return;
+        }
+
+        const batch = writeBatch(db);
+
+        for (const docSnap of querySnapshot.docs) {
+            const report = docSnap.data() as ShiftReport;
+            console.log(`Deleting report ${docSnap.id} and its photos...`);
+
+            // Delete associated photos from Storage
+            if (report.uploadedPhotos && report.uploadedPhotos.length > 0) {
+                for (const photoUrl of report.uploadedPhotos) {
+                    try {
+                        const photoRef = ref(storage, photoUrl);
+                        await deleteObject(photoRef);
+                    } catch (error: any) {
+                        if (error.code === 'storage/object-not-found') {
+                            console.warn(`Photo not found in Storage, skipping delete: ${photoUrl}`);
+                        } else {
+                            console.error(`Failed to delete photo ${photoUrl}:`, error);
+                        }
+                    }
+                }
+            }
+            
+            // Add report deletion to the batch
+            batch.delete(docSnap.ref);
+        }
+
+        // Commit all deletions
+        await batch.commit();
+        console.log(`Successfully deleted ${querySnapshot.size} old report(s).`);
+
+    } catch (error) {
+        console.error("Error deleting old reports: ", error);
+    }
+},
+
   // --- Staff ---
    async getStaff(): Promise<Staff[]> {
     const docRef = doc(db, 'app-data', 'staff');
@@ -228,3 +282,5 @@ export const dataStore = {
     }
   },
 };
+
+    
