@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const getTodaysDateKey = () => new Date().toISOString().split('T')[0];
 
+// This function runs on app startup to clear out old reports.
 const cleanupOldLocalStorage = () => {
     if (typeof window === 'undefined') return;
     const todayKey = getTodaysDateKey();
@@ -31,9 +32,8 @@ const cleanupOldLocalStorage = () => {
     });
 };
 
-if (typeof window !== 'undefined') {
-    cleanupOldLocalStorage();
-}
+// Run the cleanup function when the dataStore is imported.
+cleanupOldLocalStorage();
 
 
 export const dataStore = {
@@ -61,14 +61,19 @@ export const dataStore = {
     const reportId = `report-${userId}-${shiftKey}-${date}`;
     
     if (typeof window === 'undefined') {
+      // This should ideally not be called on the server.
+      // Returning a dummy or empty report structure might be necessary
+      // if server-side rendering is involved in this page.
       throw new Error("Cannot create report on server.");
     }
     
+    // Always prioritize local data.
     const localReportString = localStorage.getItem(reportId);
     if (localReportString) {
       return JSON.parse(localReportString) as ShiftReport;
     }
 
+    // If no local data, create a fresh report for today.
     const newReport: ShiftReport = {
         id: reportId,
         userId,
@@ -93,19 +98,23 @@ export const dataStore = {
 
   async submitReport(reportId: string): Promise<ShiftReport> {
      if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
+     
      let reportString = localStorage.getItem(reportId);
      if (!reportString) throw new Error("Báo cáo không tìm thấy để gửi đi.");
 
      let report: ShiftReport = JSON.parse(reportString);
      const firestoreRef = doc(db, 'reports', report.id);
 
+     // Create a deep copy to avoid modifying the original object before it's fully processed
      const reportToSubmit = JSON.parse(JSON.stringify(report));
      let allUploadedUrls: string[] = [];
 
+     // --- Upload Photos and Replace Data URIs with URLs ---
      for (const taskId in reportToSubmit.completedTasks) {
          for (const completion of reportToSubmit.completedTasks[taskId]) {
              const uploadedPhotosInCompletion: string[] = [];
              for (const photo of completion.photos) {
+                 // Check if the photo is a data URI that needs uploading
                  if (photo.startsWith('data:image')) {
                      const uniqueId = `photo_${uuidv4()}.jpg`;
                      const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${uniqueId}`);
@@ -125,17 +134,21 @@ export const dataStore = {
          }
      }
      
+     // --- Prepare the final report object for Firestore ---
      reportToSubmit.uploadedPhotos = allUploadedUrls;
      reportToSubmit.status = 'submitted';
-     reportToSubmit.submittedAt = serverTimestamp();
+     reportToSubmit.submittedAt = serverTimestamp(); // Use server timestamp for accuracy
+     // Convert string dates back to Firestore Timestamp objects where appropriate
      reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt));
      
+     // --- Submit to Firestore ---
      await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
-     // Remove the local report after successful submission
-     localStorage.removeItem(reportId);
+     // --- Update local report status to 'submitted' but DO NOT remove it ---
+     report.status = 'submitted';
+     await this.saveLocalReport(report);
      
-     // Fetch the document again to get the server-generated timestamp
+     // Fetch the document again to get the server-generated timestamp for the return value
      const updatedDoc = await getDoc(firestoreRef);
      const updatedData = updatedDoc.data();
       const finalReport: ShiftReport = {

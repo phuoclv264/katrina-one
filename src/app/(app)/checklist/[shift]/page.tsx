@@ -134,7 +134,7 @@ export default function ChecklistPage() {
       
       newReport.completedTasks[activeTaskId] = taskCompletions;
       
-      // Save to localStorage
+      // Save to localStorage after state update
       dataStore.saveLocalReport(newReport);
       
       return newReport;
@@ -153,6 +153,7 @@ export default function ChecklistPage() {
 
       taskCompletions[completionIndex].photos = taskCompletions[completionIndex].photos.filter((p:string) => p !== photoUrl);
       
+      // If the completion has no photos left, remove the completion itself
       if (taskCompletions[completionIndex].photos.length === 0) {
           taskCompletions.splice(completionIndex, 1);
           if (taskCompletions.length === 0) {
@@ -253,7 +254,7 @@ export default function ChecklistPage() {
     updateLocalReport(newReport);
   };
   
-  const isReadonly = isSubmitting;
+  const isReadonly = isSubmitting || report?.status === 'submitted';
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
@@ -284,7 +285,10 @@ export default function ChecklistPage() {
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
-                 <Badge variant="secondary"><CheckCircle className="mr-1.5 h-3 w-3 text-green-500"/> Mọi thay đổi đã được lưu vào máy</Badge>
+                 <Badge variant={report.status === 'submitted' ? 'default' : 'secondary'}>
+                    {report.status === 'submitted' ? <CheckCircle className="mr-1.5 h-3 w-3 text-white"/> : <Save className="mr-1.5 h-3 w-3 text-green-500"/>}
+                    {report.status === 'submitted' ? 'Báo cáo đã được gửi' : 'Mọi thay đổi đã được lưu vào máy'}
+                 </Badge>
             </div>
         </div>
         <div className="flex justify-between items-start">
@@ -441,8 +445,11 @@ export default function ChecklistPage() {
             <CardContent>
                  <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                    Gửi báo cáo
+                    {report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
                 </Button>
+                 {report.status === 'submitted' && (
+                    <p className="text-xs text-muted-foreground mt-2 text-center">Bạn đã gửi báo cáo cho ca này. Gửi lại sẽ ghi đè lên báo cáo trước đó.</p>
+                 )}
             </CardContent>
         </Card>
       </div>
@@ -456,7 +463,7 @@ export default function ChecklistPage() {
             disabled={isReadonly}
             aria-label="Gửi báo cáo"
         >
-            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
+            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md-w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
     </div>
 
