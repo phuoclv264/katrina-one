@@ -45,13 +45,12 @@ export type ShiftReport = {
   
   // Status tracking
   status: 'ongoing' | 'submitted'; // 'submitted' is final
-  isSyncing?: boolean; // Transient state for UI
-  lastSynced?: string; // ISO string of the last successful sync time
   
   // Timestamps
   date: string; // YYYY-MM-DD
-  startedAt: string; // ISO string
+  startedAt: string | Timestamp; // ISO string locally, Timestamp on server
   submittedAt?: string | Timestamp; // ISO string, set on submission
+  lastUpdated?: string | Timestamp; // ISO string locally, Timestamp on server
   
   // Report data
   completedTasks: TaskCompletion;
@@ -61,3 +60,5 @@ export type ShiftReport = {
   // This is mainly for the manager's view and for cleanup.
   uploadedPhotos: string[];
 };
+
+    

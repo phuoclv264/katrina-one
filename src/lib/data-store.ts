@@ -25,7 +25,7 @@ const cleanupOldLocalStorage = () => {
     if (typeof window === 'undefined') return;
     const todayKey = getTodaysDateKey();
     Object.keys(localStorage).forEach(key => {
-        if ((key.startsWith('report-') || key.startsWith('submitted-report-')) && !key.includes(todayKey)) {
+        if (key.startsWith('report-') && !key.includes(todayKey)) {
             localStorage.removeItem(key);
         }
     });
@@ -54,30 +54,20 @@ export const dataStore = {
     await setDoc(docRef, newTasks);
   },
 
-  async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{report: ShiftReport, hasUnsubmittedChanges: boolean}> {
+  async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{report: ShiftReport, status: 'synced' | 'local-newer' | 'server-newer' | 'error' }> {
+    if (typeof window === 'undefined') {
+       throw new Error("Cannot get report from server-side.");
+    }
+
     const date = getTodaysDateKey();
     const reportId = `report-${userId}-${shiftKey}-${date}`;
-    const submittedReportId = `submitted-${reportId}`;
     
-    if (typeof window === 'undefined') {
-      // This should ideally not be called on the server.
-      // Returning a dummy structure to avoid build errors.
-      return { 
-        report: { 
-          id: '', userId: '', staffName: '', shiftKey: '', status: 'ongoing', date: '', 
-          startedAt: new Date().toISOString(), completedTasks: {}, issues: null, uploadedPhotos: []
-        }, 
-        hasUnsubmittedChanges: false 
-      };
-    }
-    
-    let report: ShiftReport;
+    let localReport: ShiftReport | null = null;
     const localReportString = localStorage.getItem(reportId);
-    
     if (localReportString) {
-      report = JSON.parse(localReportString) as ShiftReport;
+      localReport = JSON.parse(localReportString);
     } else {
-      report = {
+      localReport = {
           id: reportId,
           userId,
           staffName,
@@ -85,38 +75,58 @@ export const dataStore = {
           status: 'ongoing',
           date,
           startedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
           completedTasks: {},
           issues: null,
           uploadedPhotos: [],
       };
-      await this.saveLocalReport(report);
+      await this.saveLocalReport(localReport);
     }
 
-    const submittedReportString = localStorage.getItem(submittedReportId);
-    // If there is a submitted version, compare it to the current working version.
-    // If they are different, it means there are unsubmitted changes.
-    const hasUnsubmittedChanges = submittedReportString ? submittedReportString !== JSON.stringify(report) : false;
+    const firestoreRef = doc(db, 'reports', reportId);
+    try {
+        const serverDoc = await getDoc(firestoreRef);
+        if (!serverDoc.exists()) {
+             // If server doc doesn't exist, local is implicitly newer (or they are both new)
+            return { report: localReport, status: 'local-newer' };
+        }
 
-    return { report, hasUnsubmittedChanges };
+        const serverReport = serverDoc.data() as ShiftReport;
+        // Convert server timestamp to comparable format
+        const serverLastUpdated = (serverReport.lastUpdated as Timestamp)?.toDate().getTime() || 0;
+        const localLastUpdated = new Date(localReport.lastUpdated as string).getTime();
+
+        if (localLastUpdated > serverLastUpdated + 1000) { // Add 1s tolerance
+            return { report: localReport, status: 'local-newer' };
+        } else if (serverLastUpdated > localLastUpdated + 1000) {
+            // Server is newer, but we return the local version for the UI to decide
+            // The UI will then call overwriteLocalReport if the user agrees
+            return { report: localReport, status: 'server-newer' };
+        } else {
+            return { report: localReport, status: 'synced' };
+        }
+    } catch(error) {
+        console.error("Firebase fetch failed, running in offline mode.", error);
+        // If we can't reach the server, assume local is what we have.
+        // The status can be used to show an offline indicator.
+        return { report: localReport, status: 'error' };
+    }
   },
 
   async saveLocalReport(report: ShiftReport): Promise<void> {
      if (typeof window !== 'undefined') {
+        report.lastUpdated = new Date().toISOString();
         localStorage.setItem(report.id, JSON.stringify(report));
     }
   },
 
-  async submitReport(reportId: string): Promise<ShiftReport> {
+  async submitReport(report: ShiftReport): Promise<void> {
      if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
      
-     let reportString = localStorage.getItem(reportId);
-     if (!reportString) throw new Error("Báo cáo không tìm thấy để gửi đi.");
-
-     let report: ShiftReport = JSON.parse(reportString);
      const firestoreRef = doc(db, 'reports', report.id);
 
      const reportToSubmit = JSON.parse(JSON.stringify(report));
-     let allUploadedUrls: string[] = [];
+     let allUploadedUrls: string[] = report.uploadedPhotos || [];
 
      for (const taskId in reportToSubmit.completedTasks) {
          for (const completion of reportToSubmit.completedTasks[taskId]) {
@@ -128,12 +138,9 @@ export const dataStore = {
                      const snapshot = await uploadString(storageRef, photo, 'data_url');
                      const downloadURL = await getDownloadURL(snapshot.ref);
                      uploadedPhotosInCompletion.push(downloadURL);
-                     allUploadedUrls.push(downloadURL);
+                     if (!allUploadedUrls.includes(downloadURL)) allUploadedUrls.push(downloadURL);
                  } else {
                      uploadedPhotosInCompletion.push(photo);
-                     if (!allUploadedUrls.includes(photo)) {
-                        allUploadedUrls.push(photo);
-                     }
                  }
              }
              completion.photos = uploadedPhotosInCompletion;
@@ -142,29 +149,42 @@ export const dataStore = {
      
      reportToSubmit.uploadedPhotos = allUploadedUrls;
      reportToSubmit.status = 'submitted';
-     // Convert date strings back to Firebase Timestamp objects before sending
-     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt));
+     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
      reportToSubmit.submittedAt = serverTimestamp();
+     reportToSubmit.lastUpdated = serverTimestamp();
      
      await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
-     // Update local report state after successful submission
+     // After successful submission, update the local report to match
      const finalReport: ShiftReport = {
         ...report,
         status: 'submitted',
-        submittedAt: new Date().toISOString(), // Use client time for immediate UI update
+        submittedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(), // Match server time approximately
      }
-     
-     // Update the main report in local storage
      await this.saveLocalReport(finalReport);
-     
-     // Also save a copy of the successfully submitted state
-     if (typeof window !== 'undefined') {
-        const submittedReportId = `submitted-${report.id}`;
-        localStorage.setItem(submittedReportId, JSON.stringify(finalReport));
-     }
-     
-     return finalReport;
+  },
+
+  async overwriteLocalReport(reportId: string): Promise<ShiftReport> {
+    if (typeof window === 'undefined') throw new Error("Cannot overwrite local report from server.");
+    const firestoreRef = doc(db, 'reports', reportId);
+    const serverDoc = await getDoc(firestoreRef);
+
+    if (!serverDoc.exists()) {
+      throw new Error("Báo cáo không tồn tại trên máy chủ.");
+    }
+
+    const serverData = serverDoc.data();
+    const serverReport: ShiftReport = {
+      ...serverData,
+      id: serverDoc.id,
+      startedAt: (serverData.startedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      submittedAt: (serverData.submittedAt as Timestamp)?.toDate().toISOString(),
+      lastUpdated: (serverData.lastUpdated as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    } as ShiftReport;
+    
+    localStorage.setItem(reportId, JSON.stringify(serverReport));
+    return serverReport;
   },
 
   subscribeToReports(callback: (reports: ShiftReport[]) => void): () => void {
@@ -180,7 +200,7 @@ export const dataStore = {
                 id: doc.id,
                 startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
                 submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-                lastSynced: (data.lastSynced as Timestamp)?.toDate().toISOString() || data.lastSynced,
+                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
             } as ShiftReport);
         });
         callback(reports);

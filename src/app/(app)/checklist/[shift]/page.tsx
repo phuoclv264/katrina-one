@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -21,6 +21,8 @@ import type { CarouselApi } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { v4 as uuidv4 } from 'uuid';
+
+type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
 export default function ChecklistPage() {
   const { toast } = useToast();
@@ -32,7 +34,9 @@ export default function ChecklistPage() {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showUnsubmittedChangesDialog, setShowUnsubmittedChangesDialog] = useState(false);
+  
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -67,16 +71,28 @@ export default function ChecklistPage() {
     
     const loadReport = async () => {
         setIsLoading(true);
-        const { report: localReport, hasUnsubmittedChanges } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
-        setReport(localReport);
-        if (hasUnsubmittedChanges) {
-          setShowUnsubmittedChangesDialog(true);
+        setSyncStatus('checking');
+        try {
+            const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
+            setReport(loadedReport);
+            setSyncStatus(status);
+            if (status === 'local-newer' || status === 'server-newer') {
+                setShowSyncDialog(true);
+            }
+        } catch (error) {
+            console.error("Error loading report:", error);
+            setSyncStatus('error');
+            toast({
+                title: "Lỗi tải dữ liệu",
+                description: "Không thể tải hoặc đồng bộ báo cáo. Vui lòng thử lại.",
+                variant: "destructive"
+            });
         }
         setIsLoading(false);
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey]);
+  }, [isAuthLoading, user, shiftKey, toast]);
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
@@ -95,10 +111,11 @@ export default function ChecklistPage() {
     });
   }, [carouselApi, allPagePhotos.length]);
 
-  const updateLocalReport = async (updatedReport: ShiftReport) => {
+  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
       setReport(updatedReport);
       await dataStore.saveLocalReport(updatedReport);
-  };
+      setSyncStatus('local-newer'); // Any local change means local is newer
+  }, []);
 
   const handleTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -112,7 +129,7 @@ export default function ChecklistPage() {
     setIsCameraOpen(true);
   };
   
-  const handleCapturePhotos = (photosDataUris: string[]) => {
+  const handleCapturePhotos = useCallback((photosDataUris: string[]) => {
     if (!activeTaskId) return;
 
     setReport(currentReport => {
@@ -122,13 +139,11 @@ export default function ChecklistPage() {
       let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
       
       if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-          // Editing an existing completion: add photos to it
-          taskCompletions[activeCompletionIndex].photos.unshift(...photosDataUris);
+          taskCompletions[activeCompletionIndex].photos.push(...photosDataUris);
       } else {
-          // Creating a new completion
           const now = new Date();
           const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          taskCompletions.unshift({ // Add to the beginning
+          taskCompletions.unshift({
               timestamp: formattedTime,
               photos: photosDataUris
           });
@@ -136,8 +151,7 @@ export default function ChecklistPage() {
       
       newReport.completedTasks[activeTaskId] = taskCompletions;
       
-      // IMPORTANT: Save to localStorage immediately after state update
-      dataStore.saveLocalReport(newReport);
+      dataStore.saveLocalReport(newReport).then(() => setSyncStatus('local-newer'));
       
       return newReport;
     });
@@ -145,7 +159,7 @@ export default function ChecklistPage() {
     setIsCameraOpen(false);
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
-  };
+  }, [activeTaskId, activeCompletionIndex]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;
@@ -185,23 +199,23 @@ export default function ChecklistPage() {
     const handleSubmitReport = async () => {
         if (!report) return;
         setIsSubmitting(true);
-        setShowUnsubmittedChangesDialog(false);
+        setShowSyncDialog(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
         try {
-            await dataStore.submitReport(report.id);
+            await dataStore.submitReport(report);
+            setReport(prev => prev ? {...prev, status: 'submitted'} : null);
+            setSyncStatus('synced');
             toast({
                 title: "Gửi báo cáo thành công!",
-                description: "Báo cáo của bạn đã được gửi lên hệ thống.",
+                description: "Báo cáo của bạn đã được đồng bộ lên hệ thống.",
             });
-            // We don't redirect, just update the state.
-            // A new report object is returned from submitReport with updated status
-            setReport(prev => prev ? {...prev, status: 'submitted'} : null);
         } catch (error) {
             console.error("Failed to submit report:", error);
+            setSyncStatus('error');
             toast({
                 variant: "destructive",
                 title: "Gửi báo cáo thất bại",
@@ -211,6 +225,34 @@ export default function ChecklistPage() {
             setIsSubmitting(false);
         }
     };
+    
+  const handleDownloadFromServer = async () => {
+      if (!report) return;
+      setIsSubmitting(true);
+      setShowSyncDialog(false);
+       toast({
+            title: "Đang tải dữ liệu từ máy chủ...",
+        });
+      try {
+        const serverReport = await dataStore.overwriteLocalReport(report.id);
+        setReport(serverReport);
+        setSyncStatus('synced');
+         toast({
+            title: "Tải thành công!",
+            description: "Báo cáo đã được cập nhật với phiên bản mới nhất từ máy chủ.",
+        });
+      } catch (error) {
+         console.error("Failed to download report:", error);
+         setSyncStatus('error');
+         toast({
+            variant: "destructive",
+            title: "Tải thất bại",
+            description: "Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.",
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+  }
     
   const cameraInitialPhotos = useMemo(() => {
     if (activeTaskId && activeCompletionIndex !== null && report) {
@@ -255,15 +297,11 @@ export default function ChecklistPage() {
 
   const handleIssuesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if(!report) return;
-    setReport(prev => {
-        if(!prev) return null;
-        const newReport = { ...prev, issues: e.target.value };
-        dataStore.saveLocalReport(newReport);
-        return newReport;
-    })
+    const newReport = { ...report, issues: e.target.value };
+    updateLocalReport(newReport);
   };
   
-  const isReadonly = isSubmitting; // Readonly only when submitting
+  const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
@@ -281,6 +319,23 @@ export default function ChecklistPage() {
         </div>
     )
   }
+  
+  const getSyncBadge = () => {
+    switch(syncStatus) {
+        case 'synced':
+            return <Badge variant="default"><CheckCircle className="mr-1.5 h-3 w-3"/>Đã đồng bộ</Badge>;
+        case 'local-newer':
+            return <Badge variant="secondary"><UploadCloud className="mr-1.5 h-3 w-3 text-blue-500"/>Có thay đổi chưa gửi</Badge>;
+        case 'server-newer':
+            return <Badge variant="secondary"><CloudDownload className="mr-1.5 h-3 w-3 text-green-500"/>Có bản mới trên máy chủ</Badge>;
+        case 'checking':
+            return <Badge variant="outline"><Loader2 className="mr-1.5 h-3 w-3 animate-spin"/>Đang kiểm tra</Badge>;
+        case 'error':
+             return <Badge variant="destructive"><WifiOff className="mr-1.5 h-3 w-3"/>Lỗi đồng bộ</Badge>;
+        default:
+            return null;
+    }
+  }
 
   return (
     <>
@@ -294,10 +349,7 @@ export default function ChecklistPage() {
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
-                 <Badge variant={report.status === 'submitted' ? 'default' : 'secondary'}>
-                    {report.status === 'submitted' ? <CheckCircle className="mr-1.5 h-3 w-3 text-white"/> : <Save className="mr-1.5 h-3 w-3 text-green-500"/>}
-                    {report.status === 'submitted' ? 'Báo cáo đã được gửi' : 'Mọi thay đổi đã được lưu vào máy'}
-                 </Badge>
+                 {getSyncBadge()}
             </div>
         </div>
         <div className="flex justify-between items-start">
@@ -452,12 +504,15 @@ export default function ChecklistPage() {
                 <CardDescription>Khi kết thúc ca, nhấn nút bên dưới để gửi báo cáo của bạn. Bạn có thể gửi nhiều lần.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly}>
+                 <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly || syncStatus === 'server-newer'}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
                     {report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
                 </Button>
                  {report.status === 'submitted' && (
                     <p className="text-xs text-muted-foreground mt-2 text-center">Bạn đã gửi báo cáo cho ca này. Gửi lại sẽ ghi đè lên báo cáo trước đó.</p>
+                 )}
+                 {syncStatus === 'server-newer' && (
+                    <p className="text-xs text-destructive mt-2 text-center">Vui lòng tải phiên bản mới nhất từ máy chủ trước khi gửi báo cáo.</p>
                  )}
             </CardContent>
         </Card>
@@ -469,7 +524,7 @@ export default function ChecklistPage() {
             size="icon"
             className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
             onClick={handleSubmitReport} 
-            disabled={isReadonly}
+            disabled={isReadonly || syncStatus === 'server-newer'}
             aria-label="Gửi báo cáo"
         >
             {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
@@ -530,18 +585,36 @@ export default function ChecklistPage() {
             )}
         </DialogContent>
     </Dialog>
-    <AlertDialog open={showUnsubmittedChangesDialog} onOpenChange={setShowUnsubmittedChangesDialog}>
+    <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Bạn có thay đổi chưa được báo cáo</AlertDialogTitle>
-          <AlertDialogDescription>
-            Chúng tôi phát hiện bạn có những công việc đã hoàn thành nhưng chưa được gửi đi trong báo cáo lần trước. Bạn có muốn gửi báo cáo bổ sung ngay bây giờ không?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Để sau</AlertDialogCancel>
-          <AlertDialogAction onClick={handleSubmitReport}>Báo cáo ngay</AlertDialogAction>
-        </AlertDialogFooter>
+        {syncStatus === 'local-newer' && (
+            <>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Bạn có thay đổi chưa được gửi</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Chúng tôi phát hiện bạn có những công việc đã hoàn thành nhưng chưa được gửi đi. Bạn có muốn gửi báo cáo bổ sung ngay bây giờ không?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Để sau</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
+                </AlertDialogFooter>
+            </>
+        )}
+         {syncStatus === 'server-newer' && (
+            <>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Có phiên bản mới trên máy chủ</AlertDialogTitle>
+                    <AlertDialogDescription>
+                       Một phiên bản mới hơn của báo cáo này có sẵn trên máy chủ. Bạn nên tải nó về để đảm bảo dữ liệu được nhất quán. Việc này sẽ ghi đè lên các thay đổi cục bộ chưa được lưu của bạn.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Để sau</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDownloadFromServer}>Tải về ngay</AlertDialogAction>
+                </AlertDialogFooter>
+            </>
+        )}
       </AlertDialogContent>
     </AlertDialog>
     </>
