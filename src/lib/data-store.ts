@@ -65,12 +65,21 @@ export const dataStore = {
 
     if (firestoreDocSnap.exists()) {
         const data = firestoreDocSnap.data();
+
+        // Helper to safely convert Timestamps
+        const safeTimestampToString = (timestamp: any): string | undefined => {
+            if (timestamp && typeof timestamp.toDate === 'function') {
+                return timestamp.toDate().toISOString();
+            }
+            return timestamp; // It's already a string or null/undefined
+        };
+
         const serverReport: ShiftReport = {
             ...data,
             id: firestoreDocSnap.id,
-            startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
-            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-            lastSynced: (data.lastSynced as Timestamp)?.toDate().toISOString() || data.lastSynced,
+            startedAt: safeTimestampToString(data.startedAt),
+            submittedAt: safeTimestampToString(data.submittedAt),
+            lastSynced: safeTimestampToString(data.lastSynced),
         };
         // Always save the latest from server to local on start
         await this.saveLocalReport(serverReport);
@@ -142,7 +151,7 @@ export const dataStore = {
      }
      
      // status remains 'ongoing'
-     delete reportToSync.status; 
+     // delete reportToSync.status; 
 
 
      await setDoc(firestoreRef, reportToSync, { merge: true });
@@ -186,5 +195,3 @@ export const dataStore = {
      });
   },
 };
-
-    
