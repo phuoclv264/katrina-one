@@ -12,7 +12,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2 } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -29,9 +29,21 @@ export function AppSidebar() {
     { href: '/task-lists', label: 'Danh sách công việc', icon: ClipboardList },
   ];
 
-  const menuItems = user?.role === 'staff' ? staffMenu : managerMenu;
+  const menuItems = (user?.role === 'Phục vụ' || user?.role === 'Pha chế') ? staffMenu : managerMenu;
   const displayName = user?.displayName ?? 'Đang tải...';
   const displayRole = user?.role ?? '';
+  
+  const getRoleIcon = () => {
+    if (loading) return <Loader2 className="animate-spin"/>;
+    switch(user?.role) {
+      case 'Phục vụ': return <User />;
+      case 'Pha chế': return <Coffee />;
+      case 'Quản lý': return <UserCog />;
+      case 'Chủ nhà hàng': return <Building />;
+      default: return <User />;
+    }
+  }
+
 
   return (
     <>
@@ -59,7 +71,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                {loading ? <Loader2 className="animate-spin"/> : (user?.role === 'staff' ? <User /> : <Building />)}
+                {getRoleIcon()}
             </div>
             <div className="flex flex-col overflow-hidden">
                 <span className="font-semibold truncate">{displayName}</span>

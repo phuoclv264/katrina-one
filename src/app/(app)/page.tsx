@@ -13,9 +13,9 @@ export default function AppRootPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'staff') {
+      if (user.role === 'Phục vụ' || user.role === 'Pha chế') {
         router.replace('/shifts');
-      } else if (user.role === 'manager') {
+      } else if (user.role === 'Quản lý' || user.role === 'Chủ nhà hàng') {
         router.replace('/reports');
       }
     }

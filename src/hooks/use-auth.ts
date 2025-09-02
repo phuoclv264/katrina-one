@@ -7,7 +7,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from './use-toast';
 
-export type UserRole = 'staff' | 'manager';
+export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng';
 
 export interface AuthUser extends User {
   displayName: string;
@@ -27,17 +27,18 @@ export const useAuth = () => {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          const userRole = userData.role as UserRole;
           setUser({
             ...firebaseUser,
             displayName: userData.displayName,
-            role: userData.role,
+            role: userRole,
           } as AuthUser);
 
           // Redirect based on role after login
           if (pathname === '/') {
-             if (userData.role === 'staff') {
+             if (userRole === 'Phục vụ' || userRole === 'Pha chế') {
                 router.replace('/shifts');
-            } else if (userData.role === 'manager') {
+            } else if (userRole === 'Quản lý' || userRole === 'Chủ nhà hàng') {
                 router.replace('/reports');
             }
           }

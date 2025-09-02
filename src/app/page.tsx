@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Building, KeyRound, Loader2, User, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserRole } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function AuthPage() {
   const { user, login, register, loading } = useAuth();
@@ -22,6 +23,8 @@ export default function AuthPage() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
+  const [registerRole, setRegisterRole] = useState<UserRole | ''>('');
+
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -37,12 +40,11 @@ export default function AuthPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-     if (!registerEmail || !registerPassword || !registerName) {
-      toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin.', variant: 'destructive' });
+     if (!registerEmail || !registerPassword || !registerName || !registerRole) {
+      toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.', variant: 'destructive' });
       return;
     }
-    // Hardcode role to 'staff'
-    await register(registerEmail, registerPassword, registerName, 'staff');
+    await register(registerEmail, registerPassword, registerName, registerRole);
   };
   
   if (loading && !user) {
@@ -120,8 +122,8 @@ export default function AuthPage() {
         <TabsContent value="register">
           <Card>
             <CardHeader>
-              <CardTitle>Tạo tài khoản nhân viên</CardTitle>
-              <CardDescription>Điền thông tin bên dưới để tạo tài khoản mới.</CardDescription>
+              <CardTitle>Tạo tài khoản mới</CardTitle>
+              <CardDescription>Điền thông tin bên dưới để tạo tài khoản.</CardDescription>
             </CardHeader>
             <CardContent>
                <form onSubmit={handleRegister} className="space-y-4">
@@ -156,6 +158,19 @@ export default function AuthPage() {
                         <span className="sr-only">{showRegisterPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
                       </Button>
                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="register-role">Vai trò</Label>
+                    <Select onValueChange={(value) => setRegisterRole(value as UserRole)} disabled={loading} value={registerRole}>
+                        <SelectTrigger id="register-role">
+                            <SelectValue placeholder="Chọn vai trò của bạn" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Phục vụ">Phục vụ</SelectItem>
+                            <SelectItem value="Pha chế">Pha chế</SelectItem>
+                            <SelectItem value="Quản lý">Quản lý</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
