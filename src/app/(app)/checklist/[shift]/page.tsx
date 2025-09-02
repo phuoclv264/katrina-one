@@ -92,10 +92,10 @@ export default function ChecklistPage() {
     });
   }, [carouselApi, allPagePhotos.length]);
 
-  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
+  const updateLocalReport = async (updatedReport: ShiftReport) => {
       setReport(updatedReport);
       await dataStore.saveLocalReport(updatedReport);
-  }, []);
+  };
 
   const handleTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -110,29 +110,41 @@ export default function ChecklistPage() {
   };
   
   const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
-    if (!activeTaskId || !report) return;
+    if (!activeTaskId) return;
     setIsCameraOpen(false);
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-    
-    if (activeCompletionIndex !== null) {
-        taskCompletions[activeCompletionIndex].photos.unshift(...photosDataUris);
-    } else {
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        taskCompletions.push({
-            timestamp: formattedTime,
-            photos: photosDataUris
-        });
-    }
-    
-    newReport.completedTasks[activeTaskId] = taskCompletions;
-    await updateLocalReport(newReport);
+    setReport(currentReport => {
+      if (!currentReport) return null;
+
+      const newReport = JSON.parse(JSON.stringify(currentReport));
+      let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+      
+      if (activeCompletionIndex !== null) {
+          // Editing an existing completion: add photos to it
+          if(taskCompletions[activeCompletionIndex]) {
+            taskCompletions[activeCompletionIndex].photos.unshift(...photosDataUris);
+          }
+      } else {
+          // Creating a new completion
+          const now = new Date();
+          const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          taskCompletions.push({
+              timestamp: formattedTime,
+              photos: photosDataUris
+          });
+      }
+      
+      newReport.completedTasks[activeTaskId] = taskCompletions;
+      
+      // Save to localStorage
+      dataStore.saveLocalReport(newReport);
+      
+      return newReport;
+    });
 
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
-  }, [activeCompletionIndex, activeTaskId, report, updateLocalReport]);
+  }, [activeTaskId, activeCompletionIndex]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;
@@ -516,3 +528,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
