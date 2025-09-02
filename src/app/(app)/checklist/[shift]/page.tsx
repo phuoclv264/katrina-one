@@ -224,7 +224,7 @@ export default function ChecklistPage() {
     }
 
     if(hasChanged) {
-        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos).filter(p => p && !p.startsWith('uploading://'));
         updateLiveReport(newCompletion, newUploadedPhotos);
         
         // Clean up completed uploads from the tracking state
@@ -493,10 +493,11 @@ export default function ChecklistPage() {
                                         <div key={photo} className="relative aspect-square overflow-hidden rounded-md group">
                                             {isUploading ? (
                                                 <div className="w-full h-full bg-muted flex items-center justify-center">
-                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10">
+                                                     <Image src={photo} alt={`Ảnh đang tải lên ${pIndex + 1}`} fill className="object-cover opacity-30" />
+                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10 p-1">
                                                         <span className="text-xs font-bold">{Math.round(uploadProgress || 0)}%</span>
+                                                        <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
                                                     </div>
-                                                    <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
                                                 </div>
                                             ) : (
                                               <button onClick={() => openImagePreview(photo)} className="w-full h-full">

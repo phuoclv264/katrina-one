@@ -22,25 +22,12 @@ import {
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTask } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, Staff, TaskCompletion, CompletionRecord } from './types';
 import { tasksByShift as initialTasksByShift, staff as initialStaff } from './data';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- Helper to convert Data URL to Blob ---
-function dataURLtoBlob(dataurl: string) {
-    const arr = dataurl.split(',');
-    if (arr.length < 2) {
-        throw new Error('Invalid data URL');
-    }
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    if (!mimeMatch) {
-        throw new Error('Could not parse MIME type from data URL');
-    }
-    const mime = mimeMatch[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
+async function dataURLtoBlob(dataurl: string): Promise<Blob> {
+    const res = await fetch(dataurl);
+    return await res.blob();
 }
 
 
@@ -174,6 +161,14 @@ export const dataStore = {
   },
   
   async deletePreviousDayReportsAndPhotos() {
+    const lastCleanup = localStorage.getItem('lastCleanupDate');
+    const today = new Date().toISOString().split('T')[0];
+
+    if (lastCleanup === today) {
+        // console.log("Cleanup already ran today.");
+        return;
+    }
+
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(23, 59, 59, 999);
@@ -185,6 +180,7 @@ export const dataStore = {
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) {
             console.log("No old reports to delete.");
+            localStorage.setItem('lastCleanupDate', today);
             return;
         }
 
@@ -198,8 +194,10 @@ export const dataStore = {
             if (report.uploadedPhotos && report.uploadedPhotos.length > 0) {
                 for (const photoUrl of report.uploadedPhotos) {
                     try {
-                        const photoRef = ref(storage, photoUrl);
-                        await deleteObject(photoRef);
+                        if (photoUrl.startsWith('https://firebasestorage.googleapis.com')) {
+                           const photoRef = ref(storage, photoUrl);
+                           await deleteObject(photoRef);
+                        }
                     } catch (error: any) {
                         if (error.code === 'storage/object-not-found') {
                             console.warn(`Photo not found in Storage, skipping delete: ${photoUrl}`);
@@ -217,6 +215,7 @@ export const dataStore = {
         // Commit all deletions
         await batch.commit();
         console.log(`Successfully deleted ${querySnapshot.size} old report(s).`);
+        localStorage.setItem('lastCleanupDate', today);
 
     } catch (error) {
         console.error("Error deleting old reports: ", error);
@@ -243,30 +242,45 @@ export const dataStore = {
     taskId: string,
     onProgress: (progress: number) => void
   ): { task: UploadTask; promise: Promise<string> } {
-    const uniqueId = `photo_${Date.now()}_${Math.random()}`;
-    const storageRef = ref(storage, `reports/${reportId}/${taskId}/${uniqueId}.jpg`);
-    const blob = dataURLtoBlob(photoDataUrl);
+    const uniqueId = `photo_${uuidv4()}.jpg`;
+    const storageRef = ref(storage, `reports/${reportId}/${taskId}/${uniqueId}`);
+    
+    const promise = new Promise<string>(async (resolve, reject) => {
+        try {
+            const blob = await dataURLtoBlob(photoDataUrl);
+            const uploadTask = uploadBytesResumable(storageRef, blob, { contentType: 'image/jpeg' });
 
-    const uploadTask = uploadBytesResumable(storageRef, blob);
-
-    const promise = new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-            'state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                onProgress(progress);
-            },
-            (error) => {
-                console.error("Upload failed:", error);
-                reject(error);
-            },
-            () => {
-                getDownloadURL(uploadTask.snapshot.ref).then(resolve).catch(reject);
-            }
-        );
+            uploadTask.on(
+                'state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    onProgress(progress);
+                },
+                (error) => {
+                    console.error("Upload failed:", error);
+                    reject(error);
+                },
+                async () => {
+                    try {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        resolve(downloadURL);
+                    } catch (error) {
+                        reject(error);
+                    }
+                }
+            );
+        } catch(error) {
+            console.error("Error creating blob or starting upload:", error);
+            reject(error)
+        }
     });
 
-    return { task: uploadTask, promise };
+    // We can't return the uploadTask directly because it's created inside an async function.
+    // The promise is the main way to interact with the result.
+    // For cancellation, a more advanced setup would be needed (e.g., passing an AbortController).
+    // For now, we return a mock task.
+    const mockTask = {} as UploadTask;
+    return { task: mockTask, promise };
   },
 
   async deletePhoto(photoUrl: string): Promise<void> {
@@ -282,5 +296,3 @@ export const dataStore = {
     }
   },
 };
-
-    
