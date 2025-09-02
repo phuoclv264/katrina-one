@@ -19,9 +19,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function ReportDetailPage() {
   const params = useParams();
   const reportId = params.id as string;
-  const [report, setReport] = useState<ShiftReport | null>(null);
+  const [report, setReport] = useState<ShiftReport | null | undefined>(undefined);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -30,10 +29,11 @@ export default function ReportDetailPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
 
+  const isLoading = report === undefined || tasksByShift === null;
 
   useEffect(() => {
     if(!reportId) {
-        setIsLoading(false);
+        setReport(null); // Explicitly set to null if no ID
         setError("Report ID is missing.");
         return;
     };
@@ -48,23 +48,21 @@ export default function ReportDetailPage() {
             });
 
             reportUnsub = dataStore.subscribeToReport(reportId, (fetchedReport) => {
-                 if (fetchedReport === undefined) {
-                    // Still loading, do nothing
-                    return;
-                }
-                if (fetchedReport === null) {
+                 if (fetchedReport === null) {
                     setError("Báo cáo không tìm thấy. Có thể nó đã bị xóa.");
                     setReport(null);
                 } else {
-                    setReport(fetchedReport);
-                    setError(null); // Clear previous error if any
+                    setReport(fetchedReport); // This could be the report object or undefined
+                    if (fetchedReport) {
+                       setError(null); // Clear previous error if we get a valid report
+                    }
                 }
             });
 
         } catch (e) {
             console.error(e);
             setError("Đã xảy ra lỗi khi tải dữ liệu.");
-            setIsLoading(false);
+            setReport(null);
         }
     };
     
@@ -75,13 +73,6 @@ export default function ReportDetailPage() {
       if(tasksUnsub) tasksUnsub();
     }
   }, [reportId]);
-  
-  useEffect(() => {
-    // Only stop loading when we have a definitive answer (either data or an error)
-    if ((report !== null && tasksByShift !== null) || error) {
-      setIsLoading(false);
-    }
-  }, [report, tasksByShift, error]);
   
   const allPagePhotos = useMemo(() => {
     if (!report) return [];
