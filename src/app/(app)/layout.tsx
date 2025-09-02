@@ -18,7 +18,7 @@ export default function AppLayout({
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6 md:hidden">
-          <SidebarTrigger asChild>
+          <SidebarTrigger>
             <Button variant="outline" size="icon" className="shrink-0 md:hidden">
               <PanelLeft />
               <span className="sr-only">Toggle navigation menu</span>
