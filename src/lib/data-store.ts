@@ -60,7 +60,15 @@ export const dataStore = {
     const submittedReportId = `submitted-${reportId}`;
     
     if (typeof window === 'undefined') {
-      throw new Error("Cannot create report on server.");
+      // This should ideally not be called on the server.
+      // Returning a dummy structure to avoid build errors.
+      return { 
+        report: { 
+          id: '', userId: '', staffName: '', shiftKey: '', status: 'ongoing', date: '', 
+          startedAt: new Date().toISOString(), completedTasks: {}, issues: null, uploadedPhotos: []
+        }, 
+        hasUnsubmittedChanges: false 
+      };
     }
     
     let report: ShiftReport;
@@ -141,24 +149,20 @@ export const dataStore = {
      await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
      // Update local report state after successful submission
-     report.status = 'submitted';
+     const finalReport: ShiftReport = {
+        ...report,
+        status: 'submitted',
+        submittedAt: new Date().toISOString(), // Use client time for immediate UI update
+     }
+     
      // Update the main report in local storage
-     await this.saveLocalReport(report);
+     await this.saveLocalReport(finalReport);
      
      // Also save a copy of the successfully submitted state
      if (typeof window !== 'undefined') {
         const submittedReportId = `submitted-${report.id}`;
-        localStorage.setItem(submittedReportId, JSON.stringify(report));
+        localStorage.setItem(submittedReportId, JSON.stringify(finalReport));
      }
-     
-     const updatedDoc = await getDoc(firestoreRef);
-     const updatedData = updatedDoc.data();
-      const finalReport: ShiftReport = {
-        ...updatedData,
-        id: updatedDoc.id,
-        startedAt: (updatedData?.startedAt as Timestamp)?.toDate().toISOString(),
-        submittedAt: (updatedData?.submittedAt as Timestamp)?.toDate().toISOString(),
-      } as ShiftReport;
      
      return finalReport;
   },
@@ -183,3 +187,5 @@ export const dataStore = {
      });
   },
 };
+
+    

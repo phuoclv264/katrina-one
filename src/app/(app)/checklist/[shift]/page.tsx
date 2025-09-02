@@ -29,7 +29,6 @@ export default function ChecklistPage() {
   const router = useRouter();
   const shiftKey = params.shift as string;
   
-  const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +45,8 @@ export default function ChecklistPage() {
   const [slideCount, setSlideCount] = useState(0);
 
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -254,8 +255,12 @@ export default function ChecklistPage() {
 
   const handleIssuesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if(!report) return;
-    const newReport = { ...report, issues: e.target.value };
-    updateLocalReport(newReport);
+    setReport(prev => {
+        if(!prev) return null;
+        const newReport = { ...prev, issues: e.target.value };
+        dataStore.saveLocalReport(newReport);
+        return newReport;
+    })
   };
   
   const isReadonly = isSubmitting; // Readonly only when submitting
@@ -542,3 +547,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
