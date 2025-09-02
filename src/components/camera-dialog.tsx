@@ -101,8 +101,8 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUri = canvas.toDataURL('image/jpeg');
-        setCapturedPhotos(prev => [...prev, dataUri]);
-        setNewlyCaptured(prev => [...prev, dataUri]);
+        setCapturedPhotos(prev => [dataUri, ...prev]);
+        setNewlyCaptured(prev => [dataUri, ...prev]);
       }
     }
   };
@@ -190,5 +190,3 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
     </Dialog>
   );
 }
-
-    
