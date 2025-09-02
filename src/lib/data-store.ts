@@ -59,35 +59,16 @@ export const dataStore = {
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<ShiftReport> {
     const date = getTodaysDateKey();
     const reportId = `report-${userId}-${shiftKey}-${date}`;
-    const firestoreDocRef = doc(db, 'reports', reportId);
-
-    const firestoreDocSnap = await getDoc(firestoreDocRef);
-
-    if (firestoreDocSnap.exists()) {
-        const data = firestoreDocSnap.data();
-
-        // Helper to safely convert Timestamps
-        const safeTimestampToString = (timestamp: any): string | undefined => {
-            if (!timestamp) return undefined;
-            if (typeof timestamp.toDate === 'function') {
-                return timestamp.toDate().toISOString();
-            }
-            return timestamp; // It's already a string or null/undefined
-        };
-
-        const serverReport: ShiftReport = {
-            ...(data as ShiftReport),
-            id: firestoreDocSnap.id,
-            startedAt: safeTimestampToString(data.startedAt),
-            submittedAt: safeTimestampToString(data.submittedAt),
-            lastSynced: safeTimestampToString(data.lastSynced),
-        };
-        // Always save the latest from server to local on start
-        await this.saveLocalReport(serverReport);
-        return serverReport;
+    
+    if (typeof window === 'undefined') {
+      throw new Error("Cannot create report on server.");
     }
     
-    // If nothing on server, create a new local report
+    const localReportString = localStorage.getItem(reportId);
+    if (localReportString) {
+      return JSON.parse(localReportString) as ShiftReport;
+    }
+
     const newReport: ShiftReport = {
         id: reportId,
         userId,
@@ -110,18 +91,19 @@ export const dataStore = {
     }
   },
 
-  async syncReport(reportId: string): Promise<ShiftReport> {
+  async submitReport(reportId: string): Promise<ShiftReport> {
+     if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
      let reportString = localStorage.getItem(reportId);
-     if (!reportString) throw new Error("Báo cáo không tìm thấy để đồng bộ.");
+     if (!reportString) throw new Error("Báo cáo không tìm thấy để gửi đi.");
 
      let report: ShiftReport = JSON.parse(reportString);
      const firestoreRef = doc(db, 'reports', report.id);
 
-     const reportToSync = JSON.parse(JSON.stringify(report));
-     let allUploadedUrls: string[] = reportToSync.uploadedPhotos || [];
+     const reportToSubmit = JSON.parse(JSON.stringify(report));
+     let allUploadedUrls: string[] = [];
 
-     for (const taskId in reportToSync.completedTasks) {
-         for (const completion of reportToSync.completedTasks[taskId]) {
+     for (const taskId in reportToSubmit.completedTasks) {
+         for (const completion of reportToSubmit.completedTasks[taskId]) {
              const uploadedPhotosInCompletion: string[] = [];
              for (const photo of completion.photos) {
                  if (photo.startsWith('data:image')) {
@@ -130,44 +112,38 @@ export const dataStore = {
                      const snapshot = await uploadString(storageRef, photo, 'data_url');
                      const downloadURL = await getDownloadURL(snapshot.ref);
                      uploadedPhotosInCompletion.push(downloadURL);
-                     if (!allUploadedUrls.includes(downloadURL)) {
-                        allUploadedUrls.push(downloadURL);
-                     }
+                     allUploadedUrls.push(downloadURL);
                  } else {
+                     // This case handles photos that might already be URLs (from a previous sync attempt)
                      uploadedPhotosInCompletion.push(photo);
+                     if (!allUploadedUrls.includes(photo)) {
+                        allUploadedUrls.push(photo);
+                     }
                  }
              }
              completion.photos = uploadedPhotosInCompletion;
          }
      }
      
-     reportToSync.uploadedPhotos = allUploadedUrls;
-     reportToSync.lastSynced = serverTimestamp();
+     reportToSubmit.uploadedPhotos = allUploadedUrls;
+     reportToSubmit.status = 'submitted';
+     reportToSubmit.submittedAt = serverTimestamp();
+     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt));
      
-     const docExists = (await getDoc(firestoreRef)).exists();
-     if (!docExists) {
-         reportToSync.startedAt = Timestamp.fromDate(new Date(reportToSync.startedAt));
-     } else {
-         delete reportToSync.startedAt; // Don't overwrite startedAt on sync
-     }
-     
-     await setDoc(firestoreRef, reportToSync, { merge: true });
+     await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
+     // Remove the local report after successful submission
+     localStorage.removeItem(reportId);
+     
      // Fetch the document again to get the server-generated timestamp
      const updatedDoc = await getDoc(firestoreRef);
      const updatedData = updatedDoc.data();
       const finalReport: ShiftReport = {
-        ...report, // Start with original local report
-        ...updatedData, // Overwrite with server data
+        ...updatedData,
         id: updatedDoc.id,
-        completedTasks: reportToSync.completedTasks, // Use the one with updated URLs
-        uploadedPhotos: reportToSync.uploadedPhotos,
-        startedAt: (updatedData?.startedAt as Timestamp)?.toDate().toISOString() || report.startedAt,
-        lastSynced: (updatedData?.lastSynced as Timestamp)?.toDate().toISOString(),
-        status: 'ongoing', // Explicitly set status back
-      };
-
-     await this.saveLocalReport(finalReport);
+        startedAt: (updatedData?.startedAt as Timestamp)?.toDate().toISOString(),
+        submittedAt: (updatedData?.submittedAt as Timestamp)?.toDate().toISOString(),
+      } as ShiftReport;
      
      return finalReport;
   },

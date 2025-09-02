@@ -65,10 +65,8 @@ export default function ChecklistPage() {
     
     const loadReport = async () => {
         setIsLoading(true);
-        const serverReport = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
-        
-        await dataStore.saveLocalReport(serverReport);
-        setReport(serverReport);
+        const localReport = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
+        setReport(localReport);
         setIsLoading(false);
     };
 
@@ -181,29 +179,27 @@ export default function ChecklistPage() {
       await updateLocalReport(newReport);
   }
   
-    const handleSyncReport = async () => {
+    const handleSubmitReport = async () => {
         if (!report) return;
         setIsSubmitting(true);
         toast({
-            title: "Đang đồng bộ báo cáo...",
+            title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
         try {
-            const syncedReport = await dataStore.syncReport(report.id);
-            // Update local state with the synced report (which has updated URLs and lastSynced time)
-            await updateLocalReport(syncedReport);
-
+            await dataStore.submitReport(report.id);
             toast({
-                title: "Đồng bộ thành công!",
-                description: "Những thay đổi của bạn đã được lưu lên cloud.",
+                title: "Gửi báo cáo thành công!",
+                description: "Báo cáo của bạn đã được gửi lên hệ thống.",
             });
+            router.push('/shifts');
         } catch (error) {
-            console.error("Failed to sync report:", error);
+            console.error("Failed to submit report:", error);
             toast({
                 variant: "destructive",
-                title: "Đồng bộ thất bại",
-                description: "Đã xảy ra lỗi khi lưu báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
+                title: "Gửi báo cáo thất bại",
+                description: "Đã xảy ra lỗi khi gửi báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
             });
         } finally {
             setIsSubmitting(false);
@@ -288,7 +284,7 @@ export default function ChecklistPage() {
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
-                 <Badge variant="secondary"><CheckCircle className="mr-1.5 h-3 w-3 text-green-500"/> Mọi thay đổi đã được lưu cục bộ</Badge>
+                 <Badge variant="secondary"><CheckCircle className="mr-1.5 h-3 w-3 text-green-500"/> Mọi thay đổi đã được lưu vào máy</Badge>
             </div>
         </div>
         <div className="flex justify-between items-start">
@@ -439,22 +435,15 @@ export default function ChecklistPage() {
 
         <Card className="border-green-500/50">
            <CardHeader>
-                <CardTitle>Lưu và Đồng bộ</CardTitle>
-                <CardDescription>Nhấn nút bên dưới để lưu tất cả thay đổi của bạn lên cloud. Bạn có thể lưu nhiều lần trong ca.</CardDescription>
+                <CardTitle>Gửi báo cáo</CardTitle>
+                <CardDescription>Khi kết thúc ca, nhấn nút bên dưới để gửi báo cáo của bạn. Hành động này không thể hoàn tác.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button className="w-full" size="lg" onClick={handleSyncReport} disabled={isReadonly}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
-                    Lưu và Đồng bộ
+                 <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                    Gửi báo cáo
                 </Button>
             </CardContent>
-             {report.lastSynced && (
-                <CardFooter>
-                    <p className="text-xs text-muted-foreground w-full text-center">
-                        Đã đồng bộ lần cuối lúc: {new Date(report.lastSynced).toLocaleTimeString('vi-VN')}
-                    </p>
-                </CardFooter>
-            )}
         </Card>
       </div>
     </div>
@@ -463,7 +452,7 @@ export default function ChecklistPage() {
         <Button 
             size="icon"
             className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
-            onClick={handleSyncReport} 
+            onClick={handleSubmitReport} 
             disabled={isReadonly}
             aria-label="Gửi báo cáo"
         >
@@ -528,5 +517,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    
