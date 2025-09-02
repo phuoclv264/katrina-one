@@ -73,7 +73,7 @@ export default function ChecklistPage() {
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, router]);
+  }, [isAuthLoading, user, shiftKey]);
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
@@ -485,12 +485,14 @@ export default function ChecklistPage() {
                 <CarouselContent>
                     {allPagePhotos.map((url, index) => (
                     <CarouselItem key={index}>
-                        <div className="relative w-full h-[80vh]">
+                        <div className="w-full">
                              <Image 
                                 src={url} 
                                 alt={`Ảnh xem trước ${index + 1}`} 
-                                fill 
-                                className="object-contain"
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                className="w-full h-auto object-contain"
                             />
                         </div>
                     </CarouselItem>

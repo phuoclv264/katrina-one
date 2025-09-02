@@ -320,8 +320,15 @@ export default function ReportDetailPage() {
                 <CarouselContent>
                     {allPagePhotos.map((url, index) => (
                     <CarouselItem key={index}>
-                        <div className="relative w-full h-[80vh]">
-                            <Image src={url} alt={`Ảnh xem trước ${index + 1}`} fill className="object-contain" />
+                        <div className="w-full">
+                            <Image 
+                                src={url} 
+                                alt={`Ảnh xem trước ${index + 1}`} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                className="w-full h-auto object-contain"
+                            />
                         </div>
                     </CarouselItem>
                     ))}
