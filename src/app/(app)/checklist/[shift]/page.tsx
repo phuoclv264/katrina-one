@@ -72,6 +72,9 @@ export default function ChecklistPage() {
                 description: "Báo cáo cho ca làm việc này đã được gửi. Bạn không thể chỉnh sửa.",
                 duration: 5000,
             });
+             // Redirect or show a read-only view. For now, redirect.
+            router.replace('/shifts');
+            return;
         }
         setReport(initialReport);
         setIsLoading(false);

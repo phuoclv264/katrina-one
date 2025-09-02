@@ -77,38 +77,53 @@ export const dataStore = {
     }
   },
 
-  // --- Report Management (Local First) ---
+  // --- Report Management (Local First with smart sync) ---
 
   async getOrCreateReport(staffName: string, shiftKey: string): Promise<ShiftReport> {
     const date = getTodaysDateKey();
     const reportId = `report-${staffName}-${shiftKey}-${date}`;
     
-    // 1. Try to get from local storage first
-    const localData = localStorage.getItem(reportId);
-    if (localData) {
-        return JSON.parse(localData);
+    // 1. Fetch from both local storage and Firestore concurrently
+    const localDataPromise = localStorage.getItem(reportId);
+    const firestoreDocRef = doc(db, 'reports', reportId);
+    const firestoreDocPromise = getDoc(firestoreDocRef);
+
+    const [localData, firestoreDocSnap] = await Promise.all([localDataPromise, firestoreDocPromise]);
+
+    const localReport = localData ? JSON.parse(localData) as ShiftReport : null;
+    const firestoreReport = firestoreDocSnap.exists() 
+        ? {
+            ...firestoreDocSnap.data(),
+            id: firestoreDocSnap.id,
+            startedAt: (firestoreDocSnap.data().startedAt as any)?.toDate ? (firestoreDocSnap.data().startedAt as any).toDate().toISOString() : firestoreDocSnap.data().startedAt,
+            submittedAt: (firestoreDocSnap.data().submittedAt as any)?.toDate ? (firestoreDocSnap.data().submittedAt as any).toDate().toISOString() : firestoreDocSnap.data().submittedAt,
+            lastSynced: (firestoreDocSnap.data().lastSynced as any)?.toDate ? (firestoreDocSnap.data().lastSynced as any).toDate().toISOString() : firestoreDocSnap.data().lastSynced,
+          } as ShiftReport
+        : null;
+
+    // Logic to decide which report to use
+    if (firestoreReport?.status === 'submitted') {
+        return firestoreReport; // Submitted is the final state.
     }
     
-    // 2. If not in local, check Firestore for an existing report for today
-    const firestoreDocRef = doc(db, 'reports', reportId);
-    const firestoreDocSnap = await getDoc(firestoreDocRef);
-
-    if (firestoreDocSnap.exists()) {
-        const firestoreData = firestoreDocSnap.data() as ShiftReport;
-        const report = {
-             ...firestoreData,
-             id: firestoreDocSnap.id,
-             // Convert Firestore Timestamps to ISO strings for consistency
-             startedAt: (firestoreData.startedAt as any)?.toDate ? (firestoreData.startedAt as any).toDate().toISOString() : firestoreData.startedAt,
-             submittedAt: (firestoreData.submittedAt as any)?.toDate ? (firestoreData.submittedAt as any).toDate().toISOString() : firestoreData.submittedAt,
-             lastSynced: (firestoreData.lastSynced as any)?.toDate ? (firestoreData.lastSynced as any).toDate().toISOString() : firestoreData.lastSynced,
-        };
-        // Save the fetched report to local storage to continue the session
-        localStorage.setItem(reportId, JSON.stringify(report));
-        return report;
+    // If local report has unsynced changes (lastSynced is undefined), it takes precedence.
+    if (localReport && !localReport.lastSynced) {
+        await this.saveLocalReport(localReport);
+        return localReport;
+    }
+    
+    // If firestore is newer than local, use firestore's version.
+    if (firestoreReport && (!localReport || new Date(firestoreReport.lastSynced!) > new Date(localReport.lastSynced!))) {
+        await this.saveLocalReport(firestoreReport);
+        return firestoreReport;
+    }
+    
+    // If local is newer or equal, or firestore doesn't exist, use local.
+    if (localReport) {
+        return localReport;
     }
 
-    // 3. If nothing exists anywhere, create a new local report
+    // If nothing exists anywhere, create a new local report
     const newReport: ShiftReport = {
         id: reportId,
         staffName,
@@ -120,7 +135,7 @@ export const dataStore = {
         issues: null,
         uploadedPhotos: [], // Starts empty
     };
-    localStorage.setItem(reportId, JSON.stringify(newReport));
+    await this.saveLocalReport(newReport);
     return newReport;
   },
 
