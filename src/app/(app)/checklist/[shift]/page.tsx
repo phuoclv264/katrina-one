@@ -33,6 +33,7 @@ export default function ChecklistPage() {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showUnsubmittedChangesDialog, setShowUnsubmittedChangesDialog] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -65,8 +66,11 @@ export default function ChecklistPage() {
     
     const loadReport = async () => {
         setIsLoading(true);
-        const localReport = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
+        const { report: localReport, hasUnsubmittedChanges } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
         setReport(localReport);
+        if (hasUnsubmittedChanges) {
+          setShowUnsubmittedChangesDialog(true);
+        }
         setIsLoading(false);
     };
 
@@ -107,9 +111,8 @@ export default function ChecklistPage() {
     setIsCameraOpen(true);
   };
   
-  const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
+  const handleCapturePhotos = (photosDataUris: string[]) => {
     if (!activeTaskId) return;
-    setIsCameraOpen(false);
 
     setReport(currentReport => {
       if (!currentReport) return null;
@@ -117,16 +120,14 @@ export default function ChecklistPage() {
       const newReport = JSON.parse(JSON.stringify(currentReport));
       let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
       
-      if (activeCompletionIndex !== null) {
+      if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
           // Editing an existing completion: add photos to it
-          if(taskCompletions[activeCompletionIndex]) {
-            taskCompletions[activeCompletionIndex].photos.unshift(...photosDataUris);
-          }
+          taskCompletions[activeCompletionIndex].photos.unshift(...photosDataUris);
       } else {
           // Creating a new completion
           const now = new Date();
           const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          taskCompletions.push({
+          taskCompletions.unshift({ // Add to the beginning
               timestamp: formattedTime,
               photos: photosDataUris
           });
@@ -134,15 +135,16 @@ export default function ChecklistPage() {
       
       newReport.completedTasks[activeTaskId] = taskCompletions;
       
-      // Save to localStorage after state update
+      // IMPORTANT: Save to localStorage immediately after state update
       dataStore.saveLocalReport(newReport);
       
       return newReport;
     });
 
+    setIsCameraOpen(false);
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
-  }, [activeTaskId, activeCompletionIndex]);
+  };
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;
@@ -153,7 +155,6 @@ export default function ChecklistPage() {
 
       taskCompletions[completionIndex].photos = taskCompletions[completionIndex].photos.filter((p:string) => p !== photoUrl);
       
-      // If the completion has no photos left, remove the completion itself
       if (taskCompletions[completionIndex].photos.length === 0) {
           taskCompletions.splice(completionIndex, 1);
           if (taskCompletions.length === 0) {
@@ -183,6 +184,7 @@ export default function ChecklistPage() {
     const handleSubmitReport = async () => {
         if (!report) return;
         setIsSubmitting(true);
+        setShowUnsubmittedChangesDialog(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
@@ -194,7 +196,9 @@ export default function ChecklistPage() {
                 title: "Gửi báo cáo thành công!",
                 description: "Báo cáo của bạn đã được gửi lên hệ thống.",
             });
-            router.push('/shifts');
+            // We don't redirect, just update the state.
+            // A new report object is returned from submitReport with updated status
+            setReport(prev => prev ? {...prev, status: 'submitted'} : null);
         } catch (error) {
             console.error("Failed to submit report:", error);
             toast({
@@ -254,7 +258,7 @@ export default function ChecklistPage() {
     updateLocalReport(newReport);
   };
   
-  const isReadonly = isSubmitting || report?.status === 'submitted';
+  const isReadonly = isSubmitting; // Readonly only when submitting
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
@@ -440,7 +444,7 @@ export default function ChecklistPage() {
         <Card className="border-green-500/50">
            <CardHeader>
                 <CardTitle>Gửi báo cáo</CardTitle>
-                <CardDescription>Khi kết thúc ca, nhấn nút bên dưới để gửi báo cáo của bạn. Hành động này không thể hoàn tác.</CardDescription>
+                <CardDescription>Khi kết thúc ca, nhấn nút bên dưới để gửi báo cáo của bạn. Bạn có thể gửi nhiều lần.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly}>
@@ -463,7 +467,7 @@ export default function ChecklistPage() {
             disabled={isReadonly}
             aria-label="Gửi báo cáo"
         >
-            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md-w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
+            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
     </div>
 
@@ -521,6 +525,20 @@ export default function ChecklistPage() {
             )}
         </DialogContent>
     </Dialog>
+    <AlertDialog open={showUnsubmittedChangesDialog} onOpenChange={setShowUnsubmittedChangesDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Bạn có thay đổi chưa được báo cáo</AlertDialogTitle>
+          <AlertDialogDescription>
+            Chúng tôi phát hiện bạn có những công việc đã hoàn thành nhưng chưa được gửi đi trong báo cáo lần trước. Bạn có muốn gửi báo cáo bổ sung ngay bây giờ không?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Để sau</AlertDialogCancel>
+          <AlertDialogAction onClick={handleSubmitReport}>Báo cáo ngay</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
