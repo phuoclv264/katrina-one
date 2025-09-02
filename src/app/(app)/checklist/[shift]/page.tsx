@@ -60,14 +60,12 @@ export default function ChecklistPage() {
     return () => unsubscribeTasks();
   }, []);
 
-  // Simplified data loading effect
   useEffect(() => {
     if (isAuthLoading || !user || !shiftKey) return;
     
     const loadReport = async () => {
         setIsLoading(true);
-        // Always fetch from server on load to ensure we have the latest.
-        const serverReport = await dataStore.getOrCreateReport(user.uid, user.displayName, shiftKey);
+        const serverReport = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
         
         if (serverReport.status === 'submitted') {
             toast({
@@ -79,7 +77,6 @@ export default function ChecklistPage() {
             return;
         }
         
-        // Save the fetched report to local storage and set it as the current state
         await dataStore.saveLocalReport(serverReport);
         setReport(serverReport);
         setIsLoading(false);
@@ -182,34 +179,35 @@ export default function ChecklistPage() {
       await updateLocalReport(newReport);
   }
   
-    const handleSubmitReport = async () => {
+    const handleSyncReport = async () => {
         if (!report) return;
         setIsSubmitting(true);
         toast({
-            title: "Đang gửi báo cáo...",
-            description: "Vui lòng đợi và không đóng trình duyệt cho đến khi có thông báo thành công.",
-            duration: 10000, // Show for a long time
+            title: "Đang đồng bộ báo cáo...",
+            description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
         try {
-            await dataStore.submitReport(report.id);
+            const syncedReport = await dataStore.syncReport(report.id);
+            // Update local state with the synced report (which has updated URLs and lastSynced time)
+            await updateLocalReport(syncedReport);
+
             toast({
-                title: "Gửi báo cáo thành công!",
-                description: "Bạn sẽ được chuyển hướng về trang chọn ca.",
-                duration: 5000
+                title: "Đồng bộ thành công!",
+                description: "Những thay đổi của bạn đã được lưu lên cloud.",
             });
-            setTimeout(() => router.push('/shifts'), 2000);
         } catch (error) {
-            console.error("Failed to submit report:", error);
+            console.error("Failed to sync report:", error);
             toast({
                 variant: "destructive",
-                title: "Gửi báo cáo thất bại",
-                description: "Đã xảy ra lỗi khi gửi báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
+                title: "Đồng bộ thất bại",
+                description: "Đã xảy ra lỗi khi lưu báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
             });
+        } finally {
             setIsSubmitting(false);
         }
     };
-
+    
   const cameraInitialPhotos = useMemo(() => {
     if (activeTaskId && activeCompletionIndex !== null && report) {
       const completions = (report.completedTasks[activeTaskId] || []) as CompletionRecord[];
@@ -445,15 +443,22 @@ export default function ChecklistPage() {
 
         <Card className="border-green-500/50">
            <CardHeader>
-                <CardTitle>Hoàn thành ca</CardTitle>
-                <CardDescription>Khi bạn đã hoàn thành tất cả các công việc, hãy gửi báo cáo của bạn. Hành động này không thể được hoàn tác.</CardDescription>
+                <CardTitle>Lưu và Đồng bộ</CardTitle>
+                <CardDescription>Nhấn nút bên dưới để lưu tất cả thay đổi của bạn lên cloud. Bạn có thể lưu nhiều lần trong ca.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                    Gửi báo cáo
+                 <Button className="w-full" size="lg" onClick={handleSyncReport} disabled={isReadonly}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
+                    Lưu và Đồng bộ
                 </Button>
             </CardContent>
+             {report.lastSynced && (
+                <CardFooter>
+                    <p className="text-xs text-muted-foreground w-full text-center">
+                        Đã đồng bộ lần cuối lúc: {new Date(report.lastSynced).toLocaleTimeString('vi-VN')}
+                    </p>
+                </CardFooter>
+            )}
         </Card>
       </div>
     </div>

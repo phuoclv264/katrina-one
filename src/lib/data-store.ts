@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, storage } from './firebase';
@@ -15,7 +14,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord } from './types';
 import { tasksByShift as initialTasksByShift } from './data';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,7 +25,7 @@ const cleanupOldLocalStorage = () => {
     if (typeof window === 'undefined') return;
     const todayKey = getTodaysDateKey();
     Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('report-') && !key.endsWith(todayKey)) {
+        if (key.startsWith('report-') && !key.includes(todayKey)) {
             localStorage.removeItem(key);
         }
     });
@@ -35,6 +34,7 @@ const cleanupOldLocalStorage = () => {
 if (typeof window !== 'undefined') {
     cleanupOldLocalStorage();
 }
+
 
 export const dataStore = {
 
@@ -56,22 +56,25 @@ export const dataStore = {
     await setDoc(docRef, newTasks);
   },
 
-  // Fetches from server or creates a new local report.
-  // This is the source of truth when a shift starts.
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<ShiftReport> {
     const date = getTodaysDateKey();
     const reportId = `report-${userId}-${shiftKey}-${date}`;
     const firestoreDocRef = doc(db, 'reports', reportId);
+
     const firestoreDocSnap = await getDoc(firestoreDocRef);
 
     if (firestoreDocSnap.exists()) {
-      const data = firestoreDocSnap.data();
-      return {
-        ...data,
-        id: firestoreDocSnap.id,
-        startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
-        submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-      } as ShiftReport;
+        const data = firestoreDocSnap.data();
+        const serverReport: ShiftReport = {
+            ...data,
+            id: firestoreDocSnap.id,
+            startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
+            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+            lastSynced: (data.lastSynced as Timestamp)?.toDate().toISOString() || data.lastSynced,
+        };
+        // Always save the latest from server to local on start
+        await this.saveLocalReport(serverReport);
+        return serverReport;
     }
     
     // If nothing on server, create a new local report
@@ -87,25 +90,26 @@ export const dataStore = {
         issues: null,
         uploadedPhotos: [],
     };
+    await this.saveLocalReport(newReport);
     return newReport;
   },
 
   async saveLocalReport(report: ShiftReport): Promise<void> {
-    localStorage.setItem(report.id, JSON.stringify(report));
+     if (typeof window !== 'undefined') {
+        localStorage.setItem(report.id, JSON.stringify(report));
+    }
   },
 
-  async submitReport(reportId: string): Promise<ShiftReport> {
+  async syncReport(reportId: string): Promise<ShiftReport> {
      let reportString = localStorage.getItem(reportId);
-     if (!reportString) throw new Error("Báo cáo không tìm thấy để gửi đi.");
+     if (!reportString) throw new Error("Báo cáo không tìm thấy để đồng bộ.");
 
      let report: ShiftReport = JSON.parse(reportString);
      const firestoreRef = doc(db, 'reports', report.id);
 
-     // Create a deep copy for manipulation to avoid race conditions with React state
      const reportToSync = JSON.parse(JSON.stringify(report));
      let allUploadedUrls: string[] = reportToSync.uploadedPhotos || [];
 
-     // Sequentially upload photos that are still data URIs
      for (const taskId in reportToSync.completedTasks) {
          for (const completion of reportToSync.completedTasks[taskId]) {
              const uploadedPhotosInCompletion: string[] = [];
@@ -128,27 +132,43 @@ export const dataStore = {
      }
      
      reportToSync.uploadedPhotos = allUploadedUrls;
-     reportToSync.status = 'submitted';
-     reportToSync.submittedAt = serverTimestamp();
+     reportToSync.lastSynced = serverTimestamp();
      
      const docExists = (await getDoc(firestoreRef)).exists();
      if (!docExists) {
          reportToSync.startedAt = Timestamp.fromDate(new Date(reportToSync.startedAt));
      } else {
-         delete reportToSync.startedAt;
+         delete reportToSync.startedAt; // Don't overwrite startedAt on sync
      }
+     
+     // status remains 'ongoing'
+     delete reportToSync.status; 
+
 
      await setDoc(firestoreRef, reportToSync, { merge: true });
+
+     // Fetch the document again to get the server-generated timestamp
+     const updatedDoc = await getDoc(firestoreRef);
+     const updatedData = updatedDoc.data();
+      const finalReport: ShiftReport = {
+        ...report, // Start with original local report
+        ...updatedData, // Overwrite with server data
+        id: updatedDoc.id,
+        completedTasks: reportToSync.completedTasks, // Use the one with updated URLs
+        uploadedPhotos: reportToSync.uploadedPhotos,
+        startedAt: (updatedData?.startedAt as Timestamp)?.toDate().toISOString() || report.startedAt,
+        lastSynced: (updatedData?.lastSynced as Timestamp)?.toDate().toISOString(),
+        status: 'ongoing', // Explicitly set status back
+      };
+
+     await this.saveLocalReport(finalReport);
      
-     // Remove from local storage after successful submission
-     localStorage.removeItem(reportId);
-     
-     return reportToSync; // Return the final state
+     return finalReport;
   },
 
   subscribeToReports(callback: (reports: ShiftReport[]) => void): () => void {
      const reportsCollection = collection(db, 'reports');
-     const q = query(reportsCollection, orderBy('submittedAt', 'desc'));
+     const q = query(reportsCollection, orderBy('startedAt', 'desc'));
 
      return onSnapshot(q, (querySnapshot) => {
         const reports: ShiftReport[] = [];
@@ -159,9 +179,12 @@ export const dataStore = {
                 id: doc.id,
                 startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
                 submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+                lastSynced: (data.lastSynced as Timestamp)?.toDate().toISOString() || data.lastSynced,
             } as ShiftReport);
         });
         callback(reports);
      });
   },
 };
+
+    
