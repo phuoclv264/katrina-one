@@ -32,6 +32,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [newlyCaptured, setNewlyCaptured] = useState<string[]>([]);
 
   const stopCameraStream = useCallback(() => {
     if (streamRef.current) {
@@ -80,12 +81,13 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
   useEffect(() => {
     if (isOpen) {
       setCapturedPhotos(initialPhotos);
+      setNewlyCaptured([]);
       startCamera();
     } else {
       stopCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, initialPhotos]);
 
   const handleCapture = () => {
     if (videoRef.current && canvasRef.current && hasCameraPermission) {
@@ -100,16 +102,18 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUri = canvas.toDataURL('image/jpeg');
         setCapturedPhotos(prev => [...prev, dataUri]);
+        setNewlyCaptured(prev => [...prev, dataUri]);
       }
     }
   };
 
-  const handleDeletePhoto = (index: number) => {
+  const handleDeletePhoto = (index: number, photoUrl: string) => {
     setCapturedPhotos(prev => prev.filter((_, i) => i !== index));
+    setNewlyCaptured(prev => prev.filter(p => p !== photoUrl));
   };
   
   const handleSubmit = () => {
-    onSubmit(capturedPhotos);
+    onSubmit(newlyCaptured);
   };
   
   const handleDialogClose = () => {
@@ -161,7 +165,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
                       variant="destructive"
                       size="icon"
                       className="absolute top-1 right-1 h-5 w-5 rounded-full z-10"
-                      onClick={() => handleDeletePhoto(index)}
+                      onClick={() => handleDeletePhoto(index, photo)}
                     >
                       <X className="h-3 w-3" />
                       <span className="sr-only">Xóa ảnh</span>
@@ -175,9 +179,9 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
 
         <DialogFooter>
           <Button variant="outline" onClick={handleDialogClose}>Hủy</Button>
-          <Button onClick={handleSubmit}>
+          <Button onClick={handleSubmit} disabled={newlyCaptured.length === 0}>
             <CheckCircle className="mr-2 h-4 w-4" />
-            Xong ({capturedPhotos.length})
+            Xong ({newlyCaptured.length})
           </Button>
         </DialogFooter>
 
@@ -186,3 +190,5 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
     </Dialog>
   );
 }
+
+    
