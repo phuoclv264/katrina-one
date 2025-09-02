@@ -447,15 +447,15 @@ export default function ChecklistPage() {
       </div>
     </div>
 
-    <div className="fixed bottom-6 right-6 z-50 md:hidden">
+    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
         <Button 
-            size="lg"
-            className="rounded-full shadow-lg h-16 w-16" 
+            size="icon"
+            className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
             onClick={handleSyncReport} 
             disabled={isReadonly}
             aria-label="Gửi báo cáo"
         >
-            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
     </div>
 
@@ -513,3 +513,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
