@@ -20,7 +20,7 @@ let db: Firestore;
 let storage: FirebaseStorage;
 
 // This function ensures that we initialize Firebase only once.
-function initializeFirebase() {
+async function initializeFirebase() {
   if (typeof window !== 'undefined') {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
@@ -31,14 +31,14 @@ function initializeFirebase() {
     db = getFirestore(app);
     storage = getStorage(app);
     
-    // Automatically sign in anonymously
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        signInAnonymously(auth).catch((error) => {
-          console.error("Anonymous sign-in failed: ", error);
-        });
-      }
-    });
+    // Actively sign in anonymously if no user is present.
+    if (!auth.currentUser) {
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("Anonymous sign-in failed: ", error);
+        }
+    }
   }
 }
 
