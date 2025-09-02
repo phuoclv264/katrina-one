@@ -22,7 +22,6 @@ export default function AuthPage() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
-  const [registerRole, setRegisterRole] = useState<UserRole>('staff');
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -42,7 +41,8 @@ export default function AuthPage() {
       toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin.', variant: 'destructive' });
       return;
     }
-    await register(registerEmail, registerPassword, registerName, registerRole);
+    // Hardcode role to 'staff'
+    await register(registerEmail, registerPassword, registerName, 'staff');
   };
   
   if (loading && !user) {
@@ -120,7 +120,7 @@ export default function AuthPage() {
         <TabsContent value="register">
           <Card>
             <CardHeader>
-              <CardTitle>Tạo tài khoản</CardTitle>
+              <CardTitle>Tạo tài khoản nhân viên</CardTitle>
               <CardDescription>Điền thông tin bên dưới để tạo tài khoản mới.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -157,19 +157,6 @@ export default function AuthPage() {
                       </Button>
                    </div>
                 </div>
-                 <div className="space-y-2">
-                    <Label>Vai trò</Label>
-                    <Tabs 
-                        value={registerRole} 
-                        onValueChange={(value) => setRegisterRole(value as UserRole)}
-                        className="w-full"
-                    >
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="staff"><User className="mr-2"/>Nhân viên</TabsTrigger>
-                            <TabsTrigger value="manager"><Building className="mr-2"/>Quản lý</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Đăng ký
@@ -185,5 +172,3 @@ export default function AuthPage() {
     </main>
   );
 }
-
-    
