@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
@@ -33,6 +32,7 @@ export default function ChecklistPage() {
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -202,6 +202,32 @@ export default function ChecklistPage() {
       await updateLocalReport(newReport);
   }
   
+    const handleSubmitReport = async () => {
+        if (!report) return;
+        setIsSubmitting(true);
+        toast({
+            title: "Đang gửi báo cáo...",
+            description: "Vui lòng đợi trong khi chúng tôi tải ảnh lên và hoàn tất báo cáo của bạn.",
+        });
+
+        try {
+            await dataStore.submitReport(report.id);
+            toast({
+                title: "Gửi báo cáo thành công!",
+                description: "Bạn sẽ được chuyển hướng về trang chọn ca.",
+            });
+            setTimeout(() => router.push('/shifts'), 2000);
+        } catch (error) {
+            console.error("Failed to submit report:", error);
+            toast({
+                variant: "destructive",
+                title: "Gửi báo cáo thất bại",
+                description: "Đã xảy ra lỗi khi gửi báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
+            });
+            setIsSubmitting(false);
+        }
+    };
+
   const cameraInitialPhotos = useMemo(() => {
     if (activeTaskId && activeCompletionIndex !== null && report) {
       const completions = (report.completedTasks[activeTaskId] || []) as CompletionRecord[];
@@ -249,7 +275,7 @@ export default function ChecklistPage() {
     updateLocalReport(newReport);
   };
   
-  const isReadonly = report?.status === 'submitted' || report?.isSyncing;
+  const isReadonly = report?.status === 'submitted' || report?.isSyncing || isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
@@ -294,10 +320,12 @@ export default function ChecklistPage() {
                  <h1 className="text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
                  <p className="text-muted-foreground">Mọi thay đổi sẽ được lưu cục bộ trên thiết bị này.</p>
             </div>
-            <Button size="lg" onClick={handleSync} disabled={isReadonly}>
-                {report.isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
-                Lưu & Đồng bộ
-            </Button>
+             <div className="flex flex-col items-end gap-2">
+                <Button size="lg" onClick={handleSync} disabled={isReadonly}>
+                    {report.isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
+                    Lưu & Đồng bộ
+                </Button>
+            </div>
         </div>
       </header>
       
@@ -451,6 +479,19 @@ export default function ChecklistPage() {
             />
           </CardContent>
         </Card>
+
+        <Card className="border-green-500/50">
+           <CardHeader>
+                <CardTitle>Hoàn thành ca</CardTitle>
+                <CardDescription>Khi bạn đã hoàn thành tất cả các công việc, hãy gửi báo cáo của bạn. Hành động này không thể được hoàn tác.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                    Gửi báo cáo
+                </Button>
+            </CardContent>
+        </Card>
       </div>
     </div>
     <CameraDialog 
@@ -507,3 +548,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    

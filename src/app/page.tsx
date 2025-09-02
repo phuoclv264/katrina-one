@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Building, KeyRound, Loader2, User } from 'lucide-react';
+import { Building, KeyRound, Loader2, User, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,9 @@ export default function AuthPage() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerRole, setRegisterRole] = useState<UserRole>('staff');
+
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +85,27 @@ export default function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Mật khẩu</Label>
-                  <Input id="login-password" type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required disabled={loading} />
+                  <div className="relative">
+                     <Input 
+                        id="login-password" 
+                        type={showLoginPassword ? "text" : "password"} 
+                        value={loginPassword} 
+                        onChange={(e) => setLoginPassword(e.target.value)} 
+                        required 
+                        disabled={loading} 
+                        className="pr-10"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute inset-y-0 right-0 h-full px-3"
+                        onClick={() => setShowLoginPassword(prev => !prev)}
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">{showLoginPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
+                      </Button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -112,7 +135,27 @@ export default function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Mật khẩu</Label>
-                  <Input id="register-password" type="password" value={registerPassword} onChange={(e) => setRegisterPassword(e.target.value)} required disabled={loading}/>
+                   <div className="relative">
+                      <Input 
+                          id="register-password" 
+                          type={showRegisterPassword ? "text" : "password"} 
+                          value={registerPassword} 
+                          onChange={(e) => setRegisterPassword(e.target.value)} 
+                          required 
+                          disabled={loading}
+                          className="pr-10"
+                      />
+                       <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute inset-y-0 right-0 h-full px-3"
+                        onClick={() => setShowRegisterPassword(prev => !prev)}
+                      >
+                        {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">{showRegisterPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
+                      </Button>
+                   </div>
                 </div>
                  <div className="space-y-2">
                     <Label>Vai trò</Label>
@@ -142,3 +185,5 @@ export default function AuthPage() {
     </main>
   );
 }
+
+    
