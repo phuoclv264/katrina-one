@@ -19,8 +19,6 @@ import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storag
 import type { ShiftReport, TasksByShift, Staff, TaskCompletion } from './types';
 import { tasksByShift as initialTasksByShift, staff as initialStaff } from './data';
 
-const isBrowser = typeof window !== 'undefined';
-
 // --- Tasks ---
 
 let tasksUnsubscribe: () => void;
@@ -95,8 +93,6 @@ export const dataStore = {
         ...reportData,
         submittedAt: serverTimestamp(),
     };
-    // In a real multi-user environment, you'd handle updates differently,
-    // but for this app, we'll just add a new report document each time.
     await addDoc(collection(db, 'reports'), reportWithTimestamp);
   },
   
@@ -118,10 +114,8 @@ export const dataStore = {
     const uniqueId = `photo_${Date.now()}_${Math.random()}`;
     const storageRef = ref(storage, `reports/${reportId}/${taskId}/${uniqueId}.jpg`);
     
-    // Upload the photo
     await uploadString(storageRef, photoDataUrl, 'data_url');
     
-    // Get the download URL
     const downloadUrl = await getDownloadURL(storageRef);
     return downloadUrl;
   },
@@ -131,45 +125,37 @@ export const dataStore = {
         const photoRef = ref(storage, photoUrl);
         await deleteObject(photoRef);
     } catch (error: any) {
-        // It's okay if the file doesn't exist (e.g., already deleted)
         if (error.code === 'storage/object-not-found') {
             console.warn(`Photo not found, could not delete: ${photoUrl}`);
             return;
         }
-        // Re-throw other errors
         throw error;
     }
   },
   
-  // --- Daily Completions (Local still makes sense here) ---
-  getDailyCompletions: (key: string): TaskCompletion | undefined => {
-      if(!isBrowser) return undefined;
-      const stored = localStorage.getItem('dailyCompletions');
-      if (stored) {
-          const allCompletions = JSON.parse(stored);
-          return allCompletions[key];
-      }
-      return undefined;
+  // --- Daily Progress on Firestore ---
+  subscribeToDailyProgress(key: string, callback: (completion: TaskCompletion) => void): () => void {
+    const docRef = doc(db, 'daily-progress', key);
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            callback(docSnap.data().taskCompletion as TaskCompletion);
+        } else {
+            // Document doesn't exist yet, provide an empty object
+            callback({});
+        }
+    });
+
+    return unsubscribe;
   },
 
-  updateDailyCompletions: (key: string, completion: TaskCompletion) => {
-      if(!isBrowser) return;
-      const stored = localStorage.getItem('dailyCompletions');
-      const allCompletions = stored ? JSON.parse(stored) : {};
-      allCompletions[key] = completion;
-      localStorage.setItem('dailyCompletions', JSON.stringify(allCompletions));
+  async updateDailyProgress(key: string, completion: TaskCompletion) {
+      const docRef = doc(db, 'daily-progress', key);
+      await setDoc(docRef, { taskCompletion: completion }, { merge: true });
   },
-  
-  clearDailyDataIfNeeded: () => {
-    if (!isBrowser) return;
-    const today = new Date().toISOString().split('T')[0];
-    const lastVisitDate = localStorage.getItem('lastVisitDate');
 
-    if (lastVisitDate !== today) {
-        localStorage.removeItem('dailyCompletions');
-        localStorage.setItem('lastVisitDate', today);
-    }
+  async clearDailyProgress(key: string) {
+    const docRef = doc(db, 'daily-progress', key);
+    await setDoc(docRef, { taskCompletion: {} });
   }
 };
-
-dataStore.clearDailyDataIfNeeded();

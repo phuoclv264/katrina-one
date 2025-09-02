@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -23,13 +23,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ChecklistPage() {
   const { toast } = useToast();
-  const { staffName } = useAuth();
+  const { staffName, isLoading: isAuthLoading } = useAuth();
   const params = useParams();
+  const router = useRouter();
   const shiftKey = params.shift as string;
-  const dailyStorageKey = `${staffName}-${shiftKey}`;
-
+  
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -47,38 +47,30 @@ export default function ChecklistPage() {
   
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
+  const dailyStorageKey = useMemo(() => {
+    if (!staffName || !shiftKey) return null;
+    const today = new Date().toISOString().split('T')[0];
+    return `${staffName}-${shiftKey}-${today}`;
+  }, [staffName, shiftKey]);
+
   useEffect(() => {
     const unsubscribe = dataStore.subscribeToTasks((tasks) => {
       setTasksByShift(tasks);
-      setIsLoading(false);
+      setIsDataLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
-  
-  const updateCompletionState = useCallback((newCompletion: TaskCompletion) => {
-    setTaskCompletion(newCompletion);
-    dataStore.updateDailyCompletions(dailyStorageKey, newCompletion);
-  }, [dailyStorageKey]);
-
 
   useEffect(() => {
-    dataStore.clearDailyDataIfNeeded();
-    if (shift) {
-        const storedCompletion = dataStore.getDailyCompletions(dailyStorageKey);
-        if (storedCompletion) {
-            setTaskCompletion(storedCompletion);
-        } else {
-             const initialCompletion: TaskCompletion = {};
-            shift.sections.forEach(section => {
-                section.tasks.forEach(task => {
-                initialCompletion[task.id] = [];
-                });
-            });
-            setTaskCompletion(initialCompletion);
-        }
-    }
-  }, [shift, dailyStorageKey]);
+    if (!dailyStorageKey) return;
+    
+    const unsubscribe = dataStore.subscribeToDailyProgress(dailyStorageKey, (completion) => {
+        setTaskCompletion(completion || {});
+    });
+
+    return () => unsubscribe();
+  }, [dailyStorageKey]);
   
   const allPagePhotos = useMemo(() => {
     if (!shift) return [];
@@ -116,8 +108,8 @@ export default function ChecklistPage() {
     setIsCameraOpen(true);
   };
   
-  const handleCapturePhotos = (photos: string[]) => {
-    if (activeTaskId) {
+  const handleCapturePhotos = async (photos: string[]) => {
+    if (activeTaskId && dailyStorageKey) {
       const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
 
@@ -135,7 +127,7 @@ export default function ChecklistPage() {
       }
       
       newCompletion[activeTaskId] = taskCompletions;
-      updateCompletionState(newCompletion);
+      await dataStore.updateDailyProgress(dailyStorageKey, newCompletion);
     }
     setIsCameraOpen(false);
     setActiveTaskId(null);
@@ -158,6 +150,7 @@ export default function ChecklistPage() {
   };
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoIndex: number) => {
+      if (!dailyStorageKey) return;
       const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       const targetCompletion = taskCompletions[completionIndex];
@@ -174,10 +167,11 @@ export default function ChecklistPage() {
       }
       
       newCompletion[taskId] = taskCompletions;
-      updateCompletionState(newCompletion);
+      await dataStore.updateDailyProgress(dailyStorageKey, newCompletion);
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
+      if (!dailyStorageKey) return;
       const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       
@@ -190,7 +184,7 @@ export default function ChecklistPage() {
 
       taskCompletions.splice(completionIndex, 1);
       newCompletion[taskId] = taskCompletions;
-      updateCompletionState(newCompletion);
+      await dataStore.updateDailyProgress(dailyStorageKey, newCompletion);
       toast({
         title: "Đã xóa lần thực hiện",
         description: "Lần hoàn thành công việc đã được xóa khỏi báo cáo.",
@@ -202,15 +196,17 @@ export default function ChecklistPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+        if(!dailyStorageKey) throw new Error("Không thể xác định khóa lưu trữ hàng ngày.");
+
         // A unique ID for this specific report instance
-        const reportId = `${staffName}-${shiftKey}-${new Date().toISOString().split('T')[0]}`;
+        const reportId = dailyStorageKey;
         
         // 1. Upload all new photos and update taskCompletion with cloud URLs
-        const updatedTaskCompletion: TaskCompletion = JSON.parse(JSON.stringify(taskCompletion));
+        const finalTaskCompletion: TaskCompletion = JSON.parse(JSON.stringify(taskCompletion));
         const allUploadedPhotos: string[] = [];
 
-        for (const taskId in updatedTaskCompletion) {
-            const completions = updatedTaskCompletion[taskId];
+        for (const taskId in finalTaskCompletion) {
+            const completions = finalTaskCompletion[taskId];
             for (const completion of completions) {
                 const uploadedPhotoUrls = await Promise.all(
                     completion.photos.map(photo => {
@@ -230,13 +226,14 @@ export default function ChecklistPage() {
         await dataStore.addOrUpdateReport({
             shiftKey,
             staffName: staffName || 'Nhân viên',
-            completedTasks: updatedTaskCompletion,
+            completedTasks: finalTaskCompletion,
             uploadedPhotos: allUploadedPhotos,
             issues: issues || null,
         });
 
-        // 3. Clear local state for the next shift
-        updateCompletionState({});
+        // 3. Clear local state and cloud state for the next shift
+        await dataStore.clearDailyProgress(dailyStorageKey);
+        setTaskCompletion({});
         setIssues('');
 
         toast({
@@ -248,6 +245,8 @@ export default function ChecklistPage() {
                 border: '1px solid hsl(var(--accent))'
             }
         });
+        
+        router.push('/shifts');
 
     } catch (error) {
         console.error("Failed to submit report:", error);
@@ -298,7 +297,7 @@ export default function ChecklistPage() {
     }
   };
 
-  if (isLoading) {
+  if (isDataLoading || isAuthLoading) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -315,7 +314,7 @@ export default function ChecklistPage() {
     )
   }
 
-  if (!shift) {
+  if (!shift || !dailyStorageKey) {
     return <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">Đang tải...</div>;
   }
 
