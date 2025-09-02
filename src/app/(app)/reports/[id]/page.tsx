@@ -262,7 +262,7 @@ export default function ReportDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
-              </Header>
+              </CardHeader>
               <CardContent>
                 <p className="text-sm italic">"{report.issues}"</p>
               </CardContent>
