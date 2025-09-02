@@ -23,11 +23,7 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTas
 import type { ShiftReport, TasksByShift, Staff, TaskCompletion, CompletionRecord } from './types';
 import { tasksByShift as initialTasksByShift, staff as initialStaff } from './data';
 
-// --- Tasks ---
-
-let tasksUnsubscribe: () => void;
-
-// Helper to convert Data URL to Blob
+// --- Helper to convert Data URL to Blob ---
 function dataURLtoBlob(dataurl: string) {
     const arr = dataurl.split(',');
     if (arr.length < 2) {
@@ -52,11 +48,7 @@ export const dataStore = {
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
     const docRef = doc(db, 'app-data', 'tasks');
     
-    if (tasksUnsubscribe) {
-      tasksUnsubscribe();
-    }
-
-    tasksUnsubscribe = onSnapshot(docRef, async (docSnap) => {
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
         callback(docSnap.data() as TasksByShift);
       } else {
@@ -65,7 +57,7 @@ export const dataStore = {
       }
     });
 
-    return tasksUnsubscribe;
+    return unsubscribe;
   },
 
   async updateTasks(newTasks: TasksByShift) {
