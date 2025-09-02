@@ -2,6 +2,8 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,11 +15,21 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportsPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [reports, setReports] = useState<ShiftReport[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!authLoading && user?.role !== 'manager') {
+      router.replace('/shifts');
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (user?.role !== 'manager') return;
+
     const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
       setTasksByShift(tasks);
     });
@@ -31,7 +43,7 @@ export default function ReportsPage() {
       unsubscribeTasks();
       unsubscribeReports();
     };
-  }, []);
+  }, [user]);
 
   const groupedReports = useMemo(() => {
     return reports.reduce((acc, report) => {
@@ -68,7 +80,7 @@ export default function ReportsPage() {
 
   const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   
-  if(isLoading) {
+  if(isLoading || authLoading || user?.role !== 'manager') {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <header className="mb-8">
