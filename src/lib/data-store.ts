@@ -14,6 +14,7 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
+  deleteDoc,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, Staff, TaskCompletion } from './types';
@@ -134,15 +135,15 @@ export const dataStore = {
   },
   
   // --- Daily Progress on Firestore ---
-  subscribeToDailyProgress(key: string, callback: (completion: TaskCompletion) => void): () => void {
+  subscribeToDailyProgress(key: string, callback: (completion: TaskCompletion | null) => void): () => void {
     const docRef = doc(db, 'daily-progress', key);
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
             callback(docSnap.data().taskCompletion as TaskCompletion);
         } else {
-            // Document doesn't exist yet, provide an empty object
-            callback({});
+            // Document doesn't exist yet, provide null or an empty object
+            callback(null);
         }
     });
 
@@ -156,6 +157,10 @@ export const dataStore = {
 
   async clearDailyProgress(key: string) {
     const docRef = doc(db, 'daily-progress', key);
-    await setDoc(docRef, { taskCompletion: {} });
+    // Instead of clearing, we can delete the document for the day
+    const docSnap = await getDoc(docRef);
+    if(docSnap.exists()) {
+        await deleteDoc(docRef);
+    }
   }
 };

@@ -55,9 +55,9 @@ export default function ReportDetailPage() {
   
   
   const allPagePhotos = useMemo(() => {
-    if (!report || !tasksByShift || !tasksByShift[report.shiftKey]) return [];
+    if (!report) return [];
     return report.uploadedPhotos || [];
-  }, [report, tasksByShift]);
+  }, [report]);
 
 
   useEffect(() => {
