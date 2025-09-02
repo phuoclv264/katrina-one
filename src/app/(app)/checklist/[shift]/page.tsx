@@ -20,7 +20,15 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import type { CarouselApi } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { v4 as uuidv4 } from 'uuid';
+import { Progress } from '@/components/ui/progress';
 
+type UploadState = {
+  [tempId: string]: {
+    progress: number;
+    finalUrl?: string;
+  };
+};
 
 export default function ChecklistPage() {
   const { toast } = useToast();
@@ -33,7 +41,8 @@ export default function ChecklistPage() {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
   
-  const [isSaving, setIsSaving] = useState<{[completionKey: string]: boolean}>({});
+  const [isSavingIssues, setIsSavingIssues] = useState(false);
+  const [uploads, setUploads] = useState<UploadState>({});
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -81,8 +90,7 @@ export default function ChecklistPage() {
   
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
-    const photos = report.uploadedPhotos || [];
-    return photos.filter(p => !p.startsWith('data:image')); // Only show uploaded photos
+    return report.uploadedPhotos || [];
   }, [shift, report]);
 
   useEffect(() => {
@@ -107,13 +115,12 @@ export default function ChecklistPage() {
     setIsCameraOpen(true);
   };
 
-  const updateLiveReport = useCallback(async (updatedCompletion: TaskCompletion, updatedPhotos: string[], updatedIssues?: string) => {
+  const updateLiveReport = useCallback(async (updatedCompletion: TaskCompletion, updatedPhotos: string[]) => {
       if (!report) return;
       try {
          await dataStore.updateReport(report.id, {
             completedTasks: updatedCompletion,
-            uploadedPhotos: updatedPhotos,
-            ...(updatedIssues !== undefined && { issues: updatedIssues || null })
+            uploadedPhotos: updatedPhotos
          });
       } catch (error) {
          console.error("Failed to update report:", error);
@@ -123,75 +130,122 @@ export default function ChecklistPage() {
   
   const handleCapturePhotos = async (photosDataUris: string[]) => {
     if (!activeTaskId || !report) return;
-    setIsCameraOpen(false); // Close dialog immediately
+    setIsCameraOpen(false);
 
+    // --- Part 1: Optimistic UI Update with Temporary IDs ---
     const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
     let taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
-    
-    const completionKey = activeCompletionIndex !== null ? `${activeTaskId}-${activeCompletionIndex}` : `${activeTaskId}-new`;
-    setIsSaving(prevState => ({...prevState, [completionKey]: true }));
+    let completionIndex = activeCompletionIndex;
 
-    // Prepare a temporary completion record for optimistic UI update
-    const existingPhotos = getInitialPhotosForCamera();
-    const tempPhotos = [...existingPhotos, ...photosDataUris];
+    const newPhotosWithTempIds = photosDataUris.map(dataUri => ({
+        tempId: `temp_${uuidv4()}`,
+        dataUri: dataUri
+    }));
 
-    if (activeCompletionIndex !== null) {
-        taskCompletions[activeCompletionIndex].photos = tempPhotos;
+    const tempPhotoUrls = newPhotosWithTempIds.map(p => `uploading://${p.tempId}`);
+
+    if (completionIndex !== null) {
+        taskCompletions[completionIndex].photos.push(...tempPhotoUrls);
     } else {
         const now = new Date();
         const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         taskCompletions.push({
             timestamp: formattedTime,
-            photos: tempPhotos
+            photos: tempPhotoUrls
         });
-        setActiveCompletionIndex(taskCompletions.length - 1); // Set index for the new completion
+        completionIndex = taskCompletions.length - 1;
     }
     
     newCompletion[activeTaskId] = taskCompletions;
-    const allCurrentPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
-    setReport(prev => prev ? {...prev, completedTasks: newCompletion, uploadedPhotos: allCurrentPhotos} : null);
+    setReport(prev => prev ? {...prev, completedTasks: newCompletion } : null);
 
-    // Start upload process
-    try {
-        const uploadedUrls = await Promise.all(
-            photosDataUris.map(p => dataStore.uploadPhoto(p, report.id, activeTaskId))
-        );
-        
-        // Now update the report with the final URLs
-        const finalCompletion = JSON.parse(JSON.stringify(report.completedTasks));
-        let finalTaskCompletions = (finalCompletion[activeTaskId] as CompletionRecord[]) || [];
+    // --- Part 2: Start Uploads and Track Progress ---
+    newPhotosWithTempIds.forEach(({ tempId, dataUri }) => {
+        dataStore.uploadPhotoWithProgress(
+            dataUri,
+            report.id,
+            activeTaskId,
+            (progress) => {
+                setUploads(prev => ({...prev, [tempId]: {...prev[tempId], progress }}));
+            }
+        ).promise.then(finalUrl => {
+            setUploads(prev => ({...prev, [tempId]: {...prev[tempId], finalUrl }}));
+        }).catch(error => {
+            console.error("Upload failed for", tempId, error);
+            toast({ title: "Lỗi tải ảnh lên", description: `Một ảnh không thể tải lên được. Vui lòng thử xóa và chụp lại.`, variant: "destructive" });
+             // Remove failed upload from UI
+            setUploads(prev => {
+                const newUploads = {...prev};
+                delete newUploads[tempId];
+                return newUploads;
+            });
+            const tempUrl = `uploading://${tempId}`;
+             // Also remove from report state
+            if(report) {
+                const finalCompletion = JSON.parse(JSON.stringify(report.completedTasks));
+                const finalTaskCompletions = (finalCompletion[activeTaskId] as CompletionRecord[]);
+                if(finalTaskCompletions[completionIndex!]){
+                    finalTaskCompletions[completionIndex!].photos = finalTaskCompletions[completionIndex!].photos.filter((p:string) => p !== tempUrl);
+                    const newUploadedPhotos = Object.values(finalCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+                    updateLiveReport(finalCompletion, newUploadedPhotos);
+                }
+            }
+        });
+    });
 
-        const indexToUpdate = activeCompletionIndex !== null ? activeCompletionIndex : finalTaskCompletions.length > 0 ? finalTaskCompletions.length - 1 : 0;
-        
-        if (!finalTaskCompletions[indexToUpdate]) {
-           const now = new Date();
-           const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-           finalTaskCompletions[indexToUpdate] = { timestamp: formattedTime, photos: [] };
-        }
-        
-        const existingFinalPhotos = finalTaskCompletions[indexToUpdate].photos.filter((p:string) => !p.startsWith('data:image'));
-        finalTaskCompletions[indexToUpdate].photos = [...existingFinalPhotos, ...uploadedUrls];
-        
-        finalCompletion[activeTaskId] = finalTaskCompletions;
-        const newUploadedPhotos = Object.values(finalCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
-        
-        await updateLiveReport(finalCompletion, newUploadedPhotos);
-        
-    } catch (error) {
-        console.error("Error capturing photos and updating report:", error);
-        toast({ title: "Lỗi lưu ảnh", description: "Đã có lỗi xảy ra khi tải ảnh lên và cập nhật báo cáo.", variant: "destructive" });
-    } finally {
-        setIsSaving(prevState => ({...prevState, [completionKey]: false }));
-        setActiveTaskId(null);
-        setActiveCompletionIndex(null);
-    }
+    setActiveTaskId(null);
+    setActiveCompletionIndex(null);
   };
+  
+  // Effect to process completed uploads
+  useEffect(() => {
+    const completedUploads = Object.entries(uploads).filter(([_, u]) => u.finalUrl);
+    if (completedUploads.length === 0 || !report) return;
+
+    const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
+    let hasChanged = false;
+
+    // Replace temp URLs with final URLs in the report state
+    for (const [tempId, { finalUrl }] of completedUploads) {
+        if (!finalUrl) continue;
+        const tempUrl = `uploading://${tempId}`;
+        
+        for(const taskId in newCompletion) {
+            const completions = newCompletion[taskId] as CompletionRecord[];
+            for(const completion of completions) {
+                const photoIndex = completion.photos.indexOf(tempUrl);
+                if(photoIndex > -1) {
+                    completion.photos[photoIndex] = finalUrl;
+                    hasChanged = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if(hasChanged) {
+        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+        updateLiveReport(newCompletion, newUploadedPhotos);
+        
+        // Clean up completed uploads from the tracking state
+        setUploads(prev => {
+            const newUploadsState = {...prev};
+            completedUploads.forEach(([tempId, _]) => delete newUploadsState[tempId]);
+            return newUploadsState;
+        });
+    }
+
+  }, [uploads, report, updateLiveReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;
       
-      const completionKey = `${taskId}-${completionIndex}`;
-      setIsSaving(prevState => ({...prevState, [completionKey]: true }));
+      const isUploading = photoUrl.startsWith('uploading://');
+
+      if (isUploading) {
+        // TODO: Cancel upload if possible. For now, just remove from UI.
+        toast({ title: "Đã hủy", description: "Đã hủy tải lên ảnh.", variant: "destructive" });
+      }
 
       try {
         const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
@@ -209,22 +263,18 @@ export default function ChecklistPage() {
             taskCompletions.splice(completionIndex, 1);
         }
         
-        newCompletion[taskId] = taskCompletions;
-        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+        newCompletion[taskId] = taskCompletions.length > 0 ? taskCompletions : [];
+        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos).filter(p => p && !p.startsWith('uploading://'));
         await updateLiveReport(newCompletion, newUploadedPhotos);
 
       } catch (error) {
           console.error("Error deleting photo:", error);
           toast({ title: "Lỗi xóa ảnh", description: "Không thể xóa ảnh.", variant: "destructive" });
-      } finally {
-          setIsSaving(prevState => ({...prevState, [completionKey]: false }));
       }
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
-      const completionKey = `${taskId}-${completionIndex}`;
-      setIsSaving(prevState => ({...prevState, [completionKey]: true }));
       
       try {
         const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
@@ -235,11 +285,12 @@ export default function ChecklistPage() {
              if (photoUrl.startsWith('https://')) {
                 await dataStore.deletePhoto(photoUrl);
             }
+             // TODO: Also cancel any uploads in progress
         }
 
         taskCompletions.splice(completionIndex, 1);
         newCompletion[taskId] = taskCompletions;
-        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos).filter(p => p && !p.startsWith('uploading://'));
         await updateLiveReport(newCompletion, newUploadedPhotos);
         toast({
             title: "Đã xóa lần thực hiện",
@@ -249,15 +300,14 @@ export default function ChecklistPage() {
       } catch (error) {
           console.error("Error deleting completion:", error);
           toast({ title: "Lỗi xóa", description: "Không thể xóa lần thực hiện này.", variant: "destructive" });
-      } finally {
-         setIsSaving(prevState => ({...prevState, [completionKey]: false }));
       }
   }
   
   const getInitialPhotosForCamera = () => {
     if (activeTaskId && activeCompletionIndex !== null && report) {
       const completions = (report.completedTasks[activeTaskId] || []) as CompletionRecord[];
-      return completions[activeCompletionIndex]?.photos || [];
+      // Filter out uploading photos as they can't be edited
+      return (completions[activeCompletionIndex]?.photos || []).filter(p => !p.startsWith('uploading://'));
     }
     return [];
   }
@@ -296,11 +346,17 @@ export default function ChecklistPage() {
     const newIssues = e.target.value;
     const newReportState = { ...report, issues: newIssues };
     setReport(newReportState); // Optimistic update
-    updateLiveReport(report.completedTasks, report.uploadedPhotos, newIssues);
   };
   
-  const isAnythingSaving = Object.values(isSaving).some(s => s === true);
-
+  const handleSaveIssues = () => {
+    if(!report || report.issues === null) return;
+    setIsSavingIssues(true);
+    dataStore.updateReport(report.id, { issues: report.issues })
+        .then(() => toast({ title: "Đã lưu ghi chú" }))
+        .catch(() => toast({ title: "Lỗi lưu ghi chú", variant: "destructive" }))
+        .finally(() => setIsSavingIssues(false));
+  }
+  
   if (isDataLoading || isAuthLoading || !report || !tasksByShift) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
@@ -330,11 +386,7 @@ export default function ChecklistPage() {
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
-                 {isAnythingSaving ? (
-                     <Badge variant="secondary"><Loader2 className="mr-1.5 h-3 w-3 animate-spin"/> Đang lưu...</Badge>
-                 ) : (
-                     <Badge variant="secondary">Đã lưu lên cloud</Badge>
-                 )}
+                <Badge variant="secondary">Đã lưu lên cloud</Badge>
             </div>
         </div>
         <h1 className="text-3xl font-bold font-headline">Checklist: {shift?.name}</h1>
@@ -366,7 +418,7 @@ export default function ChecklistPage() {
                       {section.tasks.map((task) => {
                         const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
                         const isCompletedOnce = completions.length > 0;
-                        const isDisabled = isSingleCompletionSection && isCompletedOnce;
+                        const isDisabledForNew = isSingleCompletionSection && isCompletedOnce;
                         
                         return (
                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
@@ -378,44 +430,37 @@ export default function ChecklistPage() {
                               </div>
                               <Button 
                                 size="sm" 
-                                style={!isDisabled ? {
+                                style={!isDisabledForNew ? {
                                   backgroundColor: 'hsl(var(--accent)/0.8)',
                                   color: 'hsl(var(--accent-foreground))'
                                 } : {}}
                                 className="active:scale-95 transition-transform"
                                 onClick={() => handleTaskAction(task.id)}
-                                disabled={isDisabled || isAnythingSaving}
+                                disabled={isDisabledForNew}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>
                                   Đã hoàn thành
                               </Button>
                             </div>
                             
-                            {completions.map((completion, cIndex) => {
-                              const isCompletionSaving = isSaving[`${task.id}-${cIndex}`] || isSaving[`${task.id}-new`] && cIndex === completions.length-1;
-                              return (
-                              <div key={cIndex} className={`mt-4 rounded-md border bg-card p-3 relative transition-opacity ${isCompletionSaving ? 'opacity-60' : ''}`}>
-                                  {isCompletionSaving && (
-                                    <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-md z-10">
-                                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                    </div>
-                                  )}
+                            {completions.map((completion, cIndex) => (
+                              <div key={cIndex} className="mt-4 rounded-md border bg-card p-3">
                                   <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                           <Clock className="h-4 w-4 flex-shrink-0" />
                                           <span>Thực hiện lúc: {completion.timestamp}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
-                                          {!isDisabled && (
-                                            <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)} disabled={isAnythingSaving}>
+                                          {!isSingleCompletionSection && (
+                                            <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)}>
                                                 <Camera className="mr-1.5 h-3 w-3" />
-                                                Sửa ảnh
+                                                Thêm ảnh
                                             </Button>
                                           )}
                                           
                                           <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                               <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isAnythingSaving}>
+                                               <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10">
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
                                             </AlertDialogTrigger>
@@ -440,13 +485,19 @@ export default function ChecklistPage() {
                                 {completion.photos.length > 0 ? (
                                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                     {completion.photos.map((photo, pIndex) => {
-                                      const isUploading = photo.startsWith('data:image');
+                                      const isUploading = photo.startsWith('uploading://');
+                                      const tempId = isUploading ? photo.replace('uploading://', '') : '';
+                                      const uploadProgress = isUploading ? uploads[tempId]?.progress : 100;
+
                                       return (
-                                        <div key={pIndex} className="relative aspect-square overflow-hidden rounded-md group">
+                                        <div key={photo} className="relative aspect-square overflow-hidden rounded-md group">
                                             {isUploading ? (
-                                              <div className="w-full h-full bg-muted flex items-center justify-center">
-                                                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                              </div>
+                                                <div className="w-full h-full bg-muted flex items-center justify-center">
+                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10">
+                                                        <span className="text-xs font-bold">{Math.round(uploadProgress || 0)}%</span>
+                                                    </div>
+                                                    <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
+                                                </div>
                                             ) : (
                                               <button onClick={() => openImagePreview(photo)} className="w-full h-full">
                                                   <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
@@ -455,9 +506,9 @@ export default function ChecklistPage() {
                                             <Button 
                                                 variant="destructive"
                                                 size="icon"
-                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full"
+                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-20"
                                                 onClick={() => handleDeletePhoto(task.id, cIndex, photo)}
-                                                disabled={isAnythingSaving}
+                                                disabled={isUploading && (uploadProgress < 100)}
                                             >
                                                 <X className="h-3 w-3" />
                                                 <span className="sr-only">Xóa ảnh</span>
@@ -469,7 +520,7 @@ export default function ChecklistPage() {
                                     <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
                                 )}
                               </div>
-                            )})}
+                            ))}
                           </div>
                         )
                       })}
@@ -492,9 +543,16 @@ export default function ChecklistPage() {
               placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
               value={report.issues || ''}
               onChange={handleIssuesChange}
-              disabled={isAnythingSaving}
+              onBlur={handleSaveIssues}
             />
           </CardContent>
+           <CardFooter>
+            {isSavingIssues && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin"/> Đang lưu...
+              </p>
+            )}
+           </CardFooter>
         </Card>
       </div>
     </div>
@@ -556,5 +614,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    

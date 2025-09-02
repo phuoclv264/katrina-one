@@ -19,13 +19,34 @@ import {
   getDocs,
   writeBatch,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, Staff, TaskCompletion } from './types';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTask } from 'firebase/storage';
+import type { ShiftReport, TasksByShift, Staff, TaskCompletion, CompletionRecord } from './types';
 import { tasksByShift as initialTasksByShift, staff as initialStaff } from './data';
 
 // --- Tasks ---
 
 let tasksUnsubscribe: () => void;
+
+// Helper to convert Data URL to Blob
+function dataURLtoBlob(dataurl: string) {
+    const arr = dataurl.split(',');
+    if (arr.length < 2) {
+        throw new Error('Invalid data URL');
+    }
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) {
+        throw new Error('Could not parse MIME type from data URL');
+    }
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+}
+
 
 export const dataStore = {
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
@@ -108,12 +129,14 @@ export const dataStore = {
     }
   },
 
-  async updateReport(reportId: string, data: Partial<ShiftReport>) {
+  async updateReport(reportId: string, data: Partial<Omit<ShiftReport, 'completedTasks' | 'uploadedPhotos'>> | { completedTasks?: TaskCompletion, uploadedPhotos?: string[] }) {
       const reportRef = doc(db, 'reports', reportId);
-      const updateData = {
+      
+      const updateData: any = {
           ...data,
           submittedAt: serverTimestamp() // Always update the last modified time
-      }
+      };
+
       await updateDoc(reportRef, updateData);
   },
 
@@ -168,14 +191,36 @@ export const dataStore = {
 
 
   // --- Image Upload ---
-  async uploadPhoto(photoDataUrl: string, reportId: string, taskId: string): Promise<string> {
+  uploadPhotoWithProgress(
+    photoDataUrl: string,
+    reportId: string,
+    taskId: string,
+    onProgress: (progress: number) => void
+  ): { task: UploadTask; promise: Promise<string> } {
     const uniqueId = `photo_${Date.now()}_${Math.random()}`;
     const storageRef = ref(storage, `reports/${reportId}/${taskId}/${uniqueId}.jpg`);
-    
-    await uploadString(storageRef, photoDataUrl, 'data_url');
-    
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
+    const blob = dataURLtoBlob(photoDataUrl);
+
+    const uploadTask = uploadBytesResumable(storageRef, blob);
+
+    const promise = new Promise<string>((resolve, reject) => {
+        uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                onProgress(progress);
+            },
+            (error) => {
+                console.error("Upload failed:", error);
+                reject(error);
+            },
+            () => {
+                getDownloadURL(uploadTask.snapshot.ref).then(resolve).catch(reject);
+            }
+        );
+    });
+
+    return { task: uploadTask, promise };
   },
 
   async deletePhoto(photoUrl: string): Promise<void> {
