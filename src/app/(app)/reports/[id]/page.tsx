@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Star, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Star, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, TaskCompletion, CompletionRecord, TasksByShift } from '@/lib/types';
@@ -32,8 +34,20 @@ export default function ReportDetailPage() {
 
   useEffect(() => {
     if (!reportId) return;
-    const unsubscribe = dataStore.subscribeToReport(reportId, (fetchedReport) => {
-        setReport(fetchedReport);
+    const docRef = doc(db, "reports", reportId);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setReport({
+                ...data,
+                id: docSnap.id,
+                startedAt: (data.startedAt as any)?.toDate ? (data.startedAt as any).toDate().toISOString() : data.startedAt,
+                submittedAt: (data.submittedAt as any)?.toDate ? (data.submittedAt as any).toDate().toISOString() : data.submittedAt,
+                lastSynced: (data.lastSynced as any)?.toDate ? (data.lastSynced as any).toDate().toISOString() : data.lastSynced,
+            } as ShiftReport);
+        } else {
+            setReport(null);
+        }
     });
     return () => unsubscribe();
   }, [reportId]);
@@ -171,17 +185,20 @@ export default function ReportDetailPage() {
             <div>
                  <h1 className="text-2xl md:text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
                 <p className="text-muted-foreground">
-                Báo cáo ca từ <span className="font-semibold">{report.staffName}</span>, cập nhật lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                Báo cáo ca từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
                 </p>
             </div>
             <div>
-                 {report.status === 'ongoing' ? (
+                 {report.status === 'submitted' ? (
+                    <Badge variant="default" className="text-base">
+                        <CheckCircle className="mr-1.5 h-4 w-4" />
+                        Đã nộp
+                    </Badge>
+                ) : (
                     <Badge variant="outline" className="text-blue-600 border-blue-600/50 text-base">
                         <Clock className="mr-1.5 h-4 w-4 animate-pulse" />
                         Đang diễn ra
                     </Badge>
-                ) : (
-                    <Badge variant="default" className="text-base">Đã hoàn thành</Badge>
                 )}
             </div>
         </div>

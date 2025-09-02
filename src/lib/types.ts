@@ -28,21 +28,34 @@ export type TasksByShift = {
 
 export type CompletionRecord = {
   timestamp: string;
-  photos: string[]; // URLs of photos in Firebase Storage
+  photos: string[]; // Can be data URIs (local) or Firebase Storage URLs (synced)
 };
 
 export type TaskCompletion = {
   [taskId:string]: CompletionRecord[];
 };
 
+// Represents a report, either locally or on Firestore
 export type ShiftReport = {
-  id: string;
+  id: string; // Composite key for local, Firestore doc ID for remote
   staffName: string;
-  status: 'ongoing' | 'finished';
-  startedAt: string | Timestamp;
-  submittedAt: string | Timestamp; 
-  completedTasks: TaskCompletion;
-  uploadedPhotos: string[];
-  issues: string | null;
   shiftKey: string;
+  
+  // Status tracking
+  status: 'ongoing' | 'submitted'; // 'submitted' is final
+  isSyncing?: boolean; // Transient state for UI
+  lastSynced?: string; // ISO string of the last successful sync time
+  
+  // Timestamps
+  date: string; // YYYY-MM-DD
+  startedAt: string; // ISO string
+  submittedAt?: string | Timestamp; // ISO string, set on submission
+  
+  // Report data
+  completedTasks: TaskCompletion;
+  issues: string | null;
+  
+  // Photos that have been uploaded and have a firebase URL
+  // This is mainly for the manager's view and for cleanup.
+  uploadedPhotos: string[];
 };

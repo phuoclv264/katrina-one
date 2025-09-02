@@ -23,7 +23,7 @@ export default function ReportsPage() {
     });
 
     const unsubscribeReports = dataStore.subscribeToReports((reports) => {
-      setReports(reports);
+      setReports(reports.filter(r => r.status === 'submitted')); // Only show submitted reports
       setIsLoading(false);
     });
 
@@ -93,15 +93,15 @@ export default function ReportsPage() {
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold font-headline">Báo cáo ca</h1>
-        <p className="text-muted-foreground">Xem lại các báo cáo đã gửi từ tất cả nhân viên.</p>
+        <h1 className="text-3xl font-bold font-headline">Báo cáo đã nộp</h1>
+        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên.</p>
       </header>
 
       <Card>
         <CardHeader>
           <CardTitle>Báo cáo gần đây</CardTitle>
           <CardDescription>
-            Hiển thị {reports.length} báo cáo ca gần nhất, được nhóm theo ngày.
+            Hiển thị {reports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -118,7 +118,7 @@ export default function ReportsPage() {
                         <TableRow>
                           <TableHead>Nhân viên</TableHead>
                           <TableHead>Ca làm việc</TableHead>
-                          <TableHead>Cập nhật lần cuối</TableHead>
+                          <TableHead>Thời gian nộp</TableHead>
                           <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
                           <TableHead className="text-center">Trạng thái</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
@@ -147,13 +147,13 @@ export default function ReportsPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-center">
-                                  {report.status === 'ongoing' ? (
+                                  {report.status === 'submitted' ? (
+                                     <Badge variant="default">Đã nộp</Badge>
+                                  ) : (
                                      <Badge variant="outline" className="text-blue-600 border-blue-600/50">
                                         <Clock className="mr-1.5 h-3 w-3 animate-pulse" />
-                                        Đang diễn ra
+                                        Đang thực hiện
                                      </Badge>
-                                  ) : (
-                                     <Badge variant="default">Đã hoàn thành</Badge>
                                   )}
                               </TableCell>
                               <TableCell className="text-right">
@@ -174,7 +174,7 @@ export default function ReportsPage() {
             </Accordion>
           ) : (
              <div className="text-center text-muted-foreground py-8">
-                <p>Không có báo cáo nào để hiển thị.</p>
+                <p>Không có báo cáo nào được nộp.</p>
              </div>
           )}
         </CardContent>
