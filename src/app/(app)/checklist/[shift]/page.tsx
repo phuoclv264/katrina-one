@@ -73,7 +73,7 @@ export default function ChecklistPage() {
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, router, toast]);
+  }, [isAuthLoading, user, shiftKey, router]);
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
@@ -281,7 +281,7 @@ export default function ChecklistPage() {
         </div>
         <div className="flex justify-between items-start">
             <div>
-                 <h1 className="text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
+                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
                  <p className="text-muted-foreground">Mọi thay đổi sẽ được lưu cục bộ trên thiết bị này.</p>
             </div>
         </div>
@@ -316,19 +316,13 @@ export default function ChecklistPage() {
                         
                         return (
                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
-                            <div className="flex items-center gap-4">
-                              <div className="flex-1">
-                                <p className="font-medium">
-                                  {task.text}
-                                </p>
-                              </div>
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                              <p className="font-medium flex-1">
+                                {task.text}
+                              </p>
                               <Button 
                                 size="sm" 
-                                style={!isDisabledForNew ? {
-                                  backgroundColor: 'hsl(var(--accent)/0.8)',
-                                  color: 'hsl(var(--accent-foreground))'
-                                } : {}}
-                                className="active:scale-95 transition-transform"
+                                className="w-full md:w-auto active:scale-95 transition-transform"
                                 onClick={() => handleTaskAction(task.id)}
                                 disabled={isDisabledForNew}
                               >
