@@ -5,12 +5,13 @@ import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyDo4AmEEV-O0AhLJi0hnVHwGiApNl3j9sE",
+  authDomain: "katrinaone.firebaseapp.com",
+  projectId: "katrinaone",
+  storageBucket: "katrinaone.appspot.com",
+  messagingSenderId: "79531218569",
+  appId: "1:79531218569:web:7f05767af45e3aa12f1858",
+  measurementId: "G-2F66CP4D92"
 };
 
 let app: FirebaseApp;
