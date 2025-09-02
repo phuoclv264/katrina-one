@@ -14,18 +14,11 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
-  deleteDoc,
-  where,
-  getDocs,
-  writeBatch,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject, type UploadTask } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, Staff, TaskCompletion, CompletionRecord } from './types';
-import { tasksByShift as initialTasksByShift, staff as initialStaff } from './data';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import type { ShiftReport, TasksByShift, CompletionRecord } from './types';
+import { tasksByShift as initialTasksByShift } from './data';
 import { v4 as uuidv4 } from 'uuid';
-
-
-// --- Local Storage and Data Sync Logic ---
 
 const getTodaysDateKey = () => new Date().toISOString().split('T')[0];
 
@@ -39,15 +32,12 @@ const cleanupOldLocalStorage = () => {
     });
 };
 
-// Run cleanup once on app load
 if (typeof window !== 'undefined') {
     cleanupOldLocalStorage();
 }
 
-
 export const dataStore = {
 
-  // --- Task Definitions (from Firestore) ---
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
     const docRef = doc(db, 'app-data', 'tasks');
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
@@ -66,72 +56,25 @@ export const dataStore = {
     await setDoc(docRef, newTasks);
   },
 
-  // --- Staff (from Firestore) ---
-  async getStaff(): Promise<Staff[]> {
-    const docRef = doc(db, 'app-data', 'staff');
-    const docSnap = await getDoc(docRef);
-    if(docSnap.exists()){
-        return docSnap.data().list as Staff[];
-    } else {
-        await setDoc(docRef, { list: initialStaff });
-        return initialStaff;
-    }
-  },
-
-  // --- Report Management (Local First with smart sync) ---
-
+  // Fetches from server or creates a new local report.
+  // This is the source of truth when a shift starts.
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<ShiftReport> {
     const date = getTodaysDateKey();
     const reportId = `report-${userId}-${shiftKey}-${date}`;
-    
-    // 1. Fetch from both local storage and Firestore concurrently
-    const localDataPromise = localStorage.getItem(reportId);
     const firestoreDocRef = doc(db, 'reports', reportId);
-    const firestoreDocPromise = getDoc(firestoreDocRef);
+    const firestoreDocSnap = await getDoc(firestoreDocRef);
 
-    let [localData, firestoreDocSnap] = await Promise.all([localDataPromise, firestoreDocPromise]);
-
-    let localReport = localData ? JSON.parse(localData) as ShiftReport : null;
-    let firestoreReport = firestoreDocSnap.exists() 
-        ? {
-            ...firestoreDocSnap.data(),
-            id: firestoreDocSnap.id,
-            // Convert any Timestamps to ISO strings for consistent handling
-            startedAt: (firestoreDocSnap.data().startedAt as any)?.toDate ? (firestoreDocSnap.data().startedAt as any).toDate().toISOString() : firestoreDocSnap.data().startedAt,
-            submittedAt: (firestoreDocSnap.data().submittedAt as any)?.toDate ? (firestoreDocSnap.data().submittedAt as any).toDate().toISOString() : firestoreDocSnap.data().submittedAt,
-            lastSynced: (firestoreDocSnap.data().lastSynced as any)?.toDate ? (firestoreDocSnap.data().lastSynced as any).toDate().toISOString() : firestoreDocSnap.data().lastSynced,
-          } as ShiftReport
-        : null;
-
-    // Logic to decide which report to use
-    if (firestoreReport?.status === 'submitted') {
-        return firestoreReport; // Submitted is the final state. No more edits.
+    if (firestoreDocSnap.exists()) {
+      const data = firestoreDocSnap.data();
+      return {
+        ...data,
+        id: firestoreDocSnap.id,
+        startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
+        submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+      } as ShiftReport;
     }
     
-    // If local report has unsynced changes (lastSynced is undefined), it takes precedence.
-    if (localReport && firestoreReport && !localReport.lastSynced) {
-        await this.saveLocalReport(localReport);
-        return localReport;
-    }
-    
-    // If firestore is newer than local, use firestore's version.
-    if (firestoreReport && (!localReport || new Date(firestoreReport.lastSynced!) > new Date(localReport.lastSynced!))) {
-        await this.saveLocalReport(firestoreReport);
-        return firestoreReport;
-    }
-    
-    // If local is newer or equal, or firestore doesn't exist, use local.
-    if (localReport) {
-        return localReport;
-    }
-
-     // If firestore exists but local doesn't, use firestore one
-    if (firestoreReport) {
-        await this.saveLocalReport(firestoreReport);
-        return firestoreReport;
-    }
-
-    // If nothing exists anywhere, create a new local report
+    // If nothing on server, create a new local report
     const newReport: ShiftReport = {
         id: reportId,
         userId,
@@ -142,109 +85,66 @@ export const dataStore = {
         startedAt: new Date().toISOString(),
         completedTasks: {},
         issues: null,
-        uploadedPhotos: [], // Starts empty
+        uploadedPhotos: [],
     };
-    await this.saveLocalReport(newReport);
     return newReport;
   },
 
   async saveLocalReport(report: ShiftReport): Promise<void> {
     localStorage.setItem(report.id, JSON.stringify(report));
   },
-  
-  async syncReport(reportId: string): Promise<ShiftReport> {
-      let reportString = localStorage.getItem(reportId);
-      if (!reportString) throw new Error("Báo cáo không tìm thấy để đồng bộ.");
-
-      let report: ShiftReport = JSON.parse(reportString);
-
-      // Set syncing state in UI
-      report = { ...report, isSyncing: true };
-      await this.saveLocalReport(report);
-      
-      try {
-        const firestoreRef = doc(db, 'reports', report.id);
-        // Create a deep copy for manipulation to avoid race conditions with React state
-        const reportToSync = JSON.parse(JSON.stringify(report));
-
-        let allUploadedUrls: string[] = reportToSync.uploadedPhotos || [];
-
-        // Upload photos that are still data URIs
-        for (const taskId in reportToSync.completedTasks) {
-            for (const completion of reportToSync.completedTasks[taskId]) {
-                const uploadedPhotosInCompletion: string[] = [];
-                for (const photo of completion.photos) {
-                    if (photo.startsWith('data:image')) {
-                        const uniqueId = `photo_${uuidv4()}.jpg`;
-                        const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${uniqueId}`);
-                        const snapshot = await uploadString(storageRef, photo, 'data_url');
-                        const downloadURL = await getDownloadURL(snapshot.ref);
-                        uploadedPhotosInCompletion.push(downloadURL);
-                        
-                        // Add to master list if not already there
-                        if (!allUploadedUrls.includes(downloadURL)) {
-                           allUploadedUrls.push(downloadURL);
-                        }
-                    } else {
-                        // It's already a URL, keep it
-                        uploadedPhotosInCompletion.push(photo);
-                    }
-                }
-                completion.photos = uploadedPhotosInCompletion;
-            }
-        }
-        
-        // Update report object with new URLs and sync time
-        reportToSync.uploadedPhotos = allUploadedUrls;
-        reportToSync.lastSynced = new Date().toISOString();
-        delete reportToSync.isSyncing;
-
-        // Use setDoc with merge: true to create or update
-        // We convert startedAt back to a Timestamp if it's the first sync
-        const docExists = (await getDoc(firestoreRef)).exists();
-        if(!docExists) {
-            reportToSync.startedAt = Timestamp.fromDate(new Date(reportToSync.startedAt));
-        } else {
-            delete reportToSync.startedAt; // Don't overwrite the original start time
-        }
-        
-        await setDoc(firestoreRef, reportToSync, { merge: true });
-        
-        // Save the final, synced state back to local storage
-        const finalReportState = { ...report, ...reportToSync, startedAt: new Date(report.startedAt).toISOString() };
-        await this.saveLocalReport(finalReportState);
-        return finalReportState;
-
-      } catch (error) {
-          console.error("Sync failed:", error);
-          // Revert syncing state on failure
-          report = { ...report, isSyncing: false };
-          await this.saveLocalReport(report);
-          throw error; // Re-throw to be caught by UI
-      }
-  },
 
   async submitReport(reportId: string): Promise<ShiftReport> {
-     // First, ensure all data is synced
-     let report = await this.syncReport(reportId);
-     
-     // Then, mark as submitted
-     report.status = 'submitted';
-     report.submittedAt = new Date().toISOString(); // Set local submitted time
-     
+     let reportString = localStorage.getItem(reportId);
+     if (!reportString) throw new Error("Báo cáo không tìm thấy để gửi đi.");
+
+     let report: ShiftReport = JSON.parse(reportString);
      const firestoreRef = doc(db, 'reports', report.id);
-     await updateDoc(firestoreRef, {
-        status: 'submitted',
-        submittedAt: serverTimestamp() // Use server time for final submission
-     });
 
-     // Save final state to local storage
-     await this.saveLocalReport(report);
+     // Create a deep copy for manipulation to avoid race conditions with React state
+     const reportToSync = JSON.parse(JSON.stringify(report));
+     let allUploadedUrls: string[] = reportToSync.uploadedPhotos || [];
+
+     // Sequentially upload photos that are still data URIs
+     for (const taskId in reportToSync.completedTasks) {
+         for (const completion of reportToSync.completedTasks[taskId]) {
+             const uploadedPhotosInCompletion: string[] = [];
+             for (const photo of completion.photos) {
+                 if (photo.startsWith('data:image')) {
+                     const uniqueId = `photo_${uuidv4()}.jpg`;
+                     const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${uniqueId}`);
+                     const snapshot = await uploadString(storageRef, photo, 'data_url');
+                     const downloadURL = await getDownloadURL(snapshot.ref);
+                     uploadedPhotosInCompletion.push(downloadURL);
+                     if (!allUploadedUrls.includes(downloadURL)) {
+                        allUploadedUrls.push(downloadURL);
+                     }
+                 } else {
+                     uploadedPhotosInCompletion.push(photo);
+                 }
+             }
+             completion.photos = uploadedPhotosInCompletion;
+         }
+     }
      
-     return report;
-  },
+     reportToSync.uploadedPhotos = allUploadedUrls;
+     reportToSync.status = 'submitted';
+     reportToSync.submittedAt = serverTimestamp();
+     
+     const docExists = (await getDoc(firestoreRef)).exists();
+     if (!docExists) {
+         reportToSync.startedAt = Timestamp.fromDate(new Date(reportToSync.startedAt));
+     } else {
+         delete reportToSync.startedAt;
+     }
 
-  // --- Firestore Read Functions (for Manager view, etc.) ---
+     await setDoc(firestoreRef, reportToSync, { merge: true });
+     
+     // Remove from local storage after successful submission
+     localStorage.removeItem(reportId);
+     
+     return reportToSync; // Return the final state
+  },
 
   subscribeToReports(callback: (reports: ShiftReport[]) => void): () => void {
      const reportsCollection = collection(db, 'reports');
@@ -259,28 +159,9 @@ export const dataStore = {
                 id: doc.id,
                 startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
                 submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-                lastSynced: (data.lastSynced as Timestamp)?.toDate().toISOString() || data.lastSynced,
             } as ShiftReport);
         });
         callback(reports);
      });
-  },
-  
-  async getSubmittedReport(userId: string, shiftKey: string, date: string): Promise<ShiftReport | null> {
-    const reportId = `report-${userId}-${shiftKey}-${date}`;
-    const docRef = doc(db, 'reports', reportId);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-        const data = docSnap.data();
-        // Return the report regardless of status, the caller can decide what to do
-        return {
-            ...data,
-            id: docSnap.id,
-            startedAt: (data.startedAt as any)?.toDate ? (data.startedAt as any).toDate().toISOString() : data.startedAt,
-            submittedAt: (data.submittedAt as any)?.toDate ? (data.submittedAt as any).toDate().toISOString() : data.submittedAt,
-        } as ShiftReport;
-    }
-    return null;
   },
 };

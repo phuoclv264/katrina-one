@@ -60,24 +60,28 @@ export default function ChecklistPage() {
     return () => unsubscribeTasks();
   }, []);
 
+  // Simplified data loading effect
   useEffect(() => {
     if (isAuthLoading || !user || !shiftKey) return;
     
     const loadReport = async () => {
         setIsLoading(true);
-        const initialReport = await dataStore.getOrCreateReport(user.uid, user.displayName, shiftKey);
+        // Always fetch from server on load to ensure we have the latest.
+        const serverReport = await dataStore.getOrCreateReport(user.uid, user.displayName, shiftKey);
         
-        if (initialReport.status === 'submitted') {
+        if (serverReport.status === 'submitted') {
             toast({
                 title: "Ca đã hoàn thành",
                 description: "Báo cáo cho ca làm việc này đã được gửi. Bạn không thể chỉnh sửa.",
                 duration: 5000,
             });
-             // Redirect or show a read-only view. For now, redirect.
             router.replace('/shifts');
             return;
         }
-        setReport(initialReport);
+        
+        // Save the fetched report to local storage and set it as the current state
+        await dataStore.saveLocalReport(serverReport);
+        setReport(serverReport);
         setIsLoading(false);
     };
 
@@ -105,27 +109,6 @@ export default function ChecklistPage() {
       setReport(updatedReport);
       await dataStore.saveLocalReport(updatedReport);
   }, []);
-
-  const handleSync = async () => {
-      if (!report || report.isSyncing) return;
-      
-      try {
-        const syncedReport = await dataStore.syncReport(report.id);
-        setReport(syncedReport);
-        toast({
-            title: "Đồng bộ thành công!",
-            description: `Báo cáo đã được lưu lên cloud lúc ${new Date(syncedReport.lastSynced!).toLocaleTimeString()}`,
-        });
-      } catch (error) {
-        console.error(error);
-        toast({ title: "Lỗi đồng bộ", description: "Không thể kết nối tới server. Vui lòng kiểm tra lại mạng.", variant: "destructive" });
-        // The data-store reverts the isSyncing state automatically
-        if(user) {
-          const currentReport = await dataStore.getOrCreateReport(user.uid, user.displayName, shiftKey);
-          setReport(currentReport);
-        }
-      }
-  };
 
   const handleTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -158,7 +141,6 @@ export default function ChecklistPage() {
     }
     
     newReport.completedTasks[activeTaskId] = taskCompletions;
-    newReport.lastSynced = undefined; // Mark as needing sync
     await updateLocalReport(newReport);
 
     setActiveTaskId(null);
@@ -181,7 +163,6 @@ export default function ChecklistPage() {
           }
       }
       
-      newReport.lastSynced = undefined;
       await updateLocalReport(newReport);
   };
 
@@ -198,7 +179,6 @@ export default function ChecklistPage() {
           delete newReport.completedTasks[taskId];
       }
       
-      newReport.lastSynced = undefined;
       await updateLocalReport(newReport);
   }
   
@@ -207,7 +187,8 @@ export default function ChecklistPage() {
         setIsSubmitting(true);
         toast({
             title: "Đang gửi báo cáo...",
-            description: "Vui lòng đợi trong khi chúng tôi tải ảnh lên và hoàn tất báo cáo của bạn.",
+            description: "Vui lòng đợi và không đóng trình duyệt cho đến khi có thông báo thành công.",
+            duration: 10000, // Show for a long time
         });
 
         try {
@@ -215,6 +196,7 @@ export default function ChecklistPage() {
             toast({
                 title: "Gửi báo cáo thành công!",
                 description: "Bạn sẽ được chuyển hướng về trang chọn ca.",
+                duration: 5000
             });
             setTimeout(() => router.push('/shifts'), 2000);
         } catch (error) {
@@ -271,11 +253,11 @@ export default function ChecklistPage() {
 
   const handleIssuesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if(!report) return;
-    const newReport = { ...report, issues: e.target.value, lastSynced: undefined };
+    const newReport = { ...report, issues: e.target.value };
     updateLocalReport(newReport);
   };
   
-  const isReadonly = report?.status === 'submitted' || report?.isSyncing || isSubmitting;
+  const isReadonly = report?.status === 'submitted' || isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
@@ -306,13 +288,7 @@ export default function ChecklistPage() {
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
-                 {report.isSyncing ? (
-                    <Badge variant="secondary"><Loader2 className="mr-1.5 h-3 w-3 animate-spin"/> Đang đồng bộ...</Badge>
-                 ) : report.lastSynced ? (
-                    <Badge variant="secondary"><CheckCircle className="mr-1.5 h-3 w-3 text-green-500"/> Đã đồng bộ lên cloud</Badge>
-                 ) : (
-                    <Badge variant="outline"><WifiOff className="mr-1.5 h-3 w-3 text-amber-500"/> Thay đổi chưa được lưu</Badge>
-                 )}
+                 <Badge variant="secondary"><CheckCircle className="mr-1.5 h-3 w-3 text-green-500"/> Mọi thay đổi đã được lưu cục bộ</Badge>
             </div>
         </div>
         <div className="flex justify-between items-start">
@@ -320,21 +296,8 @@ export default function ChecklistPage() {
                  <h1 className="text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
                  <p className="text-muted-foreground">Mọi thay đổi sẽ được lưu cục bộ trên thiết bị này.</p>
             </div>
-             <div className="flex flex-col items-end gap-2">
-                <Button size="lg" onClick={handleSync} disabled={isReadonly}>
-                    {report.isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
-                    Lưu & Đồng bộ
-                </Button>
-            </div>
         </div>
       </header>
-      
-      {report.status === 'submitted' && (
-        <div className="mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
-            <p className="font-bold">Ca đã hoàn thành</p>
-            <p>Báo cáo này đã được gửi và không thể chỉnh sửa.</p>
-        </div>
-      )}
 
       <div className="space-y-8">
         <Card>
