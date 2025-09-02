@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
@@ -24,7 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export default function ChecklistPage() {
   const { toast } = useToast();
-  const { staffName, isLoading: isAuthLoading } = useAuth();
+  const { user, loading: isAuthLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
   const shiftKey = params.shift as string;
@@ -47,10 +48,10 @@ export default function ChecklistPage() {
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
-    if (!isAuthLoading && !staffName) {
+    if (!isAuthLoading && !user) {
       router.replace('/');
     }
-  }, [isAuthLoading, staffName, router]);
+  }, [isAuthLoading, user, router]);
 
   useEffect(() => {
     const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
@@ -60,11 +61,11 @@ export default function ChecklistPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthLoading || !staffName || !shiftKey) return;
+    if (isAuthLoading || !user || !shiftKey) return;
     
     const loadReport = async () => {
         setIsLoading(true);
-        const initialReport = await dataStore.getOrCreateReport(staffName, shiftKey);
+        const initialReport = await dataStore.getOrCreateReport(user.uid, user.displayName, shiftKey);
         
         if (initialReport.status === 'submitted') {
             toast({
@@ -81,7 +82,7 @@ export default function ChecklistPage() {
     };
 
     loadReport();
-  }, [isAuthLoading, staffName, shiftKey, router, toast]);
+  }, [isAuthLoading, user, shiftKey, router, toast]);
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
@@ -119,8 +120,10 @@ export default function ChecklistPage() {
         console.error(error);
         toast({ title: "Lỗi đồng bộ", description: "Không thể kết nối tới server. Vui lòng kiểm tra lại mạng.", variant: "destructive" });
         // The data-store reverts the isSyncing state automatically
-        const currentReport = await dataStore.getOrCreateReport(staffName!, shiftKey);
-        setReport(currentReport);
+        if(user) {
+          const currentReport = await dataStore.getOrCreateReport(user.uid, user.displayName, shiftKey);
+          setReport(currentReport);
+        }
       }
   };
 
@@ -136,16 +139,15 @@ export default function ChecklistPage() {
     setIsCameraOpen(true);
   };
   
-  const handleCapturePhotos = async (photosDataUris: string[]) => {
+  const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
     if (!activeTaskId || !report) return;
     setIsCameraOpen(false);
 
     const newReport = JSON.parse(JSON.stringify(report));
     let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-    let completionIndex = activeCompletionIndex;
     
-    if (completionIndex !== null) {
-        taskCompletions[completionIndex].photos.push(...photosDataUris);
+    if (activeCompletionIndex !== null) {
+        taskCompletions[activeCompletionIndex].photos.push(...photosDataUris);
     } else {
         const now = new Date();
         const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -161,7 +163,7 @@ export default function ChecklistPage() {
 
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
-  };
+  }, [activeCompletionIndex, activeTaskId, report, updateLocalReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;

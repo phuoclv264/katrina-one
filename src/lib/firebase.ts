@@ -1,6 +1,7 @@
+
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, type Auth } from 'firebase/auth';
+import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -20,7 +21,7 @@ let db: Firestore;
 let storage: FirebaseStorage;
 
 // This function ensures that we initialize Firebase only once.
-async function initializeFirebase() {
+function initializeFirebase() {
   if (typeof window !== 'undefined') {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
@@ -30,15 +31,6 @@ async function initializeFirebase() {
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
-    
-    // Actively sign in anonymously if no user is present.
-    if (!auth.currentUser) {
-        try {
-            await signInAnonymously(auth);
-        } catch (error) {
-            console.error("Anonymous sign-in failed: ", error);
-        }
-    }
   }
 }
 

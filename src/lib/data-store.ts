@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, storage } from './firebase';
@@ -79,22 +80,23 @@ export const dataStore = {
 
   // --- Report Management (Local First with smart sync) ---
 
-  async getOrCreateReport(staffName: string, shiftKey: string): Promise<ShiftReport> {
+  async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<ShiftReport> {
     const date = getTodaysDateKey();
-    const reportId = `report-${staffName}-${shiftKey}-${date}`;
+    const reportId = `report-${userId}-${shiftKey}-${date}`;
     
     // 1. Fetch from both local storage and Firestore concurrently
     const localDataPromise = localStorage.getItem(reportId);
     const firestoreDocRef = doc(db, 'reports', reportId);
     const firestoreDocPromise = getDoc(firestoreDocRef);
 
-    const [localData, firestoreDocSnap] = await Promise.all([localDataPromise, firestoreDocPromise]);
+    let [localData, firestoreDocSnap] = await Promise.all([localDataPromise, firestoreDocPromise]);
 
-    const localReport = localData ? JSON.parse(localData) as ShiftReport : null;
-    const firestoreReport = firestoreDocSnap.exists() 
+    let localReport = localData ? JSON.parse(localData) as ShiftReport : null;
+    let firestoreReport = firestoreDocSnap.exists() 
         ? {
             ...firestoreDocSnap.data(),
             id: firestoreDocSnap.id,
+            // Convert any Timestamps to ISO strings for consistent handling
             startedAt: (firestoreDocSnap.data().startedAt as any)?.toDate ? (firestoreDocSnap.data().startedAt as any).toDate().toISOString() : firestoreDocSnap.data().startedAt,
             submittedAt: (firestoreDocSnap.data().submittedAt as any)?.toDate ? (firestoreDocSnap.data().submittedAt as any).toDate().toISOString() : firestoreDocSnap.data().submittedAt,
             lastSynced: (firestoreDocSnap.data().lastSynced as any)?.toDate ? (firestoreDocSnap.data().lastSynced as any).toDate().toISOString() : firestoreDocSnap.data().lastSynced,
@@ -103,11 +105,11 @@ export const dataStore = {
 
     // Logic to decide which report to use
     if (firestoreReport?.status === 'submitted') {
-        return firestoreReport; // Submitted is the final state.
+        return firestoreReport; // Submitted is the final state. No more edits.
     }
     
     // If local report has unsynced changes (lastSynced is undefined), it takes precedence.
-    if (localReport && !localReport.lastSynced) {
+    if (localReport && firestoreReport && !localReport.lastSynced) {
         await this.saveLocalReport(localReport);
         return localReport;
     }
@@ -123,9 +125,16 @@ export const dataStore = {
         return localReport;
     }
 
+     // If firestore exists but local doesn't, use firestore one
+    if (firestoreReport) {
+        await this.saveLocalReport(firestoreReport);
+        return firestoreReport;
+    }
+
     // If nothing exists anywhere, create a new local report
     const newReport: ShiftReport = {
         id: reportId,
+        userId,
         staffName,
         shiftKey,
         status: 'ongoing',
@@ -257,8 +266,8 @@ export const dataStore = {
      });
   },
   
-  async getSubmittedReport(staffName: string, shiftKey: string, date: string): Promise<ShiftReport | null> {
-    const reportId = `report-${staffName}-${shiftKey}-${date}`;
+  async getSubmittedReport(userId: string, shiftKey: string, date: string): Promise<ShiftReport | null> {
+    const reportId = `report-${userId}-${shiftKey}-${date}`;
     const docRef = doc(db, 'reports', reportId);
     const docSnap = await getDoc(docRef);
 

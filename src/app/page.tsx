@@ -1,66 +1,144 @@
 
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Building, User } from 'lucide-react';
-
+import { useState } from 'react';
+import { Building, KeyRound, Loader2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
-import { useEffect } from 'react';
-import PinDialog from '@/components/pin-dialog';
+import type { UserRole } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
-export default function LoginPage() {
-  const { login, role, isLoading, showPinDialog, setShowPinDialog, confirmStaffPin } = useAuth();
-  const router = useRouter();
+export default function AuthPage() {
+  const { user, login, register, loading } = useAuth();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isLoading && role) {
-        if (role === 'staff') {
-            router.replace('/shifts');
-        } else if (role === 'manager') {
-            router.replace('/reports');
-        }
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerName, setRegisterName] = useState('');
+  const [registerRole, setRegisterRole] = useState<UserRole>('staff');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) {
+      toast({ title: 'Lỗi', description: 'Vui lòng nhập email và mật khẩu.', variant: 'destructive' });
+      return;
     }
-  }, [role, router, isLoading]);
+    await login(loginEmail, loginPassword);
+  };
 
-  if (isLoading) {
-    return null; // Or a loading spinner
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+     if (!registerEmail || !registerPassword || !registerName) {
+      toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin.', variant: 'destructive' });
+      return;
+    }
+    await register(registerEmail, registerPassword, registerName, registerRole);
+  };
+  
+  if (loading && !user) {
+    return (
+       <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground mt-4">Đang tải...</p>
+      </div>
+    )
   }
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
       <div className="flex flex-col items-center gap-2 text-center mb-8">
+        <KeyRound className="h-12 w-12 text-primary" />
         <h1 className="text-4xl font-bold text-primary font-headline">Katrina One</h1>
         <p className="text-muted-foreground max-w-sm">
-          Cách đơn giản và hiệu quả để quản lý công việc và báo cáo hàng ngày.
+          Hệ thống quản lý công việc và báo cáo hàng ngày.
         </p>
       </div>
 
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Chào mừng</CardTitle>
-          <CardDescription>Vui lòng chọn vai trò của bạn để tiếp tục.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <Button size="lg" onClick={() => login('staff')}>
-            <User className="mr-2 h-5 w-5" />
-            Đăng nhập với tư cách Nhân viên
-          </Button>
-          <Button size="lg" variant="secondary" onClick={() => login('manager')}>
-            <Building className="mr-2 h-5 w-5" />
-            Đăng nhập với tư cách Quản lý
-          </Button>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="login" className="w-full max-w-sm">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="login">Đăng nhập</TabsTrigger>
+          <TabsTrigger value="register">Đăng ký</TabsTrigger>
+        </TabsList>
+        
+        {/* Login Tab */}
+        <TabsContent value="login">
+          <Card>
+            <CardHeader>
+              <CardTitle>Chào mừng trở lại</CardTitle>
+              <CardDescription>Đăng nhập vào tài khoản của bạn để tiếp tục.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input id="login-email" type="email" placeholder="email@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Mật khẩu</Label>
+                  <Input id="login-password" type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required disabled={loading} />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Đăng nhập
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Register Tab */}
+        <TabsContent value="register">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tạo tài khoản</CardTitle>
+              <CardDescription>Điền thông tin bên dưới để tạo tài khoản mới.</CardDescription>
+            </CardHeader>
+            <CardContent>
+               <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-name">Tên hiển thị</Label>
+                  <Input id="register-name" placeholder="Ví dụ: Phước" value={registerName} onChange={(e) => setRegisterName(e.target.value)} required disabled={loading}/>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-email">Email</Label>
+                  <Input id="register-email" type="email" placeholder="email@example.com" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} required disabled={loading}/>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-password">Mật khẩu</Label>
+                  <Input id="register-password" type="password" value={registerPassword} onChange={(e) => setRegisterPassword(e.target.value)} required disabled={loading}/>
+                </div>
+                 <div className="space-y-2">
+                    <Label>Vai trò</Label>
+                    <Tabs 
+                        value={registerRole} 
+                        onValueChange={(value) => setRegisterRole(value as UserRole)}
+                        className="w-full"
+                    >
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="staff"><User className="mr-2"/>Nhân viên</TabsTrigger>
+                            <TabsTrigger value="manager"><Building className="mr-2"/>Quản lý</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                 </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Đăng ký
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
       <footer className="absolute bottom-4 text-xs text-muted-foreground">
         Xây dựng với Firebase và Genkit
       </footer>
-       <PinDialog 
-        isOpen={showPinDialog}
-        onClose={() => setShowPinDialog(false)}
-        onSubmit={confirmStaffPin}
-      />
     </main>
   );
 }

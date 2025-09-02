@@ -2,99 +2,132 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { useToast } from './use-toast';
 
 export type UserRole = 'staff' | 'manager';
 
+export interface AuthUser extends User {
+  displayName: string;
+  role: UserRole;
+}
+
 export const useAuth = () => {
   const { toast } = useToast();
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [staffName, setStaffName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    try {
-      const storedRole = localStorage.getItem('userRole') as UserRole | null;
-      const storedStaffName = localStorage.getItem('staffName');
-      if (storedRole) {
-        setRole(storedRole);
-        if (storedRole === 'staff' && storedStaffName) {
-            setStaffName(storedStaffName);
-        }
-      } else if (pathname !== '/') {
-        // Don't redirect if we are already on the login page
-      }
-    } catch (error) {
-      console.error("Could not access localStorage", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pathname, router]);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUser({
+            ...firebaseUser,
+            displayName: userData.displayName,
+            role: userData.role,
+          } as AuthUser);
 
-  const login = useCallback((newRole: UserRole) => {
-    if (newRole === 'staff') {
-        setShowPinDialog(true);
-    } else {
-        localStorage.setItem('userRole', newRole);
-        setRole(newRole);
-        router.push('/reports');
-    }
-  }, [router]);
+          // Redirect based on role after login
+          if (pathname === '/') {
+             if (userData.role === 'staff') {
+                router.replace('/shifts');
+            } else if (userData.role === 'manager') {
+                router.replace('/reports');
+            }
+          }
 
-  const confirmStaffPin = useCallback(async (pin: string) => {
-    try {
-        const staffList = await dataStore.getStaff();
-        const foundStaff = staffList.find(staff => staff.pin === pin);
-
-        if (foundStaff) {
-            localStorage.setItem('userRole', 'staff');
-            localStorage.setItem('staffName', foundStaff.name);
-            setRole('staff');
-            setStaffName(foundStaff.name);
-            setShowPinDialog(false);
-            router.push('/shifts');
-            toast({
-            title: `Chào mừng, ${foundStaff.name}!`,
-            description: "Ca làm việc của bạn đã sẵn sàng.",
-            });
         } else {
-            toast({
-                variant: "destructive",
-                title: "Mã PIN không hợp lệ",
-                description: "Vui lòng thử lại.",
-            })
+            // This case might happen if user document creation fails after registration.
+            // For now, we log them out.
+            await signOut(auth);
+            setUser(null);
         }
-    } catch(error) {
-        console.error("Failed to fetch staff list", error);
-        toast({
-            variant: "destructive",
-            title: "Lỗi",
-            description: "Không thể xác thực mã PIN. Vui lòng thử lại.",
-        })
+      } else {
+        setUser(null);
+        if (pathname !== '/') {
+            router.replace('/');
+        }
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle the redirect
+      toast({ title: 'Đăng nhập thành công!' });
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Lỗi đăng nhập',
+        description: 'Email hoặc mật khẩu không chính xác.',
+      });
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const register = useCallback(async (email: string, password: string, displayName: string, role: UserRole) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', firebaseUser.uid), {
+        uid: firebaseUser.uid,
+        email,
+        displayName,
+        role,
+      });
+
+      // onAuthStateChanged will handle the user state update and redirect
+       toast({ title: 'Đăng ký thành công!', description: 'Đang chuyển hướng bạn...' });
+    } catch (error: any) {
+       console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Lỗi đăng ký',
+        description: error.message,
+      });
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const logout = useCallback(async () => {
+    setLoading(true);
+    try {
+        await signOut(auth);
+        router.push('/');
+        toast({ title: 'Đã đăng xuất.' });
+    } catch (error: any) {
+         console.error(error);
+         toast({
+            variant: 'destructive',
+            title: 'Lỗi',
+            description: 'Không thể đăng xuất. Vui lòng thử lại.',
+        });
+    } finally {
+        setLoading(false);
     }
   }, [router, toast]);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('staffName');
-    setRole(null);
-    setStaffName(null);
-    setShowPinDialog(false);
-    router.push('/');
-  }, [router]);
-
+  
   return { 
-      role, 
+      user, 
+      loading,
       login, 
+      register,
       logout, 
-      isLoading, 
-      staffName, 
-      showPinDialog,
-      setShowPinDialog,
-      confirmStaffPin
   };
 };

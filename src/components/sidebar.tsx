@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -11,12 +12,12 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export function AppSidebar() {
-  const { role, staffName, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const pathname = usePathname();
 
   const staffMenu = [
@@ -28,8 +29,9 @@ export function AppSidebar() {
     { href: '/task-lists', label: 'Danh sách công việc', icon: ClipboardList },
   ];
 
-  const menuItems = role === 'staff' ? staffMenu : managerMenu;
-  const displayName = role === 'staff' ? staffName : 'Quản lý';
+  const menuItems = user?.role === 'staff' ? staffMenu : managerMenu;
+  const displayName = user?.displayName ?? 'Đang tải...';
+  const displayRole = user?.role ?? '';
 
   return (
     <>
@@ -57,11 +59,11 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                {role === 'staff' ? <User /> : <Building />}
+                {loading ? <Loader2 className="animate-spin"/> : (user?.role === 'staff' ? <User /> : <Building />)}
             </div>
             <div className="flex flex-col overflow-hidden">
                 <span className="font-semibold truncate">{displayName}</span>
-                <span className="text-xs text-muted-foreground capitalize">{role}</span>
+                <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
             </div>
             <SidebarMenuButton
               variant="ghost"
@@ -69,6 +71,7 @@ export function AppSidebar() {
               className="ml-auto h-8 w-8 shrink-0"
               onClick={logout}
               tooltip="Đăng xuất"
+              disabled={loading}
             >
               <LogOut />
             </SidebarMenuButton>

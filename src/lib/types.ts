@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type Staff = {
@@ -38,6 +39,7 @@ export type TaskCompletion = {
 // Represents a report, either locally or on Firestore
 export type ShiftReport = {
   id: string; // Composite key for local, Firestore doc ID for remote
+  userId: string;
   staffName: string;
   shiftKey: string;
   

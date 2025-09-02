@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -7,18 +8,18 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AppRootPage() {
-  const { role, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && role) {
-      if (role === 'staff') {
+    if (!loading && user) {
+      if (user.role === 'staff') {
         router.replace('/shifts');
-      } else if (role === 'manager') {
+      } else if (user.role === 'manager') {
         router.replace('/reports');
       }
     }
-  }, [isLoading, role, router]);
+  }, [loading, user, router]);
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
