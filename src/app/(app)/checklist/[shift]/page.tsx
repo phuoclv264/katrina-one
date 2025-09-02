@@ -491,7 +491,7 @@ export default function ChecklistPage() {
                                 alt={`Ảnh xem trước ${index + 1}`} 
                                 width={0}
                                 height={0}
-                                sizes="100vw"
+                                sizes="80vw"
                                 className="w-full h-auto object-contain"
                             />
                         </div>
@@ -516,5 +516,7 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
 
     
