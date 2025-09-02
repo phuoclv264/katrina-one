@@ -58,6 +58,12 @@ export default function ChecklistPage() {
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
   useEffect(() => {
+    if (!isAuthLoading && !staffName) {
+      router.replace('/');
+    }
+  }, [isAuthLoading, staffName, router]);
+
+  useEffect(() => {
     const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
       setTasksByShift(tasks);
     });
@@ -388,7 +394,7 @@ export default function ChecklistPage() {
         .finally(() => setIsSavingIssues(false));
   }
   
-  if (isDataLoading || isAuthLoading || !report || !tasksByShift) {
+  if (isAuthLoading || !staffName || isDataLoading || !report || !tasksByShift) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -523,9 +529,9 @@ export default function ChecklistPage() {
 
                                       return (
                                         <div key={photo} className="relative aspect-square overflow-hidden rounded-md group">
-                                            {isUploading ? (
+                                            {isUploading && previewSrc ? (
                                                 <div className="w-full h-full bg-muted flex items-center justify-center">
-                                                    {previewSrc && <Image src={previewSrc} alt={`Ảnh đang tải lên ${pIndex + 1}`} fill className="object-cover opacity-30" />}
+                                                    <Image src={previewSrc} alt={`Ảnh đang tải lên ${pIndex + 1}`} fill className="object-cover opacity-30" />
                                                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10 p-1">
                                                         <span className="text-xs font-bold">{Math.round(uploadProgress || 0)}%</span>
                                                         <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
