@@ -117,7 +117,7 @@ export default function ChecklistPage() {
     let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
     
     if (activeCompletionIndex !== null) {
-        taskCompletions[activeCompletionIndex].photos.push(...photosDataUris);
+        taskCompletions[activeCompletionIndex].photos.unshift(...photosDataUris);
     } else {
         const now = new Date();
         const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -485,7 +485,7 @@ export default function ChecklistPage() {
                 <CarouselContent>
                     {allPagePhotos.map((url, index) => (
                     <CarouselItem key={index}>
-                        <div className="relative aspect-video w-full h-[80vh] sm:h-auto">
+                        <div className="relative w-full h-[80vh]">
                              <Image 
                                 src={url} 
                                 alt={`Ảnh xem trước ${index + 1}`} 
@@ -514,7 +514,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    
-
-    
