@@ -44,8 +44,8 @@ export default function ChecklistPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
 
-  const shift = tasksByShift ? tasksByShift[shiftKey] : null;
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
 
   // --- Data Loading and Initialization ---
