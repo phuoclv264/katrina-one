@@ -19,7 +19,14 @@ import type { ShiftReport, TasksByShift, CompletionRecord } from './types';
 import { tasksByShift as initialTasksByShift } from './data';
 import { v4 as uuidv4 } from 'uuid';
 
-const getTodaysDateKey = () => new Date().toISOString().split('T')[0];
+const getTodaysDateKey = () => {
+    const now = new Date();
+    // Get date parts for Vietnam's timezone (UTC+7)
+    const year = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric' });
+    const month = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', month: '2-digit' });
+    const day = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit' });
+    return `${year}-${month}-${day}`;
+};
 
 const cleanupOldLocalStorage = () => {
     if (typeof window === 'undefined') return;
@@ -27,6 +34,11 @@ const cleanupOldLocalStorage = () => {
     Object.keys(localStorage).forEach(key => {
         if (key.startsWith('report-') && !key.includes(todayKey)) {
             localStorage.removeItem(key);
+            // Also remove the submitted copy for that old report
+            if (key.startsWith('report-')) {
+                const submittedKey = key.replace('report-', 'submitted-report-');
+                localStorage.removeItem(submittedKey);
+            }
         }
     });
 };
