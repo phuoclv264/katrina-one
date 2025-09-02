@@ -5,13 +5,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { TaskCompletion, TasksByShift, CompletionRecord } from '@/lib/types';
+import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2 } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import type { CarouselApi } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function ChecklistPage() {
@@ -29,8 +30,9 @@ export default function ChecklistPage() {
   const shiftKey = params.shift as string;
   
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [report, setReport] = useState<ShiftReport | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -42,49 +44,45 @@ export default function ChecklistPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
 
-  const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
-  const [issues, setIssues] = useState('');
-  
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
-  const dailyStorageKey = useMemo(() => {
-    if (!staffName || !shiftKey) return null;
-    const today = new Date().toISOString().split('T')[0];
-    return `${staffName}-${shiftKey}-${today}`;
-  }, [staffName, shiftKey]);
-
   useEffect(() => {
-    const unsubscribe = dataStore.subscribeToTasks((tasks) => {
+    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
       setTasksByShift(tasks);
-      setIsDataLoading(false);
+      // Data loading will be set to false after report is also loaded
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeTasks();
   }, []);
 
   useEffect(() => {
-    if (!dailyStorageKey) return;
-    
-    const unsubscribe = dataStore.subscribeToDailyProgress(dailyStorageKey, (completion) => {
-        setTaskCompletion(completion || {});
-    });
+    if (isAuthLoading || !staffName || !shiftKey) return;
 
-    return () => unsubscribe();
-  }, [dailyStorageKey]);
+    let unsubscribeReport: (() => void) | null = null;
+    
+    const initializeReport = async () => {
+        setIsDataLoading(true);
+        const initialReport = await dataStore.getOrCreateReport(staffName, shiftKey);
+        
+        unsubscribeReport = dataStore.subscribeToReport(initialReport.id, (liveReport) => {
+            setReport(liveReport);
+            setIsDataLoading(false);
+        });
+    };
+
+    initializeReport();
+
+    return () => {
+        if (unsubscribeReport) {
+            unsubscribeReport();
+        }
+    };
+  }, [isAuthLoading, staffName, shiftKey]);
   
   const allPagePhotos = useMemo(() => {
-    if (!shift) return [];
-    const photos: string[] = [];
-    shift.sections.forEach(section => {
-        section.tasks.forEach(task => {
-            const completions = (taskCompletion[task.id] || []) as CompletionRecord[];
-            completions.forEach(comp => {
-                photos.push(...comp.photos);
-            });
-        });
-    });
-    return photos;
-  }, [shift, taskCompletion]);
+    if (!shift || !report) return [];
+    return report.uploadedPhotos || [];
+  }, [shift, report]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -107,162 +105,117 @@ export default function ChecklistPage() {
     setActiveCompletionIndex(completionIndex);
     setIsCameraOpen(true);
   };
+
+  const updateLiveReport = useCallback(async (updatedCompletion: TaskCompletion, updatedPhotos: string[], updatedIssues?: string) => {
+      if (!report) return;
+      setIsSaving(true);
+      try {
+         await dataStore.updateReport(report.id, {
+            completedTasks: updatedCompletion,
+            uploadedPhotos: updatedPhotos,
+            ...(updatedIssues !== undefined && { issues: updatedIssues || null })
+         });
+      } catch (error) {
+         console.error("Failed to update report:", error);
+         toast({ title: "Lỗi cập nhật", description: "Không thể lưu thay đổi lên cloud.", variant: "destructive" });
+      } finally {
+         setIsSaving(false);
+      }
+  }, [report, toast]);
   
   const handleCapturePhotos = async (photos: string[]) => {
-    if (activeTaskId && dailyStorageKey) {
-      const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
-      const taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
+    if (!activeTaskId || !report) return;
+    setIsCameraOpen(false); // Close dialog immediately
+    setIsSaving(true);
 
-      if (activeCompletionIndex !== null) {
-        // Editing existing completion
-        taskCompletions[activeCompletionIndex].photos = photos;
-      } else {
-        // Adding new completion
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        taskCompletions.push({
-          timestamp: formattedTime,
-          photos: photos
-        });
-      }
+    try {
+        const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
+        let taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
+
+        // Identify new photos (data URIs) that need to be uploaded
+        const photosToUpload = photos.filter(p => p.startsWith('data:image'));
+        const existingPhotos = photos.filter(p => !p.startsWith('data:image'));
+
+        const uploadedUrls = await Promise.all(
+            photosToUpload.map(p => dataStore.uploadPhoto(p, report.id, activeTaskId))
+        );
+        
+        const finalPhotoUrls = [...existingPhotos, ...uploadedUrls];
+
+        if (activeCompletionIndex !== null) {
+            // Editing existing completion
+            taskCompletions[activeCompletionIndex].photos = finalPhotoUrls;
+        } else {
+            // Adding new completion
+            const now = new Date();
+            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            taskCompletions.push({
+                timestamp: formattedTime,
+                photos: finalPhotoUrls
+            });
+        }
       
-      newCompletion[activeTaskId] = taskCompletions;
-      await dataStore.updateDailyProgress(dailyStorageKey, newCompletion);
-    }
-    setIsCameraOpen(false);
-    setActiveTaskId(null);
-    setActiveCompletionIndex(null);
-  };
-
-  const deletePhotoFromStorage = async (photoUrl: string) => {
-    if(photoUrl.includes('firebasestorage')) {
-       try {
-         await dataStore.deletePhoto(photoUrl);
-       } catch (error) {
-         console.error("Failed to delete photo from storage:", error);
-         toast({
-           title: "Lỗi xóa ảnh",
-           description: "Không thể xóa ảnh khỏi Cloud Storage. Vui lòng thử lại.",
-           variant: "destructive"
-         });
-       }
+        newCompletion[activeTaskId] = taskCompletions;
+        const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+        
+        await updateLiveReport(newCompletion, newUploadedPhotos);
+        
+    } catch (error) {
+        console.error("Error capturing photos and updating report:", error);
+        toast({ title: "Lỗi lưu ảnh", description: "Đã có lỗi xảy ra khi tải ảnh lên và cập nhật báo cáo.", variant: "destructive" });
+    } finally {
+        setIsSaving(false);
+        setActiveTaskId(null);
+        setActiveCompletionIndex(null);
     }
   };
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoIndex: number) => {
-      if (!dailyStorageKey) return;
-      const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
+      if (!report) return;
+      setIsSaving(true);
+      const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       const targetCompletion = taskCompletions[completionIndex];
 
-      if (targetCompletion) {
-          const photoToDelete = targetCompletion.photos[photoIndex];
-          targetCompletion.photos.splice(photoIndex, 1);
-          
-          await deletePhotoFromStorage(photoToDelete);
+      const photoToDelete = targetCompletion.photos[photoIndex];
+      await dataStore.deletePhoto(photoToDelete); // Delete from Storage
 
-          if (targetCompletion.photos.length === 0) {
-              taskCompletions.splice(completionIndex, 1);
-          }
+      targetCompletion.photos.splice(photoIndex, 1);
+      
+      if (targetCompletion.photos.length === 0) {
+          taskCompletions.splice(completionIndex, 1);
       }
       
       newCompletion[taskId] = taskCompletions;
-      await dataStore.updateDailyProgress(dailyStorageKey, newCompletion);
+      const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+      await updateLiveReport(newCompletion, newUploadedPhotos);
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
-      if (!dailyStorageKey) return;
-      const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
+      if (!report) return;
+      setIsSaving(true);
+      const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       
       const completionToDelete = taskCompletions[completionIndex];
-      if (completionToDelete) {
-        for(const photoUrl of completionToDelete.photos) {
-            await deletePhotoFromStorage(photoUrl);
-        }
+      for(const photoUrl of completionToDelete.photos) {
+          await dataStore.deletePhoto(photoUrl);
       }
 
       taskCompletions.splice(completionIndex, 1);
       newCompletion[taskId] = taskCompletions;
-      await dataStore.updateDailyProgress(dailyStorageKey, newCompletion);
+      const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
+      await updateLiveReport(newCompletion, newUploadedPhotos);
       toast({
         title: "Đã xóa lần thực hiện",
         description: "Lần hoàn thành công việc đã được xóa khỏi báo cáo.",
         variant: "destructive"
     });
   }
-
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-        if(!dailyStorageKey) throw new Error("Không thể xác định khóa lưu trữ hàng ngày.");
-
-        // A unique ID for this specific report instance
-        const reportId = dailyStorageKey;
-        
-        // 1. Upload all new photos and update taskCompletion with cloud URLs
-        const finalTaskCompletion: TaskCompletion = JSON.parse(JSON.stringify(taskCompletion));
-        const allUploadedPhotos: string[] = [];
-
-        for (const taskId in finalTaskCompletion) {
-            const completions = finalTaskCompletion[taskId];
-            for (const completion of completions) {
-                const uploadedPhotoUrls = await Promise.all(
-                    completion.photos.map(photo => {
-                        // If it's a data URL, upload it. If not, it's already a cloud URL.
-                        if (photo.startsWith('data:image')) {
-                            return dataStore.uploadPhoto(photo, reportId, taskId);
-                        }
-                        return Promise.resolve(photo);
-                    })
-                );
-                completion.photos = uploadedPhotoUrls;
-                allUploadedPhotos.push(...uploadedPhotoUrls);
-            }
-        }
-        
-        // 2. Add or update the report in Firestore
-        await dataStore.addOrUpdateReport({
-            shiftKey,
-            staffName: staffName || 'Nhân viên',
-            completedTasks: finalTaskCompletion,
-            uploadedPhotos: allUploadedPhotos,
-            issues: issues || null,
-        });
-
-        // 3. Clear local state and cloud state for the next shift
-        await dataStore.clearDailyProgress(dailyStorageKey);
-        setTaskCompletion({});
-        setIssues('');
-
-        toast({
-            title: "Đã gửi báo cáo!",
-            description: "Báo cáo ca làm việc của bạn đã được lưu thành công lên cloud.",
-            style: {
-                backgroundColor: 'hsl(var(--accent))',
-                color: 'hsl(var(--accent-foreground))',
-                border: '1px solid hsl(var(--accent))'
-            }
-        });
-        
-        router.push('/shifts');
-
-    } catch (error) {
-        console.error("Failed to submit report:", error);
-        toast({
-            title: "Gửi báo cáo thất bại",
-            description: "Đã có lỗi xảy ra khi gửi báo cáo. Vui lòng thử lại.",
-            variant: "destructive"
-        });
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
   
   const getInitialPhotosForCamera = () => {
-    if (activeTaskId && activeCompletionIndex !== null) {
-      const completions = taskCompletion[activeTaskId] as CompletionRecord[];
+    if (activeTaskId && activeCompletionIndex !== null && report) {
+      const completions = (report.completedTasks[activeTaskId] || []) as CompletionRecord[];
       return completions[activeCompletionIndex]?.photos || [];
     }
     return [];
@@ -297,7 +250,15 @@ export default function ChecklistPage() {
     }
   };
 
-  if (isDataLoading || isAuthLoading) {
+  const handleIssuesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if(!report) return;
+    const newIssues = e.target.value;
+    const newReportState = { ...report, issues: newIssues };
+    setReport(newReportState); // Optimistic update
+    updateLiveReport(report.completedTasks, report.uploadedPhotos, newIssues);
+  };
+
+  if (isDataLoading || isAuthLoading || !report || !tasksByShift) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -314,22 +275,27 @@ export default function ChecklistPage() {
     )
   }
 
-  if (!shift || !dailyStorageKey) {
-    return <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">Đang tải...</div>;
-  }
-
   return (
     <>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <Button asChild variant="ghost" className="mb-4 -ml-4">
-            <Link href="/shifts">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Quay lại Ca làm việc
-            </Link>
-        </Button>
-        <h1 className="text-3xl font-bold font-headline">Checklist: {shift.name}</h1>
-        <p className="text-muted-foreground">Hoàn thành nhiệm vụ của bạn và cập nhật báo cáo cuối ca.</p>
+         <div className="flex justify-between items-center mb-4">
+            <Button asChild variant="ghost" className="-ml-4">
+                <Link href="/shifts">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại Ca làm việc
+                </Link>
+            </Button>
+            <div className="flex items-center gap-2">
+                 {isSaving ? (
+                     <Badge variant="secondary"><Loader2 className="mr-1.5 h-3 w-3 animate-spin"/> Đang lưu...</Badge>
+                 ) : (
+                     <Badge variant="secondary">Đã lưu lên cloud</Badge>
+                 )}
+            </div>
+        </div>
+        <h1 className="text-3xl font-bold font-headline">Checklist: {shift?.name}</h1>
+        <p className="text-muted-foreground">Mọi thay đổi sẽ được tự động lưu và cập nhật theo thời gian thực.</p>
       </header>
 
       <div className="space-y-8">
@@ -355,7 +321,7 @@ export default function ChecklistPage() {
                   <AccordionContent className="border-t p-4">
                     <div className="space-y-4 pt-2">
                       {section.tasks.map((task) => {
-                        const completions = (taskCompletion[task.id] || []) as CompletionRecord[];
+                        const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
                         const isCompletedOnce = completions.length > 0;
                         const isDisabled = isSingleCompletionSection && isCompletedOnce;
                         
@@ -375,7 +341,7 @@ export default function ChecklistPage() {
                                 } : {}}
                                 className="active:scale-95 transition-transform"
                                 onClick={() => handleTaskAction(task.id)}
-                                disabled={isDisabled}
+                                disabled={isDisabled || isSaving}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>
                                   Đã hoàn thành
@@ -391,7 +357,7 @@ export default function ChecklistPage() {
                                       </div>
                                       <div className="flex items-center gap-1">
                                           {!isDisabled && (
-                                            <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)}>
+                                            <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)} disabled={isSaving}>
                                                 <Camera className="mr-1.5 h-3 w-3" />
                                                 Sửa ảnh
                                             </Button>
@@ -399,7 +365,7 @@ export default function ChecklistPage() {
                                           
                                           <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                               <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10">
+                                               <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isSaving}>
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
                                             </AlertDialogTrigger>
@@ -433,6 +399,7 @@ export default function ChecklistPage() {
                                                 size="icon"
                                                 className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full"
                                                 onClick={() => handleDeletePhoto(task.id, cIndex, pIndex)}
+                                                disabled={isSaving}
                                             >
                                                 <X className="h-3 w-3" />
                                                 <span className="sr-only">Xóa ảnh</span>
@@ -465,21 +432,12 @@ export default function ChecklistPage() {
           <CardContent>
             <Textarea
               placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
-              value={issues}
-              onChange={(e) => setIssues(e.target.value)}
-              disabled={isSubmitting}
+              value={report.issues || ''}
+              onChange={handleIssuesChange}
+              disabled={isSaving}
             />
           </CardContent>
         </Card>
-        
-        <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? (
-              <Loader2 className="mr-2 animate-spin" />
-          ) : (
-              <Send className="mr-2" />
-          )}
-          {isSubmitting ? 'Đang gửi...' : 'Gửi/Cập nhật Báo cáo'}
-        </Button>
       </div>
     </div>
     <CameraDialog 

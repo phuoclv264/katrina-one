@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { ShiftReport, TasksByShift, CompletionRecord } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,7 +35,7 @@ export default function ReportsPage() {
 
   const groupedReports = useMemo(() => {
     return reports.reduce((acc, report) => {
-      const date = new Date(report.submittedAt).toISOString().split('T')[0];
+      const date = new Date(report.submittedAt as string).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = [];
       }
@@ -118,9 +118,9 @@ export default function ReportsPage() {
                         <TableRow>
                           <TableHead>Nhân viên</TableHead>
                           <TableHead>Ca làm việc</TableHead>
-                          <TableHead>Thời gian gửi</TableHead>
+                          <TableHead>Cập nhật lần cuối</TableHead>
                           <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
-                          <TableHead className="text-center">Hình ảnh</TableHead>
+                          <TableHead className="text-center">Trạng thái</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -135,7 +135,7 @@ export default function ReportsPage() {
                               <TableCell>{report.staffName}</TableCell>
                               <TableCell className="capitalize">{shiftName}</TableCell>
                                <TableCell>
-                                {new Date(report.submittedAt).toLocaleTimeString('vi-VN', {
+                                {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN', {
                                   hour: '2-digit',
                                   minute: '2-digit',
                                 })}
@@ -147,7 +147,14 @@ export default function ReportsPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-center">
-                                  <Badge variant="outline">{report.uploadedPhotos.length} đã tải lên</Badge>
+                                  {report.status === 'ongoing' ? (
+                                     <Badge variant="outline" className="text-blue-600 border-blue-600/50">
+                                        <Clock className="mr-1.5 h-3 w-3 animate-pulse" />
+                                        Đang diễn ra
+                                     </Badge>
+                                  ) : (
+                                     <Badge variant="default">Đã hoàn thành</Badge>
+                                  )}
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button asChild variant="ghost" size="sm">

@@ -33,18 +33,18 @@ export default function ReportDetailPage() {
   useEffect(() => {
     if(!reportId) return;
 
-    const fetchReport = async () => {
-        const fetchedReport = await dataStore.getReportById(reportId);
+    const unsubscribeReport = dataStore.subscribeToReport(reportId, (fetchedReport) => {
         setReport(fetchedReport);
-    }
+    });
     
-    fetchReport();
-
     const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
         setTasksByShift(tasks);
     });
     
-    return () => unsubscribeTasks();
+    return () => {
+      unsubscribeReport();
+      unsubscribeTasks();
+    }
   }, [reportId]);
   
   useEffect(() => {
@@ -155,10 +155,24 @@ export default function ReportDetailPage() {
                 Quay lại tất cả báo cáo
             </Link>
         </Button>
-        <h1 className="text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
-        <p className="text-muted-foreground">
-          Báo cáo ca từ <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{new Date(report.submittedAt).toLocaleString('vi-VN')}</span>.
-        </p>
+        <div className="flex justify-between items-start">
+            <div>
+                 <h1 className="text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
+                <p className="text-muted-foreground">
+                Báo cáo ca từ <span className="font-semibold">{report.staffName}</span>, cập nhật lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                </p>
+            </div>
+            <div>
+                 {report.status === 'ongoing' ? (
+                    <Badge variant="outline" className="text-blue-600 border-blue-600/50 text-base">
+                        <Clock className="mr-1.5 h-4 w-4 animate-pulse" />
+                        Đang diễn ra
+                    </Badge>
+                ) : (
+                    <Badge variant="default" className="text-base">Đã hoàn thành</Badge>
+                )}
+            </div>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

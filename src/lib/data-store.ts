@@ -15,6 +15,9 @@ import {
   serverTimestamp,
   Timestamp,
   deleteDoc,
+  where,
+  getDocs,
+  writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, Staff, TaskCompletion } from './types';
@@ -28,7 +31,6 @@ export const dataStore = {
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
     const docRef = doc(db, 'app-data', 'tasks');
     
-    // Unsubscribe from previous listener if it exists
     if (tasksUnsubscribe) {
       tasksUnsubscribe();
     }
@@ -37,7 +39,6 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data() as TasksByShift);
       } else {
-        // If no data in Firestore, initialize with default data
         await setDoc(docRef, initialTasksByShift);
         callback(initialTasksByShift);
       }
@@ -50,8 +51,71 @@ export const dataStore = {
     const docRef = doc(db, 'app-data', 'tasks');
     await setDoc(docRef, newTasks);
   },
+  
+  // --- Live Reports ---
 
-  // --- Reports ---
+  subscribeToReport(reportId: string, callback: (report: ShiftReport | null) => void): () => void {
+    const docRef = doc(db, 'reports', reportId);
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        callback({
+            ...data,
+            id: docSnap.id,
+            startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as ShiftReport);
+      } else {
+        callback(null);
+      }
+    });
+  },
+
+  async getOrCreateReport(staffName: string, shiftKey: string): Promise<ShiftReport> {
+    const today = new Date().toISOString().split('T')[0];
+    const reportId = `${staffName}-${shiftKey}-${today}`;
+    const reportRef = doc(db, 'reports', reportId);
+    const docSnap = await getDoc(reportRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        ...data,
+        id: docSnap.id,
+        startedAt: (data.startedAt as Timestamp)?.toDate().toISOString(),
+        submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString(),
+      } as ShiftReport
+    } else {
+      const newReport: Omit<ShiftReport, 'id'> = {
+        staffName,
+        shiftKey,
+        status: 'ongoing',
+        startedAt: serverTimestamp(),
+        submittedAt: serverTimestamp(),
+        completedTasks: {},
+        uploadedPhotos: [],
+        issues: null,
+      };
+      await setDoc(reportRef, newReport);
+      const createdDoc = await getDoc(reportRef);
+      const data = createdDoc.data();
+       return {
+        ...data,
+        id: createdDoc.id,
+        startedAt: (data?.startedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        submittedAt: (data?.submittedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      } as ShiftReport
+    }
+  },
+
+  async updateReport(reportId: string, data: Partial<ShiftReport>) {
+      const reportRef = doc(db, 'reports', reportId);
+      const updateData = {
+          ...data,
+          submittedAt: serverTimestamp() // Always update the last modified time
+      }
+      await updateDoc(reportRef, updateData);
+  },
 
   subscribeToReports(callback: (reports: ShiftReport[]) => void): () => void {
      const reportsCollection = collection(db, 'reports');
@@ -64,7 +128,7 @@ export const dataStore = {
             reports.push({
                 ...data,
                 id: doc.id,
-                // Convert Firestore Timestamp to ISO string
+                startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             } as ShiftReport);
         });
@@ -83,18 +147,11 @@ export const dataStore = {
         return {
             ...data,
             id: docSnap.id,
+            startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as ShiftReport;
     }
     return null;
-  },
-
-  async addOrUpdateReport(reportData: Omit<ShiftReport, 'id' | 'submittedAt'>) {
-    const reportWithTimestamp = {
-        ...reportData,
-        submittedAt: serverTimestamp(),
-    };
-    await addDoc(collection(db, 'reports'), reportWithTimestamp);
   },
   
   // --- Staff ---
@@ -133,34 +190,4 @@ export const dataStore = {
         throw error;
     }
   },
-  
-  // --- Daily Progress on Firestore ---
-  subscribeToDailyProgress(key: string, callback: (completion: TaskCompletion | null) => void): () => void {
-    const docRef = doc(db, 'daily-progress', key);
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-            callback(docSnap.data().taskCompletion as TaskCompletion);
-        } else {
-            // Document doesn't exist yet, provide null or an empty object
-            callback(null);
-        }
-    });
-
-    return unsubscribe;
-  },
-
-  async updateDailyProgress(key: string, completion: TaskCompletion) {
-      const docRef = doc(db, 'daily-progress', key);
-      await setDoc(docRef, { taskCompletion: completion }, { merge: true });
-  },
-
-  async clearDailyProgress(key: string) {
-    const docRef = doc(db, 'daily-progress', key);
-    // Instead of clearing, we can delete the document for the day
-    const docSnap = await getDoc(docRef);
-    if(docSnap.exists()) {
-        await deleteDoc(docRef);
-    }
-  }
 };

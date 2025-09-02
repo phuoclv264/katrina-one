@@ -18,7 +18,7 @@ export type TaskSection = {
 }
 
 export type Shift = {
-  name: string;
+  name:string;
   sections: TaskSection[];
 };
 
@@ -38,8 +38,9 @@ export type TaskCompletion = {
 export type ShiftReport = {
   id: string;
   staffName: string;
-  // shiftDate is now handled by submittedAt
-  submittedAt: string | Timestamp; // ISO string for the submission time, or Firestore Timestamp
+  status: 'ongoing' | 'finished';
+  startedAt: string | Timestamp;
+  submittedAt: string | Timestamp; 
   completedTasks: TaskCompletion;
   uploadedPhotos: string[];
   issues: string | null;
