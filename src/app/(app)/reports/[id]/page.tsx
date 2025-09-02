@@ -301,7 +301,7 @@ export default function ReportDetailPage() {
       </div>
     </div>
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-3xl p-0 border-0 bg-transparent shadow-none">
+        <DialogContent className="w-[80vw] max-w-[80vw] p-0 border-0 bg-transparent shadow-none">
             <DialogHeader>
                 <DialogTitle className="sr-only">Xem trước hình ảnh</DialogTitle>
                  <DialogClose className="absolute top-2 right-2 z-20 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
@@ -350,3 +350,5 @@ export default function ReportDetailPage() {
     </>
   );
 }
+
+    
