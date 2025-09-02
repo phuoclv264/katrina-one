@@ -166,9 +166,6 @@ export default function AuthPage() {
           </Card>
         </TabsContent>
       </Tabs>
-      <footer className="absolute bottom-4 text-xs text-muted-foreground">
-        Xây dựng với Firebase và Genkit
-      </footer>
     </main>
   );
 }
