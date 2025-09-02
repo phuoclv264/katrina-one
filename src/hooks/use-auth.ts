@@ -45,26 +45,35 @@ export const useAuth = () => {
     }
   }, [router]);
 
-  const confirmStaffPin = useCallback((pin: string) => {
-    const staffList = dataStore.getStaff();
-    const foundStaff = staffList.find(staff => staff.pin === pin);
+  const confirmStaffPin = useCallback(async (pin: string) => {
+    try {
+        const staffList = await dataStore.getStaff();
+        const foundStaff = staffList.find(staff => staff.pin === pin);
 
-    if (foundStaff) {
-        localStorage.setItem('userRole', 'staff');
-        localStorage.setItem('staffName', foundStaff.name);
-        setRole('staff');
-        setStaffName(foundStaff.name);
-        setShowPinDialog(false);
-        router.push('/shifts');
-        toast({
-          title: `Chào mừng, ${foundStaff.name}!`,
-          description: "Ca làm việc của bạn đã sẵn sàng.",
-        });
-    } else {
+        if (foundStaff) {
+            localStorage.setItem('userRole', 'staff');
+            localStorage.setItem('staffName', foundStaff.name);
+            setRole('staff');
+            setStaffName(foundStaff.name);
+            setShowPinDialog(false);
+            router.push('/shifts');
+            toast({
+            title: `Chào mừng, ${foundStaff.name}!`,
+            description: "Ca làm việc của bạn đã sẵn sàng.",
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Mã PIN không hợp lệ",
+                description: "Vui lòng thử lại.",
+            })
+        }
+    } catch(error) {
+        console.error("Failed to fetch staff list", error);
         toast({
             variant: "destructive",
-            title: "Mã PIN không hợp lệ",
-            description: "Vui lòng thử lại.",
+            title: "Lỗi",
+            description: "Không thể xác thực mã PIN. Vui lòng thử lại.",
         })
     }
   }, [router, toast]);

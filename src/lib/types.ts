@@ -1,4 +1,6 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
 export type Staff = {
   pin: string;
   name: string;
@@ -26,7 +28,7 @@ export type TasksByShift = {
 
 export type CompletionRecord = {
   timestamp: string;
-  photos: string[];
+  photos: string[]; // URLs of photos in Firebase Storage
 };
 
 export type TaskCompletion = {
@@ -36,11 +38,10 @@ export type TaskCompletion = {
 export type ShiftReport = {
   id: string;
   staffName: string;
-  shiftDate: string;
-  submittedAt: string; // ISO string for the submission time
+  // shiftDate is now handled by submittedAt
+  submittedAt: string | Timestamp; // ISO string for the submission time, or Firestore Timestamp
   completedTasks: TaskCompletion;
   uploadedPhotos: string[];
   issues: string | null;
   shiftKey: string;
-  taskPhotos?: { [taskId: string]: string[] }; // Can be deprecated
 };

@@ -11,13 +11,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import type { CarouselApi } from '@/components/ui/carousel';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function ChecklistPage() {
@@ -27,7 +28,9 @@ export default function ChecklistPage() {
   const shiftKey = params.shift as string;
   const dailyStorageKey = `${staffName}-${shiftKey}`;
 
-  const [tasksByShift, setTasksByShift] = useState<TasksByShift>(dataStore.getTasks());
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -42,7 +45,16 @@ export default function ChecklistPage() {
   const [taskCompletion, setTaskCompletion] = useState<TaskCompletion>({});
   const [issues, setIssues] = useState('');
   
-  const shift = tasksByShift[shiftKey];
+  const shift = tasksByShift ? tasksByShift[shiftKey] : null;
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribeToTasks((tasks) => {
+      setTasksByShift(tasks);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
   
   const updateCompletionState = useCallback((newCompletion: TaskCompletion) => {
     setTaskCompletion(newCompletion);
@@ -51,15 +63,7 @@ export default function ChecklistPage() {
 
 
   useEffect(() => {
-    const unsubscribe = dataStore.subscribe(() => {
-      setTasksByShift(dataStore.getTasks());
-      // This will also re-run if daily data is cleared
-      const storedCompletion = dataStore.getDailyCompletions(dailyStorageKey);
-      if (storedCompletion) {
-        setTaskCompletion(storedCompletion);
-      }
-    });
-
+    dataStore.clearDailyDataIfNeeded();
     if (shift) {
         const storedCompletion = dataStore.getDailyCompletions(dailyStorageKey);
         if (storedCompletion) {
@@ -74,8 +78,6 @@ export default function ChecklistPage() {
             setTaskCompletion(initialCompletion);
         }
     }
-    
-    return () => unsubscribe();
   }, [shift, dailyStorageKey]);
   
   const allPagePhotos = useMemo(() => {
@@ -101,11 +103,6 @@ export default function ChecklistPage() {
       setCurrentSlide(carouselApi.selectedScrollSnap());
     });
   }, [carouselApi]);
-
-
-  if (!shift) {
-    return <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">Đang tải...</div>;
-  }
   
   const handleTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -144,15 +141,33 @@ export default function ChecklistPage() {
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
   };
+
+  const deletePhotoFromStorage = async (photoUrl: string) => {
+    if(photoUrl.includes('firebasestorage')) {
+       try {
+         await dataStore.deletePhoto(photoUrl);
+       } catch (error) {
+         console.error("Failed to delete photo from storage:", error);
+         toast({
+           title: "Lỗi xóa ảnh",
+           description: "Không thể xóa ảnh khỏi Cloud Storage. Vui lòng thử lại.",
+           variant: "destructive"
+         });
+       }
+    }
+  };
   
-  const handleDeletePhoto = (taskId: string, completionIndex: number, photoIndex: number) => {
+  const handleDeletePhoto = async (taskId: string, completionIndex: number, photoIndex: number) => {
       const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
       const targetCompletion = taskCompletions[completionIndex];
 
       if (targetCompletion) {
+          const photoToDelete = targetCompletion.photos[photoIndex];
           targetCompletion.photos.splice(photoIndex, 1);
-          // If this was the last photo, remove the entire completion record.
+          
+          await deletePhotoFromStorage(photoToDelete);
+
           if (targetCompletion.photos.length === 0) {
               taskCompletions.splice(completionIndex, 1);
           }
@@ -162,9 +177,17 @@ export default function ChecklistPage() {
       updateCompletionState(newCompletion);
   };
 
-  const handleDeleteCompletion = (taskId: string, completionIndex: number) => {
+  const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       const newCompletion = JSON.parse(JSON.stringify(taskCompletion));
       const taskCompletions = newCompletion[taskId] as CompletionRecord[];
+      
+      const completionToDelete = taskCompletions[completionIndex];
+      if (completionToDelete) {
+        for(const photoUrl of completionToDelete.photos) {
+            await deletePhotoFromStorage(photoUrl);
+        }
+      }
+
       taskCompletions.splice(completionIndex, 1);
       newCompletion[taskId] = taskCompletions;
       updateCompletionState(newCompletion);
@@ -176,28 +199,66 @@ export default function ChecklistPage() {
   }
 
 
-  const handleSubmit = () => {
-    const allUploadedPhotos = Object.values(taskCompletion)
-      .flat()
-      .flatMap((record: CompletionRecord) => record.photos);
-      
-    dataStore.addOrUpdateReport({
-        shiftKey,
-        staffName: staffName || 'Nhân viên',
-        completedTasks: taskCompletion,
-        uploadedPhotos: allUploadedPhotos,
-        issues: issues || null,
-    });
-    
-    toast({
-      title: "Đã cập nhật báo cáo!",
-      description: "Báo cáo ca làm việc của bạn đã được cập nhật thành công.",
-      style: {
-        backgroundColor: 'hsl(var(--accent))',
-        color: 'hsl(var(--accent-foreground))',
-        border: '1px solid hsl(var(--accent))'
-      }
-    });
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+        // A unique ID for this specific report instance
+        const reportId = `${staffName}-${shiftKey}-${new Date().toISOString().split('T')[0]}`;
+        
+        // 1. Upload all new photos and update taskCompletion with cloud URLs
+        const updatedTaskCompletion: TaskCompletion = JSON.parse(JSON.stringify(taskCompletion));
+        const allUploadedPhotos: string[] = [];
+
+        for (const taskId in updatedTaskCompletion) {
+            const completions = updatedTaskCompletion[taskId];
+            for (const completion of completions) {
+                const uploadedPhotoUrls = await Promise.all(
+                    completion.photos.map(photo => {
+                        // If it's a data URL, upload it. If not, it's already a cloud URL.
+                        if (photo.startsWith('data:image')) {
+                            return dataStore.uploadPhoto(photo, reportId, taskId);
+                        }
+                        return Promise.resolve(photo);
+                    })
+                );
+                completion.photos = uploadedPhotoUrls;
+                allUploadedPhotos.push(...uploadedPhotoUrls);
+            }
+        }
+        
+        // 2. Add or update the report in Firestore
+        await dataStore.addOrUpdateReport({
+            shiftKey,
+            staffName: staffName || 'Nhân viên',
+            completedTasks: updatedTaskCompletion,
+            uploadedPhotos: allUploadedPhotos,
+            issues: issues || null,
+        });
+
+        // 3. Clear local state for the next shift
+        updateCompletionState({});
+        setIssues('');
+
+        toast({
+            title: "Đã gửi báo cáo!",
+            description: "Báo cáo ca làm việc của bạn đã được lưu thành công lên cloud.",
+            style: {
+                backgroundColor: 'hsl(var(--accent))',
+                color: 'hsl(var(--accent-foreground))',
+                border: '1px solid hsl(var(--accent))'
+            }
+        });
+
+    } catch (error) {
+        console.error("Failed to submit report:", error);
+        toast({
+            title: "Gửi báo cáo thất bại",
+            description: "Đã có lỗi xảy ra khi gửi báo cáo. Vui lòng thử lại.",
+            variant: "destructive"
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
   
   const getInitialPhotosForCamera = () => {
@@ -237,6 +298,26 @@ export default function ChecklistPage() {
     }
   };
 
+  if (isLoading) {
+      return (
+        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
+            <header className="mb-8">
+                <Skeleton className="h-8 w-48 mb-4" />
+                <Skeleton className="h-10 w-3/4" />
+                <Skeleton className="h-5 w-1/2 mt-2" />
+            </header>
+            <div className="space-y-8">
+                <Skeleton className="h-96 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-12 w-full" />
+            </div>
+        </div>
+    )
+  }
+
+  if (!shift) {
+    return <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">Đang tải...</div>;
+  }
 
   return (
     <>
@@ -387,13 +468,18 @@ export default function ChecklistPage() {
               placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
               value={issues}
               onChange={(e) => setIssues(e.target.value)}
+              disabled={isSubmitting}
             />
           </CardContent>
         </Card>
         
-        <Button size="lg" className="w-full" onClick={handleSubmit}>
-          <Send className="mr-2" />
-          Gửi/Cập nhật Báo cáo
+        <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+          {isSubmitting ? (
+              <Loader2 className="mr-2 animate-spin" />
+          ) : (
+              <Send className="mr-2" />
+          )}
+          {isSubmitting ? 'Đang gửi...' : 'Gửi/Cập nhật Báo cáo'}
         </Button>
       </div>
     </div>
@@ -455,4 +541,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-

@@ -7,35 +7,46 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Star, ListTodo } from 'lucide-react';
-import AiTaskGenerator from '@/components/ai-task-generator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sun, Moon, Sunset } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TaskListsPage() {
   const { toast } = useToast();
-  const [tasksByShift, setTasksByShift] = useState<TasksByShift>(dataStore.getTasks());
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
 
   useEffect(() => {
-    const unsubscribe = dataStore.subscribe(() => {
-      setTasksByShift(dataStore.getTasks());
+    const unsubscribe = dataStore.subscribeToTasks((tasks) => {
+      setTasksByShift(tasks);
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   const handleUpdateAndSave = (newTasks: TasksByShift) => {
-    dataStore.updateTasks(newTasks);
-    toast({
-        title: "Đã lưu thay đổi!",
-        description: "Danh sách công việc đã được cập nhật.",
+    dataStore.updateTasks(newTasks).then(() => {
+      toast({
+          title: "Đã lưu thay đổi!",
+          description: "Danh sách công việc đã được cập nhật trên cloud.",
+      });
+    }).catch(err => {
+       toast({
+          title: "Lỗi!",
+          description: "Không thể lưu thay đổi. Vui lòng thử lại.",
+          variant: "destructive"
+      });
+      console.error(err);
     });
   }
 
   const handleAddTask = (shiftKey: string, sectionTitle: string) => {
+    if (!tasksByShift) return;
     const taskDetails = newTask[shiftKey]?.[sectionTitle];
     if (!taskDetails || taskDetails.text.trim() === '') return;
 
@@ -63,6 +74,7 @@ export default function TaskListsPage() {
   };
 
   const handleDeleteTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
+    if (!tasksByShift) return;
     const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
     const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
     if (section) {
@@ -80,6 +92,25 @@ export default function TaskListsPage() {
       return newState;
     });
   };
+  
+  if(isLoading) {
+    return (
+        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+             <header className="mb-8">
+                <Skeleton className="h-10 w-3/4" />
+                <Skeleton className="h-4 w-1/2 mt-2" />
+            </header>
+            <div className="space-y-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-48 w-full" />
+            </div>
+        </div>
+    )
+  }
+  
+  if(!tasksByShift){
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
+  }
 
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">

@@ -3,22 +3,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Star, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { TaskCompletion, CompletionRecord } from '@/lib/types';
+import type { ShiftReport, TaskCompletion, CompletionRecord, TasksByShift } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import type { CarouselApi } from '@/components/ui/carousel';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportDetailPage() {
   const params = useParams();
-  const [reports, setReports] = useState(dataStore.getReports());
-  const [tasksByShift, setTasksByShift] = useState(dataStore.getTasks());
+  const reportId = params.id as string;
+  const [report, setReport] = useState<ShiftReport | null>(null);
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
@@ -28,37 +31,32 @@ export default function ReportDetailPage() {
 
 
   useEffect(() => {
-    const unsubscribe = dataStore.subscribe(() => {
-      setReports(dataStore.getReports());
-      setTasksByShift(dataStore.getTasks());
+    if(!reportId) return;
+
+    const fetchReport = async () => {
+        const fetchedReport = await dataStore.getReportById(reportId);
+        setReport(fetchedReport);
+    }
+    
+    fetchReport();
+
+    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
+        setTasksByShift(tasks);
     });
-    return () => unsubscribe();
-  }, []);
+    
+    return () => unsubscribeTasks();
+  }, [reportId]);
   
-  const report = reports.find(r => r.id === params.id);
+  useEffect(() => {
+    if(report && tasksByShift) {
+        setIsLoading(false);
+    }
+  }, [report, tasksByShift]);
+  
   
   const allPagePhotos = useMemo(() => {
-    if (!report || !tasksByShift[report.shiftKey]) return [];
-    
-    const photos: string[] = [];
-    const shift = tasksByShift[report.shiftKey];
-
-    shift.sections.forEach(section => {
-        section.tasks.forEach(task => {
-            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-            completions.forEach(comp => {
-                photos.push(...comp.photos);
-            });
-        });
-    });
-
-    report.uploadedPhotos.forEach(photo => {
-        if (!photos.includes(photo)) {
-            photos.push(photo);
-        }
-    });
-
-    return photos;
+    if (!report || !tasksByShift || !tasksByShift[report.shiftKey]) return [];
+    return report.uploadedPhotos || [];
   }, [report, tasksByShift]);
 
 
@@ -71,31 +69,6 @@ export default function ReportDetailPage() {
       setCurrentSlide(carouselApi.selectedScrollSnap());
     });
   }, [carouselApi]);
-
-
-  if (!report) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy.</div>;
-  }
-
-  const shift = tasksByShift[report.shiftKey];
-  if (!shift) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Thông tin ca làm việc không tồn tại.</div>;
-  }
-  
-  const getCompletedTaskCount = (completedTasks: TaskCompletion) => {
-    const allTasks = shift.sections.flatMap(s => s.tasks);
-    let completedCount = 0;
-    allTasks.forEach(task => {
-        const completions = completedTasks[task.id];
-        if (Array.isArray(completions) && completions.length > 0) {
-            completedCount++;
-        }
-    });
-    return completedCount;
-  };
-  
-  const totalTaskCount = shift.sections.flatMap(s => s.tasks).length;
-  const completedTaskCount = getCompletedTaskCount(report.completedTasks);
 
   const openImagePreview = (url: string) => {
     const photoIndex = allPagePhotos.indexOf(url);
@@ -125,6 +98,51 @@ export default function ReportDetailPage() {
         default: return 'border-border';
     }
   }
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+            <header className="mb-8">
+                <Skeleton className="h-8 w-48 mb-4" />
+                <Skeleton className="h-10 w-3/4" />
+                <Skeleton className="h-5 w-1/2 mt-2" />
+            </header>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                    <Skeleton className="h-96 w-full" />
+                </div>
+                <div className="space-y-8">
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-32 w-full" />
+                </div>
+            </div>
+        </div>
+    )
+  }
+
+  if (!report) {
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy.</div>;
+  }
+
+  const shift = tasksByShift ? tasksByShift[report.shiftKey] : null;
+  if (!shift) {
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Thông tin ca làm việc không tồn tại cho báo cáo này.</div>;
+  }
+  
+  const getCompletedTaskCount = (completedTasks: TaskCompletion) => {
+    const allTasks = shift.sections.flatMap(s => s.tasks);
+    let completedCount = 0;
+    allTasks.forEach(task => {
+        const completions = completedTasks[task.id];
+        if (Array.isArray(completions) && completions.length > 0) {
+            completedCount++;
+        }
+    });
+    return completedCount;
+  };
+  
+  const totalTaskCount = shift.sections.flatMap(s => s.tasks).length;
+  const completedTaskCount = getCompletedTaskCount(report.completedTasks);
 
 
   return (
@@ -230,7 +248,7 @@ export default function ReportDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
-              </CardHeader>
+              </Header>
               <CardContent>
                 <p className="text-sm italic">"{report.issues}"</p>
               </CardContent>

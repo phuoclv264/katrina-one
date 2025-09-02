@@ -10,22 +10,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
 import type { ShiftReport, TasksByShift, CompletionRecord } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState(dataStore.getReports());
-  const [tasksByShift, setTasksByShift] = useState(dataStore.getTasks());
+  const [reports, setReports] = useState<ShiftReport[]>([]);
+  const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = dataStore.subscribe(() => {
-      setReports(dataStore.getReports());
-      setTasksByShift(dataStore.getTasks());
+    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
+      setTasksByShift(tasks);
     });
-    return () => unsubscribe();
+
+    const unsubscribeReports = dataStore.subscribeToReports((reports) => {
+      setReports(reports);
+      setIsLoading(false);
+    });
+
+    return () => {
+      unsubscribeTasks();
+      unsubscribeReports();
+    };
   }, []);
 
   const groupedReports = useMemo(() => {
     return reports.reduce((acc, report) => {
-      const date = report.shiftDate;
+      const date = new Date(report.submittedAt).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = [];
       }
@@ -34,31 +44,9 @@ export default function ReportsPage() {
     }, {} as Record<string, ShiftReport[]>);
   }, [reports]);
 
-  function getCompletionStatus(report: ShiftReport) {
-      const shiftTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
-      const criticalTasks = shiftTasks.filter(t => t.isCritical);
-
-      if (criticalTasks.length === 0) {
-          return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
-      }
-
-      const completedCriticalCount = criticalTasks.filter(task => {
-          const completions = report.completedTasks[task.id];
-          return Array.isArray(completions) && completions.length > 0;
-      }).length;
-      
-      if (completedCriticalCount === criticalTasks.length) {
-          return { text: "Hoàn thành", variant: "default", icon: CheckCircle };
-      }
-      
-      if (completedCriticalCount > 0) {
-          return { text: "Hoàn thành một phần", variant: "secondary", icon: CheckCircle };
-      }
-
-      return { text: "Chưa hoàn thành", variant: "destructive", icon: XCircle };
-  }
 
   const getCompletedTaskCount = (report: ShiftReport) => {
+    if (!tasksByShift) return 0;
     const allTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
     let completedCount = 0;
     
@@ -73,11 +61,33 @@ export default function ReportsPage() {
   };
   
   const getTotalTaskCount = (report: ShiftReport) => {
+      if (!tasksByShift) return 0;
       return tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks).length || 0;
   }
 
 
   const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  
+  if(isLoading) {
+      return (
+        <div className="container mx-auto p-4 sm:p-6 md:p-8">
+            <header className="mb-8">
+                <Skeleton className="h-10 w-1/2" />
+                <Skeleton className="h-4 w-1/3 mt-2" />
+            </header>
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/3" />
+                    <Skeleton className="h-4 w-1/4 mt-2" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-24 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+      )
+  }
 
 
   return (
@@ -95,7 +105,7 @@ export default function ReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {sortedDates.length > 0 ? (
+          {sortedDates.length > 0 && tasksByShift ? (
             <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
               {sortedDates.map((date) => (
                 <AccordionItem value={date} key={date}>
@@ -116,7 +126,6 @@ export default function ReportsPage() {
                       </TableHeader>
                       <TableBody>
                         {groupedReports[date].map((report) => {
-                          const status = getCompletionStatus(report);
                           const allTasksCount = getTotalTaskCount(report);
                           const completedTasksCount = getCompletedTaskCount(report);
                           const shiftName = tasksByShift[report.shiftKey]?.name || report.shiftKey;
@@ -132,8 +141,8 @@ export default function ReportsPage() {
                                 })}
                               </TableCell>
                               <TableCell className="text-center">
-                                <Badge variant={completedTasksCount === allTasksCount ? 'default' : 'secondary'} className="gap-1">
-                                    {completedTasksCount === allTasksCount ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                <Badge variant={completedTasksCount === allTasksCount && allTasksCount > 0 ? 'default' : 'secondary'} className="gap-1">
+                                    {completedTasksCount === allTasksCount && allTasksCount > 0 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                                     <span>{completedTasksCount}/{allTasksCount}</span>
                                 </Badge>
                               </TableCell>
