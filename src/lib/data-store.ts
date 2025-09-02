@@ -121,48 +121,74 @@ export const dataStore = {
   },
 
   async submitReport(report: ShiftReport): Promise<void> {
-     if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
-     
-     const firestoreRef = doc(db, 'reports', report.id);
-
-     const reportToSubmit = JSON.parse(JSON.stringify(report));
-     let allUploadedUrls: string[] = report.uploadedPhotos || [];
-
-     for (const taskId in reportToSubmit.completedTasks) {
-         for (const completion of reportToSubmit.completedTasks[taskId]) {
-             const uploadedPhotosInCompletion: string[] = [];
-             for (const photo of completion.photos) {
-                 if (photo.startsWith('data:image')) {
-                     const uniqueId = `photo_${uuidv4()}.jpg`;
-                     const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${uniqueId}`);
-                     const snapshot = await uploadString(storageRef, photo, 'data_url');
-                     const downloadURL = await getDownloadURL(snapshot.ref);
-                     uploadedPhotosInCompletion.push(downloadURL);
-                     if (!allUploadedUrls.includes(downloadURL)) allUploadedUrls.push(downloadURL);
-                 } else {
-                     uploadedPhotosInCompletion.push(photo);
-                 }
-             }
-             completion.photos = uploadedPhotosInCompletion;
-         }
-     }
-     
-     reportToSubmit.uploadedPhotos = allUploadedUrls;
-     reportToSubmit.status = 'submitted';
-     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
-     reportToSubmit.submittedAt = serverTimestamp();
-     reportToSubmit.lastUpdated = serverTimestamp();
-     
-     await setDoc(firestoreRef, reportToSubmit, { merge: true });
-
-     // After successful submission, update the local report to match
-     const finalReport: ShiftReport = {
-        ...report,
-        status: 'submitted',
-        submittedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(), // Match server time approximately
-     }
-     await this.saveLocalReport(finalReport);
+    if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
+  
+    const firestoreRef = doc(db, 'reports', report.id);
+    const reportToSubmit = JSON.parse(JSON.stringify(report));
+  
+    // --- Parallel Image Upload ---
+    // 1. Collect all photos that need uploading
+    const photosToUpload: {dataUri: string}[] = [];
+    for (const taskId in reportToSubmit.completedTasks) {
+      for (const completion of reportToSubmit.completedTasks[taskId]) {
+        for (const photo of completion.photos) {
+          if (photo.startsWith('data:image')) {
+            photosToUpload.push({ dataUri: photo });
+          }
+        }
+      }
+    }
+  
+    // 2. Create an array of upload promises
+    const uploadPromises = photosToUpload.map(({ dataUri }) => {
+      const uniqueId = `photo_${uuidv4()}.jpg`;
+      const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${uniqueId}`);
+      return uploadString(storageRef, dataUri, 'data_url').then(snapshot => getDownloadURL(snapshot.ref));
+    });
+  
+    // 3. Execute all uploads in parallel
+    const uploadedUrls = await Promise.all(uploadPromises);
+  
+    // 4. Create a map for easy lookup
+    const dataUriToUrlMap = new Map<string, string>();
+    photosToUpload.forEach((photo, index) => {
+      dataUriToUrlMap.set(photo.dataUri, uploadedUrls[index]);
+    });
+  
+    // 5. Replace data URIs with final URLs in the report object
+    let allUploadedUrls: string[] = report.uploadedPhotos || [];
+    for (const taskId in reportToSubmit.completedTasks) {
+      for (const completion of reportToSubmit.completedTasks[taskId]) {
+        completion.photos = completion.photos.map((photo: string) => {
+          if (photo.startsWith('data:image')) {
+            const finalUrl = dataUriToUrlMap.get(photo)!;
+            if (!allUploadedUrls.includes(finalUrl)) {
+              allUploadedUrls.push(finalUrl);
+            }
+            return finalUrl;
+          }
+          return photo; // It's already a URL
+        });
+      }
+    }
+    // --- End of Parallel Upload Logic ---
+  
+    reportToSubmit.uploadedPhotos = allUploadedUrls;
+    reportToSubmit.status = 'submitted';
+    reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
+    reportToSubmit.submittedAt = serverTimestamp();
+    reportToSubmit.lastUpdated = serverTimestamp();
+  
+    await setDoc(firestoreRef, reportToSubmit, { merge: true });
+  
+    // After successful submission, update the local report to match
+    const finalReport: ShiftReport = {
+      ...reportToSubmit,
+      startedAt: (reportToSubmit.startedAt as Timestamp).toDate().toISOString(),
+      submittedAt: new Date().toISOString(), // Approximate client time
+      lastUpdated: new Date().toISOString(), // Approximate client time
+    };
+    await this.saveLocalReport(finalReport);
   },
 
   async overwriteLocalReport(reportId: string): Promise<ShiftReport> {
