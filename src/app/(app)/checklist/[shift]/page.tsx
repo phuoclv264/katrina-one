@@ -67,16 +67,6 @@ export default function ChecklistPage() {
         setIsLoading(true);
         const serverReport = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
         
-        if (serverReport.status === 'submitted') {
-            toast({
-                title: "Ca đã hoàn thành",
-                description: "Báo cáo cho ca làm việc này đã được gửi. Bạn không thể chỉnh sửa.",
-                duration: 5000,
-            });
-            router.replace('/shifts');
-            return;
-        }
-        
         await dataStore.saveLocalReport(serverReport);
         setReport(serverReport);
         setIsLoading(false);
@@ -255,7 +245,7 @@ export default function ChecklistPage() {
     updateLocalReport(newReport);
   };
   
-  const isReadonly = report?.status === 'submitted' || isSubmitting;
+  const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
@@ -516,5 +506,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    

@@ -68,14 +68,15 @@ export const dataStore = {
 
         // Helper to safely convert Timestamps
         const safeTimestampToString = (timestamp: any): string | undefined => {
-            if (timestamp && typeof timestamp.toDate === 'function') {
+            if (!timestamp) return undefined;
+            if (typeof timestamp.toDate === 'function') {
                 return timestamp.toDate().toISOString();
             }
             return timestamp; // It's already a string or null/undefined
         };
 
         const serverReport: ShiftReport = {
-            ...data,
+            ...(data as ShiftReport),
             id: firestoreDocSnap.id,
             startedAt: safeTimestampToString(data.startedAt),
             submittedAt: safeTimestampToString(data.submittedAt),
@@ -150,10 +151,6 @@ export const dataStore = {
          delete reportToSync.startedAt; // Don't overwrite startedAt on sync
      }
      
-     // status remains 'ongoing'
-     // delete reportToSync.status; 
-
-
      await setDoc(firestoreRef, reportToSync, { merge: true });
 
      // Fetch the document again to get the server-generated timestamp
