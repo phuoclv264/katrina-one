@@ -114,14 +114,16 @@ export default function ReportDetailPage() {
     )
   }
 
-  if (!report || !tasksByShift) {
+  if (!report) {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy. Có thể nó đã bị xóa.</div>;
   }
 
-  const shift = tasksByShift[report.shiftKey];
-  if (!shift) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Thông tin ca làm việc không tồn tại cho báo cáo này.</div>;
+  // Ensure both tasksByShift and the specific shift for the report exist
+  if (!tasksByShift || !tasksByShift[report.shiftKey]) {
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải dữ liệu ca làm việc cho báo cáo này.</div>;
   }
+  
+  const shift = tasksByShift[report.shiftKey];
   
   const getCompletedTaskCount = (completedTasks: TaskCompletion) => {
     const allTasks = shift.sections.flatMap(s => s.tasks);
@@ -307,6 +309,4 @@ export default function ReportDetailPage() {
     </>
   );
 }
-    
-
     
