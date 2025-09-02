@@ -527,21 +527,21 @@ export default function ChecklistPage() {
                                       const uploadProgress = isUploading ? uploads[tempId]?.progress : 100;
                                       const previewSrc = isUploading ? uploads[tempId]?.dataUri : photo;
 
+                                      if (!previewSrc) return null; // Don't render if there's no source yet
+
                                       return (
-                                        <div key={photo} className="relative aspect-square overflow-hidden rounded-md group">
-                                            {isUploading && previewSrc ? (
-                                                <div className="w-full h-full bg-muted flex items-center justify-center">
-                                                    <Image src={previewSrc} alt={`Ảnh đang tải lên ${pIndex + 1}`} fill className="object-cover opacity-30" />
-                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10 p-1">
-                                                        <span className="text-xs font-bold">{Math.round(uploadProgress || 0)}%</span>
-                                                        <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
-                                                    </div>
+                                        <div key={photo} className="relative aspect-square overflow-hidden rounded-md group bg-muted">
+                                            <button onClick={() => !isUploading && openImagePreview(photo)} className="w-full h-full" disabled={isUploading}>
+                                                <Image src={previewSrc} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover ${isUploading ? 'opacity-30' : ''}`} />
+                                            </button>
+                                            
+                                            {isUploading && (
+                                                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10 p-1 pointer-events-none">
+                                                    <span className="text-xs font-bold">{Math.round(uploadProgress || 0)}%</span>
+                                                    <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
                                                 </div>
-                                            ) : (
-                                              <button onClick={() => openImagePreview(photo)} className="w-full h-full">
-                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                              </button>
                                             )}
+
                                             <Button 
                                                 variant="destructive"
                                                 size="icon"
