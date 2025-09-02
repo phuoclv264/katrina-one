@@ -31,10 +31,7 @@ export default function ReportDetailPage() {
   const isLoading = report === undefined || tasksByShift === null;
 
   useEffect(() => {
-    if (!reportId) {
-      setReport(null); // Set to null if no ID, indicating not found
-      return;
-    }
+    if (!reportId) return;
     const unsubscribe = dataStore.subscribeToReport(reportId, (fetchedReport) => {
         setReport(fetchedReport);
     });
@@ -53,7 +50,6 @@ export default function ReportDetailPage() {
     return report.uploadedPhotos || [];
   }, [report]);
 
-
   useEffect(() => {
     if (!carouselApi) return;
     setSlideCount(carouselApi.scrollSnapList().length);
@@ -62,16 +58,15 @@ export default function ReportDetailPage() {
     carouselApi.on("select", () => {
       setCurrentSlide(carouselApi.selectedScrollSnap());
     });
-  }, [carouselApi]);
+  }, [carouselApi, allPagePhotos.length]);
 
   const openImagePreview = (url: string) => {
     const photoIndex = allPagePhotos.indexOf(url);
     if (photoIndex !== -1) {
-        if (carouselApi) {
-            carouselApi.scrollTo(photoIndex, true);
-        }
         setPreviewImageIndex(photoIndex);
         setIsPreviewOpen(true);
+        // We need to re-initialize carousel when dialog opens
+        setTimeout(() => carouselApi?.scrollTo(photoIndex, true), 0);
     }
   };
 
@@ -115,15 +110,36 @@ export default function ReportDetailPage() {
   }
 
   if (!report) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy. Có thể nó đã bị xóa.</div>;
+    return (
+        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+            <h1 className="text-2xl font-bold">Báo cáo không tìm thấy.</h1>
+            <p className="text-muted-foreground">Có thể nó đã bị xóa hoặc bạn không có quyền xem.</p>
+             <Button asChild variant="link" className="mt-4 -ml-4">
+                <Link href="/reports">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại tất cả báo cáo
+                </Link>
+            </Button>
+        </div>
+    );
   }
 
-  // Ensure both tasksByShift and the specific shift for the report exist
-  if (!tasksByShift || !tasksByShift[report.shiftKey]) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải dữ liệu ca làm việc cho báo cáo này.</div>;
+  const shift = tasksByShift ? tasksByShift[report.shiftKey] : null;
+
+  if (!shift) {
+    return (
+        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+            <h1 className="text-2xl font-bold">Lỗi dữ liệu ca làm việc.</h1>
+            <p className="text-muted-foreground">Không thể tải cấu trúc ca làm việc cho báo cáo này. Vui lòng kiểm tra lại cấu hình.</p>
+             <Button asChild variant="link" className="mt-4 -ml-4">
+                <Link href="/reports">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại tất cả báo cáo
+                </Link>
+            </Button>
+        </div>
+    );
   }
-  
-  const shift = tasksByShift[report.shiftKey];
   
   const getCompletedTaskCount = (completedTasks: TaskCompletion) => {
     const allTasks = shift.sections.flatMap(s => s.tasks);
@@ -309,4 +325,5 @@ export default function ReportDetailPage() {
     </>
   );
 }
+
     
