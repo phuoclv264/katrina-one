@@ -134,11 +134,13 @@ export const dataStore = {
      
      reportToSubmit.uploadedPhotos = allUploadedUrls;
      reportToSubmit.status = 'submitted';
-     reportToSubmit.submittedAt = serverTimestamp();
+     // Convert date strings back to Firebase Timestamp objects before sending
      reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt));
+     reportToSubmit.submittedAt = serverTimestamp();
      
      await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
+     // Update local report state after successful submission
      report.status = 'submitted';
      // Update the main report in local storage
      await this.saveLocalReport(report);
