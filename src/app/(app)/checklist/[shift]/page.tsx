@@ -26,6 +26,7 @@ import { Progress } from '@/components/ui/progress';
 type UploadState = {
   [tempId: string]: {
     progress: number;
+    dataUri: string; // Store the data URI for preview
     finalUrl?: string;
   };
 };
@@ -132,7 +133,6 @@ export default function ChecklistPage() {
     if (!activeTaskId || !report) return;
     setIsCameraOpen(false);
 
-    // --- Part 1: Optimistic UI Update with Temporary IDs ---
     const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
     let taskCompletions = (newCompletion[activeTaskId] as CompletionRecord[]) || [];
     let completionIndex = activeCompletionIndex;
@@ -159,7 +159,14 @@ export default function ChecklistPage() {
     newCompletion[activeTaskId] = taskCompletions;
     setReport(prev => prev ? {...prev, completedTasks: newCompletion } : null);
 
-    // --- Part 2: Start Uploads and Track Progress ---
+    setUploads(prev => {
+        const newUploadsState = {...prev};
+        newPhotosWithTempIds.forEach(({ tempId, dataUri }) => {
+            newUploadsState[tempId] = { progress: 0, dataUri };
+        });
+        return newUploadsState;
+    });
+
     newPhotosWithTempIds.forEach(({ tempId, dataUri }) => {
         dataStore.uploadPhotoWithProgress(
             dataUri,
@@ -173,19 +180,25 @@ export default function ChecklistPage() {
         }).catch(error => {
             console.error("Upload failed for", tempId, error);
             toast({ title: "Lỗi tải ảnh lên", description: `Một ảnh không thể tải lên được. Vui lòng thử xóa và chụp lại.`, variant: "destructive" });
-             // Remove failed upload from UI
+            
             setUploads(prev => {
                 const newUploads = {...prev};
                 delete newUploads[tempId];
                 return newUploads;
             });
+            
             const tempUrl = `uploading://${tempId}`;
-             // Also remove from report state
+            
             if(report) {
-                const finalCompletion = JSON.parse(JSON.stringify(report.completedTasks));
-                const finalTaskCompletions = (finalCompletion[activeTaskId] as CompletionRecord[]);
-                if(finalTaskCompletions[completionIndex!]){
-                    finalTaskCompletions[completionIndex!].photos = finalTaskCompletions[completionIndex!].photos.filter((p:string) => p !== tempUrl);
+                 const finalCompletion = JSON.parse(JSON.stringify(report.completedTasks));
+                 const finalTaskCompletions = (finalCompletion[activeTaskId] as CompletionRecord[]);
+                 if (finalTaskCompletions[completionIndex!]) {
+                    finalTaskCompletions[completionIndex!].photos = finalTaskCompletions[completionIndex!].photos.filter((p: string) => p !== tempUrl);
+                    if (finalTaskCompletions[completionIndex!].photos.length === 0 && finalTaskCompletions[completionIndex!].timestamp) {
+                        // If no photos left, remove the completion record itself
+                         finalTaskCompletions.splice(completionIndex!, 1);
+                         finalCompletion[activeTaskId] = finalTaskCompletions;
+                    }
                     const newUploadedPhotos = Object.values(finalCompletion).flat().flatMap(c => (c as CompletionRecord).photos);
                     updateLiveReport(finalCompletion, newUploadedPhotos);
                 }
@@ -197,7 +210,6 @@ export default function ChecklistPage() {
     setActiveCompletionIndex(null);
   };
   
-  // Effect to process completed uploads
   useEffect(() => {
     const completedUploads = Object.entries(uploads).filter(([_, u]) => u.finalUrl);
     if (completedUploads.length === 0 || !report) return;
@@ -205,7 +217,6 @@ export default function ChecklistPage() {
     const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
     let hasChanged = false;
 
-    // Replace temp URLs with final URLs in the report state
     for (const [tempId, { finalUrl }] of completedUploads) {
         if (!finalUrl) continue;
         const tempUrl = `uploading://${tempId}`;
@@ -217,7 +228,7 @@ export default function ChecklistPage() {
                 if(photoIndex > -1) {
                     completion.photos[photoIndex] = finalUrl;
                     hasChanged = true;
-                    break;
+                    // No break here, continue searching in case the same temp URL was somehow added multiple times
                 }
             }
         }
@@ -227,10 +238,14 @@ export default function ChecklistPage() {
         const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos).filter(p => p && !p.startsWith('uploading://'));
         updateLiveReport(newCompletion, newUploadedPhotos);
         
-        // Clean up completed uploads from the tracking state
         setUploads(prev => {
             const newUploadsState = {...prev};
-            completedUploads.forEach(([tempId, _]) => delete newUploadsState[tempId]);
+            completedUploads.forEach(([tempId, _]) => {
+                // Keep the progress and finalUrl but remove the hefty dataUri to free up memory
+                 if (newUploadsState[tempId]) {
+                    delete newUploadsState[tempId].dataUri;
+                 }
+            });
             return newUploadsState;
         });
     }
@@ -243,27 +258,39 @@ export default function ChecklistPage() {
       const isUploading = photoUrl.startsWith('uploading://');
 
       if (isUploading) {
+        const tempId = photoUrl.replace('uploading://', '');
         // TODO: Cancel upload if possible. For now, just remove from UI.
+        setUploads(prev => {
+            const newUploads = {...prev};
+            delete newUploads[tempId];
+            return newUploads;
+        });
         toast({ title: "Đã hủy", description: "Đã hủy tải lên ảnh.", variant: "destructive" });
       }
 
       try {
         const newCompletion = JSON.parse(JSON.stringify(report.completedTasks));
         const taskCompletions = newCompletion[taskId] as CompletionRecord[];
+        
+        if (!taskCompletions || !taskCompletions[completionIndex]) return;
+
         const targetCompletion = taskCompletions[completionIndex];
 
-        // Delete from Storage only if it's a real URL
         if (photoUrl.startsWith('https://')) {
             await dataStore.deletePhoto(photoUrl); 
         }
 
         targetCompletion.photos = targetCompletion.photos.filter((p:string) => p !== photoUrl);
         
-        if (targetCompletion.photos.length === 0 && (report.completedTasks[taskId] as CompletionRecord[])[completionIndex].photos.length > 0) {
+        if (targetCompletion.photos.length === 0) {
             taskCompletions.splice(completionIndex, 1);
+            if (taskCompletions.length === 0) {
+                delete newCompletion[taskId];
+            } else {
+                 newCompletion[taskId] = taskCompletions;
+            }
         }
         
-        newCompletion[taskId] = taskCompletions.length > 0 ? taskCompletions : [];
         const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos).filter(p => p && !p.startsWith('uploading://'));
         await updateLiveReport(newCompletion, newUploadedPhotos);
 
@@ -289,7 +316,11 @@ export default function ChecklistPage() {
         }
 
         taskCompletions.splice(completionIndex, 1);
-        newCompletion[taskId] = taskCompletions;
+        if (taskCompletions.length > 0) {
+            newCompletion[taskId] = taskCompletions;
+        } else {
+            delete newCompletion[taskId];
+        }
         const newUploadedPhotos = Object.values(newCompletion).flat().flatMap(c => (c as CompletionRecord).photos).filter(p => p && !p.startsWith('uploading://'));
         await updateLiveReport(newCompletion, newUploadedPhotos);
         toast({
@@ -488,12 +519,13 @@ export default function ChecklistPage() {
                                       const isUploading = photo.startsWith('uploading://');
                                       const tempId = isUploading ? photo.replace('uploading://', '') : '';
                                       const uploadProgress = isUploading ? uploads[tempId]?.progress : 100;
+                                      const previewSrc = isUploading ? uploads[tempId]?.dataUri : photo;
 
                                       return (
                                         <div key={photo} className="relative aspect-square overflow-hidden rounded-md group">
                                             {isUploading ? (
                                                 <div className="w-full h-full bg-muted flex items-center justify-center">
-                                                     <Image src={photo} alt={`Ảnh đang tải lên ${pIndex + 1}`} fill className="object-cover opacity-30" />
+                                                    {previewSrc && <Image src={previewSrc} alt={`Ảnh đang tải lên ${pIndex + 1}`} fill className="object-cover opacity-30" />}
                                                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10 p-1">
                                                         <span className="text-xs font-bold">{Math.round(uploadProgress || 0)}%</span>
                                                         <Progress value={uploadProgress} className="absolute bottom-0 h-1 w-full rounded-none" />
@@ -615,3 +647,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
