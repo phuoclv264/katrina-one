@@ -538,7 +538,7 @@ export default function ChecklistPage() {
         initialPhotos={cameraInitialPhotos}
     />
      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="w-[60vw] max-w-[60vw] p-0 border-0 bg-transparent shadow-none">
+        <DialogContent className="w-[90vw] max-w-[90vw] sm:w-[60vw] sm:max-w-[60vw] p-0 border-0 bg-transparent shadow-none">
             <DialogHeader>
                 <DialogTitle className="sr-only">Xem trước hình ảnh</DialogTitle>
                  <DialogClose className="absolute top-2 right-2 z-20 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
@@ -563,7 +563,7 @@ export default function ChecklistPage() {
                                 alt={`Ảnh xem trước ${index + 1}`} 
                                 width={0}
                                 height={0}
-                                sizes="60vw"
+                                sizes="90vw sm:60vw"
                                 className="w-full h-auto object-contain"
                             />
                         </div>
@@ -620,5 +620,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    

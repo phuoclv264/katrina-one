@@ -43,7 +43,7 @@ export default function ReportDetailPage() {
                 id: docSnap.id,
                 startedAt: (data.startedAt as any)?.toDate ? (data.startedAt as any).toDate().toISOString() : data.startedAt,
                 submittedAt: (data.submittedAt as any)?.toDate ? (data.submittedAt as any).toDate().toISOString() : data.submittedAt,
-                lastSynced: (data.lastSynced as any)?.toDate ? (data.lastSynced as any).toDate().toISOString() : data.lastSynced,
+                lastUpdated: (data.lastUpdated as any)?.toDate ? (data.lastUpdated as any).toDate().toISOString() : data.lastUpdated,
             } as ShiftReport);
         } else {
             setReport(null);
@@ -61,7 +61,9 @@ export default function ReportDetailPage() {
   
   const allPagePhotos = useMemo(() => {
     if (!report) return [];
-    return report.uploadedPhotos || [];
+    return Object.values(report.completedTasks)
+      .flat()
+      .flatMap(c => (c as CompletionRecord).photos);
   }, [report]);
 
   useEffect(() => {
@@ -243,7 +245,7 @@ export default function ReportDetailPage() {
                                           <span>Thực hiện lúc: {completion.timestamp}</span>
                                       </div>
                                     {completion.photos.length > 0 ? (
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                         {completion.photos.map((photo, pIndex) => (
                                             <button key={pIndex} onClick={() => openImagePreview(photo)} className="relative aspect-square overflow-hidden rounded-md group">
                                                 <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
@@ -274,7 +276,7 @@ export default function ReportDetailPage() {
             </CardHeader>
             <CardContent>
               {allPagePhotos.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {allPagePhotos.map((photo, index) => (
                     <button key={index} onClick={() => openImagePreview(photo)} className="relative aspect-video overflow-hidden rounded-md group">
                       <Image src={photo} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
@@ -301,7 +303,7 @@ export default function ReportDetailPage() {
       </div>
     </div>
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="w-[60vw] max-w-[60vw] p-0 border-0 bg-transparent shadow-none">
+        <DialogContent className="w-[90vw] max-w-[90vw] sm:w-[60vw] sm:max-w-[60vw] p-0 border-0 bg-transparent shadow-none">
             <DialogHeader>
                 <DialogTitle className="sr-only">Xem trước hình ảnh</DialogTitle>
                  <DialogClose className="absolute top-2 right-2 z-20 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
@@ -326,7 +328,7 @@ export default function ReportDetailPage() {
                                 alt={`Ảnh xem trước ${index + 1}`} 
                                 width={0}
                                 height={0}
-                                sizes="60vw"
+                                sizes="90vw sm:60vw"
                                 className="w-full h-auto object-contain"
                             />
                         </div>

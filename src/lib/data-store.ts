@@ -155,25 +155,27 @@ export const dataStore = {
       dataUriToUrlMap.set(photo.dataUri, uploadedUrls[index]);
     });
   
-    // 5. Replace data URIs with final URLs in the report object
+    // 5. Replace data URIs with final URLs in the report object and collect all URLs
     let allUploadedUrls: string[] = report.uploadedPhotos || [];
+    const urlSet = new Set<string>(allUploadedUrls);
+
     for (const taskId in reportToSubmit.completedTasks) {
       for (const completion of reportToSubmit.completedTasks[taskId]) {
         completion.photos = completion.photos.map((photo: string) => {
           if (photo.startsWith('data:image')) {
             const finalUrl = dataUriToUrlMap.get(photo)!;
-            if (!allUploadedUrls.includes(finalUrl)) {
-              allUploadedUrls.push(finalUrl);
-            }
+            urlSet.add(finalUrl);
             return finalUrl;
           }
-          return photo; // It's already a URL
+          // If it's already a URL, ensure it's in the set
+          urlSet.add(photo);
+          return photo;
         });
       }
     }
     // --- End of Parallel Upload Logic ---
   
-    reportToSubmit.uploadedPhotos = allUploadedUrls;
+    reportToSubmit.uploadedPhotos = Array.from(urlSet);
     reportToSubmit.status = 'submitted';
     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
     reportToSubmit.submittedAt = serverTimestamp();
@@ -233,5 +235,3 @@ export const dataStore = {
      });
   },
 };
-
-    
