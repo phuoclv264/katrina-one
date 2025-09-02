@@ -32,13 +32,28 @@ export default function ReportDetailPage() {
 
   useEffect(() => {
     if(!reportId) return;
+    
+    let isReportLoaded = false;
+    let isTasksLoaded = false;
+    let loadedReport: ShiftReport | null = null;
+    let loadedTasks: TasksByShift | null = null;
+
+    const checkAndSetLoading = () => {
+        if (isReportLoaded && isTasksLoaded) {
+            setIsLoading(false);
+        }
+    }
 
     const unsubscribeReport = dataStore.subscribeToReport(reportId, (fetchedReport) => {
         setReport(fetchedReport);
+        isReportLoaded = true;
+        checkAndSetLoading();
     });
     
     const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
         setTasksByShift(tasks);
+        isTasksLoaded = true;
+        checkAndSetLoading();
     });
     
     return () => {
@@ -46,12 +61,6 @@ export default function ReportDetailPage() {
       unsubscribeTasks();
     }
   }, [reportId]);
-  
-  useEffect(() => {
-    if(report && tasksByShift) {
-        setIsLoading(false);
-    }
-  }, [report, tasksByShift]);
   
   
   const allPagePhotos = useMemo(() => {
@@ -120,11 +129,11 @@ export default function ReportDetailPage() {
     )
   }
 
-  if (!report) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy.</div>;
+  if (!report || !tasksByShift) {
+    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Báo cáo không tìm thấy hoặc không thể tải dữ liệu ca làm việc.</div>;
   }
 
-  const shift = tasksByShift ? tasksByShift[report.shiftKey] : null;
+  const shift = tasksByShift[report.shiftKey];
   if (!shift) {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Thông tin ca làm việc không tồn tại cho báo cáo này.</div>;
   }
