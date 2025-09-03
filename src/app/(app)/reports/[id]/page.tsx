@@ -303,10 +303,10 @@ export default function ReportDetailPage() {
       </div>
     </div>
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="w-[90vw] max-w-[90vw] sm:w-[60vw] sm:max-w-[60vw] p-0 border-0 bg-transparent shadow-none">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 border-0 bg-transparent shadow-none flex items-center justify-center">
             <DialogHeader>
                 <DialogTitle className="sr-only">Xem trước hình ảnh</DialogTitle>
-                 <DialogClose className="absolute top-2 right-2 z-20 text-white rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                 <DialogClose className="absolute top-2 right-2 z-20 text-white bg-black/30 rounded-full p-1 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
                     <X className="h-6 w-6" />
                     <span className="sr-only">Đóng</span>
                 </DialogClose>
@@ -317,19 +317,17 @@ export default function ReportDetailPage() {
                     startIndex: previewImageIndex,
                     loop: allPagePhotos.length > 1,
                 }}
-                className="w-full"
+                className="w-full h-full max-w-full max-h-full"
             >
                 <CarouselContent>
                     {allPagePhotos.map((url, index) => (
-                    <CarouselItem key={index}>
-                        <div className="w-full">
+                    <CarouselItem key={index} className="flex items-center justify-center">
+                        <div className="relative w-full h-full max-w-full max-h-full aspect-video">
                             <Image 
                                 src={url} 
                                 alt={`Ảnh xem trước ${index + 1}`} 
-                                width={0}
-                                height={0}
-                                sizes="90vw sm:60vw"
-                                className="w-full h-auto object-contain"
+                                fill
+                                className="object-contain"
                             />
                         </div>
                     </CarouselItem>
@@ -337,13 +335,13 @@ export default function ReportDetailPage() {
                 </CarouselContent>
                  {allPagePhotos.length > 1 && (
                     <>
-                        <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
-                        <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                        <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/30 text-white border-none hover:bg-black/50" />
+                        <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/30 text-white border-none hover:bg-black/50" />
                     </>
                 )}
             </Carousel>
             {allPagePhotos.length > 1 && (
-                <div className="text-center text-white text-sm mt-2 pointer-events-none">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center text-white text-sm pointer-events-none bg-black/30 px-2 py-1 rounded-md">
                     Ảnh {currentSlide + 1} / {slideCount}
                 </div>
             )}
