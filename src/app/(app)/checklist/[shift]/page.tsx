@@ -305,8 +305,8 @@ export default function ChecklistPage() {
   const handleIssuesBlur = () => {
     if(!report) return;
     // Only update if the value has actually changed
-    if (issueInputValue !== report.issues) {
-      const newReport = { ...report, issues: issueInputValue };
+    if (issueInputValue !== (report.issues || '')) {
+      const newReport = { ...report, issues: issueInputValue || null };
       updateLocalReport(newReport);
     }
   };
