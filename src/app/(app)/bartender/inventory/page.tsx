@@ -51,7 +51,6 @@ export default function InventoryPage() {
       const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
       setReport(todayReport);
       
-      // If there are suggestions in the loaded report, display them
       if (todayReport.suggestions) {
         setSuggestions(todayReport.suggestions);
       }
@@ -73,7 +72,7 @@ export default function InventoryPage() {
     handleLocalSave(newReport);
   };
   
-  const handleSaveAndGenerate = async () => {
+  const handleGenerateSuggestions = async () => {
       if(!report || !user) return;
       setIsGenerating(true);
       
@@ -96,7 +95,6 @@ export default function InventoryPage() {
         
         setSuggestions(result);
         
-        // Save suggestions to the report
         const updatedReport = { ...report, suggestions: result, lastUpdated: new Date().toISOString() };
         await dataStore.saveInventoryReport(updatedReport);
         setReport(updatedReport);
@@ -193,12 +191,6 @@ export default function InventoryPage() {
               <h1 className="text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>
               <p className="text-muted-foreground">Nhập số lượng tồn kho thực tế. Mọi thay đổi sẽ được tự động lưu.</p>
             </div>
-             {!isSubmitted && (
-                <Button onClick={handleSaveAndGenerate} disabled={isGenerating || isSubmitted}>
-                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
-                    Tạo đề xuất đặt hàng
-                </Button>
-            )}
           </div>
       </header>
        {isSubmitted && report.submittedAt && (
@@ -262,9 +254,6 @@ export default function InventoryPage() {
             <Card className="sticky top-4">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
-                    <CardDescription>
-                        Dựa trên tồn kho bạn đã nhập, AI đề xuất các mặt hàng cần đặt thêm.
-                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isGenerating && (
@@ -297,8 +286,17 @@ export default function InventoryPage() {
                     {!isGenerating && suggestions && suggestions.itemsToOrder.length === 0 && (
                         <p className="text-center text-sm text-muted-foreground py-4">Tất cả hàng hoá đã đủ. Không cần đặt thêm.</p>
                     )}
-                    {!isGenerating && !suggestions && (
-                        <p className="text-center text-sm text-muted-foreground py-4">Nhấn nút "Tạo đề xuất" để nhận danh sách đặt hàng từ AI.</p>
+                    {!isGenerating && !suggestions && !isSubmitted &&(
+                        <div className="text-center space-y-4 py-4">
+                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để AI tạo đề xuất.</p>
+                             <Button onClick={handleGenerateSuggestions} disabled={isGenerating || isSubmitted} className="w-full">
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
+                                Tạo đề xuất đặt hàng
+                            </Button>
+                        </div>
+                    )}
+                    {isSubmitted && !suggestions && (
+                         <p className="text-center text-sm text-muted-foreground py-4">Báo cáo đã được gửi mà không có đề xuất nào được tạo.</p>
                     )}
                 </CardContent>
             </Card>
@@ -322,5 +320,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-    
