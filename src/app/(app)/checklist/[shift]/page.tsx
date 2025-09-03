@@ -14,12 +14,8 @@ import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import type { CarouselApi } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { v4 as uuidv4 } from 'uuid';
 import ShiftNotesCard from '@/components/shift-notes-card';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
@@ -41,18 +37,11 @@ export default function ChecklistPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
-  
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewImageIndex, setPreviewImageIndex] = useState(0);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideCount, setSlideCount] = useState(0);
-  
+    
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
-
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -99,25 +88,21 @@ export default function ChecklistPage() {
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
     
-    return Object.values(report.completedTasks)
-        .flat()
-        .flatMap(c => (c as CompletionRecord).photos);
-  }, [shift, report]);
-
-  useEffect(() => {
-    if (!carouselApi) return;
-    setSlideCount(carouselApi.scrollSnapList().length);
-    setCurrentSlide(carouselApi.selectedScrollSnap());
-    carouselApi.on("select", () => {
-      setCurrentSlide(carouselApi.selectedScrollSnap());
+    const photos: { url: string, taskId: string, completionIndex: number }[] = [];
+    Object.entries(report.completedTasks).forEach(([taskId, completions]) => {
+      (completions as CompletionRecord[]).forEach((completion, completionIndex) => {
+        completion.photos.forEach(photoUrl => {
+          photos.push({ url: photoUrl, taskId, completionIndex });
+        });
+      });
     });
-  }, [carouselApi, allPagePhotos.length]);
+    return photos;
+  }, [shift, report]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
       setReport(updatedReport);
       if (dataStore.isReportEmpty(updatedReport)) {
         await dataStore.deleteLocalReport(updatedReport.id);
-        // User stays on page, local report is gone. Status is technically synced now as there's nothing to sync.
         setSyncStatus('synced');
       } else {
         await dataStore.saveLocalReport(updatedReport);
@@ -290,19 +275,9 @@ export default function ChecklistPage() {
         default: return 'border-border';
     }
   }
-  
-  const openImagePreview = (url: string) => {
-    const photoIndex = allPagePhotos.indexOf(url);
-    if(photoIndex !== -1) {
-        if (carouselApi) carouselApi.scrollTo(photoIndex, true);
-        setPreviewImageIndex(photoIndex);
-        setIsPreviewOpen(true);
-    }
-  };
-  
+    
   const handleSaveNotes = useCallback((newIssues: string) => {
     if(!report) return;
-    // Only update if the value has actually changed
     if (newIssues !== (report.issues || '')) {
       const newReport = { ...report, issues: newIssues || null };
       updateLocalReport(newReport);
@@ -469,11 +444,16 @@ export default function ChecklistPage() {
                                     {completion.photos.length > 0 ? (
                                         <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                         {completion.photos.map((photo, pIndex) => {
+                                           const globalPhotoIndex = allPagePhotos.findIndex(p => p.url === photo && p.taskId === task.id && p.completionIndex === cIndex);
                                         return (
                                             <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                <button onClick={() => openImagePreview(photo)} className="w-full h-full">
-                                                    <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
-                                                </button>
+                                                <Link
+                                                  href={`/view-photo?reportId=${encodeURIComponent(report.id)}&photoIndex=${globalPhotoIndex}`}
+                                                  className="w-full h-full block"
+                                                  scroll={false} // Prevent page from scrolling to top
+                                                >
+                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
+                                                </Link>
                                                 
                                                 {!isReadonly && (
                                                     <Button 
@@ -559,52 +539,7 @@ export default function ChecklistPage() {
         onSubmit={handleCapturePhotos}
         initialPhotos={cameraInitialPhotos}
     />
-     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 border-0 bg-transparent shadow-none flex items-center justify-center">
-            <DialogHeader>
-                <DialogTitle className="sr-only">Xem trước hình ảnh</DialogTitle>
-                 <DialogClose className="absolute top-2 right-2 z-20 text-white bg-black/30 rounded-full p-1 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                    <X className="h-6 w-6" />
-                    <span className="sr-only">Đóng</span>
-                </DialogClose>
-            </DialogHeader>
-            <Carousel
-                setApi={setCarouselApi}
-                opts={{
-                    startIndex: previewImageIndex,
-                    loop: allPagePhotos.length > 1,
-                }}
-                className="w-full h-full max-w-full max-h-full"
-            >
-                <CarouselContent>
-                    {allPagePhotos.map((url, index) => (
-                    <CarouselItem key={index} className="flex items-center justify-center">
-                        <div className="relative w-full h-full max-w-full max-h-full aspect-video">
-                             <Image 
-                                src={url} 
-                                alt={`Ảnh xem trước ${index + 1}`} 
-                                fill
-                                className="object-contain"
-                            />
-                        </div>
-                    </CarouselItem>
-                    ))}
-                </CarouselContent>
-                {allPagePhotos.length > 1 && (
-                    <>
-                        <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/30 text-white border-none hover:bg-black/50" />
-                        <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/30 text-white border-none hover:bg-black/50" />
-                    </>
-                )}
-            </Carousel>
-           
-            {allPagePhotos.length > 1 && (
-                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center text-white text-sm pointer-events-none bg-black/30 px-2 py-1 rounded-md">
-                    Ảnh {currentSlide + 1} / {slideCount}
-                </div>
-            )}
-        </DialogContent>
-    </Dialog>
+    
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -641,4 +576,3 @@ export default function ChecklistPage() {
   );
 }
 
-    

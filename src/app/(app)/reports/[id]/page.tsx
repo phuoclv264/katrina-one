@@ -13,9 +13,6 @@ import { ArrowLeft, Check, Camera, MessageSquareWarning, Star, Clock, X, Image a
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, TaskCompletion, CompletionRecord, TasksByShift } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import type { CarouselApi } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportDetailPage() {
@@ -23,12 +20,6 @@ export default function ReportDetailPage() {
   const reportId = params.id as string;
   const [report, setReport] = useState<ShiftReport | null | undefined>(undefined);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
-  
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewImageIndex, setPreviewImageIndex] = useState(0);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideCount, setSlideCount] = useState(0);
 
   const isLoading = report === undefined || tasksByShift === null;
 
@@ -65,26 +56,6 @@ export default function ReportDetailPage() {
       .flat()
       .flatMap(c => (c as CompletionRecord).photos);
   }, [report]);
-
-  useEffect(() => {
-    if (!carouselApi) return;
-    setSlideCount(carouselApi.scrollSnapList().length);
-    setCurrentSlide(carouselApi.selectedScrollSnap());
-
-    carouselApi.on("select", () => {
-      setCurrentSlide(carouselApi.selectedScrollSnap());
-    });
-  }, [carouselApi, allPagePhotos.length]);
-
-  const openImagePreview = (url: string) => {
-    const photoIndex = allPagePhotos.indexOf(url);
-    if (photoIndex !== -1) {
-        setPreviewImageIndex(photoIndex);
-        setIsPreviewOpen(true);
-        // We need to re-initialize carousel when dialog opens
-        setTimeout(() => carouselApi?.scrollTo(photoIndex, true), 0);
-    }
-  };
 
   const getSectionIcon = (title: string) => {
     switch(title) {
@@ -246,11 +217,18 @@ export default function ReportDetailPage() {
                                       </div>
                                     {completion.photos.length > 0 ? (
                                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                        {completion.photos.map((photo, pIndex) => (
-                                            <button key={pIndex} onClick={() => openImagePreview(photo)} className="relative aspect-square overflow-hidden rounded-md group">
+                                        {completion.photos.map((photo, pIndex) => {
+                                           const globalPhotoIndex = allPagePhotos.indexOf(photo);
+                                           return (
+                                            <Link 
+                                              href={`/view-photo?reportId=${encodeURIComponent(report.id)}&photoIndex=${globalPhotoIndex}`}
+                                              key={pIndex} 
+                                              scroll={false}
+                                              className="relative aspect-square overflow-hidden rounded-md group"
+                                            >
                                                 <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                            </button>
-                                        ))}
+                                            </Link>
+                                        )})}
                                         </div>
                                     ) : (
                                         <p className="text-xs text-muted-foreground italic">Không có ảnh nào được cung cấp.</p>
@@ -278,9 +256,14 @@ export default function ReportDetailPage() {
               {allPagePhotos.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {allPagePhotos.map((photo, index) => (
-                    <button key={index} onClick={() => openImagePreview(photo)} className="relative aspect-video overflow-hidden rounded-md group">
-                      <Image src={photo} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
-                    </button>
+                     <Link 
+                        href={`/view-photo?reportId=${encodeURIComponent(report.id)}&photoIndex=${index}`}
+                        key={index}
+                        scroll={false} 
+                        className="relative aspect-video overflow-hidden rounded-md group"
+                      >
+                        <Image src={photo} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -302,51 +285,7 @@ export default function ReportDetailPage() {
         </div>
       </div>
     </div>
-    <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 border-0 bg-transparent shadow-none flex items-center justify-center">
-            <DialogHeader>
-                <DialogTitle className="sr-only">Xem trước hình ảnh</DialogTitle>
-                 <DialogClose className="absolute top-2 right-2 z-20 text-white bg-black/30 rounded-full p-1 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                    <X className="h-6 w-6" />
-                    <span className="sr-only">Đóng</span>
-                </DialogClose>
-            </DialogHeader>
-            <Carousel
-                setApi={setCarouselApi}
-                opts={{
-                    startIndex: previewImageIndex,
-                    loop: allPagePhotos.length > 1,
-                }}
-                className="w-full h-full max-w-full max-h-full"
-            >
-                <CarouselContent>
-                    {allPagePhotos.map((url, index) => (
-                    <CarouselItem key={index} className="flex items-center justify-center">
-                        <div className="relative w-full h-full max-w-full max-h-full aspect-video">
-                            <Image 
-                                src={url} 
-                                alt={`Ảnh xem trước ${index + 1}`} 
-                                fill
-                                className="object-contain"
-                            />
-                        </div>
-                    </CarouselItem>
-                    ))}
-                </CarouselContent>
-                 {allPagePhotos.length > 1 && (
-                    <>
-                        <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/30 text-white border-none hover:bg-black/50" />
-                        <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/30 text-white border-none hover:bg-black/50" />
-                    </>
-                )}
-            </Carousel>
-            {allPagePhotos.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center text-white text-sm pointer-events-none bg-black/30 px-2 py-1 rounded-md">
-                    Ảnh {currentSlide + 1} / {slideCount}
-                </div>
-            )}
-        </DialogContent>
-    </Dialog>
     </>
   );
 }
+
