@@ -616,7 +616,17 @@ export default function ChecklistPage() {
         plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-        captions={{ showToggle: true, descriptionTextAlign: 'center' }}
+        captions={{ 
+            showToggle: true, 
+            descriptionTextAlign: 'center',
+            styles: {
+                container: { 
+                    maxWidth: 'calc(100% - 32px)',
+                    whiteSpace: 'pre-wrap', 
+                    textAlign: 'center',
+                }
+            }
+        }}
     />
     </>
   );
