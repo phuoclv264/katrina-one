@@ -282,9 +282,9 @@ export default function ChecklistPage() {
 
   const getSectionBorderColor = (title: string) => {
     switch(title) {
-        case 'Đầu ca': return 'border-yellow-500/50';
-        case 'Trong ca': return 'border-sky-500/50';
-        case 'Cuối ca': return 'border-indigo-500/50';
+        case 'Đầu ca': return 'border-yellow-500/80';
+        case 'Trong ca': return 'border-sky-500/80';
+        case 'Cuối ca': return 'border-indigo-500/80';
         default: return 'border-border';
     }
   }
@@ -396,7 +396,7 @@ export default function ChecklistPage() {
                         return (
                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
                             <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                              <p className="font-medium flex-1">
+                              <p className="font-semibold flex-1">
                                 {task.text}
                               </p>
                               <Button 
@@ -617,3 +617,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
