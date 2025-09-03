@@ -17,6 +17,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import ShiftNotesCard from '@/components/shift-notes-card';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -42,6 +44,10 @@ export default function ChecklistPage() {
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -87,16 +93,9 @@ export default function ChecklistPage() {
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
-    
-    const photos: { url: string, taskId: string, completionIndex: number }[] = [];
-    Object.entries(report.completedTasks).forEach(([taskId, completions]) => {
-      (completions as CompletionRecord[]).forEach((completion, completionIndex) => {
-        completion.photos.forEach(photoUrl => {
-          photos.push({ url: photoUrl, taskId, completionIndex });
-        });
-      });
-    });
-    return photos;
+    return Object.values(report.completedTasks)
+      .flat()
+      .flatMap(c => (c as CompletionRecord).photos.map(photoUrl => ({src: photoUrl})));
   }, [shift, report]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
@@ -296,6 +295,14 @@ export default function ChecklistPage() {
     });
   }, []);
 
+  const openLightbox = (photoUrl: string) => {
+    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
+    if (photoIndex > -1) {
+        setLightboxIndex(photoIndex);
+        setIsLightboxOpen(true);
+    }
+  };
+
   const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
@@ -443,17 +450,14 @@ export default function ChecklistPage() {
                                     </div>
                                     {completion.photos.length > 0 ? (
                                         <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                        {completion.photos.map((photo, pIndex) => {
-                                           const globalPhotoIndex = allPagePhotos.findIndex(p => p.url === photo && p.taskId === task.id && p.completionIndex === cIndex);
-                                        return (
+                                        {completion.photos.map((photo, pIndex) => (
                                             <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                <Link
-                                                  href={`/view-photo?reportId=${encodeURIComponent(report.id)}&photoIndex=${globalPhotoIndex}`}
+                                                <button
+                                                  onClick={() => openLightbox(photo)}
                                                   className="w-full h-full block"
-                                                  scroll={false} // Prevent page from scrolling to top
                                                 >
                                                   <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
-                                                </Link>
+                                                </button>
                                                 
                                                 {!isReadonly && (
                                                     <Button 
@@ -467,7 +471,7 @@ export default function ChecklistPage() {
                                                     </Button>
                                                 )}
                                             </div>
-                                        )})}
+                                        ))}
                                         </div>
                                     ): (
                                         <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
@@ -572,6 +576,15 @@ export default function ChecklistPage() {
         )}
       </AlertDialogContent>
     </AlertDialog>
+
+    <Lightbox
+        open={isLightboxOpen}
+        close={() => setIsLightboxOpen(false)}
+        slides={allPagePhotos}
+        index={lightboxIndex}
+    />
     </>
   );
 }
+
+    

@@ -14,12 +14,17 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, TaskCompletion, CompletionRecord, TasksByShift } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 export default function ReportDetailPage() {
   const params = useParams();
   const reportId = params.id as string;
   const [report, setReport] = useState<ShiftReport | null | undefined>(undefined);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const isLoading = report === undefined || tasksByShift === null;
 
@@ -54,8 +59,16 @@ export default function ReportDetailPage() {
     if (!report) return [];
     return Object.values(report.completedTasks)
       .flat()
-      .flatMap(c => (c as CompletionRecord).photos);
+      .flatMap(c => (c as CompletionRecord).photos.map(photoUrl => ({src: photoUrl})));
   }, [report]);
+
+  const openLightbox = (photoUrl: string) => {
+    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
+    if (photoIndex > -1) {
+        setLightboxIndex(photoIndex);
+        setIsLightboxOpen(true);
+    }
+  };
 
   const getSectionIcon = (title: string) => {
     switch(title) {
@@ -218,16 +231,14 @@ export default function ReportDetailPage() {
                                     {completion.photos.length > 0 ? (
                                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                         {completion.photos.map((photo, pIndex) => {
-                                           const globalPhotoIndex = allPagePhotos.indexOf(photo);
                                            return (
-                                            <Link 
-                                              href={`/view-photo?reportId=${encodeURIComponent(report.id)}&photoIndex=${globalPhotoIndex}`}
+                                            <button 
+                                              onClick={() => openLightbox(photo)}
                                               key={pIndex} 
-                                              scroll={false}
                                               className="relative aspect-square overflow-hidden rounded-md group"
                                             >
                                                 <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                            </Link>
+                                            </button>
                                         )})}
                                         </div>
                                     ) : (
@@ -256,14 +267,13 @@ export default function ReportDetailPage() {
               {allPagePhotos.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {allPagePhotos.map((photo, index) => (
-                     <Link 
-                        href={`/view-photo?reportId=${encodeURIComponent(report.id)}&photoIndex=${index}`}
+                     <button
+                        onClick={() => openLightbox(photo.src)}
                         key={index}
-                        scroll={false} 
                         className="relative aspect-video overflow-hidden rounded-md group"
                       >
-                        <Image src={photo} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
-                    </Link>
+                        <Image src={photo.src} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -285,6 +295,14 @@ export default function ReportDetailPage() {
         </div>
       </div>
     </div>
+     <Lightbox
+        open={isLightboxOpen}
+        close={() => setIsLightboxOpen(false)}
+        slides={allPagePhotos}
+        index={lightboxIndex}
+    />
     </>
   );
 }
+
+    
