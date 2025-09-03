@@ -146,7 +146,7 @@ export default function ReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {sortedDates.length > 0 && (
+          {sortedDates.length > 0 ? (
             <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
               {sortedDates.map((date) => (
                 <AccordionItem value={date} key={date}>
