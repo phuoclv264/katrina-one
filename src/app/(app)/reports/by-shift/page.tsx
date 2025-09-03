@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,8 +20,11 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
 
 function ReportView() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
   const shiftKey = searchParams.get('shiftKey');
@@ -35,7 +38,12 @@ function ReportView() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
-    if (!date || !shiftKey) {
+    if (!authLoading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
+        router.replace('/shifts');
+        return;
+    }
+    
+    if (authLoading || !user || !date || !shiftKey) {
       setIsLoading(false);
       return;
     };
@@ -57,7 +65,7 @@ function ReportView() {
         unsubscribeTasks();
         unsubscribeReports();
     };
-  }, [date, shiftKey, selectedReportId]);
+  }, [date, shiftKey, selectedReportId, user, authLoading, router]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
@@ -120,7 +128,7 @@ function ReportView() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -320,5 +328,3 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
-
-    
