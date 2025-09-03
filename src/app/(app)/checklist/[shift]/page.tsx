@@ -379,7 +379,7 @@ export default function ChecklistPage() {
               {shift.sections.map((section) => {
                 const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                 return (
-                <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-2 bg-card ${getSectionBorderColor(section.title)}`}>
+                <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-4 bg-card ${getSectionBorderColor(section.title)}`}>
                   <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
                      <div className="flex items-center">
                         {getSectionIcon(section.title)}
