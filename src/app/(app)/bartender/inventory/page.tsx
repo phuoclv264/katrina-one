@@ -152,8 +152,8 @@ export default function InventoryPage() {
   }
   const getStatusColorClass = (status: ItemStatus) => {
       switch(status) {
-          case 'low': return 'bg-yellow-100/50';
-          case 'out': return 'bg-red-100/50';
+          case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
+          case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
           default: return 'bg-transparent';
       }
   }
@@ -254,15 +254,14 @@ export default function InventoryPage() {
                 </CardHeader>
                 <CardContent>
                     {isGenerating && (
-                        <div className="space-y-2">
-                            <Skeleton className="h-6 w-full"/>
-                            <Skeleton className="h-6 w-3/4"/>
-                            <Skeleton className="h-6 w-full"/>
+                        <div className="space-y-2 p-4 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground"/>
+                            <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
                         </div>
                     )}
                     {!isGenerating && suggestions && suggestions.itemsToOrder.length > 0 && (
                         <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">{suggestions.summary}</p>
+                            <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -274,7 +273,7 @@ export default function InventoryPage() {
                                     {suggestions.itemsToOrder.map((item) => (
                                         <TableRow key={item.itemId}>
                                             <TableCell className="font-medium">{inventoryList.find(i => i.id === item.itemId)?.name || 'Không rõ'}</TableCell>
-                                            <TableCell className="text-right font-bold">{item.quantityToOrder} {inventoryList.find(i => i.id === item.itemId)?.unit}</TableCell>
+                                            <TableCell className="text-right font-bold">{item.quantityToOrder}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -309,3 +308,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    

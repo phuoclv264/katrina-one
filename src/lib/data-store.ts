@@ -131,13 +131,13 @@ export const dataStore = {
   async saveInventoryReport(report: InventoryReport): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const reportToSave = {
+    const reportToSave: Omit<InventoryReport, 'id'> & {lastUpdated: any, submittedAt?: any} = {
         ...report,
         lastUpdated: serverTimestamp(),
-        // Convert dates back to Timestamps if they exist
         submittedAt: report.submittedAt ? Timestamp.fromDate(new Date(report.submittedAt)) : undefined,
     };
-    
+    delete (reportToSave as any).id;
+
     // Save to local storage first
     const localReport = {
         ...report,
@@ -320,10 +320,13 @@ export const dataStore = {
     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
     reportToSubmit.submittedAt = serverTimestamp();
     reportToSubmit.lastUpdated = serverTimestamp();
+    
+    delete reportToSubmit.id;
   
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
   
     const finalReport: ShiftReport = {
+      ...report, // Keep original id for local storage
       ...reportToSubmit,
       startedAt: (reportToSubmit.startedAt as Timestamp).toDate().toISOString(),
       submittedAt: new Date().toISOString(), 
@@ -370,7 +373,7 @@ export const dataStore = {
                 lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
             } as ShiftReport);
         });
-        callback(reports.filter(r => r.status === 'submitted'));
+        callback(reports);
      });
   },
 
@@ -406,3 +409,5 @@ export const dataStore = {
     });
  }
 };
+
+    

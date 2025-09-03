@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCross, Wind } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -144,8 +144,7 @@ export default function HygieneReportPage() {
             for (const photoUrl of completion.photos) {
                 photos.push({
                     src: photoUrl,
-                    title: taskText,
-                    description: `Thực hiện lúc: ${completion.timestamp}`
+                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
                 });
             }
         }
@@ -321,7 +320,7 @@ export default function HygieneReportPage() {
   const getSectionIcon = (title: string) => {
     switch(title) {
         case 'Vệ sinh khu vực pha chế': return <Droplets className="mr-3 h-5 w-5 text-blue-500" />;
-        case 'Vệ sinh dụng cụ': return <UtensilsCross className="mr-3 h-5 w-5 text-green-500" />;
+        case 'Vệ sinh dụng cụ': return <UtensilsCrossed className="mr-3 h-5 w-5 text-green-500" />;
         case 'Vệ sinh thiết bị': return <Wind className="mr-3 h-5 w-5 text-purple-500" />;
         default: return null;
     }
@@ -630,9 +629,13 @@ export default function HygieneReportPage() {
         captions={{ 
             showToggle: true, 
             descriptionTextAlign: 'center',
-            descriptionMaxLines: 5,
+            descriptionMaxLines: 5
         }}
     />
     </>
   );
 }
+
+    
+
+    
