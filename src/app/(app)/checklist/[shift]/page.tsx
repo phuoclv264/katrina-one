@@ -529,6 +529,7 @@ export default function ChecklistPage() {
     </div>
 
     <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+      <div className="relative">
         <Button 
             size="icon"
             className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
@@ -538,6 +539,10 @@ export default function ChecklistPage() {
         >
             {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
+        {syncStatus === 'local-newer' && (
+          <span className="absolute top-0 right-0 block h-3.5 w-3.5 rounded-full bg-red-500 ring-2 ring-background" />
+        )}
+      </div>
     </div>
 
     <CameraDialog 
