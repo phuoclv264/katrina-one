@@ -410,73 +410,77 @@ export default function ChecklistPage() {
                               </Button>
                             </div>
                             
-                            {completions.map((completion, cIndex) => (
-                              <div key={cIndex} className="mt-4 rounded-md border bg-card p-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                          <Clock className="h-4 w-4 flex-shrink-0" />
-                                          <span>Thực hiện lúc: {completion.timestamp}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                          {!isSingleCompletionSection && (
-                                            <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)} disabled={isReadonly}>
-                                                <Camera className="mr-1.5 h-3 w-3" />
-                                                Thêm ảnh
-                                            </Button>
-                                          )}
-                                          
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild disabled={isReadonly}>
-                                               <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isReadonly}>
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle className="flex items-center gap-2">
-                                                        <AlertCircle className="text-destructive"/>
-                                                        Bạn có chắc chắn không?
-                                                    </AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Hành động này sẽ xóa lần hoàn thành công việc này và tất cả các ảnh liên quan.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
-                                      </div>
-                                  </div>
-                                {completion.photos.length > 0 ? (
-                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                    {completion.photos.map((photo, pIndex) => {
-                                      return (
-                                        <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                            <button onClick={() => openImagePreview(photo)} className="w-full h-full">
-                                                <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
-                                            </button>
-                                            
-                                            {!isReadonly && (
-                                                <Button 
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo); }}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                    <span className="sr-only">Xóa ảnh</span>
+                            {isCompletedOnce && (
+                                <div className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-2">
+                                {completions.map((completion, cIndex) => (
+                                <div key={cIndex} className="rounded-md border bg-card p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Clock className="h-4 w-4 flex-shrink-0" />
+                                            <span>Thực hiện lúc: {completion.timestamp}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {!isSingleCompletionSection && (
+                                                <Button size="xs" variant="outline" onClick={() => handleEditPhotos(task.id, cIndex)} disabled={isReadonly}>
+                                                    <Camera className="mr-1.5 h-3 w-3" />
+                                                    Thêm ảnh
                                                 </Button>
                                             )}
+                                            
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild disabled={isReadonly}>
+                                                <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isReadonly}>
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle className="flex items-center gap-2">
+                                                            <AlertCircle className="text-destructive"/>
+                                                            Bạn có chắc chắn không?
+                                                        </AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Hành động này sẽ xóa lần hoàn thành công việc này và tất cả các ảnh liên quan.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </div>
-                                    )})}
                                     </div>
-                                ): (
-                                    <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
-                                )}
-                              </div>
-                            ))}
+                                    {completion.photos.length > 0 ? (
+                                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                        {completion.photos.map((photo, pIndex) => {
+                                        return (
+                                            <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                                <button onClick={() => openImagePreview(photo)} className="w-full h-full">
+                                                    <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
+                                                </button>
+                                                
+                                                {!isReadonly && (
+                                                    <Button 
+                                                        variant="destructive"
+                                                        size="icon"
+                                                        className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo); }}
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                        <span className="sr-only">Xóa ảnh</span>
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )})}
+                                        </div>
+                                    ): (
+                                        <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                    )}
+                                </div>
+                                ))}
+                                </div>
+                            )}
                           </div>
                         )
                       })}
@@ -617,5 +621,7 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
 
     
