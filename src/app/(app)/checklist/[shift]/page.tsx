@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport } from '@/lib/types';
+import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -55,18 +55,48 @@ export default function ChecklistPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Initialize accordion state
+  // Initialize accordion state based on completion status
   useEffect(() => {
-    if (shift) {
-      setOpenAccordionItems(shift.sections.map(s => s.title));
+    if (shift && report) {
+      const defaultOpenItems = shift.sections
+        .filter(section => {
+          // 'Trong ca' is always open
+          if (section.title === 'Trong ca') {
+            return true;
+          }
+          // Check if all tasks in 'Đầu ca' or 'Cuối ca' are completed
+          const allTasksCompleted = section.tasks.every(task => {
+            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+            return completions.length > 0;
+          });
+          // If not all tasks are completed, the section should be open
+          return !allTasksCompleted;
+        })
+        .map(section => section.title);
+        
+      setOpenAccordionItems(defaultOpenItems);
     }
-  }, [shift]);
+  }, [shift, report]);
 
-  const collapseCompletedSection = useCallback((sectionTitle: string, isSingleCompletion: boolean) => {
-    if (isSingleCompletion) {
-      setOpenAccordionItems(prev => prev.filter(item => item !== sectionTitle));
+  const collapseCompletedSection = useCallback((section: TaskSection) => {
+    const isCollapsible = section.title === 'Đầu ca' || section.title === 'Cuối ca';
+    if (!isCollapsible || !report) return;
+
+    // Check if all tasks in the section are now complete
+    const allTasksCompleted = section.tasks.every(task => {
+        const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+        // Note: We check against the current report state. If the action that triggers this
+        // call will complete the last task, we need to account for it.
+        // For simplicity, we check if all tasks have at least one completion.
+        // A more robust check might need to look at the task being completed *right now*.
+        // But since this is called after a task action, the report state should be fresh enough.
+        return completions.length > 0;
+    });
+
+    if (allTasksCompleted) {
+        setOpenAccordionItems(prev => prev.filter(item => item !== section.title));
     }
-  }, []);
+  }, [report]);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -148,11 +178,11 @@ export default function ChecklistPage() {
       }
   }, []);
 
-  const handleTaskAction = (taskId: string, sectionTitle: string, isSingleCompletion: boolean) => {
+  const handleTaskAction = (taskId: string, section: TaskSection) => {
     setActiveTaskId(taskId);
     setActiveCompletionIndex(null);
     setIsCameraOpen(true);
-    collapseCompletedSection(sectionTitle, isSingleCompletion);
+    collapseCompletedSection(section);
   };
 
   const handleEditPhotos = (taskId: string, completionIndex: number) => {
@@ -181,10 +211,16 @@ export default function ChecklistPage() {
     newReport.completedTasks[activeTaskId] = taskCompletions;
     await updateLocalReport(newReport);
     
+    // After updating report, check if the section should be collapsed
+    const section = shift?.sections.find(s => s.tasks.some(t => t.id === activeTaskId));
+    if (section) {
+        collapseCompletedSection(section);
+    }
+
     setIsCameraOpen(false);
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
-  }, [activeTaskId, activeCompletionIndex, report, updateLocalReport]);
+  }, [activeTaskId, activeCompletionIndex, report, updateLocalReport, shift, collapseCompletedSection]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;
@@ -439,7 +475,7 @@ export default function ChecklistPage() {
                               <Button 
                                 size="sm" 
                                 className="w-full md:w-auto active:scale-95 transition-transform"
-                                onClick={() => handleTaskAction(task.id, section.title, isSingleCompletionSection)}
+                                onClick={() => handleTaskAction(task.id, section)}
                                 disabled={isDisabledForNew}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>

@@ -60,5 +60,3 @@ export type ShiftReport = {
   // This is mainly for the manager's view and for cleanup.
   uploadedPhotos: string[];
 };
-
-    
