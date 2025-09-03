@@ -42,11 +42,8 @@ export default function ReportsPage() {
       setTasksByShift(tasks);
     });
 
-    const unsubscribeReports = dataStore.subscribeToReports((shiftReports) => {
-       const submittedShiftReports = shiftReports.filter(r => r.status === 'submitted');
-       // In the future, we might fetch inventory reports separately
-       // For now, let's assume all reports are ShiftReports
-       setReports(submittedShiftReports);
+    const unsubscribeReports = dataStore.subscribeToReports((allReports) => {
+       setReports(allReports);
        setIsLoading(false);
     });
 
@@ -61,18 +58,20 @@ export default function ReportsPage() {
       return report.shiftKey;
     }
     // Simple way to identify inventory reports
-    if (report.id.startsWith('inventory-report')) {
+    if ('stockLevels' in report) {
       return 'inventory';
     }
     return 'unknown';
   }
 
   const getReportLink = (date: string, key: string): string => {
-    if (key.startsWith('bartender_') || tasksByShift?.[key]) {
+    if (tasksByShift?.[key]) { // Checklist reports
         return `/reports/by-shift?date=${date}&shiftKey=${key}`;
     }
-    if (key === 'inventory') {
-        // Future link for inventory reports page
+    if (key === 'bartender_hygiene') { // Hygiene report
+        return `/reports/hygiene?date=${date}`;
+    }
+    if (key === 'inventory') { // Inventory report
         return `/reports/inventory?date=${date}`;
     }
     return '#';
@@ -84,11 +83,11 @@ export default function ReportsPage() {
     }
     switch (key) {
       case 'bartender_hygiene':
-        return 'Báo cáo Vệ sinh';
+        return 'Báo cáo Vệ sinh quầy';
       case 'inventory':
-        return 'Báo cáo Kiểm kê';
+        return 'Báo cáo Kiểm kê Tồn kho';
       default:
-        return key;
+        return `Báo cáo không xác định: ${key}`;
     }
   };
 
@@ -136,7 +135,7 @@ export default function ReportsPage() {
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline">Báo cáo đã nộp</h1>
-        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ca.</p>
+        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ngày và ca.</p>
       </header>
 
       <Card>
@@ -147,7 +146,7 @@ export default function ReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {sortedDates.length > 0 && tasksByShift ? (
+          {sortedDates.length > 0 && (
             <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
               {sortedDates.map((date) => (
                 <AccordionItem value={date} key={date}>
@@ -166,7 +165,7 @@ export default function ReportsPage() {
                       <TableBody>
                         {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
                           const reportName = getReportName(key);
-                          const staffNames = reportGroup.map(r => r.staffName).join(', ');
+                          const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
                           
                           return (
                             <TableRow key={`${date}-${key}`}>
@@ -200,4 +199,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-

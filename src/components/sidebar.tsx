@@ -25,7 +25,7 @@ export function AppSidebar() {
   
   const bartenderMenu = [
     { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
-    { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh', icon: ClipboardList },
+    { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList },
     { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive },
   ];
 

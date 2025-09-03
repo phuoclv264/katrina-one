@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   Timestamp,
   where,
+  getDocs,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport } from './types';
@@ -362,24 +363,54 @@ export const dataStore = {
     return serverReport;
   },
 
-  subscribeToReports(callback: (reports: ShiftReport[]) => void): () => void {
-     const reportsCollection = collection(db, 'reports');
-     const q = query(reportsCollection, orderBy('submittedAt', 'desc'));
+  subscribeToReports(callback: (reports: (ShiftReport | InventoryReport)[]) => void): () => void {
+    let combinedReports: (ShiftReport | InventoryReport)[] = [];
 
-     return onSnapshot(q, (querySnapshot) => {
-        const reports: ShiftReport[] = [];
-        querySnapshot.forEach((doc) => {
+    const shiftReportsCollection = collection(db, 'reports');
+    const shiftQ = query(shiftReportsCollection, where('status', '==', 'submitted'), orderBy('submittedAt', 'desc'));
+    
+    const inventoryReportsCollection = collection(db, 'inventory-reports');
+    const inventoryQ = query(inventoryReportsCollection, where('status', '==', 'submitted'), orderBy('submittedAt', 'desc'));
+
+    const unsubscribeShift = onSnapshot(shiftQ, (querySnapshot) => {
+        const shiftReports: ShiftReport[] = querySnapshot.docs.map(doc => {
             const data = doc.data();
-            reports.push({
+            return {
                 ...data,
                 id: doc.id,
                 startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
                 submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
                 lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
-            } as ShiftReport);
+            } as ShiftReport;
         });
-        callback(reports);
-     });
+        
+        // Combine with inventory reports
+        const otherReports = combinedReports.filter(r => !('shiftKey' in r));
+        combinedReports = [...shiftReports, ...otherReports];
+        callback(combinedReports);
+    });
+
+    const unsubscribeInventory = onSnapshot(inventoryQ, (querySnapshot) => {
+        const inventoryReports: InventoryReport[] = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+            } as InventoryReport;
+        });
+        
+        // Combine with shift reports
+        const otherReports = combinedReports.filter(r => 'shiftKey' in r);
+        combinedReports = [...inventoryReports, ...otherReports];
+        callback(combinedReports);
+    });
+
+    return () => {
+        unsubscribeShift();
+        unsubscribeInventory();
+    };
   },
 
   subscribeToReportsForShift(date: string, shiftKey: string, callback: (reports: ShiftReport[]) => void): () => void {
@@ -387,7 +418,8 @@ export const dataStore = {
     const q = query(
       reportsCollection, 
       where('date', '==', date),
-      where('shiftKey', '==', shiftKey)
+      where('shiftKey', '==', shiftKey),
+      where('status', '==', 'submitted')
     );
 
     return onSnapshot(q, (querySnapshot) => {
@@ -412,7 +444,39 @@ export const dataStore = {
       console.error("Error fetching reports for shift: ", error);
       callback([]);
     });
- }
-};
+ },
 
-    
+  async getInventoryReportForDate(date: string): Promise<InventoryReport[]> {
+    const reportsCollection = collection(db, 'inventory-reports');
+    const q = query(reportsCollection, where('date', '==', date), where('status', '==', 'submitted'));
+    const querySnapshot = await getDocs(q);
+    const reports: InventoryReport[] = [];
+    querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        reports.push({
+            ...data,
+            id: doc.id,
+            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+        } as InventoryReport);
+    });
+    return reports;
+  },
+
+  async getHygieneReportForDate(date: string, shiftKey: string): Promise<ShiftReport[]> {
+    const reportsCollection = collection(db, 'reports');
+    const q = query(reportsCollection, where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted'));
+    const querySnapshot = await getDocs(q);
+    const reports: ShiftReport[] = [];
+    querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        reports.push({
+            ...data,
+            id: doc.id,
+            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+        } as ShiftReport);
+    });
+    return reports;
+  }
+};

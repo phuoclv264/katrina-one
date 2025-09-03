@@ -416,7 +416,7 @@ export default function HygieneReportPage() {
         </div>
         <div className="flex justify-between items-start">
             <div>
-                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo Vệ sinh</h1>
+                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo Vệ sinh quầy</h1>
                  <p className="text-muted-foreground">Thực hiện và ghi nhận các công việc vệ sinh trong ca.</p>
             </div>
         </div>
@@ -635,5 +635,3 @@ export default function HygieneReportPage() {
     </>
   );
 }
-
-    

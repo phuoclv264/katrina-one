@@ -38,7 +38,7 @@ export default function BartenderDashboardPage() {
           <Button asChild size="lg">
             <Link href="/bartender/hygiene-report">
               <ClipboardList className="mr-2" />
-              Báo cáo Vệ sinh
+              Báo cáo Vệ sinh quầy
             </Link>
           </Button>
           <Button asChild size="lg" variant="secondary">
