@@ -115,8 +115,7 @@ export default function ChecklistPage() {
             for (const photoUrl of completion.photos) {
                 photos.push({
                     src: photoUrl,
-                    title: taskText,
-                    description: `Thực hiện lúc: ${completion.timestamp}`
+                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
                 });
             }
         }
@@ -619,15 +618,11 @@ export default function ChecklistPage() {
         captions={{ 
             showToggle: true, 
             descriptionTextAlign: 'center',
-            styles: {
-                container: { 
-                    maxWidth: 'calc(100% - 32px)',
-                    whiteSpace: 'pre-wrap', 
-                    textAlign: 'center',
-                }
-            }
+            descriptionMaxLines: 5
         }}
     />
     </>
   );
 }
+
+    

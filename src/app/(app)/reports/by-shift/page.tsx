@@ -86,8 +86,7 @@ function ReportView() {
             for (const photoUrl of completion.photos) {
                 photos.push({
                     src: photoUrl,
-                    title: taskText,
-                    description: `Thực hiện lúc: ${completion.timestamp}`
+                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
                 });
             }
         }
@@ -307,13 +306,7 @@ function ReportView() {
         captions={{ 
             showToggle: true, 
             descriptionTextAlign: 'center',
-            styles: {
-                container: { 
-                    maxWidth: 'calc(100% - 32px)',
-                    whiteSpace: 'pre-wrap', 
-                    textAlign: 'center',
-                }
-            }
+            descriptionMaxLines: 5,
         }}
     />
     </>
@@ -327,3 +320,5 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
+
+    
