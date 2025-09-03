@@ -100,7 +100,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const dataUri = canvas.toDataURL('image/jpeg', 1.0);
+        const dataUri = canvas.toDataURL('image/jpeg');
         setCapturedPhotos(prev => [dataUri, ...prev]);
         setNewlyCaptured(prev => [dataUri, ...prev]);
       }
