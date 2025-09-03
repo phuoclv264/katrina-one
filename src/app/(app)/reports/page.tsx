@@ -10,20 +10,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, CheckCircle, Users } from 'lucide-react';
-import type { ShiftReport, TasksByShift } from '@/lib/types';
+import type { ShiftReport, TasksByShift, InventoryReport } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 
+type ReportType = ShiftReport | InventoryReport;
+
 type GroupedReports = {
   [date: string]: {
-    [shiftKey: string]: ShiftReport[];
+    [key: string]: ReportType[]; // key can be shiftKey or report type like 'inventory'
   };
 };
 
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [reports, setReports] = useState<ShiftReport[]>([]);
+  const [reports, setReports] = useState<ReportType[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,9 +42,12 @@ export default function ReportsPage() {
       setTasksByShift(tasks);
     });
 
-    const unsubscribeReports = dataStore.subscribeToReports((reports) => {
-      setReports(reports.filter(r => r.status === 'submitted')); // Only show submitted reports
-      setIsLoading(false);
+    const unsubscribeReports = dataStore.subscribeToReports((shiftReports) => {
+       const submittedShiftReports = shiftReports.filter(r => r.status === 'submitted');
+       // In the future, we might fetch inventory reports separately
+       // For now, let's assume all reports are ShiftReports
+       setReports(submittedShiftReports);
+       setIsLoading(false);
     });
 
     return () => {
@@ -51,16 +56,55 @@ export default function ReportsPage() {
     };
   }, [user]);
 
+  const getReportKey = (report: ReportType): string => {
+    if ('shiftKey' in report) {
+      return report.shiftKey;
+    }
+    // Simple way to identify inventory reports
+    if (report.id.startsWith('inventory-report')) {
+      return 'inventory';
+    }
+    return 'unknown';
+  }
+
+  const getReportLink = (date: string, key: string): string => {
+    if (key.startsWith('bartender_') || tasksByShift?.[key]) {
+        return `/reports/by-shift?date=${date}&shiftKey=${key}`;
+    }
+    if (key === 'inventory') {
+        // Future link for inventory reports page
+        return `/reports/inventory?date=${date}`;
+    }
+    return '#';
+  }
+  
+  const getReportName = (key: string): string => {
+    if (tasksByShift && tasksByShift[key]) {
+      return `Checklist ${tasksByShift[key].name}`;
+    }
+    switch (key) {
+      case 'bartender_hygiene':
+        return 'Báo cáo Vệ sinh';
+      case 'inventory':
+        return 'Báo cáo Kiểm kê';
+      default:
+        return key;
+    }
+  };
+
+
   const groupedReports: GroupedReports = useMemo(() => {
     return reports.reduce((acc, report) => {
-      const date = report.date; // Use the report's date field
+      const date = report.date;
+      const key = getReportKey(report);
+      
       if (!acc[date]) {
         acc[date] = {};
       }
-      if (!acc[date][report.shiftKey]) {
-        acc[date][report.shiftKey] = [];
+      if (!acc[date][key]) {
+        acc[date][key] = [];
       }
-      acc[date][report.shiftKey].push(report);
+      acc[date][key].push(report);
       return acc;
     }, {} as GroupedReports);
   }, [reports]);
@@ -114,42 +158,26 @@ export default function ReportsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Ca làm việc</TableHead>
-                          <TableHead>Nhân viên báo cáo</TableHead>
-                          <TableHead className="text-center">Hoàn thành</TableHead>
+                          <TableHead>Tên báo cáo</TableHead>
+                          <TableHead>Nhân viên đã nộp</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {Object.entries(groupedReports[date]).map(([shiftKey, shiftReports]) => {
-                          const shiftName = tasksByShift[shiftKey]?.name || shiftKey;
-                          const totalTasksInShift = tasksByShift[shiftKey]?.sections.flatMap(s => s.tasks).length || 0;
-                          
-                          const totalCompletedTasks = shiftReports.reduce((sum, report) => {
-                             const completed = Object.values(report.completedTasks).filter(c => Array.isArray(c) && c.length > 0).length;
-                             return sum + completed;
-                          }, 0);
-
-                          const avgCompletion = shiftReports.length > 0 && totalTasksInShift > 0 ? (totalCompletedTasks / (shiftReports.length * totalTasksInShift)) * 100 : 0;
+                        {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
+                          const reportName = getReportName(key);
+                          const staffNames = reportGroup.map(r => r.staffName).join(', ');
                           
                           return (
-                            <TableRow key={`${date}-${shiftKey}`}>
-                              <TableCell className="font-semibold capitalize">{shiftName}</TableCell>
+                            <TableRow key={`${date}-${key}`}>
+                              <TableCell className="font-semibold capitalize">{reportName}</TableCell>
                               <TableCell>
-                                <Badge variant="secondary" className="gap-1.5">
-                                    <Users className="h-3 w-3" />
-                                    {shiftReports.length} báo cáo
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant={avgCompletion === 100 ? 'default' : 'outline'}>
-                                    {Math.round(avgCompletion)}%
-                                </Badge>
+                                <p className="text-sm text-muted-foreground">{staffNames}</p>
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button asChild variant="ghost" size="sm">
-                                  <Link href={`/reports/by-shift?date=${date}&shiftKey=${shiftKey}`}>
-                                    Xem chi tiết ca <ArrowRight className="ml-2 h-4 w-4" />
+                                  <Link href={getReportLink(date, key)}>
+                                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
                                   </Link>
                                 </Button>
                               </TableCell>
@@ -172,3 +200,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
