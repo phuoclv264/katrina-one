@@ -112,10 +112,19 @@ export default function ChecklistPage() {
   }, [carouselApi, allPagePhotos.length]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
-      setReport(updatedReport);
-      await dataStore.saveLocalReport(updatedReport);
-      setSyncStatus('local-newer'); // Any local change means local is newer
-  }, []);
+      if (dataStore.isReportEmpty(updatedReport)) {
+        await dataStore.deleteLocalReport(updatedReport.id);
+        toast({
+          title: "Báo cáo trống đã được xóa",
+          description: "Bạn đã xóa hết công việc và ghi chú, báo cáo nháp đã được hủy.",
+        });
+        router.replace('/shifts');
+      } else {
+        setReport(updatedReport);
+        await dataStore.saveLocalReport(updatedReport);
+        setSyncStatus('local-newer');
+      }
+  }, [router, toast]);
 
   const handleTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -129,37 +138,30 @@ export default function ChecklistPage() {
     setIsCameraOpen(true);
   };
   
-  const handleCapturePhotos = useCallback((photosDataUris: string[]) => {
-    if (!activeTaskId) return;
+  const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
+    if (!activeTaskId || !report) return;
 
-    setReport(currentReport => {
-      if (!currentReport) return null;
-
-      const newReport = JSON.parse(JSON.stringify(currentReport));
-      let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-      
-      if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-          taskCompletions[activeCompletionIndex].photos.push(...photosDataUris);
-      } else {
-          const now = new Date();
-          const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          taskCompletions.unshift({
-              timestamp: formattedTime,
-              photos: photosDataUris
-          });
-      }
-      
-      newReport.completedTasks[activeTaskId] = taskCompletions;
-      
-      dataStore.saveLocalReport(newReport).then(() => setSyncStatus('local-newer'));
-      
-      return newReport;
-    });
-
+    const newReport = JSON.parse(JSON.stringify(report));
+    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+    
+    if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
+        taskCompletions[activeCompletionIndex].photos.push(...photosDataUris);
+    } else {
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        taskCompletions.unshift({
+            timestamp: formattedTime,
+            photos: photosDataUris
+        });
+    }
+    
+    newReport.completedTasks[activeTaskId] = taskCompletions;
+    await updateLocalReport(newReport);
+    
     setIsCameraOpen(false);
     setActiveTaskId(null);
     setActiveCompletionIndex(null);
-  }, [activeTaskId, activeCompletionIndex]);
+  }, [activeTaskId, activeCompletionIndex, report, updateLocalReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
       if (!report) return;
@@ -187,6 +189,7 @@ export default function ChecklistPage() {
       const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
 
       taskCompletions.splice(completionIndex, 1);
+      
       if (taskCompletions.length > 0) {
           newReport.completedTasks[taskId] = taskCompletions;
       } else {

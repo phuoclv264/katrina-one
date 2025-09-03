@@ -178,6 +178,18 @@ export const dataStore = {
     }
   },
 
+  isReportEmpty(report: ShiftReport): boolean {
+    const hasCompletedTasks = Object.keys(report.completedTasks).length > 0;
+    const hasIssues = report.issues && report.issues.trim() !== '';
+    return !hasCompletedTasks && !hasIssues;
+  },
+
+  async deleteLocalReport(reportId: string): Promise<void> {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(reportId);
+    }
+  },
+
   async submitReport(report: ShiftReport): Promise<void> {
     if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
   
