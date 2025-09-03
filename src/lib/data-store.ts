@@ -304,8 +304,7 @@ export const dataStore = {
     const q = query(
       reportsCollection, 
       where('date', '==', date),
-      where('shiftKey', '==', shiftKey),
-      orderBy('submittedAt', 'asc')
+      where('shiftKey', '==', shiftKey)
     );
 
     return onSnapshot(q, (querySnapshot) => {
@@ -319,6 +318,12 @@ export const dataStore = {
                submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
            } as ShiftReport);
+       });
+       // Sắp xếp trên client
+       reports.sort((a, b) => {
+         const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+         const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+         return timeA - timeB;
        });
        callback(reports);
     }, (error) => {
