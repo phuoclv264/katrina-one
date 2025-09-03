@@ -8,7 +8,6 @@ import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud } from 'lucide-react';
@@ -21,6 +20,7 @@ import type { CarouselApi } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { v4 as uuidv4 } from 'uuid';
+import ShiftNotesCard from '@/components/shift-notes-card';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -48,8 +48,6 @@ export default function ChecklistPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
   
-  const [issueInputValue, setIssueInputValue] = useState('');
-
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
@@ -77,7 +75,6 @@ export default function ChecklistPage() {
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             setReport(loadedReport);
-            setIssueInputValue(loadedReport.issues || '');
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
                 setShowSyncDialog(true);
@@ -242,7 +239,6 @@ export default function ChecklistPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
-        setIssueInputValue(serverReport.issues || '');
         setSyncStatus('synced');
          toast({
             title: "Tải thành công!",
@@ -302,14 +298,14 @@ export default function ChecklistPage() {
     }
   };
   
-  const handleIssuesBlur = () => {
+  const handleSaveNotes = useCallback((newIssues: string) => {
     if(!report) return;
     // Only update if the value has actually changed
-    if (issueInputValue !== (report.issues || '')) {
-      const newReport = { ...report, issues: issueInputValue || null };
+    if (newIssues !== (report.issues || '')) {
+      const newReport = { ...report, issues: newIssues || null };
       updateLocalReport(newReport);
     }
-  };
+  }, [report, updateLocalReport]);
 
   const isReadonly = isSubmitting;
 
@@ -493,21 +489,11 @@ export default function ChecklistPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Ghi chú ca</CardTitle>
-            <CardDescription>Báo cáo mọi sự cố hoặc sự kiện đáng chú ý trong ca của bạn.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
-              value={issueInputValue}
-              onChange={(e) => setIssueInputValue(e.target.value)}
-              onBlur={handleIssuesBlur}
-              disabled={isReadonly}
-            />
-          </CardContent>
-        </Card>
+        <ShiftNotesCard
+          initialIssues={report.issues || ''}
+          onSave={handleSaveNotes}
+          disabled={isReadonly}
+        />
 
         <Card className="border-green-500/50">
            <CardHeader>
