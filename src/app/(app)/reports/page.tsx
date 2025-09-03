@@ -28,13 +28,13 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user?.role !== 'Quản lý' && user?.role !== 'Chủ nhà hàng') {
+    if (!authLoading && user?.role !== 'Chủ nhà hàng') {
       router.replace('/shifts');
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng')) return;
+    if (!user || (user.role !== 'Chủ nhà hàng')) return;
 
     const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
       setTasksByShift(tasks);
@@ -67,7 +67,7 @@ export default function ReportsPage() {
 
   const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   
-  if(isLoading || authLoading || (user?.role !== 'Quản lý' && user?.role !== 'Chủ nhà hàng')) {
+  if(isLoading || authLoading || (user?.role !== 'Chủ nhà hàng')) {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <header className="mb-8">

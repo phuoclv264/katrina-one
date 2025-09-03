@@ -28,13 +28,14 @@ export const useAuth = () => {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const userRole = userData.role as UserRole;
-          setUser({
+          const authUser = {
             ...firebaseUser,
             displayName: userData.displayName,
             role: userRole,
-          } as AuthUser);
+          } as AuthUser;
+          setUser(authUser);
 
-          // Redirect based on role after login
+          // Redirect based on role after login or on page load
           if (pathname === '/') {
              if (userRole === 'Phục vụ' || userRole === 'Pha chế') {
                 router.replace('/shifts');

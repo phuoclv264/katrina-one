@@ -38,7 +38,7 @@ function ReportView() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
+    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
         router.replace('/shifts');
         return;
     }

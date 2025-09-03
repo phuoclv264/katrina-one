@@ -49,10 +49,24 @@ export default function ChecklistPage() {
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Initialize accordion state
+  useEffect(() => {
+    if (shift) {
+      setOpenAccordionItems(shift.sections.map(s => s.title));
+    }
+  }, [shift]);
+
+  const collapseCompletedSection = useCallback((sectionTitle: string, isSingleCompletion: boolean) => {
+    if (isSingleCompletion) {
+      setOpenAccordionItems(prev => prev.filter(item => item !== sectionTitle));
+    }
+  }, []);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -134,10 +148,11 @@ export default function ChecklistPage() {
       }
   }, []);
 
-  const handleTaskAction = (taskId: string) => {
+  const handleTaskAction = (taskId: string, sectionTitle: string, isSingleCompletion: boolean) => {
     setActiveTaskId(taskId);
     setActiveCompletionIndex(null);
     setIsCameraOpen(true);
+    collapseCompletedSection(sectionTitle, isSingleCompletion);
   };
 
   const handleEditPhotos = (taskId: string, completionIndex: number) => {
@@ -396,7 +411,7 @@ export default function ChecklistPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
+            <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
               {shift.sections.map((section) => {
                 const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                 return (
@@ -424,7 +439,7 @@ export default function ChecklistPage() {
                               <Button 
                                 size="sm" 
                                 className="w-full md:w-auto active:scale-95 transition-transform"
-                                onClick={() => handleTaskAction(task.id)}
+                                onClick={() => handleTaskAction(task.id, section.title, isSingleCompletionSection)}
                                 disabled={isDisabledForNew}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>
@@ -624,5 +639,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    
