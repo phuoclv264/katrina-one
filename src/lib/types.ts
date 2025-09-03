@@ -50,7 +50,7 @@ export type ShiftReport = {
   date: string; // YYYY-MM-DD
   startedAt: string | Timestamp; // ISO string locally, Timestamp on server
   submittedAt?: string | Timestamp; // ISO string, set on submission
-  lastUpdated?: string | Timestamp; // ISO string locally, Timestamp on server
+  lastUpdated: string | Timestamp; // ISO string locally, Timestamp on server
   
   // Report data
   completedTasks: TaskCompletion;
