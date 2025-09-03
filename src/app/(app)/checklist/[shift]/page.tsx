@@ -502,7 +502,6 @@ export default function ChecklistPage() {
             <Textarea
               placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
               value={issueInputValue}
-              onChange={(e) => setIssueInputValue(e.target.value)}
               onBlur={handleIssuesBlur}
               disabled={isReadonly}
             />
@@ -631,6 +630,8 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
 
     
 
