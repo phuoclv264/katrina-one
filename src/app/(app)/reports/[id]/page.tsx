@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Star, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, TaskCompletion, CompletionRecord, TasksByShift } from '@/lib/types';
@@ -84,29 +84,25 @@ export default function ReportDetailPage() {
 
   const getSectionBorderColor = (title: string) => {
     switch(title) {
-        case 'Đầu ca': return 'border-yellow-500/50';
-        case 'Trong ca': return 'border-sky-500/50';
-        case 'Cuối ca': return 'border-indigo-500/50';
+        case 'Đầu ca': return 'border-yellow-500/80';
+        case 'Trong ca': return 'border-sky-500/80';
+        case 'Cuối ca': return 'border-indigo-500/80';
         default: return 'border-border';
     }
   }
 
   if (isLoading) {
     return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
                 <Skeleton className="h-8 w-48 mb-4" />
                 <Skeleton className="h-10 w-3/4" />
                 <Skeleton className="h-5 w-1/2 mt-2" />
             </header>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
-                    <Skeleton className="h-96 w-full" />
-                </div>
-                <div className="space-y-8">
-                    <Skeleton className="h-64 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                </div>
+            <div className="space-y-8">
+                <Skeleton className="h-96 w-full" />
+                <Skeleton className="h-48 w-full" />
+                <Skeleton className="h-32 w-full" />
             </div>
         </div>
     )
@@ -114,7 +110,7 @@ export default function ReportDetailPage() {
 
   if (!report) {
     return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <h1 className="text-2xl font-bold">Báo cáo không tìm thấy.</h1>
             <p className="text-muted-foreground">Có thể nó đã bị xóa hoặc bạn không có quyền xem.</p>
              <Button asChild variant="link" className="mt-4 -ml-4">
@@ -131,7 +127,7 @@ export default function ReportDetailPage() {
 
   if (!shift) {
     return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <h1 className="text-2xl font-bold">Lỗi dữ liệu ca làm việc.</h1>
             <p className="text-muted-foreground">Không thể tải cấu trúc ca làm việc cho báo cáo này. Vui lòng kiểm tra lại cấu hình.</p>
              <Button asChild variant="link" className="mt-4 -ml-4">
@@ -162,9 +158,9 @@ export default function ReportDetailPage() {
 
   return (
     <>
-    <div className="flex flex-col flex-1 p-4 sm:p-6 md:p-8 gap-8">
-      <header className="flex flex-col gap-4">
-        <Button asChild variant="ghost" className="mb-0 -ml-4 self-start">
+    <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
+      <header className="mb-8">
+        <Button asChild variant="ghost" className="mb-4 -ml-4">
             <Link href="/reports">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại tất cả báo cáo
@@ -172,9 +168,9 @@ export default function ReportDetailPage() {
         </Button>
         <div className="flex justify-between items-start">
             <div>
-                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Chi tiết báo cáo</h1>
+                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Chi tiết báo cáo {shift.name}</h1>
                 <p className="text-muted-foreground">
-                Báo cáo ca từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
                 </p>
             </div>
             <div>
@@ -193,109 +189,119 @@ export default function ReportDetailPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
-                <CardDescription>{completedTaskCount} trên {totalTaskCount} nhiệm vụ đã được đánh dấu là hoàn thành.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                 <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
-                  {shift.sections.map((section) => (
-                    <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-2 bg-card ${getSectionBorderColor(section.title)}`}>
-                      <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
-                        <div className="flex items-center">
-                            {getSectionIcon(section.title)}
-                            {section.title}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="border-t p-4">
-                        <div className="space-y-4 pt-2">
-                          {section.tasks.map((task) => {
-                            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-                            const isCompleted = completions.length > 0;
-                            
-                            return (
-                               <div key={task.id} className="flex flex-col gap-3 text-sm p-4 border rounded-md bg-background">
-                                <div className="flex items-start gap-4">
-                                  <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-accent' : 'bg-muted'}`}>
-                                    {isCompleted ? <Check className="h-4 w-4 text-accent-foreground" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                                  </div>
-                                  <span className={`flex-1 ${!isCompleted ? 'text-muted-foreground' : ''}`}>{task.text}</span>
-                                </div>
-                                
-                                {completions.map((completion, cIndex) => (
-                                  <div key={cIndex} className="mt-2 ml-9 rounded-md border bg-card p-3">
-                                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                                          <Clock className="h-4 w-4 flex-shrink-0" />
-                                          <span>Thực hiện lúc: {completion.timestamp}</span>
-                                      </div>
-                                    {completion.photos.length > 0 ? (
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                        {completion.photos.map((photo, pIndex) => {
-                                           return (
-                                            <button 
-                                              onClick={() => openLightbox(photo)}
-                                              key={pIndex} 
-                                              className="relative aspect-square overflow-hidden rounded-md group"
-                                            >
-                                                <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                            </button>
-                                        )})}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground italic">Không có ảnh nào được cung cấp.</p>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
-        </div>
-
-        <div className="space-y-8">
+      <div className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Camera /> Tổng hợp hình ảnh</CardTitle>
+              <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
+              <CardDescription>{completedTaskCount} trên {totalTaskCount} nhiệm vụ đã được đánh dấu là hoàn thành.</CardDescription>
             </CardHeader>
             <CardContent>
-              {allPagePhotos.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {allPagePhotos.map((photo, index) => (
-                     <button
-                        onClick={() => openLightbox(photo.src)}
-                        key={index}
-                        className="relative aspect-video overflow-hidden rounded-md group"
-                      >
-                        <Image src={photo.src} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">Không có ảnh nào được tải lên cho ca này.</p>
-              )}
+                <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
+                {shift.sections.map((section) => (
+                  <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
+                    <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
+                      <div className="flex items-center">
+                          {getSectionIcon(section.title)}
+                          {section.title}
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="border-t p-4">
+                      <div className="space-y-4 pt-2">
+                        {section.tasks.map((task) => {
+                          const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+                          const isCompleted = completions.length > 0;
+                          
+                          return (
+                              <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
+                                <div className="flex items-start gap-4">
+                                  <div className="flex-1">
+                                      <div className="flex items-center gap-3">
+                                          <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-green-500/20 text-green-700' : 'bg-muted'}`}>
+                                            {isCompleted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                                          </div>
+                                          <p className={`font-semibold ${!isCompleted ? 'text-muted-foreground' : ''}`}>
+                                            {task.text}
+                                          </p>
+                                      </div>
+                                  </div>
+                                </div>
+                                
+                                {isCompleted && (
+                                    <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
+                                    {completions.map((completion, cIndex) => (
+                                    <div key={cIndex} className="rounded-md border bg-card p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <Clock className="h-4 w-4 flex-shrink-0" />
+                                                <span>Thực hiện lúc: {completion.timestamp}</span>
+                                            </div>
+                                        </div>
+                                        {completion.photos.length > 0 ? (
+                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                            {completion.photos.map((photo, pIndex) => (
+                                                <button
+                                                  onClick={() => openLightbox(photo)}
+                                                  key={photo.slice(0, 50) + pIndex}
+                                                  className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
+                                                >
+                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                                </button>
+                                            ))}
+                                            </div>
+                                        ): (
+                                            <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                        )}
+                                    </div>
+                                    ))}
+                                    </div>
+                                )}
+                              </div>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </CardContent>
           </Card>
-
+          
           {report.issues && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm italic">"{report.issues}"</p>
+                <p className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200">"{report.issues}"</p>
               </CardContent>
             </Card>
           )}
-        </div>
+
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ImageIcon /> Toàn bộ hình ảnh</CardTitle>
+              <CardDescription>Tổng hợp tất cả hình ảnh từ báo cáo này.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {allPagePhotos.length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  {allPagePhotos.map((photo, index) => (
+                     <button
+                        onClick={() => openLightbox(photo.src)}
+                        key={index}
+                        className="relative aspect-square overflow-hidden rounded-md group bg-muted"
+                      >
+                        <Image src={photo.src} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                    <p>Không có ảnh nào được tải lên cho ca này.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
       </div>
     </div>
      <Lightbox
