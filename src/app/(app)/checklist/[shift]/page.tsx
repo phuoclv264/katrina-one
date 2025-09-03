@@ -453,7 +453,7 @@ export default function ChecklistPage() {
                                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                     {completion.photos.map((photo, pIndex) => {
                                       return (
-                                        <div key={photo.slice(0, 50) + pIndex} className="relative aspect-square overflow-hidden rounded-md group bg-muted">
+                                        <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
                                             <button onClick={() => openImagePreview(photo)} className="w-full h-full">
                                                 <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
                                             </button>
@@ -617,5 +617,3 @@ export default function ChecklistPage() {
     </>
   );
 }
-
-    
