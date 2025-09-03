@@ -584,6 +584,7 @@ export default function ChecklistPage() {
         slides={allPagePhotos}
         index={lightboxIndex}
         plugins={[Zoom]}
+        zoom={{ maxZoomPixelRatio: 4 }}
     />
     </>
   );

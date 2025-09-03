@@ -302,6 +302,7 @@ export default function ReportDetailPage() {
         slides={allPagePhotos}
         index={lightboxIndex}
         plugins={[Zoom]}
+        zoom={{ maxZoomPixelRatio: 4 }}
     />
     </>
   );
