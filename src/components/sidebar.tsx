@@ -50,6 +50,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <h1 className="text-2xl font-bold text-primary font-headline">Katrina One</h1>
       </SidebarHeader>
+      <SidebarSeparator />
       <SidebarContent>
         <SidebarMenu>
           {menuItems.map((item) => (
@@ -92,3 +93,5 @@ export function AppSidebar() {
     </>
   );
 }
+
+    

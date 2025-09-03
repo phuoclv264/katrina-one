@@ -540,7 +540,7 @@ export default function ChecklistPage() {
             {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
         {syncStatus === 'local-newer' && (
-          <span className="absolute top-0 right-0 block h-3.5 w-3.5 rounded-full bg-red-500 ring-2 ring-background" />
+          <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-background" />
         )}
       </div>
     </div>
@@ -597,5 +597,7 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
 
     
