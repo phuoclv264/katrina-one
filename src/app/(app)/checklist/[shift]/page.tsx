@@ -112,19 +112,16 @@ export default function ChecklistPage() {
   }, [carouselApi, allPagePhotos.length]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
+      setReport(updatedReport);
       if (dataStore.isReportEmpty(updatedReport)) {
         await dataStore.deleteLocalReport(updatedReport.id);
-        toast({
-          title: "Báo cáo trống đã được xóa",
-          description: "Bạn đã xóa hết công việc và ghi chú, báo cáo nháp đã được hủy.",
-        });
-        router.replace('/shifts');
+        // User stays on page, local report is gone. Status is technically synced now as there's nothing to sync.
+        setSyncStatus('synced');
       } else {
-        setReport(updatedReport);
         await dataStore.saveLocalReport(updatedReport);
         setSyncStatus('local-newer');
       }
-  }, [router, toast]);
+  }, []);
 
   const handleTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -177,6 +174,8 @@ export default function ChecklistPage() {
           if (taskCompletions.length === 0) {
               delete newReport.completedTasks[taskId];
           }
+      } else {
+        newReport.completedTasks[taskId] = taskCompletions;
       }
       
       await updateLocalReport(newReport);
@@ -460,7 +459,7 @@ export default function ChecklistPage() {
                                                     variant="destructive"
                                                     size="icon"
                                                     className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-20"
-                                                    onClick={() => handleDeletePhoto(task.id, cIndex, photo)}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo); }}
                                                 >
                                                     <X className="h-3 w-3" />
                                                     <span className="sr-only">Xóa ảnh</span>

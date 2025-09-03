@@ -90,11 +90,10 @@ export const dataStore = {
                 issues: null,
                 uploadedPhotos: [],
             };
-            await this.saveLocalReport(newReport);
+            // Don't save it yet, only return the structure. It will be saved on first action.
             return { report: newReport, status: 'synced' };
         }
 
-        // We have something on local or server, so we need to compare.
         let localReport: ShiftReport | null = localReportString ? JSON.parse(localReportString) : null;
         
         // If nothing on local, but something on server, create local from server version
@@ -123,13 +122,12 @@ export const dataStore = {
             }
         }
         
-        // Fallback: If for some reason we end up here (e.g. only local exists but wasn't caught), create a new one.
-        // This handles the case where local exists but server check fails/is weird. We trust local.
+        // Fallback: This handles the case where local exists but server check fails/is weird. We trust local.
         if (localReport) {
             return { report: localReport, status: 'local-newer' };
         }
 
-        // Final fallback: should be unreachable, but creates a new report.
+        // Final fallback: should be unreachable, but creates a new report structure.
          const newReport: ShiftReport = {
             id: reportId,
             userId,
@@ -143,7 +141,6 @@ export const dataStore = {
             issues: null,
             uploadedPhotos: [],
         };
-        await this.saveLocalReport(newReport);
         return { report: newReport, status: 'synced' };
 
 
@@ -166,7 +163,6 @@ export const dataStore = {
             issues: null,
             uploadedPhotos: [],
         };
-        await this.saveLocalReport(newReport);
         return { report: newReport, status: 'error' };
     }
   },
