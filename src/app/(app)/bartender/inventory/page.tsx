@@ -11,9 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info } from 'lucide-react';
 import Link from 'next/link';
 import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -59,15 +60,17 @@ export default function InventoryPage() {
 
     loadReport();
   }, [user, inventoryList]);
+  
+  const handleLocalSave = useCallback(async (updatedReport: InventoryReport) => {
+      await dataStore.saveLocalInventoryReport(updatedReport);
+  }, []);
 
   const handleStockChange = (itemId: string, currentStock: number) => {
     if (!report) return;
 
-    setReport(prev => {
-      if (!prev) return null;
-      const newStockLevels = { ...prev.stockLevels, [itemId]: currentStock };
-      return { ...prev, stockLevels: newStockLevels };
-    });
+    const newReport = { ...report, stockLevels: { ...report.stockLevels, [itemId]: currentStock } };
+    setReport(newReport);
+    handleLocalSave(newReport);
   };
   
   const handleSaveAndGenerate = async () => {
@@ -188,14 +191,25 @@ export default function InventoryPage() {
           <div className="flex flex-col md:flex-row gap-4 justify-between md:items-center">
             <div>
               <h1 className="text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>
-              <p className="text-muted-foreground">Nhập số lượng tồn kho thực tế của các mặt hàng.</p>
+              <p className="text-muted-foreground">Nhập số lượng tồn kho thực tế. Mọi thay đổi sẽ được tự động lưu.</p>
             </div>
-            <Button onClick={handleSaveAndGenerate} disabled={isGenerating || isSubmitted}>
-                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
-                Lưu & Tạo đề xuất đặt hàng
-            </Button>
+             {!isSubmitted && (
+                <Button onClick={handleSaveAndGenerate} disabled={isGenerating || isSubmitted}>
+                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
+                    Tạo đề xuất đặt hàng
+                </Button>
+            )}
           </div>
       </header>
+       {isSubmitted && report.submittedAt && (
+            <Alert className="mb-8 border-green-500 text-green-700">
+                <Info className="h-4 w-4" />
+                <AlertTitle>Báo cáo đã được gửi</AlertTitle>
+                <AlertDescription>
+                    Bạn đã gửi báo cáo này lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Không thể chỉnh sửa thêm.
+                </AlertDescription>
+            </Alert>
+        )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
@@ -284,7 +298,7 @@ export default function InventoryPage() {
                         <p className="text-center text-sm text-muted-foreground py-4">Tất cả hàng hoá đã đủ. Không cần đặt thêm.</p>
                     )}
                     {!isGenerating && !suggestions && (
-                        <p className="text-center text-sm text-muted-foreground py-4">Nhấn nút "Lưu & Tạo đề xuất" để nhận danh sách đặt hàng từ AI.</p>
+                        <p className="text-center text-sm text-muted-foreground py-4">Nhấn nút "Tạo đề xuất" để nhận danh sách đặt hàng từ AI.</p>
                     )}
                 </CardContent>
             </Card>

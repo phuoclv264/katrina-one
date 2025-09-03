@@ -124,30 +124,35 @@ export const dataStore = {
         suggestions: null,
         lastUpdated: new Date().toISOString(),
     };
-    // Don't save to local/remote yet, just return the structure.
+    // Don't save to remote yet, just return the structure.
+    // Save to local storage so subsequent inputs are not lost.
+    await this.saveLocalInventoryReport(newReport);
     return newReport;
   },
+
+  async saveLocalInventoryReport(report: InventoryReport): Promise<void> {
+    if (typeof window !== 'undefined') {
+       report.lastUpdated = new Date().toISOString();
+       localStorage.setItem(report.id, JSON.stringify(report));
+   }
+ },
 
   async saveInventoryReport(report: InventoryReport): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const reportToSave: Omit<InventoryReport, 'id'> & {lastUpdated: any, submittedAt?: any} = {
+    // Save to local storage first
+    await this.saveLocalInventoryReport(report);
+    
+    // Then save to Firestore
+    const reportToSubmit: Omit<InventoryReport, 'id'> & {lastUpdated: any, submittedAt?: any} = {
         ...report,
         lastUpdated: serverTimestamp(),
         submittedAt: report.submittedAt ? Timestamp.fromDate(new Date(report.submittedAt)) : undefined,
     };
-    delete (reportToSave as any).id;
+    delete (reportToSubmit as any).id;
 
-    // Save to local storage first
-    const localReport = {
-        ...report,
-        lastUpdated: new Date().toISOString()
-    }
-    localStorage.setItem(report.id, JSON.stringify(localReport));
-    
-    // Then save to Firestore
     const firestoreRef = doc(db, 'inventory-reports', report.id);
-    await setDoc(firestoreRef, reportToSave, { merge: true });
+    await setDoc(firestoreRef, reportToSubmit, { merge: true });
   },
 
 

@@ -637,5 +637,3 @@ export default function HygieneReportPage() {
 }
 
     
-
-    
