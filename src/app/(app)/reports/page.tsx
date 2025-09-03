@@ -9,10 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, XCircle, Clock } from 'lucide-react';
-import type { ShiftReport, TasksByShift, CompletionRecord } from '@/lib/types';
+import { ArrowRight, CheckCircle, Users } from 'lucide-react';
+import type { ShiftReport, TasksByShift } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
+
+type GroupedReports = {
+  [date: string]: {
+    [shiftKey: string]: ShiftReport[];
+  };
+};
 
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -45,38 +51,19 @@ export default function ReportsPage() {
     };
   }, [user]);
 
-  const groupedReports = useMemo(() => {
+  const groupedReports: GroupedReports = useMemo(() => {
     return reports.reduce((acc, report) => {
-      const date = new Date(report.submittedAt as string).toISOString().split('T')[0];
+      const date = report.date; // Use the report's date field
       if (!acc[date]) {
-        acc[date] = [];
+        acc[date] = {};
       }
-      acc[date].push(report);
+      if (!acc[date][report.shiftKey]) {
+        acc[date][report.shiftKey] = [];
+      }
+      acc[date][report.shiftKey].push(report);
       return acc;
-    }, {} as Record<string, ShiftReport[]>);
+    }, {} as GroupedReports);
   }, [reports]);
-
-
-  const getCompletedTaskCount = (report: ShiftReport) => {
-    if (!tasksByShift) return 0;
-    const allTasks = tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks) || [];
-    let completedCount = 0;
-    
-    allTasks.forEach(task => {
-        const completions = report.completedTasks[task.id];
-        if (Array.isArray(completions) && completions.length > 0) {
-            completedCount++;
-        }
-    });
-    
-    return completedCount;
-  };
-  
-  const getTotalTaskCount = (report: ShiftReport) => {
-      if (!tasksByShift) return 0;
-      return tasksByShift[report.shiftKey]?.sections.flatMap(s => s.tasks).length || 0;
-  }
-
 
   const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   
@@ -101,19 +88,18 @@ export default function ReportsPage() {
       )
   }
 
-
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline">Báo cáo đã nộp</h1>
-        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên.</p>
+        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ca.</p>
       </header>
 
       <Card>
         <CardHeader>
           <CardTitle>Báo cáo gần đây</CardTitle>
           <CardDescription>
-            Hiển thị {reports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày.
+            Hiển thị {reports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày và ca.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -122,56 +108,48 @@ export default function ReportsPage() {
               {sortedDates.map((date) => (
                 <AccordionItem value={date} key={date}>
                   <AccordionTrigger className="text-lg font-medium">
-                    Ngày {new Date(date).toLocaleDateString('vi-VN')}
+                    Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
                   </AccordionTrigger>
                   <AccordionContent>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Nhân viên</TableHead>
                           <TableHead>Ca làm việc</TableHead>
-                          <TableHead>Thời gian nộp</TableHead>
-                          <TableHead className="text-center">Hoàn thành nhiệm vụ</TableHead>
-                          <TableHead className="text-center">Trạng thái</TableHead>
+                          <TableHead>Nhân viên báo cáo</TableHead>
+                          <TableHead className="text-center">Hoàn thành</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {groupedReports[date].map((report) => {
-                          const allTasksCount = getTotalTaskCount(report);
-                          const completedTasksCount = getCompletedTaskCount(report);
-                          const shiftName = tasksByShift[report.shiftKey]?.name || report.shiftKey;
+                        {Object.entries(groupedReports[date]).map(([shiftKey, shiftReports]) => {
+                          const shiftName = tasksByShift[shiftKey]?.name || shiftKey;
+                          const totalTasksInShift = tasksByShift[shiftKey]?.sections.flatMap(s => s.tasks).length || 0;
+                          
+                          const totalCompletedTasks = shiftReports.reduce((sum, report) => {
+                             const completed = Object.values(report.completedTasks).filter(c => Array.isArray(c) && c.length > 0).length;
+                             return sum + completed;
+                          }, 0);
+
+                          const avgCompletion = shiftReports.length > 0 ? (totalCompletedTasks / (shiftReports.length * totalTasksInShift)) * 100 : 0;
                           
                           return (
-                            <TableRow key={report.id}>
-                              <TableCell>{report.staffName}</TableCell>
-                              <TableCell className="capitalize">{shiftName}</TableCell>
-                               <TableCell>
-                                {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant={completedTasksCount === allTasksCount && allTasksCount > 0 ? 'default' : 'secondary'} className="gap-1">
-                                    {completedTasksCount === allTasksCount && allTasksCount > 0 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                                    <span>{completedTasksCount}/{allTasksCount}</span>
+                            <TableRow key={`${date}-${shiftKey}`}>
+                              <TableCell className="font-semibold capitalize">{shiftName}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="gap-1.5">
+                                    <Users className="h-3 w-3" />
+                                    {shiftReports.length} báo cáo
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-center">
-                                  {report.status === 'submitted' ? (
-                                     <Badge variant="default">Đã nộp</Badge>
-                                  ) : (
-                                     <Badge variant="outline" className="text-blue-600 border-blue-600/50">
-                                        <Clock className="mr-1.5 h-3 w-3 animate-pulse" />
-                                        Đang thực hiện
-                                     </Badge>
-                                  )}
+                                <Badge variant={avgCompletion === 100 ? 'default' : 'outline'}>
+                                    {Math.round(avgCompletion)}%
+                                </Badge>
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button asChild variant="ghost" size="sm">
-                                  <Link href={`/reports/${report.id}`}>
-                                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                                  <Link href={`/reports/by-shift?date=${date}&shiftKey=${shiftKey}`}>
+                                    Xem chi tiết ca <ArrowRight className="ml-2 h-4 w-4" />
                                   </Link>
                                 </Button>
                               </TableCell>

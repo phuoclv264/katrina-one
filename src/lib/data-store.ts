@@ -13,6 +13,7 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
+  where,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord } from './types';
@@ -280,7 +281,7 @@ export const dataStore = {
 
   subscribeToReports(callback: (reports: ShiftReport[]) => void): () => void {
      const reportsCollection = collection(db, 'reports');
-     const q = query(reportsCollection, orderBy('startedAt', 'desc'));
+     const q = query(reportsCollection, orderBy('submittedAt', 'desc'));
 
      return onSnapshot(q, (querySnapshot) => {
         const reports: ShiftReport[] = [];
@@ -297,4 +298,33 @@ export const dataStore = {
         callback(reports);
      });
   },
+
+  subscribeToReportsForShift(date: string, shiftKey: string, callback: (reports: ShiftReport[]) => void): () => void {
+    const reportsCollection = collection(db, 'reports');
+    const q = query(
+      reportsCollection, 
+      where('date', '==', date),
+      where('shiftKey', '==', shiftKey),
+      where('status', '==', 'submitted'),
+      orderBy('submittedAt', 'asc')
+    );
+
+    return onSnapshot(q, (querySnapshot) => {
+       const reports: ShiftReport[] = [];
+       querySnapshot.forEach((doc) => {
+           const data = doc.data();
+           reports.push({
+               ...data,
+               id: doc.id,
+               startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
+               submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+               lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+           } as ShiftReport);
+       });
+       callback(reports);
+    }, (error) => {
+      console.error("Error fetching reports for shift: ", error);
+      callback([]);
+    });
+ }
 };

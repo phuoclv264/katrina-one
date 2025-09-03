@@ -1,62 +1,64 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { ShiftReport, TaskCompletion, CompletionRecord, TasksByShift } from '@/lib/types';
+import type { ShiftReport, CompletionRecord, TasksByShift } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function ReportDetailPage() {
-  const params = useParams();
-  const reportId = params.id as string;
-  const [report, setReport] = useState<ShiftReport | null | undefined>(undefined);
+function ReportView() {
+  const searchParams = useSearchParams();
+  const date = searchParams.get('date');
+  const shiftKey = searchParams.get('shiftKey');
+
+  const [reports, setReports] = useState<ShiftReport[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const isLoading = report === undefined || tasksByShift === null;
-
   useEffect(() => {
-    if (!reportId) return;
-    const docRef = doc(db, "reports", reportId);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            setReport({
-                ...data,
-                id: docSnap.id,
-                startedAt: (data.startedAt as any)?.toDate ? (data.startedAt as any).toDate().toISOString() : data.startedAt,
-                submittedAt: (data.submittedAt as any)?.toDate ? (data.submittedAt as any).toDate().toISOString() : data.submittedAt,
-                lastUpdated: (data.lastUpdated as any)?.toDate ? (data.lastUpdated as any).toDate().toISOString() : data.lastUpdated,
-            } as ShiftReport);
-        } else {
-            setReport(null);
-        }
-    });
-    return () => unsubscribe();
-  }, [reportId]);
+    if (!date || !shiftKey) {
+      setIsLoading(false);
+      return;
+    };
 
-  useEffect(() => {
-    const unsubscribe = dataStore.subscribeToTasks((tasks) => {
+    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
         setTasksByShift(tasks);
     });
-    return () => unsubscribe();
-  }, []);
+
+    const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
+        setReports(fetchedReports);
+        if (fetchedReports.length > 0 && !selectedReportId) {
+            setSelectedReportId(fetchedReports[0].id);
+        }
+        setIsLoading(false);
+    });
+
+    return () => {
+        unsubscribeTasks();
+        unsubscribeReports();
+    };
+  }, [date, shiftKey, selectedReportId]);
+
+  const report = useMemo(() => {
+    return reports.find(r => r.id === selectedReportId) || null;
+  }, [reports, selectedReportId]);
   
   const allPagePhotos = useMemo(() => {
     if (!report) return [];
@@ -108,11 +110,11 @@ export default function ReportDetailPage() {
     )
   }
 
-  if (!report) {
+  if (!date || !shiftKey || reports.length === 0) {
     return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
-            <h1 className="text-2xl font-bold">Báo cáo không tìm thấy.</h1>
-            <p className="text-muted-foreground">Có thể nó đã bị xóa hoặc bạn không có quyền xem.</p>
+            <h1 className="text-2xl font-bold">Không tìm thấy báo cáo.</h1>
+            <p className="text-muted-foreground">Không có báo cáo nào được nộp cho ca này vào ngày đã chọn.</p>
              <Button asChild variant="link" className="mt-4 -ml-4">
                 <Link href="/reports">
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -123,38 +125,16 @@ export default function ReportDetailPage() {
     );
   }
 
-  const shift = tasksByShift ? tasksByShift[report.shiftKey] : null;
+  const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
   if (!shift) {
     return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <h1 className="text-2xl font-bold">Lỗi dữ liệu ca làm việc.</h1>
-            <p className="text-muted-foreground">Không thể tải cấu trúc ca làm việc cho báo cáo này. Vui lòng kiểm tra lại cấu hình.</p>
-             <Button asChild variant="link" className="mt-4 -ml-4">
-                <Link href="/reports">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại tất cả báo cáo
-                </Link>
-            </Button>
+            <p className="text-muted-foreground">Không thể tải cấu trúc ca làm việc cho báo cáo này.</p>
         </div>
     );
   }
-  
-  const getCompletedTaskCount = (completedTasks: TaskCompletion) => {
-    const allTasks = shift.sections.flatMap(s => s.tasks);
-    let completedCount = 0;
-    allTasks.forEach(task => {
-        const completions = completedTasks[task.id];
-        if (Array.isArray(completions) && completions.length > 0) {
-            completedCount++;
-        }
-    });
-    return completedCount;
-  };
-  
-  const totalTaskCount = shift.sections.flatMap(s => s.tasks).length;
-  const completedTaskCount = getCompletedTaskCount(report.completedTasks);
-
 
   return (
     <>
@@ -163,37 +143,48 @@ export default function ReportDetailPage() {
         <Button asChild variant="ghost" className="mb-4 -ml-4">
             <Link href="/reports">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Quay lại tất cả báo cáo
+                Quay lại danh sách
             </Link>
         </Button>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
             <div>
-                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Chi tiết báo cáo {shift.name}</h1>
+                 <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo {shift.name}</h1>
                 <p className="text-muted-foreground">
-                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                Ngày {new Date(date).toLocaleDateString('vi-VN')}
                 </p>
             </div>
-            <div>
-                 {report.status === 'submitted' ? (
-                    <Badge variant="default" className="text-base">
-                        <CheckCircle className="mr-1.5 h-4 w-4" />
-                        Đã nộp
-                    </Badge>
-                ) : (
-                    <Badge variant="outline" className="text-blue-600 border-blue-600/50 text-base">
-                        <Clock className="mr-1.5 h-4 w-4 animate-pulse" />
-                        Đang diễn ra
-                    </Badge>
-                )}
-            </div>
+            <Card className="w-full md:w-auto md:min-w-[250px]">
+                <CardHeader className="p-3">
+                     <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chọn nhân viên</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0">
+                    <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Chọn một nhân viên..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {reports.map(r => (
+                                <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </CardContent>
+            </Card>
         </div>
       </header>
 
+    {!report ? (
+        <div className="text-center py-16 text-muted-foreground">
+            <p>Vui lòng chọn một nhân viên để xem báo cáo.</p>
+        </div>
+    ) : (
       <div className="space-y-8">
           <Card>
             <CardHeader>
               <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
-              <CardDescription>{completedTaskCount} trên {totalTaskCount} nhiệm vụ đã được đánh dấu là hoàn thành.</CardDescription>
+               <CardDescription>
+                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
@@ -276,33 +267,8 @@ export default function ReportDetailPage() {
               </CardContent>
             </Card>
           )}
-
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ImageIcon /> Toàn bộ hình ảnh</CardTitle>
-              <CardDescription>Tổng hợp tất cả hình ảnh từ báo cáo này.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {allPagePhotos.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                  {allPagePhotos.map((photo, index) => (
-                     <button
-                        onClick={() => openLightbox(photo.src)}
-                        key={index}
-                        className="relative aspect-square overflow-hidden rounded-md group bg-muted"
-                      >
-                        <Image src={photo.src} alt={`Report photo ${index + 1}`} fill className="object-cover" data-ai-hint="work area" />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                    <p>Không có ảnh nào được tải lên cho ca này.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
       </div>
+    )}
     </div>
      <Lightbox
         open={isLightboxOpen}
@@ -317,4 +283,10 @@ export default function ReportDetailPage() {
   );
 }
 
-    
+export default function ByShiftPage() {
+    return (
+        <Suspense fallback={<div>Đang tải...</div>}>
+            <ReportView />
+        </Suspense>
+    )
+}
