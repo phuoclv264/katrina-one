@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -50,6 +50,8 @@ export default function ChecklistPage() {
   
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
+
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
 
 
   // --- Data Loading and Initialization ---
@@ -307,6 +309,18 @@ export default function ChecklistPage() {
     }
   }, [report, updateLocalReport]);
 
+  const toggleExpandTask = useCallback((taskId: string) => {
+    setExpandedTaskIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  }, []);
+
   const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
@@ -392,6 +406,7 @@ export default function ChecklistPage() {
                         const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
                         const isCompletedOnce = completions.length > 0;
                         const isDisabledForNew = (isSingleCompletionSection && isCompletedOnce) || isReadonly;
+                        const isExpanded = expandedTaskIds.has(task.id);
                         
                         return (
                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
@@ -411,8 +426,8 @@ export default function ChecklistPage() {
                             </div>
                             
                             {isCompletedOnce && (
-                                <div className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-2">
-                                {completions.map((completion, cIndex) => (
+                                <div className="mt-4 space-y-3">
+                                {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => (
                                 <div key={cIndex} className="rounded-md border bg-card p-3">
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -479,6 +494,12 @@ export default function ChecklistPage() {
                                     )}
                                 </div>
                                 ))}
+                                {completions.length > 1 && (
+                                    <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
+                                        {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1})`}
+                                        {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
+                                    </Button>
+                                )}
                                 </div>
                             )}
                           </div>
@@ -619,3 +640,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
