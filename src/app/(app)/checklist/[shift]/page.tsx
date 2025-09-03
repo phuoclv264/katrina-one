@@ -462,7 +462,7 @@ export default function ChecklistPage() {
                                                 <Button 
                                                     variant="destructive"
                                                     size="icon"
-                                                    className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-20"
+                                                    className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
                                                     onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo); }}
                                                 >
                                                     <X className="h-3 w-3" />
@@ -617,3 +617,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
