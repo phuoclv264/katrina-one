@@ -47,6 +47,8 @@ export default function ChecklistPage() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>()
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
+  
+  const [issueInputValue, setIssueInputValue] = useState('');
 
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
@@ -75,6 +77,7 @@ export default function ChecklistPage() {
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             setReport(loadedReport);
+            setIssueInputValue(loadedReport.issues || '');
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
                 setShowSyncDialog(true);
@@ -171,11 +174,12 @@ export default function ChecklistPage() {
       
       if (taskCompletions[completionIndex].photos.length === 0) {
           taskCompletions.splice(completionIndex, 1);
-          if (taskCompletions.length === 0) {
-              delete newReport.completedTasks[taskId];
-          }
+      }
+      
+      if (taskCompletions.length === 0) {
+          delete newReport.completedTasks[taskId];
       } else {
-        newReport.completedTasks[taskId] = taskCompletions;
+          newReport.completedTasks[taskId] = taskCompletions;
       }
       
       await updateLocalReport(newReport);
@@ -238,6 +242,7 @@ export default function ChecklistPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        setIssueInputValue(serverReport.issues || '');
         setSyncStatus('synced');
          toast({
             title: "Tải thành công!",
@@ -296,13 +301,16 @@ export default function ChecklistPage() {
         setIsPreviewOpen(true);
     }
   };
-
-  const handleIssuesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if(!report) return;
-    const newReport = { ...report, issues: e.target.value };
-    updateLocalReport(newReport);
-  };
   
+  const handleIssuesBlur = () => {
+    if(!report) return;
+    // Only update if the value has actually changed
+    if (issueInputValue !== report.issues) {
+      const newReport = { ...report, issues: issueInputValue };
+      updateLocalReport(newReport);
+    }
+  };
+
   const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
@@ -493,8 +501,9 @@ export default function ChecklistPage() {
           <CardContent>
             <Textarea
               placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
-              value={report.issues || ''}
-              onChange={handleIssuesChange}
+              value={issueInputValue}
+              onChange={(e) => setIssueInputValue(e.target.value)}
+              onBlur={handleIssuesBlur}
               disabled={isReadonly}
             />
           </CardContent>
@@ -622,3 +631,5 @@ export default function ChecklistPage() {
     </>
   );
 }
+
+    
