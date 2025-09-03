@@ -22,6 +22,8 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
+import Captions from "yet-another-react-lightbox/plugins/captions";
+import "yet-another-react-lightbox/plugins/captions.css";
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -96,9 +98,30 @@ export default function ChecklistPage() {
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
-    return Object.values(report.completedTasks)
-      .flat()
-      .flatMap(c => (c as CompletionRecord).photos.map(photoUrl => ({src: photoUrl})));
+
+    const findTaskText = (taskId: string): string => {
+        for (const section of shift.sections) {
+            const task = section.tasks.find(t => t.id === taskId);
+            if (task) return task.text;
+        }
+        return "Nhiệm vụ không xác định";
+    };
+
+    const photos = [];
+    for (const taskId in report.completedTasks) {
+        const taskText = findTaskText(taskId);
+        const completions = report.completedTasks[taskId] as CompletionRecord[];
+        for (const completion of completions) {
+            for (const photoUrl of completion.photos) {
+                photos.push({
+                    src: photoUrl,
+                    title: taskText,
+                    description: `Thực hiện lúc: ${completion.timestamp}`
+                });
+            }
+        }
+    }
+    return photos;
   }, [shift, report]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
@@ -590,14 +613,11 @@ export default function ChecklistPage() {
         close={() => setIsLightboxOpen(false)}
         slides={allPagePhotos}
         index={lightboxIndex}
-        plugins={[Zoom, Counter]}
+        plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
+        captions={{ showToggle: true, descriptionTextAlign: 'center' }}
     />
     </>
   );
 }
-
-    
-
-    
