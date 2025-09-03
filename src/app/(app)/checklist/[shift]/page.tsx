@@ -20,6 +20,8 @@ import ShiftNotesCard from '@/components/shift-notes-card';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import Counter from "yet-another-react-lightbox/plugins/counter";
+import "yet-another-react-lightbox/plugins/counter.css";
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -583,8 +585,9 @@ export default function ChecklistPage() {
         close={() => setIsLightboxOpen(false)}
         slides={allPagePhotos}
         index={lightboxIndex}
-        plugins={[Zoom]}
+        plugins={[Zoom, Counter]}
         zoom={{ maxZoomPixelRatio: 4 }}
+        counter={{ container: { style: { top: "unset", bottom: 0 } } }}
     />
     </>
   );
