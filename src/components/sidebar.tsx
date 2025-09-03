@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -12,7 +11,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -21,15 +20,32 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   const staffMenu = [
-    { href: '/shifts', label: 'Ca làm việc của tôi', icon: CheckSquare },
+    { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
+  ];
+  
+  const bartenderMenu = [
+    { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
+    { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh', icon: ClipboardList },
+    { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive },
   ];
 
   const managerMenu = [
     { href: '/reports', label: 'Báo cáo ca', icon: FileText },
     { href: '/task-lists', label: 'Danh sách công việc', icon: ClipboardList },
   ];
+  
+  const getMenuItems = () => {
+      switch(user?.role) {
+          case 'Phục vụ': return staffMenu;
+          case 'Pha chế': return bartenderMenu;
+          case 'Quản lý':
+          case 'Chủ nhà hàng':
+              return managerMenu;
+          default: return [];
+      }
+  }
 
-  const menuItems = (user?.role === 'Phục vụ' || user?.role === 'Pha chế') ? staffMenu : managerMenu;
+  const menuItems = getMenuItems();
   const displayName = user?.displayName ?? 'Đang tải...';
   const displayRole = user?.role ?? '';
   
@@ -57,7 +73,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <Link href={item.href}>
                 <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href)}
+                  isActive={pathname === item.href}
                   tooltip={item.label}
                 >
                   <item.icon />
@@ -93,5 +109,3 @@ export function AppSidebar() {
     </>
   );
 }
-
-    

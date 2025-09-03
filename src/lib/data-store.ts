@@ -16,8 +16,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord } from './types';
-import { tasksByShift as initialTasksByShift } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList } from './data';
 import { v4 as uuidv4 } from 'uuid';
 
 const getTodaysDateKey = () => {
@@ -33,7 +33,7 @@ const cleanupOldLocalStorage = () => {
     if (typeof window === 'undefined') return;
     const todayKey = getTodaysDateKey();
     Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('report-') && !key.includes(todayKey)) {
+        if ((key.startsWith('report-') || key.startsWith('inventory-report-')) && !key.includes(todayKey)) {
             localStorage.removeItem(key);
         }
     });
@@ -61,6 +61,95 @@ export const dataStore = {
     const docRef = doc(db, 'app-data', 'tasks');
     await setDoc(docRef, newTasks);
   },
+  
+  subscribeToBartenderTasks(callback: (tasks: TaskSection[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'bartenderTasks');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data().tasks as TaskSection[]);
+      } else {
+        await setDoc(docRef, { tasks: initialBartenderTasks });
+        callback(initialBartenderTasks);
+      }
+    });
+    return unsubscribe;
+  },
+  
+  subscribeToInventoryList(callback: (items: InventoryItem[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'inventoryList');
+     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data().items as InventoryItem[]);
+      } else {
+        await setDoc(docRef, { items: initialInventoryList });
+        callback(initialInventoryList);
+      }
+    });
+    return unsubscribe;
+  },
+  
+  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<InventoryReport> {
+    if (typeof window === 'undefined') {
+       throw new Error("Cannot get report from server-side.");
+    }
+    const date = getTodaysDateKey();
+    const reportId = `inventory-report-${userId}-${date}`;
+    const localReportString = localStorage.getItem(reportId);
+    if(localReportString) {
+        return JSON.parse(localReportString);
+    }
+    
+    const firestoreRef = doc(db, 'inventory-reports', reportId);
+    const serverDoc = await getDoc(firestoreRef);
+    if (serverDoc.exists()) {
+        const data = serverDoc.data();
+        const report = {
+            ...data,
+            id: serverDoc.id,
+            date,
+            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString(),
+        } as InventoryReport;
+        localStorage.setItem(reportId, JSON.stringify(report));
+        return report;
+    }
+
+    const newReport: InventoryReport = {
+        id: reportId,
+        userId,
+        staffName,
+        date,
+        status: 'ongoing',
+        stockLevels: {},
+        suggestions: null,
+        lastUpdated: new Date().toISOString(),
+    };
+    // Don't save to local/remote yet, just return the structure.
+    return newReport;
+  },
+
+  async saveInventoryReport(report: InventoryReport): Promise<void> {
+    if (typeof window === 'undefined') return;
+    
+    const reportToSave = {
+        ...report,
+        lastUpdated: serverTimestamp(),
+        // Convert dates back to Timestamps if they exist
+        submittedAt: report.submittedAt ? Timestamp.fromDate(new Date(report.submittedAt)) : undefined,
+    };
+    
+    // Save to local storage first
+    const localReport = {
+        ...report,
+        lastUpdated: new Date().toISOString()
+    }
+    localStorage.setItem(report.id, JSON.stringify(localReport));
+    
+    // Then save to Firestore
+    const firestoreRef = doc(db, 'inventory-reports', report.id);
+    await setDoc(firestoreRef, reportToSave, { merge: true });
+  },
+
 
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{report: ShiftReport, status: 'synced' | 'local-newer' | 'server-newer' | 'error' }> {
     if (typeof window === 'undefined') {
@@ -76,7 +165,6 @@ export const dataStore = {
     try {
         const serverDoc = await getDoc(firestoreRef);
 
-        // Case 1: Brand new day. Nothing on local or server.
         if (!localReportString && !serverDoc.exists()) {
             const newReport: ShiftReport = {
                 id: reportId,
@@ -91,30 +179,26 @@ export const dataStore = {
                 issues: null,
                 uploadedPhotos: [],
             };
-            // Don't save it yet, only return the structure. It will be saved on first action.
             return { report: newReport, status: 'synced' };
         }
 
         let localReport: ShiftReport | null = localReportString ? JSON.parse(localReportString) : null;
         
-        // If nothing on local, but something on server, create local from server version
         if (!localReport && serverDoc.exists()) {
              const serverReport = await this.overwriteLocalReport(reportId);
              return { report: serverReport, status: 'synced' };
         }
         
-        // If something on local, but nothing on server, local is newer.
         if(localReport && !serverDoc.exists()){
             return { report: localReport, status: 'local-newer' };
         }
 
-        // If we have both, we must compare.
         if (localReport && serverDoc.exists()) {
             const serverReportData = serverDoc.data() as ShiftReport;
             const serverLastUpdated = (serverReportData.lastUpdated as Timestamp)?.toDate().getTime() || 0;
             const localLastUpdated = new Date(localReport.lastUpdated as string).getTime();
 
-            if (localLastUpdated > serverLastUpdated + 1000) { // Add 1s tolerance
+            if (localLastUpdated > serverLastUpdated + 1000) { 
                 return { report: localReport, status: 'local-newer' };
             } else if (serverLastUpdated > localLastUpdated + 1000) {
                 return { report: localReport, status: 'server-newer' };
@@ -123,12 +207,10 @@ export const dataStore = {
             }
         }
         
-        // Fallback: This handles the case where local exists but server check fails/is weird. We trust local.
         if (localReport) {
             return { report: localReport, status: 'local-newer' };
         }
 
-        // Final fallback: should be unreachable, but creates a new report structure.
          const newReport: ShiftReport = {
             id: reportId,
             userId,
@@ -147,7 +229,6 @@ export const dataStore = {
 
     } catch(error) {
         console.error("Firebase fetch failed, running in offline mode.", error);
-        // If we can't reach the server, trust whatever is local or create new.
         if (localReportString) {
              return { report: JSON.parse(localReportString), status: 'error' };
         }
@@ -193,7 +274,6 @@ export const dataStore = {
     const firestoreRef = doc(db, 'reports', report.id);
     const reportToSubmit = JSON.parse(JSON.stringify(report));
   
-    // --- Parallel Image Upload ---
     const photosToUpload: {dataUri: string}[] = [];
     for (const taskId in reportToSubmit.completedTasks) {
       for (const completion of reportToSubmit.completedTasks[taskId]) {
@@ -234,7 +314,6 @@ export const dataStore = {
         });
       }
     }
-    // --- End of Parallel Upload Logic ---
   
     reportToSubmit.uploadedPhotos = Array.from(urlSet);
     reportToSubmit.status = 'submitted';
@@ -244,13 +323,9 @@ export const dataStore = {
   
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
   
-    // After successful submission, update the local report to match
-    // This is an approximation. The real timestamps are on the server.
-    // A full sync (overwriteLocalReport) would be more accurate but this is faster.
     const finalReport: ShiftReport = {
       ...reportToSubmit,
       startedAt: (reportToSubmit.startedAt as Timestamp).toDate().toISOString(),
-      // We don't know the exact server timestamp, so we use local time as an approximation for the UI
       submittedAt: new Date().toISOString(), 
       lastUpdated: new Date().toISOString(), 
     };
@@ -295,7 +370,7 @@ export const dataStore = {
                 lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
             } as ShiftReport);
         });
-        callback(reports);
+        callback(reports.filter(r => r.status === 'submitted'));
      });
   },
 
@@ -319,7 +394,6 @@ export const dataStore = {
                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
            } as ShiftReport);
        });
-       // Sắp xếp trên client
        reports.sort((a, b) => {
          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;

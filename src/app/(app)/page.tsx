@@ -13,8 +13,10 @@ export default function AppRootPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'Phục vụ' || user.role === 'Pha chế') {
+      if (user.role === 'Phục vụ') {
         router.replace('/shifts');
+      } else if (user.role === 'Pha chế') {
+        router.replace('/bartender');
       } else if (user.role === 'Quản lý' || user.role === 'Chủ nhà hàng') {
         router.replace('/reports');
       }

@@ -37,8 +37,10 @@ export const useAuth = () => {
 
           // Redirect based on role after login or on page load
           if (pathname === '/') {
-             if (userRole === 'Phục vụ' || userRole === 'Pha chế') {
+             if (userRole === 'Phục vụ') {
                 router.replace('/shifts');
+            } else if (userRole === 'Pha chế') {
+                router.replace('/bartender');
             } else if (userRole === 'Quản lý' || userRole === 'Chủ nhà hàng') {
                 router.replace('/reports');
             }

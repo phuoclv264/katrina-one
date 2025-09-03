@@ -1,5 +1,4 @@
 
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type Staff = {
@@ -59,4 +58,40 @@ export type ShiftReport = {
   // Photos that have been uploaded and have a firebase URL
   // This is mainly for the manager's view and for cleanup.
   uploadedPhotos: string[];
+};
+
+// --- Inventory Types ---
+
+export type InventoryItem = {
+    id: string;
+    name: string;
+    unit: string;
+    minStock: number;
+    orderSuggestion: string; // e.g., "4" or "5kg"
+};
+
+export type InventoryStockLevels = {
+    [itemId: string]: number; // current stock
+};
+
+export type InventoryOrderItem = {
+    itemId: string;
+    quantityToOrder: string;
+};
+
+export type InventoryOrderSuggestion = {
+    summary: string;
+    itemsToOrder: InventoryOrderItem[];
+};
+
+export type InventoryReport = {
+    id: string; // inventory-report-{userId}-{date}
+    userId: string;
+    staffName: string;
+    date: string; // YYYY-MM-DD
+    status: 'ongoing' | 'submitted';
+    stockLevels: InventoryStockLevels;
+    suggestions: InventoryOrderSuggestion | null;
+    lastUpdated: string | Timestamp;
+    submittedAt?: string | Timestamp;
 };
