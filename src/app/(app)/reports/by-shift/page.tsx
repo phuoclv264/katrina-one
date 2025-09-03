@@ -43,9 +43,10 @@ function ReportView() {
     });
 
     const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
-        setReports(fetchedReports);
-        if (fetchedReports.length > 0 && !selectedReportId) {
-            setSelectedReportId(fetchedReports[0].id);
+        const submittedReports = fetchedReports.filter(r => r.status === 'submitted');
+        setReports(submittedReports);
+        if (submittedReports.length > 0 && !selectedReportId) {
+            setSelectedReportId(submittedReports[0].id);
         }
         setIsLoading(false);
     });

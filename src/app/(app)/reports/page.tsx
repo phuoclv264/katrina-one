@@ -130,7 +130,7 @@ export default function ReportsPage() {
                              return sum + completed;
                           }, 0);
 
-                          const avgCompletion = shiftReports.length > 0 ? (totalCompletedTasks / (shiftReports.length * totalTasksInShift)) * 100 : 0;
+                          const avgCompletion = shiftReports.length > 0 && totalTasksInShift > 0 ? (totalCompletedTasks / (shiftReports.length * totalTasksInShift)) * 100 : 0;
                           
                           return (
                             <TableRow key={`${date}-${shiftKey}`}>

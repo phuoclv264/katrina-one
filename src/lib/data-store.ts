@@ -305,7 +305,6 @@ export const dataStore = {
       reportsCollection, 
       where('date', '==', date),
       where('shiftKey', '==', shiftKey),
-      where('status', '==', 'submitted'),
       orderBy('submittedAt', 'asc')
     );
 
