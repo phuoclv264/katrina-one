@@ -6,7 +6,7 @@ import type { Task, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -35,12 +35,15 @@ export default function BartenderTasksPage() {
       } else {
         const unsubscribe = dataStore.subscribeToBartenderTasks((data) => {
           setSections(data);
-          setOpenItems(data.map(s => s.title));
+          if (data.length > 0 && openItems.length === 0) {
+            setOpenItems(data.map(s => s.title));
+          }
           setIsLoading(false);
         });
         return () => unsubscribe();
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
   const handleUpdateAndSave = (newSections: TaskSection[]) => {
@@ -138,6 +141,15 @@ export default function BartenderTasksPage() {
     }
   }
 
+  const handleToggleAll = () => {
+    if (!sections) return;
+    if (openItems.length === sections.length) {
+      setOpenItems([]);
+    } else {
+      setOpenItems(sections.map(s => s.title));
+    }
+  };
+  
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -156,6 +168,8 @@ export default function BartenderTasksPage() {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
   }
 
+  const areAllSectionsOpen = sections && openItems.length === sections.length;
+
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
@@ -169,16 +183,12 @@ export default function BartenderTasksPage() {
                 <CardTitle>Danh sách công việc</CardTitle>
                 <CardDescription>Các thay đổi sẽ được lưu tự động.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setOpenItems(sections.map(s => s.title))}>
-                  <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                  Mở rộng tất cả
-              </Button>
-               <Button variant="outline" size="sm" onClick={() => setOpenItems([])}>
-                  <ChevronsUpDown className="mr-2 h-4 w-4"/>
-                  Thu gọn tất cả
-              </Button>
-          </div>
+            {sections && sections.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleToggleAll}>
+                    <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                    {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+                </Button>
+            )}
         </CardHeader>
         <CardContent>
           <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
@@ -259,5 +269,3 @@ export default function BartenderTasksPage() {
     </div>
   );
 }
-
-    

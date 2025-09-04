@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Star, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { Trash2, Plus, Star, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -38,13 +38,18 @@ export default function TaskListsPage() {
           // Initialize accordion state
           const initialOpenState: { [shiftKey: string]: string[] } = {};
           for (const shiftKey in tasks) {
-            initialOpenState[shiftKey] = tasks[shiftKey].sections.map(s => s.title);
+            if (!openSections[shiftKey]) { // Only initialize if not already set
+              initialOpenState[shiftKey] = tasks[shiftKey].sections.map(s => s.title);
+            }
           }
-          setOpenSections(initialOpenState);
+          if (Object.keys(initialOpenState).length > 0) {
+            setOpenSections(prev => ({...prev, ...initialOpenState}));
+          }
         });
         return () => unsubscribe();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
   const handleUpdateAndSave = (newTasks: TasksByShift) => {
@@ -126,6 +131,16 @@ export default function TaskListsPage() {
       return newState;
     });
   };
+
+  const handleToggleAll = (shiftKey: string) => {
+    if (!tasksByShift?.[shiftKey]) return;
+    const areAllOpen = (openSections[shiftKey] || []).length === tasksByShift[shiftKey].sections.length;
+    if (areAllOpen) {
+      setOpenSections(prev => ({ ...prev, [shiftKey]: [] }));
+    } else {
+      setOpenSections(prev => ({ ...prev, [shiftKey]: tasksByShift[shiftKey].sections.map(s => s.title) }));
+    }
+  };
   
   if(isLoading || authLoading) {
     return (
@@ -160,7 +175,9 @@ export default function TaskListsPage() {
           <TabsTrigger value="toi"><Moon className="mr-2"/>Ca Tối</TabsTrigger>
         </TabsList>
 
-        {Object.entries(tasksByShift).map(([shiftKey, shiftData]) => (
+        {Object.entries(tasksByShift).map(([shiftKey, shiftData]) => {
+          const areAllSectionsOpen = (openSections[shiftKey] || []).length === shiftData.sections.length;
+          return (
           <TabsContent value={shiftKey} key={shiftKey}>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -168,16 +185,12 @@ export default function TaskListsPage() {
                     <CardTitle className="flex items-center gap-2"><ListTodo /> Công việc {shiftData.name}</CardTitle>
                     <CardDescription>Danh sách này sẽ được hiển thị cho nhân viên vào đầu mỗi ca.</CardDescription>
                 </div>
-                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setOpenSections(prev => ({ ...prev, [shiftKey]: shiftData.sections.map(s => s.title) }))}>
+                 {shiftData.sections.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)}>
                         <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                        Mở rộng tất cả
+                        {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setOpenSections(prev => ({...prev, [shiftKey]: []}))}>
-                        <ChevronsUpDown className="mr-2 h-4 w-4"/>
-                        Thu gọn tất cả
-                    </Button>
-                </div>
+                 )}
               </CardHeader>
               <CardContent>
                 <Accordion 
@@ -241,10 +254,8 @@ export default function TaskListsPage() {
               </CardContent>
             </Card>
           </TabsContent>
-        ))}
+        )})}
       </Tabs>
     </div>
   );
 }
-
-    

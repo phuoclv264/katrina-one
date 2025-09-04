@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsDownUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -51,13 +51,16 @@ export default function ComprehensiveChecklistPage() {
             if (!newSection) {
               setNewSection(data[0].title);
             }
-            setOpenItems(data.map(s => s.title));
+            if (openItems.length === 0) {
+              setOpenItems(data.map(s => s.title));
+            }
           }
           setIsLoading(false);
         });
         return () => unsubscribe();
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router, newSection]);
 
   const handleUpdateAndSave = (newSections: ComprehensiveTaskSection[]) => {
@@ -187,6 +190,15 @@ export default function ComprehensiveChecklistPage() {
       }
   }
 
+  const handleToggleAll = () => {
+    if (!sections) return;
+    if (openItems.length === sections.length) {
+      setOpenItems([]);
+    } else {
+      setOpenItems(sections.map(s => s.title));
+    }
+  };
+
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -205,6 +217,8 @@ export default function ComprehensiveChecklistPage() {
   if (!sections) {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
   }
+
+  const areAllSectionsOpen = sections && openItems.length === sections.length;
 
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -286,16 +300,12 @@ export default function ComprehensiveChecklistPage() {
             <CardTitle>Danh sách hạng mục</CardTitle>
             <CardDescription>Xem và quản lý các hạng mục trong từng khu vực.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setOpenItems(sections.map(s => s.title))}>
+          {sections && sections.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleToggleAll}>
                   <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                  Mở rộng tất cả
+                  {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
               </Button>
-               <Button variant="outline" size="sm" onClick={() => setOpenItems([])}>
-                  <ChevronsUpDown className="mr-2 h-4 w-4"/>
-                  Thu gọn tất cả
-              </Button>
-          </div>
+          )}
         </CardHeader>
         <CardContent>
           <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
@@ -406,7 +416,3 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
-
-    
-
-    
