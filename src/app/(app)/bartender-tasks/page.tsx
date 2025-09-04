@@ -19,7 +19,7 @@ import { generateBartenderTasks } from '@/ai/flows/generate-bartender-tasks';
 import { sortTasks } from '@/ai/flows/sort-tasks';
 import type { GenerateBartenderTasksOutput } from '@/ai/flows/generate-bartender-tasks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { diffChars } from 'diff';
 
 
@@ -38,6 +38,7 @@ function AiAssistant({
     const [activeTab, setActiveTab] = useState('add');
 
     const [targetSection, setTargetSection] = useState('');
+    const [sortInstruction, setSortInstruction] = useState('');
 
     const [showAddPreview, setShowAddPreview] = useState(false);
     const [addPreviewTasks, setAddPreviewTasks] = useState<GenerateBartenderTasksOutput['tasks']>([]);
@@ -117,6 +118,10 @@ function AiAssistant({
             toast({ title: "Lỗi", description: "Vui lòng chọn một khu vực để sắp xếp.", variant: "destructive" });
             return;
         }
+        if (!sortInstruction.trim()) {
+            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu sắp xếp.", variant: "destructive" });
+            return;
+        }
 
         const sectionToSort = sections.find(s => s.title === targetSection);
         if (!sectionToSort || sectionToSort.tasks.length < 2) {
@@ -131,7 +136,8 @@ function AiAssistant({
             const currentTasks = sectionToSort.tasks.map(t => t.text);
             const result = await sortTasks({
                 context: `Bartender tasks for section: ${targetSection}`,
-                tasks: currentTasks
+                tasks: currentTasks,
+                userInstruction: sortInstruction,
             });
             
             if (!result || !result.sortedTasks || result.sortedTasks.length !== currentTasks.length) {
@@ -153,6 +159,7 @@ function AiAssistant({
         onSortTasks(sortPreview.newOrder, targetSection);
         toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại công việc trong khu vực "${targetSection}".` });
         setShowSortPreview(false);
+        setSortInstruction('');
     }
     
     const renderDiff = (oldText: string, newText: string) => {
@@ -235,7 +242,13 @@ function AiAssistant({
                         </Tabs>
                     </TabsContent>
                      <TabsContent value="sort" className="mt-4 space-y-4">
-                        <p className="text-sm text-muted-foreground">Chọn một khu vực và để AI sắp xếp lại các công việc trong đó theo một thứ tự logic và hiệu quả hơn.</p>
+                        <Textarea
+                            placeholder="Nhập yêu cầu của bạn, ví dụ: 'ưu tiên các việc liên quan đến máy pha cà phê lên đầu'"
+                            rows={2}
+                            value={sortInstruction}
+                            onChange={(e) => setSortInstruction(e.target.value)}
+                            disabled={isGenerating}
+                        />
                         <div className="flex flex-col sm:flex-row gap-2">
                              <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
                                 <SelectTrigger>
@@ -247,7 +260,7 @@ function AiAssistant({
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Button onClick={handleGenerateSort} disabled={isGenerating || !targetSection} className="w-full sm:w-auto">
+                            <Button onClick={handleGenerateSort} disabled={isGenerating || !targetSection || !sortInstruction.trim()} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp bằng AI
                             </Button>
@@ -675,3 +688,4 @@ export default function BartenderTasksPage() {
     </div>
   );
 }
+

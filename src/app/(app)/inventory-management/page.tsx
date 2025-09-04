@@ -36,6 +36,8 @@ function AiAssistant({
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('add');
     const { toast } = useToast();
+    const [sortInstruction, setSortInstruction] = useState('');
+
 
     const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
@@ -135,6 +137,10 @@ function AiAssistant({
             toast({ title: "Không cần sắp xếp", description: "Cần có ít nhất 2 mặt hàng để sắp xếp.", variant: "default" });
             return;
         }
+        if (!sortInstruction.trim()) {
+            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu sắp xếp.", variant: "destructive" });
+            return;
+        }
 
         setIsGenerating(true);
         toast({ title: "AI đang sắp xếp...", description: "Vui lòng đợi một lát. AI sẽ nhóm các mặt hàng theo chủng loại." });
@@ -143,7 +149,8 @@ function AiAssistant({
             const currentItems = inventoryList.map(t => t.name);
             const result = await sortTasks({
                 context: `A complete inventory list for a coffee shop. The list needs to be sorted by category (e.g., all 'TOPPING' items together, all 'TRÁI CÂY' items together, etc.).`,
-                tasks: currentItems
+                tasks: currentItems,
+                userInstruction: sortInstruction,
             });
 
             if (!result || !result.sortedTasks || result.sortedTasks.length !== currentItems.length) {
@@ -165,6 +172,7 @@ function AiAssistant({
         onItemsSorted(sortPreview.newOrder);
         toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại danh sách hàng tồn kho.` });
         setShowSortPreview(false);
+        setSortInstruction('');
     }
 
     const renderDiff = (oldText: string, newText: string) => {
@@ -224,8 +232,14 @@ function AiAssistant({
                             </Tabs>
                         </TabsContent>
                          <TabsContent value="sort" className="mt-4 space-y-4">
-                             <p className="text-sm text-muted-foreground">Để AI tự động sắp xếp lại toàn bộ danh sách hàng tồn kho của bạn theo từng chủng loại (ví dụ: Topping, Trái cây, Gia vị, v.v.).</p>
-                            <Button onClick={handleGenerateSort} disabled={isGenerating || inventoryList.length < 2}>
+                             <Textarea
+                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'nhóm tất cả các loại topping và trái cây lại với nhau'"
+                                rows={2}
+                                value={sortInstruction}
+                                onChange={(e) => setSortInstruction(e.target.value)}
+                                disabled={isGenerating}
+                            />
+                            <Button onClick={handleGenerateSort} disabled={isGenerating || inventoryList.length < 2 || !sortInstruction.trim()}>
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp toàn bộ bằng AI
                             </Button>

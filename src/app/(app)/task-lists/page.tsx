@@ -21,7 +21,7 @@ import { generateServerTasks } from '@/ai/flows/generate-server-tasks';
 import { sortTasks } from '@/ai/flows/sort-tasks';
 import type { GenerateServerTasksOutput } from '@/ai/flows/generate-server-tasks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 
@@ -42,6 +42,8 @@ function AiAssistant({
 
     const [targetShift, setTargetShift] = useState('');
     const [targetSection, setTargetSection] = useState('');
+    const [sortInstruction, setSortInstruction] = useState('');
+
 
     const [showAddPreview, setShowAddPreview] = useState(false);
     const [addPreviewTasks, setAddPreviewTasks] = useState<GenerateServerTasksOutput['tasks']>([]);
@@ -120,6 +122,10 @@ function AiAssistant({
             toast({ title: "Lỗi", description: "Vui lòng chọn ca và mục để sắp xếp.", variant: "destructive" });
             return;
         }
+        if (!sortInstruction.trim()) {
+            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu sắp xếp.", variant: "destructive" });
+            return;
+        }
 
         const sectionToSort = tasksByShift?.[targetShift]?.sections.find(s => s.title === targetSection);
         if (!sectionToSort || sectionToSort.tasks.length < 2) {
@@ -134,7 +140,8 @@ function AiAssistant({
             const currentTasks = sectionToSort.tasks.map(t => t.text);
             const result = await sortTasks({
                 context: `Server tasks for shift: ${tasksByShift?.[targetShift]?.name}, section: ${targetSection}`,
-                tasks: currentTasks
+                tasks: currentTasks,
+                userInstruction: sortInstruction,
             });
             
             if (!result || !result.sortedTasks || result.sortedTasks.length !== currentTasks.length) {
@@ -156,6 +163,7 @@ function AiAssistant({
         onSortTasks(sortPreview.newOrder, targetShift, targetSection);
         toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại công việc.` });
         setShowSortPreview(false);
+        setSortInstruction('');
     };
 
     const renderDiff = (oldText: string, newText: string) => {
@@ -258,7 +266,13 @@ function AiAssistant({
                         </Tabs>
                     </TabsContent>
                     <TabsContent value="sort" className="mt-4 space-y-4">
-                         <p className="text-sm text-muted-foreground">Chọn một ca và một mục để AI sắp xếp lại các công việc trong đó theo một thứ tự logic và hiệu quả hơn.</p>
+                         <Textarea
+                            placeholder="Nhập yêu cầu của bạn, ví dụ: 'ưu tiên các việc quan trọng lên đầu'"
+                            rows={2}
+                            value={sortInstruction}
+                            onChange={(e) => setSortInstruction(e.target.value)}
+                            disabled={isGenerating}
+                        />
                          <div className="flex flex-col sm:flex-row gap-2">
                             <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
                                 <SelectTrigger>
@@ -280,7 +294,7 @@ function AiAssistant({
                                      <SelectItem value="Cuối ca">Cuối ca</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button onClick={handleGenerateSort} disabled={isGenerating || !targetShift || !targetSection} className="w-full sm:w-auto">
+                            <Button onClick={handleGenerateSort} disabled={isGenerating || !targetShift || !targetSection || !sortInstruction.trim()} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp bằng AI
                             </Button>
@@ -726,3 +740,4 @@ export default function TaskListsPage() {
     </div>
   );
 }
+
