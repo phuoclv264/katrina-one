@@ -46,6 +46,7 @@ export default function ComprehensiveReportPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [activeTaskText, setActiveTaskText] = useState('');
   const [opinionText, setOpinionText] = useState('');
   
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
@@ -179,13 +180,14 @@ export default function ComprehensiveReportPage() {
     await updateLocalReport(newReport);
   };
   
-  const handleOpinionTaskAction = (taskId: string) => {
+  const handleOpinionTaskAction = (taskId: string, taskText: string) => {
       setActiveTaskId(taskId);
+      setActiveTaskText(taskText);
       setIsOpinionOpen(true);
   }
 
   const handleSaveOpinion = async () => {
-    if (!report || !activeTaskId || opinionText.trim() === '') return;
+    if (!report || !activeTaskId) return;
 
     const newReport = JSON.parse(JSON.stringify(report));
     let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
@@ -195,7 +197,7 @@ export default function ComprehensiveReportPage() {
     const newCompletion: CompletionRecord = {
       timestamp: formattedTime,
       photos: [],
-      opinion: opinionText.trim(),
+      opinion: opinionText.trim() || undefined,
     };
 
     taskCompletions.unshift(newCompletion);
@@ -321,6 +323,7 @@ export default function ComprehensiveReportPage() {
   const handleOpinionClose = useCallback(() => {
     setIsOpinionOpen(false);
     setActiveTaskId(null);
+    setActiveTaskText('');
     setOpinionText('');
   }, []);
   
@@ -482,7 +485,7 @@ export default function ComprehensiveReportPage() {
                                     <Button
                                         size="sm"
                                         className="w-full"
-                                        onClick={() => handleOpinionTaskAction(task.id)}
+                                        onClick={() => handleOpinionTaskAction(task.id, task.text)}
                                         disabled={isReadonly}
                                     >
                                         <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
@@ -602,13 +605,13 @@ export default function ComprehensiveReportPage() {
     <Dialog open={isOpinionOpen} onOpenChange={(open) => !open && handleOpinionClose()}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Ghi nhận ý kiến</DialogTitle>
-                <DialogDescription>
-                    Nhập ý kiến, đánh giá hoặc ghi chú của bạn cho hạng mục này.
+                <DialogTitle>Ghi nhận ý kiến cho:</DialogTitle>
+                <DialogDescription className="font-semibold text-foreground">
+                  "{activeTaskText}"
                 </DialogDescription>
             </DialogHeader>
             <Textarea
-                placeholder="Nhập ý kiến của bạn ở đây..."
+                placeholder="Nhập ý kiến, đánh giá của bạn ở đây... (có thể bỏ trống)"
                 rows={4}
                 value={opinionText}
                 onChange={(e) => setOpinionText(e.target.value)}
@@ -616,7 +619,7 @@ export default function ComprehensiveReportPage() {
             />
             <DialogFooter>
                 <Button variant="outline" onClick={handleOpinionClose}>Hủy</Button>
-                <Button onClick={handleSaveOpinion} disabled={opinionText.trim() === ''}>Lưu ý kiến</Button>
+                <Button onClick={handleSaveOpinion}>Lưu ý kiến</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
