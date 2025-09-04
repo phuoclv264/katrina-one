@@ -16,10 +16,15 @@ import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo,
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export function AppSidebar() {
+export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout, loading } = useAuth();
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
+
+  const handleNavigation = () => {
+    onNavigate();
+    setOpenMobile(false);
+  }
 
   const staffMenu = [
     { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
@@ -101,14 +106,17 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={() => setOpenMobile(false)}>
-              <Link href={item.href}>
+            <SidebarMenuItem key={item.href} onClick={handleNavigation}>
+              <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
+                  asChild
                   isActive={pathname === item.href}
                   tooltip={item.label}
                 >
-                  <item.icon />
-                  <span>{item.label}</span>
+                  <a>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </a>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

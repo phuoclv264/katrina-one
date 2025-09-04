@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
 import { MobileHeader } from '@/components/mobile-header';
@@ -15,12 +15,14 @@ export default function AppLayout({
 }: {
   children: React.ReactNode
 }) {
+  const [navKey, setNavKey] = useState(0);
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="offcanvas">
-        <AppSidebar />
+        <AppSidebar onNavigate={() => setNavKey(prev => prev + 1)} />
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset key={navKey}>
         <Suspense>
           <PageTransitionIndicator />
         </Suspense>
