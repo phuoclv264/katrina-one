@@ -1,10 +1,13 @@
 
 'use client';
 
+import { Suspense } from 'react';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
+import { MobileHeader } from '@/components/mobile-header';
 import { Button } from '@/components/ui/button';
 import { PanelLeft } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AppLayout({
   children,
@@ -24,7 +27,9 @@ export default function AppLayout({
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
           </SidebarTrigger>
-          <h1 className="text-lg font-semibold text-primary">Katrina One</h1>
+           <Suspense fallback={<Skeleton className="h-6 w-32" />}>
+             <MobileHeader />
+           </Suspense>
         </header>
         {children}
       </SidebarInset>
