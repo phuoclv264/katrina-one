@@ -367,7 +367,7 @@ export const dataStore = {
     let combinedReports: (ShiftReport | InventoryReport)[] = [];
 
     const shiftReportsCollection = collection(db, 'reports');
-    const shiftQ = query(shiftReportsCollection, where('status', '==', 'submitted'), orderBy('submittedAt', 'desc'));
+    const shiftQ = query(shiftReportsCollection, where('status', '==', 'submitted'));
     
     const inventoryReportsCollection = collection(db, 'inventory-reports');
     const inventoryQ = query(inventoryReportsCollection, where('status', '==', 'submitted'));
@@ -382,6 +382,13 @@ export const dataStore = {
                 submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
                 lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
             } as ShiftReport;
+        });
+
+        // Sort shift reports by date on the client
+        shiftReports.sort((a, b) => {
+             const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+             const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+             return timeB - timeA;
         });
         
         // Combine with inventory reports
