@@ -76,6 +76,11 @@ export const dataStore = {
     return unsubscribe;
   },
 
+  async updateBartenderTasks(newTasks: TaskSection[]) {
+    const docRef = doc(db, 'app-data', 'bartenderTasks');
+    await setDoc(docRef, { tasks: newTasks });
+  },
+
   subscribeToComprehensiveTasks(callback: (tasks: ComprehensiveTaskSection[]) => void): () => void {
     const docRef = doc(db, 'app-data', 'comprehensiveTasks');
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {

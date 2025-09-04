@@ -37,6 +37,7 @@ export function AppSidebar() {
   const ownerMenu = [
     { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
     { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
+    { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
     { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
     { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
     { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
