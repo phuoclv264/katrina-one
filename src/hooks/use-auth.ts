@@ -75,10 +75,14 @@ export const useAuth = () => {
       toast({ title: 'Đăng nhập thành công!' });
     } catch (error: any) {
       console.error(error);
+      let description = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        description = 'Email hoặc mật khẩu không chính xác.';
+      }
       toast({
         variant: 'destructive',
         title: 'Lỗi đăng nhập',
-        description: 'Email hoặc mật khẩu không chính xác.',
+        description: description,
       });
       setLoading(false);
     }
