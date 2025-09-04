@@ -99,11 +99,13 @@ function ComprehensiveReportView() {
         const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
-            for (const photoUrl of completion.photos) {
-                photos.push({
-                    src: photoUrl,
-                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                });
+            if (completion.photos) {
+                for (const photoUrl of completion.photos) {
+                    photos.push({
+                        src: photoUrl,
+                        description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                    });
+                }
             }
         }
     }
@@ -213,7 +215,7 @@ function ComprehensiveReportView() {
             <CardContent>
                 <Accordion type="multiple" defaultValue={taskSections.map(s => s.title)} className="w-full space-y-4">
                 {taskSections.map((section) => (
-                  <AccordionItem value={section.title} key={section.title} className="rounded-lg border bg-card">
+                  <AccordionItem value={section.title} key={section.title} className="rounded-lg border-[3px] bg-card border-primary/50">
                     <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
                       <div className="flex items-center gap-3">
                           <Building className="mr-3 h-5 w-5 text-primary" />
@@ -256,7 +258,7 @@ function ComprehensiveReportView() {
                                               </Badge>
                                             )}
                                         </div>
-                                        {completion.photos.length > 0 && (
+                                        {completion.photos && completion.photos.length > 0 && (
                                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                             {completion.photos.map((photo, pIndex) => (
                                                 <button

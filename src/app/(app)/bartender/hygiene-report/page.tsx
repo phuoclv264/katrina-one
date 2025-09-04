@@ -432,9 +432,7 @@ export default function HygieneReportPage() {
           </CardHeader>
           <CardContent>
             <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
-              {tasks.map((section) => {
-                const isCompletedOnce = section.tasks.every(task => (report.completedTasks[task.id] || []).length > 0);
-                return (
+              {tasks.map((section) => (
                 <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
                   <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
                      <div className="flex items-center">
@@ -546,7 +544,7 @@ export default function HygieneReportPage() {
                   </AccordionContent>
                 </AccordionItem>
                 )
-              })}
+              )}
             </Accordion>
           </CardContent>
         </Card>
