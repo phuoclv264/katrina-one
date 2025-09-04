@@ -266,7 +266,7 @@ export default function InventoryPage() {
                 <CardContent>
                     <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
                         {categorizedList.map(({ category, items }) => (
-                            <AccordionItem value={category} key={category} className="border rounded-lg">
+                            <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
                                 <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
                                     {category}
                                 </AccordionTrigger>

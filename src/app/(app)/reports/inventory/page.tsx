@@ -14,8 +14,14 @@ import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle } from 'lucide
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type ItemStatus = 'ok' | 'low' | 'out';
+
+type CategorizedList = {
+    category: string;
+    items: InventoryItem[];
+}[];
 
 function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
@@ -71,6 +77,25 @@ function InventoryReportView() {
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
   }, [reports, selectedReportId]);
+  
+  const categorizedList = useMemo((): CategorizedList => {
+      if (!inventoryList) return [];
+      
+      const categoryOrder: string[] = [];
+      const grouped: { [key: string]: InventoryItem[] } = {};
+
+      inventoryList.forEach(item => {
+          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+          if (!grouped[category]) {
+              grouped[category] = [];
+              categoryOrder.push(category);
+          }
+          grouped[category].push(item);
+      });
+      
+      return categoryOrder.map(category => ({ category, items: grouped[category] }));
+
+  }, [inventoryList]);
 
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
     const currentStock = report?.stockLevels[itemId];
@@ -168,33 +193,44 @@ function InventoryReportView() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="min-w-[250px]">Tên nguyên liệu</TableHead>
-                                <TableHead>Đơn vị</TableHead>
-                                <TableHead>Tồn tối thiểu</TableHead>
-                                <TableHead className="text-right w-[150px]">Tồn thực tế</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {inventoryList.map(item => {
-                                    const status = getItemStatus(item.id, item.minStock);
-                                    return (
-                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
-                                            <TableCell className="font-medium">{item.name}</TableCell>
-                                            <TableCell>{item.unit}</TableCell>
-                                            <TableCell>{item.minStock}</TableCell>
-                                            <TableCell className="text-right font-medium">
-                                                {report.stockLevels[item.id] ?? 'N/A'}
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    <Accordion type="multiple" defaultValue={categorizedList.map(c => c.category)} className="w-full space-y-4">
+                         {categorizedList.map(({ category, items }) => (
+                            <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
+                                <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
+                                    {category}
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 border-t">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="min-w-[250px]">Tên nguyên liệu</TableHead>
+                                                    <TableHead>Đơn vị</TableHead>
+                                                    <TableHead>Tồn tối thiểu</TableHead>
+                                                    <TableHead className="text-right w-[150px]">Tồn thực tế</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {items.map(item => {
+                                                    const status = getItemStatus(item.id, item.minStock);
+                                                    return (
+                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
+                                                            <TableCell className="font-medium">{item.name.split(' - ')[1] || item.name}</TableCell>
+                                                            <TableCell>{item.unit}</TableCell>
+                                                            <TableCell>{item.minStock}</TableCell>
+                                                            <TableCell className="text-right font-medium">
+                                                                {report.stockLevels[item.id] ?? 'N/A'}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
                 </CardContent>
             </Card>
         </div>
