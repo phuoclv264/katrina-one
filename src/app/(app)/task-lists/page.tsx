@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Star, ListTodo } from 'lucide-react';
+import { Trash2, Plus, Star, ListTodo, ArrowUp, ArrowDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -40,6 +40,7 @@ export default function TaskListsPage() {
   }, [user, authLoading, router]);
 
   const handleUpdateAndSave = (newTasks: TasksByShift) => {
+    setTasksByShift(newTasks); // Optimistic update
     dataStore.updateTasks(newTasks).then(() => {
       toast({
           title: "Đã lưu thay đổi!",
@@ -93,6 +94,20 @@ export default function TaskListsPage() {
     }
     handleUpdateAndSave(newTasksState);
   };
+  
+  const handleMoveTask = (shiftKey: string, sectionTitle: string, taskIndex: number, direction: 'up' | 'down') => {
+      if (!tasksByShift) return;
+      const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+      const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+      if (!section) return;
+
+      const tasks = section.tasks;
+      const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
+      if (newIndex < 0 || newIndex >= tasks.length) return;
+
+      [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
+      handleUpdateAndSave(newTasksState);
+  }
 
   const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical', value: string | boolean) => {
     setNewTask(current => {
@@ -152,10 +167,16 @@ export default function TaskListsPage() {
                       <AccordionContent className="p-4 border-t">
                         <div className="space-y-4">
                             <div className="space-y-2">
-                            {section.tasks.map(task => (
+                            {section.tasks.map((task, taskIndex) => (
                               <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
                                 {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                 <p className="flex-1 text-sm">{task.text}</p>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                  <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                  <ArrowDown className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
                                   <Trash2 className="h-4 w-4" />
                                   <span className="sr-only">Xóa công việc</span>

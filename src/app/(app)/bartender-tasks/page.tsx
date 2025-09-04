@@ -6,7 +6,7 @@ import type { Task, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -23,9 +23,7 @@ export default function BartenderTasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [newText, setNewText] = useState('');
-  const [newSectionTitle, setNewSectionTitle] = useState('');
   
-  const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
   const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
 
 
@@ -36,15 +34,12 @@ export default function BartenderTasksPage() {
       } else {
         const unsubscribe = dataStore.subscribeToBartenderTasks((data) => {
           setSections(data);
-          if (data.length > 0 && !newSectionTitle) {
-            setNewSectionTitle(data[0].title);
-          }
           setIsLoading(false);
         });
         return () => unsubscribe();
       }
     }
-  }, [user, authLoading, router, newSectionTitle]);
+  }, [user, authLoading, router]);
 
   const handleUpdateAndSave = (newSections: TaskSection[]) => {
     setSections(newSections); // Optimistic update
@@ -110,6 +105,28 @@ export default function BartenderTasksPage() {
     setEditingTask(null);
   };
   
+  const handleMoveTask = (sectionIndex: number, taskIndex: number, direction: 'up' | 'down') => {
+    if (!sections) return;
+    const newSections = [...sections];
+    const section = newSections[sectionIndex];
+    const tasks = section.tasks;
+    const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
+    if (newIndex < 0 || newIndex >= tasks.length) return;
+    
+    [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
+    handleUpdateAndSave(newSections);
+  };
+
+  const handleMoveSection = (sectionIndex: number, direction: 'up' | 'down') => {
+    if (!sections) return;
+    const newSections = [...sections];
+    const newIndex = direction === 'up' ? sectionIndex - 1 : sectionIndex + 1;
+    if (newIndex < 0 || newIndex >= newSections.length) return;
+
+    [newSections[sectionIndex], newSections[newIndex]] = [newSections[newIndex], newSections[sectionIndex]];
+    handleUpdateAndSave(newSections);
+  }
+  
   const getSectionIcon = (title: string) => {
     switch(title) {
         case 'Vệ sinh khu vực pha chế': return <Droplets className="h-5 w-5 text-blue-500"/>;
@@ -141,23 +158,34 @@ export default function BartenderTasksPage() {
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><UtensilsCrossed/> Quản lý Công việc Pha chế</h1>
-        <p className="text-muted-foreground">Thêm, sửa, xóa các hạng mục trong checklist Vệ sinh quầy của Pha chế.</p>
+        <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các hạng mục trong checklist Vệ sinh quầy của Pha chế.</p>
       </header>
       
       <Card>
         <CardContent className="pt-6">
           <Accordion type="multiple" defaultValue={sections.map(s => s.title)} className="w-full space-y-4">
-            {sections.map(section => (
+            {sections.map((section, sectionIndex) => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                <AccordionTrigger className="p-4 text-lg font-medium hover:no-underline">
-                  <div className="flex items-center gap-3 w-full">
-                    {getSectionIcon(section.title)}
-                    <span className="flex-1 text-left">{section.title}</span>
-                  </div>
-                </AccordionTrigger>
+                <div className="flex items-center p-2">
+                    <AccordionTrigger className="p-2 text-lg font-medium hover:no-underline flex-1">
+                    <div className="flex items-center gap-3 w-full">
+                        {getSectionIcon(section.title)}
+                        <span className="flex-1 text-left">{section.title}</span>
+                    </div>
+                    </AccordionTrigger>
+                     <div className="flex items-center gap-1 pl-4">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
+                            <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
+                            <ArrowDown className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+
                 <AccordionContent className="p-4 border-t">
                   <div className="space-y-2">
-                      {section.tasks.map(task => (
+                      {section.tasks.map((task, taskIndex) => (
                         <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
                             {editingTask?.taskId === task.id ? (
                                 <Input
@@ -169,13 +197,19 @@ export default function BartenderTasksPage() {
                                     }}
                                     onBlur={() => handleUpdateTask(section.title, task.id)}
                                     autoFocus
-                                    className="text-sm h-8"
+                                    className="text-sm h-8 flex-1"
                                 />
                             ) : (
                                <p className="flex-1 text-sm">{task.text}</p>
                             )}
                           
                           <div className="flex items-center gap-0">
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                <ArrowUp className="h-4 w-4" />
+                            </Button>
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                <ArrowDown className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
                                 <Pencil className="h-4 w-4" />
                             </Button>

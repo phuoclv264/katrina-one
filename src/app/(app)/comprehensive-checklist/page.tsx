@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -105,6 +105,15 @@ export default function ComprehensiveChecklistPage() {
       handleUpdateAndSave(newSectionsState);
       setEditingSection(null);
   }
+  
+  const handleMoveSection = (index: number, direction: 'up' | 'down') => {
+    if (!sections) return;
+    const newSections = [...sections];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= newSections.length) return;
+    [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
+    handleUpdateAndSave(newSections);
+  };
 
   // Task Management
   const handleAddTask = () => {
@@ -154,6 +163,17 @@ export default function ComprehensiveChecklistPage() {
     setEditingTask(null);
   };
   
+  const handleMoveTask = (sectionIndex: number, taskIndex: number, direction: 'up' | 'down') => {
+    if (!sections) return;
+    const newSections = [...sections];
+    const section = newSections[sectionIndex];
+    const tasks = section.tasks;
+    const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
+    if (newIndex < 0 || newIndex >= tasks.length) return;
+    [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
+    handleUpdateAndSave(newSections);
+  };
+  
   const getTaskTypeIcon = (type: 'photo' | 'boolean' | 'opinion') => {
       switch(type) {
           case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
@@ -186,7 +206,7 @@ export default function ComprehensiveChecklistPage() {
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><ListChecks/> Quản lý Hạng mục Kiểm tra Toàn diện</h1>
-        <p className="text-muted-foreground">Thêm, sửa, xóa các khu vực và hạng mục kiểm tra cho Quản lý.</p>
+        <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các khu vực, hạng mục kiểm tra cho Quản lý.</p>
       </header>
 
        <Card className="mb-8">
@@ -259,10 +279,10 @@ export default function ComprehensiveChecklistPage() {
       <Card>
         <CardContent className="pt-6">
           <Accordion type="multiple" defaultValue={sections.map(s => s.title)} className="w-full space-y-4">
-            {sections.map(section => (
+            {sections.map((section, sectionIndex) => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                <div className="flex items-center p-4">
-                    <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 p-0">
+                <div className="flex items-center p-2">
+                    <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 p-2">
                       <div className="flex items-center gap-3">
                         <Building className="h-5 w-5 text-primary"/>
                         {editingSection?.title === section.title ? (
@@ -285,6 +305,12 @@ export default function ComprehensiveChecklistPage() {
                     </AccordionTrigger>
                     
                     <div className="flex items-center gap-1 ml-auto pl-4" onClick={e => e.stopPropagation()}>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
                             <Pencil className="h-4 w-4" />
                         </Button>
@@ -312,7 +338,7 @@ export default function ComprehensiveChecklistPage() {
 
                 <AccordionContent className="p-4 border-t">
                   <div className="space-y-2">
-                      {section.tasks.map(task => (
+                      {section.tasks.map((task, taskIndex) => (
                         <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
                            {getTaskTypeIcon(task.type)}
                             {editingTask?.taskId === task.id ? (
@@ -325,13 +351,19 @@ export default function ComprehensiveChecklistPage() {
                                     }}
                                     onBlur={() => handleUpdateTask(section.title, task.id)}
                                     autoFocus
-                                    className="text-sm h-8"
+                                    className="text-sm h-8 flex-1"
                                 />
                             ) : (
                                <p className="flex-1 text-sm">{task.text}</p>
                             )}
                           
                           <div className="flex items-center gap-0">
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                <ArrowUp className="h-4 w-4" />
+                            </Button>
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                <ArrowDown className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
                                 <Pencil className="h-4 w-4" />
                             </Button>

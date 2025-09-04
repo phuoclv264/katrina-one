@@ -6,7 +6,7 @@ import type { InventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -38,6 +38,15 @@ export default function InventoryManagementPage() {
     if (!inventoryList) return;
     const newList = [...inventoryList];
     (newList[index] as any)[field] = value;
+    setInventoryList(newList);
+  };
+
+  const handleMoveItem = (index: number, direction: 'up' | 'down') => {
+    if (!inventoryList) return;
+    const newList = [...inventoryList];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= newList.length) return;
+    [newList[index], newList[newIndex]] = [newList[newIndex], newList[index]];
     setInventoryList(newList);
   };
   
@@ -100,7 +109,7 @@ export default function InventoryManagementPage() {
     <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
-        <p className="text-muted-foreground">Thêm, sửa, xóa các mặt hàng trong danh sách kiểm kê kho.</p>
+        <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
       </header>
 
       <Card>
@@ -131,7 +140,13 @@ export default function InventoryManagementPage() {
                                 <TableCell>
                                     <Input value={item.orderSuggestion} onChange={e => handleUpdate(index, 'orderSuggestion', e.target.value)} className="w-28"/>
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="text-right flex items-center justify-end gap-0">
+                                    <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(index, 'up')} disabled={index === 0}>
+                                        <ArrowUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(index, 'down')} disabled={index === inventoryList.length - 1}>
+                                        <ArrowDown className="h-4 w-4" />
+                                    </Button>
                                     <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -153,4 +168,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
