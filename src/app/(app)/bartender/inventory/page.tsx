@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -28,6 +28,7 @@ export default function InventoryPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const suggestionsCardRef = useRef<HTMLDivElement>(null);
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [report, setReport] = useState<InventoryReport | null>(null);
@@ -114,9 +115,6 @@ export default function InventoryPage() {
       setIsGenerating(true);
       
       try {
-        await dataStore.saveInventoryReport(report);
-        setHasUnsubmittedChanges(false);
-        
         toast({
             title: "Đang phân tích tồn kho...",
             description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
@@ -141,6 +139,12 @@ export default function InventoryPage() {
             title: "Đã có đề xuất đặt hàng!",
             description: "Danh sách các mặt hàng cần đặt đã được tạo."
         });
+
+        // Scroll to suggestions
+        setTimeout(() => {
+            suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+
 
       } catch (error) {
           console.error("Error generating suggestions:", error);
@@ -168,8 +172,11 @@ export default function InventoryPage() {
         setHasUnsubmittedChanges(false);
         toast({
             title: "Gửi báo cáo thành công!",
-            description: "Báo cáo kiểm kê tồn kho đã được lưu lại."
+            description: "Báo cáo kiểm kê tồn kho đã được lưu lại. Đang tạo đề xuất..."
         });
+        
+        // After submitting, automatically generate suggestions
+        await handleGenerateSuggestions();
         
     } catch (error) {
          console.error("Error submitting inventory report:", error);
@@ -246,7 +253,7 @@ export default function InventoryPage() {
                 <CheckCircle className="h-4 w-4" />
                 <AlertTitle>Báo cáo đã được gửi</AlertTitle>
                 <AlertDescription>
-                    Bạn đã gửi báo cáo này lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Bạn có thể gửi lại nếu cần cập nhật.
+                    Bạn đã gửi báo cáo này lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Bạn có thể gửi lại để cập nhật và nhận đề xuất mới.
                 </AlertDescription>
             </Alert>
         )}
@@ -299,7 +306,7 @@ export default function InventoryPage() {
                                                                     onChange={e => handleStockChange(item.id, parseFloat(e.target.value) || 0)}
                                                                     className="text-right"
                                                                     placeholder="Nhập..."
-                                                                    disabled={isSubmitting}
+                                                                    disabled={isSubmitting || isGenerating}
                                                                 />
                                                             </TableCell>
                                                         </TableRow>
@@ -315,19 +322,19 @@ export default function InventoryPage() {
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-1 space-y-8 sticky top-4">
+        <div className="lg:col-span-1 space-y-8 sticky top-4" ref={suggestionsCardRef}>
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isGenerating && (
+                    {(isSubmitting || isGenerating) && (
                         <div className="space-y-2 p-4 text-center">
                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground"/>
                             <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
                         </div>
                     )}
-                    {!isGenerating && suggestions && suggestions.itemsToOrder.length > 0 && (
+                    {!(isSubmitting || isGenerating) && suggestions && suggestions.itemsToOrder.length > 0 && (
                         <div className="space-y-4">
                             <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
                             <Table>
@@ -348,20 +355,13 @@ export default function InventoryPage() {
                             </Table>
                         </div>
                     )}
-                    {!isGenerating && suggestions && suggestions.itemsToOrder.length === 0 && (
+                    {!(isSubmitting || isGenerating) && suggestions && suggestions.itemsToOrder.length === 0 && (
                         <p className="text-center text-sm text-muted-foreground py-4">Tất cả hàng hoá đã đủ. Không cần đặt thêm.</p>
                     )}
-                    {!isGenerating && !suggestions &&(
+                    {!(isSubmitting || isGenerating) && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
-                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để AI tạo đề xuất.</p>
-                             <Button onClick={handleGenerateSuggestions} disabled={isGenerating || isSubmitting} className="w-full">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
-                                Tạo đề xuất đặt hàng
-                            </Button>
+                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất từ AI.</p>
                         </div>
-                    )}
-                    {isSubmitted && !suggestions && (
-                         <p className="text-center text-sm text-muted-foreground py-4">Báo cáo đã được gửi mà không có đề xuất nào được tạo.</p>
                     )}
                 </CardContent>
             </Card>
@@ -370,13 +370,14 @@ export default function InventoryPage() {
        <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
         <div className="relative">
           <Button 
-              size="icon"
-              className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
+              size="lg"
+              className="rounded-full shadow-lg h-16 w-auto px-6" 
               onClick={handleSubmit} 
-              disabled={isSubmitting}
-              aria-label="Gửi báo cáo tồn kho"
+              disabled={isSubmitting || isGenerating}
+              aria-label="Gửi báo cáo và nhận đề xuất"
           >
-              {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
+              {(isSubmitting || isGenerating) ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              <span className="ml-2">{ (isSubmitting || isGenerating) ? 'Đang xử lý...' : 'Gửi & Nhận đề xuất'}</span>
           </Button>
           {hasUnsubmittedChanges && (
             <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-background" />
@@ -386,3 +387,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+
