@@ -221,7 +221,7 @@ export default function InventoryPage() {
   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
+    <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
        <header className="mb-8">
           <Button asChild variant="ghost" className="-ml-4 mb-4">
               <Link href="/bartender">
@@ -312,8 +312,8 @@ export default function InventoryPage() {
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-1 space-y-8">
-            <Card className="sticky top-4">
+        <div className="lg:col-span-1 space-y-8 sticky top-4">
+            <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
                 </CardHeader>
@@ -362,22 +362,18 @@ export default function InventoryPage() {
                     )}
                 </CardContent>
             </Card>
-            <Card className="border-green-500/50">
-                <CardHeader>
-                    <CardTitle>Gửi Báo cáo</CardTitle>
-                    <CardDescription>Sau khi kiểm tra, hãy gửi báo cáo để lưu lại.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button className="w-full" size="lg" onClick={handleSubmit} disabled={isSubmitting || isSubmitted}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                        {isSubmitted ? 'Đã gửi' : 'Gửi báo cáo'}
-                    </Button>
-                    {isSubmitted && (
-                         <p className="text-xs text-muted-foreground mt-2 text-center">Báo cáo cho ngày hôm nay đã được gửi.</p>
-                    )}
-                </CardContent>
-            </Card>
         </div>
+      </div>
+      <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+        <Button 
+            size="icon"
+            className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
+            onClick={handleSubmit} 
+            disabled={isSubmitting || isSubmitted}
+            aria-label="Gửi báo cáo tồn kho"
+        >
+            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
+        </Button>
       </div>
     </div>
   );
