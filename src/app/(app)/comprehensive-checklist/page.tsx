@@ -181,7 +181,8 @@ export default function ComprehensiveChecklistPage() {
 
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
-  const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
+  const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string; newType: 'photo' | 'boolean' | 'opinion' } | null>(null);
+
 
   const [openItems, setOpenItems] = useState<string[]>([]);
 
@@ -326,18 +327,19 @@ export default function ComprehensiveChecklistPage() {
     handleUpdateAndSave(newSectionsState);
   };
 
-   const handleUpdateTask = (sectionTitle: string, taskId: string) => {
+   const handleUpdateTask = () => {
     if (!sections || !editingTask || editingTask.newText.trim() === '') {
         setEditingTask(null);
         return;
     };
 
     const newSectionsState = JSON.parse(JSON.stringify(sections));
-    const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
+    const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === editingTask.sectionTitle);
     if (section) {
-        const task = section.tasks.find((t: ComprehensiveTask) => t.id === taskId);
+        const task = section.tasks.find((t: ComprehensiveTask) => t.id === editingTask.taskId);
         if (task) {
             task.text = editingTask.newText.trim();
+            task.type = editingTask.newType;
         }
     }
     handleUpdateAndSave(newSectionsState);
@@ -576,21 +578,42 @@ export default function ComprehensiveChecklistPage() {
                   <div className="space-y-2">
                       {section.tasks.map((task, taskIndex) => (
                         <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
-                           {getTaskTypeIcon(task.type)}
+                           
                             {editingTask?.taskId === task.id ? (
-                                <Input
-                                    value={editingTask.newText}
-                                    onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleUpdateTask(section.title, task.id);
-                                        if (e.key === 'Escape') setEditingTask(null);
-                                    }}
-                                    onBlur={() => handleUpdateTask(section.title, task.id)}
-                                    autoFocus
-                                    className="text-sm h-8 flex-1"
-                                />
+                                <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                                    <Input
+                                        value={editingTask.newText}
+                                        onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleUpdateTask();
+                                            if (e.key === 'Escape') setEditingTask(null);
+                                        }}
+                                        autoFocus
+                                        className="text-sm h-9 flex-1"
+                                    />
+                                    <Select 
+                                        value={editingTask.newType} 
+                                        onValueChange={(value) => {
+                                            if (editingTask) {
+                                                setEditingTask({...editingTask, newType: value as 'photo' | 'boolean' | 'opinion'});
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
+                                            <SelectItem value="photo">Hình ảnh</SelectItem>
+                                            <SelectItem value="opinion">Ý kiến</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             ) : (
-                               <p className="flex-1 text-sm">{task.text}</p>
+                                <>
+                                  {getTaskTypeIcon(task.type)}
+                                  <p className="flex-1 text-sm">{task.text}</p>
+                                </>
                             )}
 
                           <div className="flex items-center gap-0">
@@ -605,9 +628,16 @@ export default function ComprehensiveChecklistPage() {
                                 </>
                             ): (
                                 <>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                  {editingTask?.taskId === task.id ? (
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={handleUpdateTask}>
+                                          <Check className="h-4 w-4 text-green-500" />
+                                      </Button>
+                                  ) : (
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
                                         <Pencil className="h-4 w-4" />
-                                    </Button>
+                                      </Button>
+                                  )}
+                                    
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -629,3 +659,5 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
+
+    
