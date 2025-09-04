@@ -387,6 +387,9 @@ export const dataStore = {
   
     reportToSubmit.uploadedPhotos = Array.from(urlSet);
     reportToSubmit.status = 'submitted';
+    // We use serverTimestamp to ensure the "source of truth" for time is the server,
+    // avoiding issues with client-side clock skew. The client's `startedAt` is converted
+    // to a Firestore Timestamp for consistency.
     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
     reportToSubmit.submittedAt = serverTimestamp();
     reportToSubmit.lastUpdated = serverTimestamp();
