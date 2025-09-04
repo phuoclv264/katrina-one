@@ -96,7 +96,7 @@ function ComprehensiveTasksAiGenerator({
     return (
         <Card className="mb-8">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
                     <Wand2 /> Thêm hàng loạt bằng AI
                 </CardTitle>
                 <CardDescription>Dán văn bản hoặc tải ảnh danh sách hạng mục để AI tự động thêm vào khu vực bạn chọn.</CardDescription>
@@ -415,7 +415,7 @@ export default function ComprehensiveChecklistPage() {
 
        <Card className="mb-8">
             <CardHeader>
-                <CardTitle>Quản lý Khu vực</CardTitle>
+                <CardTitle className="text-xl sm:text-2xl">Quản lý Khu vực</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -432,7 +432,7 @@ export default function ComprehensiveChecklistPage() {
 
       <Card className="mb-8">
           <CardHeader>
-              <CardTitle>Thêm hạng mục mới (Thủ công)</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl">Thêm hạng mục mới (Thủ công)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -481,25 +481,25 @@ export default function ComprehensiveChecklistPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <CardTitle>Danh sách hạng mục</CardTitle>
             <CardDescription>Xem và quản lý các hạng mục trong từng khu vực.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             {isSorting ? (
-                <Button variant="default" size="sm" onClick={toggleSortMode}>
+                <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                     <Check className="mr-2 h-4 w-4"/>
                     Xong
                 </Button>
             ) : (
-                <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                     <Shuffle className="mr-2 h-4 w-4"/>
                     Sắp xếp
                 </Button>
             )}
             {sections && sections.length > 0 && (
-                <Button variant="outline" size="sm" onClick={handleToggleAll}>
+                <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
                     <ChevronsDownUp className="mr-2 h-4 w-4"/>
                     {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
                 </Button>
@@ -629,5 +629,3 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
-
-    

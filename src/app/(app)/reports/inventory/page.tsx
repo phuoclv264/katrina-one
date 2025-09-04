@@ -130,7 +130,7 @@ function InventoryReportView() {
           </Button>
           <div className="flex flex-col md:flex-row gap-4 justify-between md:items-start">
             <div>
-              <h1 className="text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>
+              <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>
               <p className="text-muted-foreground">Ngày {new Date(date).toLocaleDateString('vi-VN')}</p>
             </div>
             <Card className="w-full md:w-auto md:min-w-[250px]">

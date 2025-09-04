@@ -128,7 +128,7 @@ function AiInventoryGenerator({
     return (
         <Card className="mb-8">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wand2 /> Thêm hàng loạt bằng AI</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Thêm hàng loạt bằng AI</CardTitle>
                 <CardDescription>Dán dữ liệu từ bảng tính hoặc tải ảnh lên để AI tự động tạo danh sách hàng tồn kho.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -423,35 +423,35 @@ export default function InventoryManagementPage() {
   return (
     <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
+        <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
       </header>
 
       <AiInventoryGenerator inventoryList={inventoryList} onItemsGenerated={onItemsGenerated} />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <CardTitle>Danh sách kho hiện tại</CardTitle>
                 <CardDescription>Các thay đổi về nội dung sẽ được lưu khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
             </div>
-             <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2 w-full sm:w-auto">
                  {isSorting ? (
-                    <Button variant="default" size="sm" onClick={toggleSortMode}>
+                    <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Check className="mr-2 h-4 w-4"/>
                         Xong
                     </Button>
                 ) : (
-                    <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                    <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Shuffle className="mr-2 h-4 w-4"/>
                         Sắp xếp
                     </Button>
                 )}
-                 <Button variant="outline" onClick={handleToggleAll} size="sm">
+                 <Button variant="outline" onClick={handleToggleAll} size="sm" className="w-full sm:w-auto">
                      <ChevronsDownUp className="mr-2 h-4 w-4"/>
                      {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
                  </Button>
-                <Button onClick={handleSaveChanges} size="sm">Lưu tất cả thay đổi</Button>
+                <Button onClick={handleSaveChanges} size="sm" className="w-full sm:w-auto">Lưu tất cả thay đổi</Button>
             </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -539,5 +539,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    

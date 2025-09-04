@@ -95,7 +95,7 @@ function BartenderTasksAiGenerator({
     return (
         <Card className="mb-8">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wand2 /> Thêm hàng loạt bằng AI</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Thêm hàng loạt bằng AI</CardTitle>
                 <CardDescription>Dán văn bản hoặc tải ảnh danh sách công việc để AI tự động thêm vào khu vực bạn chọn.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -363,25 +363,25 @@ export default function BartenderTasksPage() {
       <BartenderTasksAiGenerator sections={sections} onTasksGenerated={onAiTasksGenerated} />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1.5">
                 <CardTitle>Danh sách công việc</CardTitle>
                 <CardDescription>Các thay đổi về nội dung sẽ được lưu tự động.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
                  {isSorting ? (
-                    <Button variant="default" size="sm" onClick={toggleSortMode}>
+                    <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Check className="mr-2 h-4 w-4"/>
                         Xong
                     </Button>
                 ) : (
-                    <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                    <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Shuffle className="mr-2 h-4 w-4"/>
                         Sắp xếp
                     </Button>
                 )}
                 {sections && sections.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={handleToggleAll}>
+                    <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
                         <ChevronsDownUp className="mr-2 h-4 w-4"/>
                         {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
                     </Button>
@@ -484,5 +484,3 @@ export default function BartenderTasksPage() {
     </div>
   );
 }
-
-    

@@ -300,7 +300,7 @@ function HygieneReportView() {
           {report.issues && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-xl"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200">"{report.issues}"</p>
