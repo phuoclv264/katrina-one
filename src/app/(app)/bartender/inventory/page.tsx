@@ -308,7 +308,29 @@ export default function InventoryPage() {
                                     {category}
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
-                                    <div className="overflow-x-auto">
+                                     {/* Mobile View: List of cards */}
+                                    <div className="space-y-3 md:hidden">
+                                        {items.map(item => {
+                                            const status = getItemStatus(item.id, item.minStock);
+                                            return (
+                                                <div key={item.id} className={`rounded-lg border p-4 ${getStatusColorClass(status)}`}>
+                                                    <p className="font-semibold">{item.name.split(' - ')[1] || item.name}</p>
+                                                    <p className="text-sm text-muted-foreground mb-2">Đơn vị: {item.unit}</p>
+                                                     <Input
+                                                        type="text"
+                                                        value={report.stockLevels[item.id] ?? ''}
+                                                        onChange={e => handleStockChange(item.id, e.target.value)}
+                                                        className="text-left"
+                                                        placeholder="Nhập tồn thực tế..."
+                                                        disabled={isSubmitting || isGenerating}
+                                                    />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    
+                                     {/* Desktop View: Table */}
+                                    <div className="overflow-x-auto hidden md:block">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
@@ -412,3 +434,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    
