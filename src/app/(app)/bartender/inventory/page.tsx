@@ -269,7 +269,7 @@ export default function InventoryPage() {
                     )}
                 </CardHeader>
                 <CardContent>
-                    <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
+                    <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="w-full space-y-4">
                         {categorizedList.map(({ category, items }) => (
                             <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
                                 <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
@@ -282,7 +282,6 @@ export default function InventoryPage() {
                                                 <TableRow>
                                                     <TableHead className="min-w-[250px]">Tên nguyên liệu</TableHead>
                                                     <TableHead>Đơn vị</TableHead>
-                                                    <TableHead>Tồn tối thiểu</TableHead>
                                                     <TableHead className="text-right w-[150px]">Tồn thực tế</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -293,7 +292,6 @@ export default function InventoryPage() {
                                                         <TableRow key={item.id} className={getStatusColorClass(status)}>
                                                             <TableCell className="font-medium">{item.name.split(' - ')[1] || item.name}</TableCell>
                                                             <TableCell>{item.unit}</TableCell>
-                                                            <TableCell>{item.minStock}</TableCell>
                                                             <TableCell className="text-right">
                                                                 <Input
                                                                     type="number"
@@ -388,6 +386,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-
-    
