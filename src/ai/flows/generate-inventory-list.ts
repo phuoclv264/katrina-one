@@ -50,13 +50,13 @@ Analyze the following input and extract all items. Pay close attention to the co
 If the input is an image, use OCR to read the text from the image first.
 
 Input:
-{{#if inputText}}
+{{#if input.inputText}}
 \`\`\`
-{{{inputText}}}
+{{{input.inputText}}}
 \`\`\`
 {{/if}}
-{{#if imageDataUri}}
-{{media url=imageDataUri}}
+{{#if input.imageDataUri}}
+{{media url=input.imageDataUri}}
 {{/if}}
 
 Return the data as a JSON object matching the prescribed output schema.
@@ -70,7 +70,7 @@ const generateInventoryListFlow = ai.defineFlow(
         outputSchema: GenerateInventoryListOutputSchema,
     },
     async (input) => {
-        const { output } = await prompt(input);
+        const { output } = await prompt({input});
         return output!;
     }
 );
