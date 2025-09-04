@@ -233,6 +233,7 @@ export const dataStore = {
             const serverLastUpdated = (serverReportData.lastUpdated as Timestamp)?.toDate().getTime() || 0;
             const localLastUpdated = new Date(localReport.lastUpdated as string).getTime();
 
+            // Allow a small tolerance (e.g., 1000ms) to account for client/server time differences
             if (localLastUpdated > serverLastUpdated + 1000) { 
                 return { report: localReport, status: 'local-newer' };
             } else if (serverLastUpdated > localLastUpdated + 1000) {
@@ -364,13 +365,17 @@ export const dataStore = {
   
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
   
+    // After successful submission, refetch the report from the server to get accurate timestamps
+    const savedDoc = await getDoc(firestoreRef);
+    const savedData = savedDoc.data();
     const finalReport: ShiftReport = {
-      ...report, // Keep original id for local storage
-      ...reportToSubmit,
-      startedAt: (reportToSubmit.startedAt as Timestamp).toDate().toISOString(),
-      submittedAt: new Date().toISOString(), 
-      lastUpdated: new Date().toISOString(), 
-    };
+        ...report, // keep local fields like id
+        ...savedData,
+        startedAt: (savedData?.startedAt as Timestamp).toDate().toISOString(),
+        submittedAt: (savedData?.submittedAt as Timestamp).toDate().toISOString(),
+        lastUpdated: (savedData?.lastUpdated as Timestamp).toDate().toISOString(),
+    } as ShiftReport;
+
     await this.saveLocalReport(finalReport);
   },
 
