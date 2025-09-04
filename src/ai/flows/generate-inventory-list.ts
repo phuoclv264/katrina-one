@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const GenerateInventoryListInputSchema = z.object({
+const GenerateInventoryListInputSchema = z.object({
     source: z.enum(['text', 'image']),
     inputText: z.string().optional().describe('A string containing a table of inventory items, likely pasted from a spreadsheet.'),
     imageDataUri: z.string().optional().describe("A photo of an inventory list, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
