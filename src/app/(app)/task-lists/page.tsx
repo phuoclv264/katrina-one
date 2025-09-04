@@ -527,6 +527,19 @@ export default function TaskListsPage() {
     handleUpdateAndSave(newTasksState);
     setEditingTask(null);
   };
+  
+  const handleToggleCritical = (shiftKey: string, sectionTitle: string, taskId: string) => {
+      if (!tasksByShift) return;
+      const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+      const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+      if (section) {
+          const task = section.tasks.find((t: Task) => t.id === taskId);
+          if (task) {
+              task.isCritical = !task.isCritical;
+          }
+      }
+      handleUpdateAndSave(newTasksState);
+  };
 
   const handleDeleteTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
     if (!tasksByShift) return;
@@ -662,7 +675,6 @@ export default function TaskListsPage() {
                             <div className="space-y-2">
                             {section.tasks.map((task, taskIndex) => (
                               <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
-                                {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                 
                                 {editingTask?.taskId === task.id ? (
                                     <Input
@@ -677,7 +689,10 @@ export default function TaskListsPage() {
                                         className="text-sm h-8 flex-1"
                                     />
                                 ) : (
-                                   <p className="flex-1 text-sm">{task.text}</p>
+                                   <p className="flex-1 text-sm flex items-center gap-2">
+                                     {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                     {task.text}
+                                   </p>
                                 )}
 
                                 {isSorting ? (
@@ -691,6 +706,9 @@ export default function TaskListsPage() {
                                     </>
                                 ) : (
                                     <div className="flex items-center gap-0">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
+                                            <Star className={`h-4 w-4 ${task.isCritical ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
+                                        </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text })}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>
@@ -740,4 +758,3 @@ export default function TaskListsPage() {
     </div>
   );
 }
-
