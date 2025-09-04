@@ -24,7 +24,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateComprehensiveTasks } from '@/ai/flows/generate-comprehensive-tasks';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 function AiAssistant({
     sections,
@@ -697,3 +697,4 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
+
