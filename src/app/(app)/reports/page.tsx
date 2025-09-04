@@ -57,29 +57,29 @@ function DailySummaryGenerator({ date, reports, taskDefinitions }: { date: strin
     }
 
     return (
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-                <Button onClick={handleGenerate} variant="outline" size="sm" disabled={isGenerating}>
-                    {isGenerating ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                        <Wand2 className="mr-2 h-4 w-4" />
-                    )}
-                    Tóm tắt bằng AI
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>Tóm tắt báo cáo ngày {new Date(date).toLocaleDateString('vi-VN')}</DialogTitle>
-                    <DialogDescription>
-                        AI đã phân tích tất cả các báo cáo đã nộp trong ngày.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="prose prose-sm dark:prose-invert max-h-[70vh] overflow-y-auto rounded-md border p-4">
-                    <ReactMarkdown>{summary}</ReactMarkdown>
-                </div>
-            </DialogContent>
-        </Dialog>
+        <>
+            <Button onClick={handleGenerate} variant="outline" size="sm" disabled={isGenerating}>
+                {isGenerating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Wand2 className="mr-2 h-4 w-4" />
+                )}
+                Tóm tắt bằng AI
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Tóm tắt báo cáo ngày {new Date(date).toLocaleDateString('vi-VN')}</DialogTitle>
+                        <DialogDescription>
+                            AI đã phân tích tất cả các báo cáo đã nộp trong ngày.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="prose prose-sm dark:prose-invert max-h-[70vh] overflow-y-auto rounded-md border p-4">
+                        <ReactMarkdown>{summary}</ReactMarkdown>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 
