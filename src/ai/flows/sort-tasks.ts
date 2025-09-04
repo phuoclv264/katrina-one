@@ -59,8 +59,20 @@ const sortTasksFlow = ai.defineFlow(
     outputSchema: SortTasksOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+    try {
+      const { output } = await prompt(input);
+      return output!;
+    } catch (error: any) {
+      // Check for 503 Service Unavailable and retry once.
+      if (error.message && error.message.includes('503 Service Unavailable')) {
+        console.warn('AI model is overloaded. Retrying in 2 seconds...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const { output } = await prompt(input);
+        return output!;
+      }
+      // If it's another error, or retry fails, re-throw.
+      throw error;
+    }
   }
 );
 
