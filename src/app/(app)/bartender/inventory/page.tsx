@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -36,6 +36,8 @@ export default function InventoryPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [suggestions, setSuggestions] = useState<InventoryOrderSuggestion | null>(null);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
+
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
@@ -96,6 +98,7 @@ export default function InventoryPage() {
   
   const handleLocalSave = useCallback(async (updatedReport: InventoryReport) => {
       await dataStore.saveLocalInventoryReport(updatedReport);
+      setHasUnsubmittedChanges(true);
   }, []);
 
   const handleStockChange = (itemId: string, currentStock: number) => {
@@ -112,6 +115,7 @@ export default function InventoryPage() {
       
       try {
         await dataStore.saveInventoryReport(report);
+        setHasUnsubmittedChanges(false);
         
         toast({
             title: "Đang phân tích tồn kho...",
@@ -161,6 +165,7 @@ export default function InventoryPage() {
         const finalReport = { ...report, status: 'submitted' as const, submittedAt: new Date().toISOString() };
         await dataStore.saveInventoryReport(finalReport);
         setReport(finalReport);
+        setHasUnsubmittedChanges(false);
         toast({
             title: "Gửi báo cáo thành công!",
             description: "Báo cáo kiểm kê tồn kho đã được lưu lại."
@@ -237,11 +242,11 @@ export default function InventoryPage() {
           </div>
       </header>
        {isSubmitted && report.submittedAt && (
-            <Alert className="mb-8 border-green-500 text-green-700">
-                <Info className="h-4 w-4" />
+            <Alert className="mb-8 border-green-500 text-green-700 bg-green-50">
+                <CheckCircle className="h-4 w-4" />
                 <AlertTitle>Báo cáo đã được gửi</AlertTitle>
                 <AlertDescription>
-                    Bạn đã gửi báo cáo này lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Không thể chỉnh sửa thêm.
+                    Bạn đã gửi báo cáo này lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Bạn có thể gửi lại nếu cần cập nhật.
                 </AlertDescription>
             </Alert>
         )}
@@ -296,7 +301,7 @@ export default function InventoryPage() {
                                                                     onChange={e => handleStockChange(item.id, parseFloat(e.target.value) || 0)}
                                                                     className="text-right"
                                                                     placeholder="Nhập..."
-                                                                    disabled={isSubmitted}
+                                                                    disabled={isSubmitting}
                                                                 />
                                                             </TableCell>
                                                         </TableRow>
@@ -348,10 +353,10 @@ export default function InventoryPage() {
                     {!isGenerating && suggestions && suggestions.itemsToOrder.length === 0 && (
                         <p className="text-center text-sm text-muted-foreground py-4">Tất cả hàng hoá đã đủ. Không cần đặt thêm.</p>
                     )}
-                    {!isGenerating && !suggestions && !isSubmitted &&(
+                    {!isGenerating && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
                             <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để AI tạo đề xuất.</p>
-                             <Button onClick={handleGenerateSuggestions} disabled={isGenerating || isSubmitted} className="w-full">
+                             <Button onClick={handleGenerateSuggestions} disabled={isGenerating || isSubmitting} className="w-full">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
                                 Tạo đề xuất đặt hàng
                             </Button>
@@ -364,17 +369,25 @@ export default function InventoryPage() {
             </Card>
         </div>
       </div>
-      <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
-        <Button 
-            size="icon"
-            className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
-            onClick={handleSubmit} 
-            disabled={isSubmitting || isSubmitted}
-            aria-label="Gửi báo cáo tồn kho"
-        >
-            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
-        </Button>
+       <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+        <div className="relative">
+          <Button 
+              size="icon"
+              className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
+              onClick={handleSubmit} 
+              disabled={isSubmitting}
+              aria-label="Gửi báo cáo tồn kho"
+          >
+              {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
+          </Button>
+          {hasUnsubmittedChanges && (
+            <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-background" />
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+
+    
