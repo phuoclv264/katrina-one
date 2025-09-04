@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/ty
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -62,10 +62,12 @@ function ServerTasksAiGenerator({
 
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
+                setIsGenerating(false);
                 return;
             }
              if (!targetShift || !targetSection) {
                 toast({ title: "Lỗi", description: "Vui lòng chọn ca và khu vực để thêm công việc.", variant: "destructive" });
+                setIsGenerating(false);
                 return;
             }
 
@@ -185,6 +187,7 @@ export default function TaskListsPage() {
   const { toast } = useToast();
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSorting, setIsSorting] = useState(false);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
 
   const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
@@ -214,13 +217,15 @@ export default function TaskListsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
-  const handleUpdateAndSave = (newTasks: TasksByShift) => {
+  const handleUpdateAndSave = (newTasks: TasksByShift, showToast: boolean = true) => {
     setTasksByShift(newTasks); // Optimistic update
     dataStore.updateTasks(newTasks).then(() => {
-      toast({
-          title: "Đã lưu thay đổi!",
-          description: "Danh sách công việc đã được cập nhật trên cloud.",
-      });
+        if(showToast) {
+            toast({
+                title: "Đã lưu thay đổi!",
+                description: "Danh sách công việc đã được cập nhật trên cloud.",
+            });
+        }
     }).catch(err => {
        toast({
           title: "Lỗi!",
@@ -311,7 +316,7 @@ export default function TaskListsPage() {
       if (newIndex < 0 || newIndex >= tasks.length) return;
 
       [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
-      handleUpdateAndSave(newTasksState);
+      handleUpdateAndSave(newTasksState, false);
   }
 
   const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical', value: string | boolean) => {
@@ -333,6 +338,16 @@ export default function TaskListsPage() {
       setOpenSections(prev => ({ ...prev, [shiftKey]: tasksByShift[shiftKey].sections.map(s => s.title) }));
     }
   };
+
+  const toggleSortMode = () => {
+    const newSortState = !isSorting;
+    setIsSorting(newSortState);
+    if (!newSortState) {
+        toast({
+            title: "Đã lưu thứ tự mới!",
+        });
+    }
+  }
 
   if(isLoading || authLoading) {
     return (
@@ -379,12 +394,25 @@ export default function TaskListsPage() {
                     <CardTitle className="flex items-center gap-2"><ListTodo /> Công việc {shiftData.name}</CardTitle>
                     <CardDescription>Danh sách này sẽ được hiển thị cho nhân viên vào đầu mỗi ca.</CardDescription>
                 </div>
-                 {shiftData.sections.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)}>
-                        <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                        {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
-                    </Button>
-                 )}
+                 <div className="flex items-center gap-2">
+                    {isSorting ? (
+                        <Button variant="default" size="sm" onClick={toggleSortMode}>
+                            <Check className="mr-2 h-4 w-4"/>
+                            Xong
+                        </Button>
+                    ) : (
+                        <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                            <Shuffle className="mr-2 h-4 w-4"/>
+                            Sắp xếp
+                        </Button>
+                    )}
+                    {shiftData.sections.length > 0 && (
+                        <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)}>
+                            <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                            {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
+                        </Button>
+                    )}
+                 </div>
               </CardHeader>
               <CardContent>
                 <Accordion
@@ -395,7 +423,7 @@ export default function TaskListsPage() {
                 >
                   {shiftData.sections.map(section => (
                     <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                      <AccordionTrigger className="p-4 text-lg font-medium">{section.title}</AccordionTrigger>
+                      <AccordionTrigger className="p-4 text-lg font-medium" disabled={isSorting}>{section.title}</AccordionTrigger>
                       <AccordionContent className="p-4 border-t">
                         <div className="space-y-4">
                             <div className="space-y-2">
@@ -403,16 +431,21 @@ export default function TaskListsPage() {
                               <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
                                 {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                 <p className="flex-1 text-sm">{task.text}</p>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
-                                  <ArrowUp className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
-                                  <ArrowDown className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="sr-only">Xóa công việc</span>
-                                </Button>
+                                {isSorting ? (
+                                    <>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                            <ArrowUp className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                            <ArrowDown className="h-4 w-4" />
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">Xóa công việc</span>
+                                    </Button>
+                                )}
                               </div>
                             ))}
                             {section.tasks.length === 0 && (

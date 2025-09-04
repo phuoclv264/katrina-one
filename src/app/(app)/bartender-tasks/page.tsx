@@ -6,7 +6,7 @@ import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -61,10 +61,12 @@ function BartenderTasksAiGenerator({
 
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
+                setIsGenerating(false);
                 return;
             }
             if (!targetSection) {
                 toast({ title: "Lỗi", description: "Vui lòng chọn khu vực để thêm công việc.", variant: "destructive" });
+                setIsGenerating(false);
                 return;
             }
 
@@ -164,6 +166,7 @@ export default function BartenderTasksPage() {
   const { toast } = useToast();
   const [sections, setSections] = useState<TaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSorting, setIsSorting] = useState(false);
 
   const [newText, setNewText] = useState('');
 
@@ -189,13 +192,15 @@ export default function BartenderTasksPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
-  const handleUpdateAndSave = (newSections: TaskSection[]) => {
+  const handleUpdateAndSave = (newSections: TaskSection[], showToast: boolean = true) => {
     setSections(newSections); // Optimistic update
     dataStore.updateBartenderTasks(newSections).then(() => {
-      toast({
-        title: "Đã lưu thay đổi!",
-        description: "Danh sách công việc đã được cập nhật.",
-      });
+      if (showToast) {
+        toast({
+            title: "Đã lưu thay đổi!",
+            description: "Danh sách công việc đã được cập nhật.",
+        });
+      }
     }).catch(err => {
       toast({
         title: "Lỗi!",
@@ -260,7 +265,10 @@ export default function BartenderTasksPage() {
   };
 
    const handleUpdateTask = (sectionTitle: string, taskId: string) => {
-    if (!sections || !editingTask || editingTask.newText.trim() === '') return;
+    if (!sections || !editingTask || editingTask.newText.trim() === '') {
+        setEditingTask(null);
+        return;
+    }
 
     const newSectionsState = JSON.parse(JSON.stringify(sections));
     const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
@@ -283,7 +291,7 @@ export default function BartenderTasksPage() {
     if (newIndex < 0 || newIndex >= tasks.length) return;
 
     [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
-    handleUpdateAndSave(newSections);
+    handleUpdateAndSave(newSections, false);
   };
 
   const handleMoveSection = (sectionIndex: number, direction: 'up' | 'down') => {
@@ -293,7 +301,7 @@ export default function BartenderTasksPage() {
     if (newIndex < 0 || newIndex >= newSections.length) return;
 
     [newSections[sectionIndex], newSections[newIndex]] = [newSections[newIndex], newSections[sectionIndex]];
-    handleUpdateAndSave(newSections);
+    handleUpdateAndSave(newSections, false);
   }
 
   const getSectionIcon = (title: string) => {
@@ -313,6 +321,17 @@ export default function BartenderTasksPage() {
       setOpenItems(sections.map(s => s.title));
     }
   };
+
+  const toggleSortMode = () => {
+    const newSortState = !isSorting;
+    setIsSorting(newSortState);
+    if (!newSortState) {
+      toast({
+        title: "Đã lưu thứ tự mới!",
+      });
+    }
+  };
+
 
   if (isLoading || authLoading) {
     return (
@@ -347,34 +366,49 @@ export default function BartenderTasksPage() {
         <CardHeader className="flex flex-row items-center justify-between">
             <div className="space-y-1.5">
                 <CardTitle>Danh sách công việc</CardTitle>
-                <CardDescription>Các thay đổi sẽ được lưu tự động.</CardDescription>
+                <CardDescription>Các thay đổi về nội dung sẽ được lưu tự động.</CardDescription>
             </div>
-            {sections && sections.length > 0 && (
-                <Button variant="outline" size="sm" onClick={handleToggleAll}>
-                    <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                    {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
-                </Button>
-            )}
+            <div className="flex items-center gap-2">
+                 {isSorting ? (
+                    <Button variant="default" size="sm" onClick={toggleSortMode}>
+                        <Check className="mr-2 h-4 w-4"/>
+                        Xong
+                    </Button>
+                ) : (
+                    <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                        <Shuffle className="mr-2 h-4 w-4"/>
+                        Sắp xếp
+                    </Button>
+                )}
+                {sections && sections.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={handleToggleAll}>
+                        <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                        {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
+                    </Button>
+                )}
+            </div>
         </CardHeader>
         <CardContent>
           <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
             {sections.map((section, sectionIndex) => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
                 <div className="flex items-center p-2">
-                    <AccordionTrigger className="p-2 text-lg font-medium hover:no-underline flex-1">
+                    <AccordionTrigger className="p-2 text-lg font-medium hover:no-underline flex-1" disabled={isSorting}>
                     <div className="flex items-center gap-3 w-full">
                         {getSectionIcon(section.title)}
                         <span className="flex-1 text-left">{section.title}</span>
                     </div>
                     </AccordionTrigger>
-                     <div className="flex items-center gap-1 pl-4">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
-                            <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
-                            <ArrowDown className="h-4 w-4" />
-                        </Button>
-                    </div>
+                     {isSorting && (
+                         <div className="flex items-center gap-1 pl-4">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
+                                <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
+                                <ArrowDown className="h-4 w-4" />
+                            </Button>
+                        </div>
+                     )}
                 </div>
 
                 <AccordionContent className="p-4 border-t">
@@ -398,18 +432,33 @@ export default function BartenderTasksPage() {
                             )}
 
                           <div className="flex items-center gap-0">
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
-                                <ArrowUp className="h-4 w-4" />
-                            </Button>
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
-                                <ArrowDown className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
+                             {isSorting ? (
+                                <>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                        <ArrowUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                        <ArrowDown className="h-4 w-4" />
+                                    </Button>
+                                </>
+                             ) : (
+                                <>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Xóa công việc?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteTask(section.title, task.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </>
+                             )}
                           </div>
                         </div>
                       ))}

@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -66,6 +66,7 @@ function AiInventoryGenerator({
             
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
+                setIsGenerating(false);
                 return;
             }
             
@@ -255,6 +256,7 @@ export default function InventoryManagementPage() {
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [isSorting, setIsSorting] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -291,9 +293,10 @@ export default function InventoryManagementPage() {
 
   // Set accordion to open all by default
   useEffect(() => {
-      if (categorizedList.length > 0) {
+      if (categorizedList.length > 0 && openCategories.length === 0) {
           setOpenCategories(categorizedList.map(c => c.category));
       }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorizedList]);
 
 
@@ -302,7 +305,6 @@ export default function InventoryManagementPage() {
     const newList = inventoryList.map(item => 
         item.id === id ? {...item, [field]: value} : item
     );
-    // Do not sort here to prevent UI jumps while editing name
     setInventoryList(newList);
   };
   
@@ -359,9 +361,7 @@ export default function InventoryManagementPage() {
   const onItemsGenerated = (items: InventoryItem[]) => {
       if (inventoryList) {
           const newList = [...inventoryList, ...items];
-          // Sort after adding new items from AI
-          const sorted = newList.sort((a,b) => a.name.localeCompare(b.name));
-          setInventoryList(sorted);
+          setInventoryList(newList);
       }
   }
 
@@ -390,6 +390,17 @@ export default function InventoryManagementPage() {
       setOpenCategories([]);
     } else {
       setOpenCategories(categorizedList.map(c => c.category));
+    }
+  };
+
+  const toggleSortMode = () => {
+    const newSortState = !isSorting;
+    setIsSorting(newSortState);
+    if (!newSortState) {
+        handleSaveChanges();
+        toast({
+            title: "Đã lưu thứ tự mới!",
+        });
     }
   };
 
@@ -422,14 +433,25 @@ export default function InventoryManagementPage() {
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>Danh sách kho hiện tại</CardTitle>
-                <CardDescription>Các thay đổi sẽ không được lưu cho đến khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
+                <CardDescription>Các thay đổi về nội dung sẽ được lưu khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
             </div>
              <div className="flex items-center gap-2">
-                 <Button variant="outline" onClick={handleToggleAll}>
+                 {isSorting ? (
+                    <Button variant="default" size="sm" onClick={toggleSortMode}>
+                        <Check className="mr-2 h-4 w-4"/>
+                        Xong
+                    </Button>
+                ) : (
+                    <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                        <Shuffle className="mr-2 h-4 w-4"/>
+                        Sắp xếp
+                    </Button>
+                )}
+                 <Button variant="outline" onClick={handleToggleAll} size="sm">
                      <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                     {areAllCategoriesOpen ? "Thu gọn tất cả" : "Mở rộng tất cả"}
+                     {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
                  </Button>
-                <Button onClick={handleSaveChanges}>Lưu tất cả thay đổi</Button>
+                <Button onClick={handleSaveChanges} size="sm">Lưu tất cả thay đổi</Button>
             </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -437,17 +459,19 @@ export default function InventoryManagementPage() {
             {categorizedList.map(({category, items}, categoryIndex) => (
                 <AccordionItem value={category} key={category} className="border rounded-lg">
                     <div className="flex items-center p-2">
-                        <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2">
+                        <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
                             {category}
                         </AccordionTrigger>
-                         <div className="flex items-center gap-1 pl-4">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
-                                <ArrowUp className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categoryIndex === categorizedList.length - 1}>
-                                <ArrowDown className="h-4 w-4" />
-                            </Button>
-                        </div>
+                         {isSorting && (
+                            <div className="flex items-center gap-1 pl-4">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
+                                    <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categoryIndex === categorizedList.length - 1}>
+                                    <ArrowDown className="h-4 w-4" />
+                                </Button>
+                            </div>
+                         )}
                     </div>
                     <AccordionContent className="p-4 border-t">
                         <div className="overflow-x-auto">
@@ -467,27 +491,32 @@ export default function InventoryManagementPage() {
                                         return (
                                         <TableRow key={item.id}>
                                             <TableCell>
-                                                <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} />
+                                                <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
-                                                <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} className="w-24" />
+                                                <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} className="w-24" disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
-                                                <Input type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} className="w-24" />
+                                                <Input type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} className="w-24" disabled={isSorting}/>
                                             </TableCell>
                                             <TableCell>
-                                                <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} className="w-28"/>
+                                                <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} className="w-28" disabled={isSorting}/>
                                             </TableCell>
                                             <TableCell className="text-right flex items-center justify-end gap-0">
-                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={items.findIndex(i => i.id === item.id) === 0}>
-                                                    <ArrowUp className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={items.findIndex(i => i.id === item.id) === items.length - 1}>
-                                                    <ArrowDown className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {isSorting ? (
+                                                    <>
+                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={items.findIndex(i => i.id === item.id) === 0}>
+                                                            <ArrowUp className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={items.findIndex(i => i.id === item.id) === items.length - 1}>
+                                                            <ArrowDown className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     )})}

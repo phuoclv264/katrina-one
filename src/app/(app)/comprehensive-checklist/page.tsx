@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection, ParsedComprehensiveTa
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsDownUp, Wand2, Loader2, FileText } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsDownUp, Wand2, Loader2, FileText, Shuffle, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -64,10 +64,12 @@ function ComprehensiveTasksAiGenerator({
 
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: 'Lỗi', description: 'Vui lòng cung cấp đầu vào.', variant: 'destructive' });
+                setIsGenerating(false);
                 return;
             }
             if (!targetSection) {
                 toast({ title: 'Lỗi', description: 'Vui lòng chọn khu vực để thêm hạng mục.', variant: 'destructive' });
+                setIsGenerating(false);
                 return;
             }
 
@@ -171,6 +173,7 @@ export default function ComprehensiveChecklistPage() {
   const { toast } = useToast();
   const [sections, setSections] = useState<ComprehensiveTaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSorting, setIsSorting] = useState(false);
 
   const [newText, setNewText] = useState('');
   const [newType, setNewType] = useState<'photo' | 'boolean' | 'opinion'>('boolean');
@@ -205,13 +208,15 @@ export default function ComprehensiveChecklistPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router, newSection]);
 
-  const handleUpdateAndSave = (newSections: ComprehensiveTaskSection[]) => {
+  const handleUpdateAndSave = (newSections: ComprehensiveTaskSection[], showToast: boolean = true) => {
     setSections(newSections); // Optimistic update
     dataStore.updateComprehensiveTasks(newSections).then(() => {
-      toast({
-        title: "Đã lưu thay đổi!",
-        description: "Danh sách kiểm tra đã được cập nhật.",
-      });
+        if(showToast) {
+            toast({
+                title: "Đã lưu thay đổi!",
+                description: "Danh sách kiểm tra đã được cập nhật.",
+            });
+        }
     }).catch(err => {
       toast({
         title: "Lỗi!",
@@ -264,7 +269,10 @@ export default function ComprehensiveChecklistPage() {
   }
 
   const handleRenameSection = (oldTitle: string) => {
-      if (!sections || !editingSection || editingSection.newTitle.trim() === '') return;
+      if (!sections || !editingSection || editingSection.newTitle.trim() === '') {
+          setEditingSection(null);
+          return;
+      };
       if (sections.some(s => s.title === editingSection.newTitle.trim())) {
         toast({ title: "Lỗi", description: "Tên khu vực này đã tồn tại.", variant: "destructive" });
         return;
@@ -282,7 +290,7 @@ export default function ComprehensiveChecklistPage() {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= newSections.length) return;
     [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
-    handleUpdateAndSave(newSections);
+    handleUpdateAndSave(newSections, false);
   };
 
   // Task Management
@@ -319,7 +327,10 @@ export default function ComprehensiveChecklistPage() {
   };
 
    const handleUpdateTask = (sectionTitle: string, taskId: string) => {
-    if (!sections || !editingTask || editingTask.newText.trim() === '') return;
+    if (!sections || !editingTask || editingTask.newText.trim() === '') {
+        setEditingTask(null);
+        return;
+    };
 
     const newSectionsState = JSON.parse(JSON.stringify(sections));
     const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
@@ -341,7 +352,7 @@ export default function ComprehensiveChecklistPage() {
     const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
     if (newIndex < 0 || newIndex >= tasks.length) return;
     [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
-    handleUpdateAndSave(newSections);
+    handleUpdateAndSave(newSections, false);
   };
 
   const getTaskTypeIcon = (type: 'photo' | 'boolean' | 'opinion') => {
@@ -359,6 +370,16 @@ export default function ComprehensiveChecklistPage() {
       setOpenItems([]);
     } else {
       setOpenItems(sections.map(s => s.title));
+    }
+  };
+
+  const toggleSortMode = () => {
+    const newSortState = !isSorting;
+    setIsSorting(newSortState);
+    if (!newSortState) {
+      toast({
+        title: "Đã lưu thứ tự mới!",
+      });
     }
   };
 
@@ -465,19 +486,32 @@ export default function ComprehensiveChecklistPage() {
             <CardTitle>Danh sách hạng mục</CardTitle>
             <CardDescription>Xem và quản lý các hạng mục trong từng khu vực.</CardDescription>
           </div>
-          {sections && sections.length > 0 && (
-              <Button variant="outline" size="sm" onClick={handleToggleAll}>
-                  <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                  {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
-              </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {isSorting ? (
+                <Button variant="default" size="sm" onClick={toggleSortMode}>
+                    <Check className="mr-2 h-4 w-4"/>
+                    Xong
+                </Button>
+            ) : (
+                <Button variant="outline" size="sm" onClick={toggleSortMode}>
+                    <Shuffle className="mr-2 h-4 w-4"/>
+                    Sắp xếp
+                </Button>
+            )}
+            {sections && sections.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleToggleAll}>
+                    <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                    {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
+                </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
             {sections.map((section, sectionIndex) => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
                 <div className="flex items-center p-2">
-                    <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 p-2">
+                    <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 p-2" disabled={isSorting}>
                       <div className="flex items-center gap-3">
                         <Building className="h-5 w-5 text-primary"/>
                         {editingSection?.title === section.title ? (
@@ -500,34 +534,41 @@ export default function ComprehensiveChecklistPage() {
                     </AccordionTrigger>
 
                     <div className="flex items-center gap-1 ml-auto pl-4">
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
-                            <ArrowUp className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
-                            <ArrowDown className="h-4 w-4" />
-                          </Button>
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                                    <Trash2 className="h-4 w-4" />
+                        {isSorting ? (
+                            <>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
+                                    <ArrowUp className="h-4 w-4" />
                                 </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Xóa khu vực "{section.title}"?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Hành động này không thể được hoàn tác. Việc này sẽ xóa vĩnh viễn khu vực và tất cả các hạng mục công việc bên trong nó.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteSection(section.title)}>Xóa</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
+                                    <ArrowDown className="h-4 w-4" />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Xóa khu vực "{section.title}"?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Hành động này không thể được hoàn tác. Việc này sẽ xóa vĩnh viễn khu vực và tất cả các hạng mục công việc bên trong nó.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteSection(section.title)}>Xóa</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -553,18 +594,25 @@ export default function ComprehensiveChecklistPage() {
                             )}
 
                           <div className="flex items-center gap-0">
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
-                                <ArrowUp className="h-4 w-4" />
-                            </Button>
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
-                                <ArrowDown className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {isSorting ? (
+                                <>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                        <ArrowUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                        <ArrowDown className="h-4 w-4" />
+                                    </Button>
+                                </>
+                            ): (
+                                <>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </>
+                            )}
                           </div>
                         </div>
                       ))}
