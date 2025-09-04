@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/ty
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -20,12 +20,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { generateServerTasks } from '@/ai/flows/generate-server-tasks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-function ServerTasksAiGenerator({ 
+function ServerTasksAiGenerator({
     tasksByShift,
-    onTasksGenerated 
-}: { 
+    onTasksGenerated
+}: {
     tasksByShift: TasksByShift | null,
-    onTasksGenerated: (tasks: ParsedServerTask[], shiftKey: string, sectionTitle: string) => void 
+    onTasksGenerated: (tasks: ParsedServerTask[], shiftKey: string, sectionTitle: string) => void
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
@@ -56,10 +56,10 @@ function ServerTasksAiGenerator({
         setIsGenerating(true);
 
         try {
-            const input = source === 'text' 
+            const input = source === 'text'
                 ? { source, inputText: textInput }
                 : { source, imageDataUri: imageInput! };
-            
+
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
                 return;
@@ -68,15 +68,15 @@ function ServerTasksAiGenerator({
                 toast({ title: "Lỗi", description: "Vui lòng chọn ca và khu vực để thêm công việc.", variant: "destructive" });
                 return;
             }
-            
+
             toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian."});
 
             const result = await generateServerTasks(input);
-            
+
             if (!result || !result.tasks) {
                  throw new Error("AI không trả về kết quả hợp lệ.");
             }
-            
+
             onTasksGenerated(result.tasks, targetShift, targetSection);
 
             toast({ title: "Hoàn tất!", description: `AI đã tạo ${result.tasks.length} công việc mới.`});
@@ -104,7 +104,7 @@ function ServerTasksAiGenerator({
                         <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
                     </TabsList>
                     <TabsContent value="text" className="mt-4 space-y-4">
-                        <Textarea 
+                        <Textarea
                             placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng. Có thể ghi chú (quan trọng) để AI nhận diện."
                             rows={4}
                             value={textInput}
@@ -112,7 +112,7 @@ function ServerTasksAiGenerator({
                             disabled={isGenerating}
                         />
                          <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetShift}>
+                             <Select onValueChange={setTargetShift} disabled={isGenerating}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn ca..." />
                                 </SelectTrigger>
@@ -122,7 +122,7 @@ function ServerTasksAiGenerator({
                                      <SelectItem value="toi">Ca Tối</SelectItem>
                                 </SelectContent>
                             </Select>
-                             <Select onValueChange={setTargetSection}>
+                             <Select onValueChange={setTargetSection} disabled={isGenerating}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn mục..." />
                                 </SelectTrigger>
@@ -134,20 +134,20 @@ function ServerTasksAiGenerator({
                             </Select>
                             <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim() || !targetShift || !targetSection} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo từ văn bản
+                                Tạo
                             </Button>
                         </div>
                     </TabsContent>
                     <TabsContent value="image" className="mt-4 space-y-4">
-                        <Input 
+                        <Input
                             id="server-image-upload"
-                            type="file" 
-                            accept="image/*" 
+                            type="file"
+                            accept="image/*"
                             onChange={handleFileChange}
                             disabled={isGenerating}
                         />
                         <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetShift}>
+                             <Select onValueChange={setTargetShift} disabled={isGenerating}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn ca..." />
                                 </SelectTrigger>
@@ -157,7 +157,7 @@ function ServerTasksAiGenerator({
                                      <SelectItem value="toi">Ca Tối</SelectItem>
                                 </SelectContent>
                             </Select>
-                             <Select onValueChange={setTargetSection}>
+                             <Select onValueChange={setTargetSection} disabled={isGenerating}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn mục..." />
                                 </SelectTrigger>
@@ -169,7 +169,7 @@ function ServerTasksAiGenerator({
                             </Select>
                             <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput || !targetShift || !targetSection} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo từ ảnh
+                                Tạo
                             </Button>
                         </div>
                     </TabsContent>
@@ -186,7 +186,7 @@ export default function TaskListsPage() {
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
-  
+
   const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
 
   useEffect(() => {
@@ -278,7 +278,7 @@ export default function TaskListsPage() {
     if (section) {
       section.tasks.push(newTaskToAdd);
     }
-    
+
     handleUpdateAndSave(newTasksState);
 
     setNewTask(current => {
@@ -299,7 +299,7 @@ export default function TaskListsPage() {
     }
     handleUpdateAndSave(newTasksState);
   };
-  
+
   const handleMoveTask = (shiftKey: string, sectionTitle: string, taskIndex: number, direction: 'up' | 'down') => {
       if (!tasksByShift) return;
       const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
@@ -333,7 +333,7 @@ export default function TaskListsPage() {
       setOpenSections(prev => ({ ...prev, [shiftKey]: tasksByShift[shiftKey].sections.map(s => s.title) }));
     }
   };
-  
+
   if(isLoading || authLoading) {
     return (
         <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -348,7 +348,7 @@ export default function TaskListsPage() {
         </div>
     )
   }
-  
+
   if(!tasksByShift){
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
   }
@@ -356,10 +356,10 @@ export default function TaskListsPage() {
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold font-headline">Quản lý danh sách công việc</h1>
+        <h1 className="text-2xl md:text-3xl font-bold font-headline">Quản lý danh sách công việc</h1>
         <p className="text-muted-foreground">Tạo và chỉnh sửa các công việc hàng ngày cho tất cả các ca.</p>
       </header>
-      
+
        <ServerTasksAiGenerator tasksByShift={tasksByShift} onTasksGenerated={onAiTasksGenerated} />
 
        <Tabs defaultValue="sang" className="w-full">
@@ -370,7 +370,7 @@ export default function TaskListsPage() {
         </TabsList>
 
         {Object.entries(tasksByShift).map(([shiftKey, shiftData]) => {
-          const areAllSectionsOpen = (openSections[shiftKey] || []).length === shiftData.sections.length;
+          const areAllSectionsOpen = tasksByShift?.[shiftKey] ? (openSections[shiftKey] || []).length === tasksByShift[shiftKey].sections.length : false;
           return (
           <TabsContent value={shiftKey} key={shiftKey}>
             <Card>
@@ -387,10 +387,10 @@ export default function TaskListsPage() {
                  )}
               </CardHeader>
               <CardContent>
-                <Accordion 
-                    type="multiple" 
-                    value={openSections[shiftKey] || []} 
-                    onValueChange={(value) => setOpenSections(prev => ({...prev, [shiftKey]: value}))} 
+                <Accordion
+                    type="multiple"
+                    value={openSections[shiftKey] || []}
+                    onValueChange={(value) => setOpenSections(prev => ({...prev, [shiftKey]: value}))}
                     className="w-full space-y-4"
                 >
                   {shiftData.sections.map(section => (
@@ -426,16 +426,16 @@ export default function TaskListsPage() {
                                   onChange={e => handleNewTaskChange(shiftKey, section.title, 'text', e.target.value)}
                                   onKeyDown={e => e.key === 'Enter' && handleAddTask(shiftKey, section.title)}
                                 />
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                     <div className="flex items-center space-x-2">
-                                    <Checkbox 
-                                        id={`isCritical-${shiftKey}-${section.title}`} 
-                                        checked={newTask[shiftKey]?.[section.title]?.isCritical || false} 
+                                    <Checkbox
+                                        id={`isCritical-${shiftKey}-${section.title}`}
+                                        checked={newTask[shiftKey]?.[section.title]?.isCritical || false}
                                         onCheckedChange={(checked) => handleNewTaskChange(shiftKey, section.title, 'isCritical', checked as boolean)}
                                     />
                                     <Label htmlFor={`isCritical-${shiftKey}-${section.title}`} className="text-sm font-medium">Đánh dấu là quan trọng</Label>
                                     </div>
-                                    <Button onClick={() => handleAddTask(shiftKey, section.title)} size="sm">
+                                    <Button onClick={() => handleAddTask(shiftKey, section.title)} size="sm" className="w-full sm:w-auto">
                                         <Plus className="mr-2 h-4 w-4" /> Thêm công việc
                                     </Button>
                                 </div>
@@ -453,3 +453,5 @@ export default function TaskListsPage() {
     </div>
   );
 }
+
+    

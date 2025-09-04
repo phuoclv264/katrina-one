@@ -122,7 +122,7 @@ function ComprehensiveTasksAiGenerator({
                         <div className="flex flex-col sm:flex-row gap-2">
                             <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực để thêm vào..." />
+                                    <SelectValue placeholder="Chọn khu vực..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sections.map((section) => (
@@ -134,7 +134,7 @@ function ComprehensiveTasksAiGenerator({
                             </Select>
                             <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim() || !targetSection} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo từ văn bản
+                                Tạo
                             </Button>
                         </div>
                     </TabsContent>
@@ -143,7 +143,7 @@ function ComprehensiveTasksAiGenerator({
                         <div className="flex flex-col sm:flex-row gap-2">
                              <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực để thêm vào..." />
+                                    <SelectValue placeholder="Chọn khu vực..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sections.map((section) => (
@@ -155,7 +155,7 @@ function ComprehensiveTasksAiGenerator({
                             </Select>
                             <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput || !targetSection} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo từ ảnh
+                                Tạo
                             </Button>
                         </div>
                     </TabsContent>
@@ -171,11 +171,11 @@ export default function ComprehensiveChecklistPage() {
   const { toast } = useToast();
   const [sections, setSections] = useState<ComprehensiveTaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const [newText, setNewText] = useState('');
   const [newType, setNewType] = useState<'photo' | 'boolean' | 'opinion'>('boolean');
   const [newSection, setNewSection] = useState('');
-  
+
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
   const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
@@ -243,7 +243,7 @@ export default function ComprehensiveChecklistPage() {
       }
     }
   };
-  
+
   // Section Management
   const handleAddSection = () => {
     if (!sections || newSectionTitle.trim() === '') return;
@@ -269,13 +269,13 @@ export default function ComprehensiveChecklistPage() {
         toast({ title: "Lỗi", description: "Tên khu vực này đã tồn tại.", variant: "destructive" });
         return;
       }
-      const newSectionsState = sections.map(s => 
+      const newSectionsState = sections.map(s =>
           s.title === oldTitle ? { ...s, title: editingSection.newTitle.trim() } : s
       );
       handleUpdateAndSave(newSectionsState);
       setEditingSection(null);
   }
-  
+
   const handleMoveSection = (index: number, direction: 'up' | 'down') => {
     if (!sections) return;
     const newSections = [...sections];
@@ -317,7 +317,7 @@ export default function ComprehensiveChecklistPage() {
     }
     handleUpdateAndSave(newSectionsState);
   };
-  
+
    const handleUpdateTask = (sectionTitle: string, taskId: string) => {
     if (!sections || !editingTask || editingTask.newText.trim() === '') return;
 
@@ -332,7 +332,7 @@ export default function ComprehensiveChecklistPage() {
     handleUpdateAndSave(newSectionsState);
     setEditingTask(null);
   };
-  
+
   const handleMoveTask = (sectionIndex: number, taskIndex: number, direction: 'up' | 'down') => {
     if (!sections) return;
     const newSections = [...sections];
@@ -343,7 +343,7 @@ export default function ComprehensiveChecklistPage() {
     [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
     handleUpdateAndSave(newSections);
   };
-  
+
   const getTaskTypeIcon = (type: 'photo' | 'boolean' | 'opinion') => {
       switch(type) {
           case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
@@ -386,10 +386,10 @@ export default function ComprehensiveChecklistPage() {
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><ListChecks/> Quản lý Hạng mục Kiểm tra Toàn diện</h1>
+        <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><ListChecks/> Quản lý Hạng mục Kiểm tra</h1>
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các khu vực, hạng mục kiểm tra cho Quản lý.</p>
       </header>
-      
+
       <ComprehensiveTasksAiGenerator sections={sections} onTasksGenerated={onAiTasksGenerated} />
 
        <Card className="mb-8">
@@ -397,18 +397,18 @@ export default function ComprehensiveChecklistPage() {
                 <CardTitle>Quản lý Khu vực</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="flex gap-2">
-                    <Input 
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
                         placeholder="Tên khu vực mới, ví dụ: Tầng 3"
                         value={newSectionTitle}
                         onChange={e => setNewSectionTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleAddSection()}
                     />
-                    <Button onClick={handleAddSection}><Plus className="mr-2 h-4 w-4" /> Thêm khu vực</Button>
+                    <Button onClick={handleAddSection} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> Thêm khu vực</Button>
                 </div>
             </CardContent>
        </Card>
-      
+
       <Card className="mb-8">
           <CardHeader>
               <CardTitle>Thêm hạng mục mới (Thủ công)</CardTitle>
@@ -498,7 +498,7 @@ export default function ComprehensiveChecklistPage() {
                         )}
                       </div>
                     </AccordionTrigger>
-                    
+
                     <div className="flex items-center gap-1 ml-auto pl-4">
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
                             <ArrowUp className="h-4 w-4" />
@@ -551,7 +551,7 @@ export default function ComprehensiveChecklistPage() {
                             ) : (
                                <p className="flex-1 text-sm">{task.text}</p>
                             )}
-                          
+
                           <div className="flex items-center gap-0">
                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
                                 <ArrowUp className="h-4 w-4" />
@@ -581,3 +581,5 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
+
+    
