@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/ty
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -189,6 +189,8 @@ export default function TaskListsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
+  const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; newText: string } | null>(null);
+
 
   const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
 
@@ -293,6 +295,24 @@ export default function TaskListsPage() {
       }
       return newTasksInputState;
     });
+  };
+
+  const handleUpdateTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
+    if (!tasksByShift || !editingTask || editingTask.newText.trim() === '') {
+        setEditingTask(null);
+        return;
+    }
+
+    const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+    const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+    if (section) {
+        const task = section.tasks.find((t: Task) => t.id === taskId);
+        if (task) {
+            task.text = editingTask.newText.trim();
+        }
+    }
+    handleUpdateAndSave(newTasksState);
+    setEditingTask(null);
   };
 
   const handleDeleteTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
@@ -430,7 +450,23 @@ export default function TaskListsPage() {
                             {section.tasks.map((task, taskIndex) => (
                               <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
                                 {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                <p className="flex-1 text-sm">{task.text}</p>
+                                
+                                {editingTask?.taskId === task.id ? (
+                                    <Input
+                                        value={editingTask.newText}
+                                        onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleUpdateTask(shiftKey, section.title, task.id);
+                                            if (e.key === 'Escape') setEditingTask(null);
+                                        }}
+                                        onBlur={() => handleUpdateTask(shiftKey, section.title, task.id)}
+                                        autoFocus
+                                        className="text-sm h-8 flex-1"
+                                    />
+                                ) : (
+                                   <p className="flex-1 text-sm">{task.text}</p>
+                                )}
+
                                 {isSorting ? (
                                     <>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
@@ -441,10 +477,15 @@ export default function TaskListsPage() {
                                         </Button>
                                     </>
                                 ) : (
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                        <span className="sr-only">Xóa công việc</span>
-                                    </Button>
+                                    <div className="flex items-center gap-0">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Xóa công việc</span>
+                                        </Button>
+                                    </div>
                                 )}
                               </div>
                             ))}
