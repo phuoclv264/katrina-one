@@ -418,7 +418,7 @@ export default function InventoryManagementPage() {
       </div>
     )
   }
-   const areAllCategoriesOpen = openCategories.length === categorizedList.length;
+   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
     <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
@@ -447,10 +447,12 @@ export default function InventoryManagementPage() {
                         Sắp xếp
                     </Button>
                 )}
-                 <Button variant="outline" onClick={handleToggleAll} size="sm" className="w-full sm:w-auto">
-                     <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                     {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
-                 </Button>
+                {categorizedList.length > 0 && (
+                  <Button variant="outline" onClick={handleToggleAll} size="sm" className="w-full sm:w-auto">
+                      <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                      {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
+                  </Button>
+                )}
                 <Button onClick={handleSaveChanges} size="sm" className="w-full sm:w-auto">Lưu tất cả thay đổi</Button>
             </div>
         </CardHeader>
@@ -539,3 +541,5 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+    
