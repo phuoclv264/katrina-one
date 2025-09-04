@@ -247,7 +247,7 @@ export default function ReportsPage() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end pr-4">
                             <DailySummaryGenerator 
                                 date={date} 
                                 reports={reportsForDate}
@@ -259,7 +259,6 @@ export default function ReportsPage() {
                             <TableRow>
                               <TableHead>Tên báo cáo</TableHead>
                               <TableHead>Nhân viên đã nộp</TableHead>
-                              <TableHead className="text-right">Hành động</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -268,17 +267,14 @@ export default function ReportsPage() {
                               const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
                               
                               return (
-                                <TableRow key={`${date}-${key}`}>
+                                <TableRow 
+                                  key={`${date}-${key}`} 
+                                  onClick={() => router.push(getReportLink(date, key))}
+                                  className="cursor-pointer"
+                                >
                                   <TableCell className="font-semibold capitalize">{reportName}</TableCell>
                                   <TableCell>
                                     <p className="text-sm text-muted-foreground">{staffNames}</p>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Button asChild variant="ghost" size="sm">
-                                      <Link href={getReportLink(date, key)}>
-                                        Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                                      </Link>
-                                    </Button>
                                   </TableCell>
                                 </TableRow>
                               );
