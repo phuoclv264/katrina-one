@@ -62,39 +62,51 @@ export default function ComprehensiveReportPage() {
   }, [isAuthLoading, user, router]);
 
   useEffect(() => {
+    let isMounted = true;
     const unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((managerTasks) => {
-      setTasks(managerTasks);
+      if(isMounted) setTasks(managerTasks);
     });
-    return () => unsubscribeTasks();
+    return () => {
+      isMounted = false;
+      unsubscribeTasks();
+    }
   }, []);
 
   useEffect(() => {
     if (isAuthLoading || !user) return;
+    let isMounted = true;
     
     const loadReport = async () => {
         setIsLoading(true);
         setSyncStatus('checking');
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Quản lý', shiftKey);
-            setReport(loadedReport);
-            setSyncStatus(status);
-            if (status === 'local-newer' || status === 'server-newer') {
-                setShowSyncDialog(true);
+            if(isMounted) {
+              setReport(loadedReport);
+              setSyncStatus(status);
+              if (status === 'local-newer' || status === 'server-newer') {
+                  setShowSyncDialog(true);
+              }
             }
         } catch (error) {
-            console.error("Error loading report:", error);
-            setSyncStatus('error');
-            toast({
-                title: "Lỗi tải dữ liệu",
-                description: "Không thể tải hoặc đồng bộ báo cáo. Vui lòng thử lại.",
-                variant: "destructive"
-            });
+            console.error("Error loading comprehensive report:", error);
+            if(isMounted) {
+              setSyncStatus('error');
+              toast({
+                  title: "Lỗi tải dữ liệu",
+                  description: "Không thể tải báo cáo. Đang chuyển hướng bạn về trang tổng quan.",
+                  variant: "destructive"
+              });
+              router.replace('/manager');
+            }
+        } finally {
+            if(isMounted) setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, toast]);
+    return () => { isMounted = false; }
+  }, [isAuthLoading, user, shiftKey, toast, router]);
 
   const allPagePhotos = useMemo(() => {
     if (!tasks || !report) return [];
