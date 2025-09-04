@@ -11,12 +11,14 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
+import { useSidebar } from '@/components/ui/sidebar';
 import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export function AppSidebar() {
   const { user, logout, loading } = useAuth();
+  const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
 
   const staffMenu = [
@@ -78,7 +80,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
+            <SidebarMenuItem key={item.href} onClick={() => setOpenMobile(false)}>
               <Link href={item.href}>
                 <SidebarMenuButton
                   isActive={pathname === item.href}
