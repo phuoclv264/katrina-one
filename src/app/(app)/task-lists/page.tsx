@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/ty
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -18,20 +18,37 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
 import { generateServerTasks } from '@/ai/flows/generate-server-tasks';
+import { sortTasks } from '@/ai/flows/sort-tasks';
+import type { GenerateServerTasksOutput } from '@/ai/flows/generate-server-tasks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { diffChars } from 'diff';
 
-function ServerTasksAiGenerator({
+
+function AiAssistant({
     tasksByShift,
-    onTasksGenerated
+    onAddTasks,
+    onSortTasks,
 }: {
     tasksByShift: TasksByShift | null,
-    onTasksGenerated: (tasks: ParsedServerTask[], shiftKey: string, sectionTitle: string) => void
+    onAddTasks: (tasks: GenerateServerTasksOutput['tasks'], shiftKey: string, sectionTitle: string) => void;
+    onSortTasks: (sortedTasks: string[], shiftKey: string, sectionTitle: string) => void;
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState('add');
+
     const [targetShift, setTargetShift] = useState('');
     const [targetSection, setTargetSection] = useState('');
+
+    const [showAddPreview, setShowAddPreview] = useState(false);
+    const [addPreviewTasks, setAddPreviewTasks] = useState<GenerateServerTasksOutput['tasks']>([]);
+
+    const [showSortPreview, setShowSortPreview] = useState(false);
+    const [sortPreview, setSortPreview] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
+
     const { toast } = useToast();
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,14 +62,14 @@ function ServerTasksAiGenerator({
         }
     };
 
-    const resetState = () => {
+    const resetAddState = () => {
         setTextInput('');
         setImageInput(null);
         const fileInput = document.getElementById('server-image-upload') as HTMLInputElement;
-        if(fileInput) fileInput.value = '';
-    }
+        if (fileInput) fileInput.value = '';
+    };
 
-    const handleGenerate = async (source: 'text' | 'image') => {
+    const handleGenerateAdd = async (source: 'text' | 'image') => {
         setIsGenerating(true);
 
         try {
@@ -65,101 +82,195 @@ function ServerTasksAiGenerator({
                 setIsGenerating(false);
                 return;
             }
-             if (!targetShift || !targetSection) {
-                toast({ title: "Lỗi", description: "Vui lòng chọn ca và khu vực để thêm công việc.", variant: "destructive" });
+            if (!targetShift || !targetSection) {
+                toast({ title: "Lỗi", description: "Vui lòng chọn ca và mục để thêm công việc.", variant: "destructive" });
                 setIsGenerating(false);
                 return;
             }
 
-            toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian."});
+            toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian." });
 
             const result = await generateServerTasks(input);
 
             if (!result || !result.tasks) {
-                 throw new Error("AI không trả về kết quả hợp lệ.");
+                throw new Error("AI không trả về kết quả hợp lệ.");
             }
 
-            onTasksGenerated(result.tasks, targetShift, targetSection);
-
-            toast({ title: "Hoàn tất!", description: `AI đã tạo ${result.tasks.length} công việc mới.`});
-            resetState();
+            setAddPreviewTasks(result.tasks);
+            setShowAddPreview(true);
 
         } catch (error) {
             console.error("Failed to generate server tasks:", error);
-            toast({ title: "Lỗi", description: "Không thể tạo danh sách công việc. Vui lòng thử lại.", variant: "destructive"});
+            toast({ title: "Lỗi", description: "Không thể tạo danh sách công việc. Vui lòng thử lại.", variant: "destructive" });
         } finally {
             setIsGenerating(false);
         }
     };
+    
+    const handleConfirmAdd = () => {
+        onAddTasks(addPreviewTasks, targetShift, targetSection);
+        toast({ title: "Hoàn tất!", description: `Đã thêm ${addPreviewTasks.length} công việc mới.` });
+        resetAddState();
+        setShowAddPreview(false);
+        setAddPreviewTasks([]);
+    };
 
+    const handleGenerateSort = async () => {
+        if (!targetShift || !targetSection) {
+            toast({ title: "Lỗi", description: "Vui lòng chọn ca và mục để sắp xếp.", variant: "destructive" });
+            return;
+        }
+
+        const sectionToSort = tasksByShift?.[targetShift]?.sections.find(s => s.title === targetSection);
+        if (!sectionToSort || sectionToSort.tasks.length < 2) {
+            toast({ title: "Không cần sắp xếp", description: "Mục này có ít hơn 2 công việc.", variant: "default" });
+            return;
+        }
+        
+        setIsGenerating(true);
+        toast({ title: "AI đang sắp xếp...", description: "Vui lòng đợi một lát." });
+
+        try {
+            const currentTasks = sectionToSort.tasks.map(t => t.text);
+            const result = await sortTasks({
+                context: `Server tasks for shift: ${tasksByShift?.[targetShift]?.name}, section: ${targetSection}`,
+                tasks: currentTasks
+            });
+            
+            if (!result || !result.sortedTasks || result.sortedTasks.length !== currentTasks.length) {
+                throw new Error("AI did not return a valid sorted list.");
+            }
+
+            setSortPreview({ oldOrder: currentTasks, newOrder: result.sortedTasks });
+            setShowSortPreview(true);
+
+        } catch (error) {
+            console.error("Failed to sort tasks:", error);
+            toast({ title: "Lỗi", description: "Không thể sắp xếp công việc. Vui lòng thử lại.", variant: "destructive" });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+    
+    const handleConfirmSort = () => {
+        onSortTasks(sortPreview.newOrder, targetShift, targetSection);
+        toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại công việc.` });
+        setShowSortPreview(false);
+    };
+
+    const renderDiff = (oldText: string, newText: string) => {
+        const differences = diffChars(oldText, newText);
+        return differences.map((part, index) => {
+            const color = part.added ? 'bg-green-200/50' : part.removed ? 'bg-red-200/50' : 'bg-transparent';
+            return <span key={index} className={color}>{part.value}</span>;
+        });
+    };
 
     return (
+        <>
         <Card className="mb-8">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Thêm hàng loạt bằng AI</CardTitle>
-                <CardDescription>Dán văn bản hoặc tải ảnh danh sách công việc để AI tự động thêm vào ca và mục bạn chọn.</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ hỗ trợ AI</CardTitle>
+                <CardDescription>Sử dụng AI để thêm hoặc sắp xếp lại các công việc một cách thông minh.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Tabs defaultValue="text">
+                <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setTargetShift(''); setTargetSection(''); }}>
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger>
-                        <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                        <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4" />Thêm mới</TabsTrigger>
+                        <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4" />Sắp xếp</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="text" className="mt-4 space-y-4">
-                        <Textarea
-                            placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng. Có thể ghi chú (quan trọng) để AI nhận diện."
-                            rows={4}
-                            value={textInput}
-                            onChange={(e) => setTextInput(e.target.value)}
-                            disabled={isGenerating}
-                        />
-                         <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetShift} disabled={isGenerating}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn ca..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                     <SelectItem value="sang">Ca Sáng</SelectItem>
-                                     <SelectItem value="trua">Ca Trưa</SelectItem>
-                                     <SelectItem value="toi">Ca Tối</SelectItem>
-                                </SelectContent>
-                            </Select>
-                             <Select onValueChange={setTargetSection} disabled={isGenerating}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn mục..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                     <SelectItem value="Đầu ca">Đầu ca</SelectItem>
-                                     <SelectItem value="Trong ca">Trong ca</SelectItem>
-                                     <SelectItem value="Cuối ca">Cuối ca</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim() || !targetShift || !targetSection} className="w-full sm:w-auto">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo
-                            </Button>
-                        </div>
+                    <TabsContent value="add" className="mt-4 space-y-4">
+                        <Tabs defaultValue="text">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4" />Dán văn bản</TabsTrigger>
+                                <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" />Tải ảnh lên</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="text" className="mt-4 space-y-4">
+                                <Textarea
+                                    placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng. Có thể ghi chú (quan trọng) để AI nhận diện."
+                                    rows={4}
+                                    value={textInput}
+                                    onChange={(e) => setTextInput(e.target.value)}
+                                    disabled={isGenerating}
+                                />
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn ca..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="sang">Ca Sáng</SelectItem>
+                                            <SelectItem value="trua">Ca Trưa</SelectItem>
+                                            <SelectItem value="toi">Ca Tối</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn mục..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Đầu ca">Đầu ca</SelectItem>
+                                            <SelectItem value="Trong ca">Trong ca</SelectItem>
+                                            <SelectItem value="Cuối ca">Cuối ca</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim() || !targetShift || !targetSection} className="w-full sm:w-auto">
+                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                        Tạo
+                                    </Button>
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="image" className="mt-4 space-y-4">
+                                <Input
+                                    id="server-image-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    disabled={isGenerating}
+                                />
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn ca..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="sang">Ca Sáng</SelectItem>
+                                            <SelectItem value="trua">Ca Trưa</SelectItem>
+                                            <SelectItem value="toi">Ca Tối</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn mục..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Đầu ca">Đầu ca</SelectItem>
+                                            <SelectItem value="Trong ca">Trong ca</SelectItem>
+                                            <SelectItem value="Cuối ca">Cuối ca</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput || !targetShift || !targetSection} className="w-full sm:w-auto">
+                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                        Tạo
+                                    </Button>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
                     </TabsContent>
-                    <TabsContent value="image" className="mt-4 space-y-4">
-                        <Input
-                            id="server-image-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            disabled={isGenerating}
-                        />
-                        <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetShift} disabled={isGenerating}>
+                    <TabsContent value="sort" className="mt-4 space-y-4">
+                         <p className="text-sm text-muted-foreground">Chọn một ca và một mục để AI sắp xếp lại các công việc trong đó theo một thứ tự logic và hiệu quả hơn.</p>
+                         <div className="flex flex-col sm:flex-row gap-2">
+                            <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn ca..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                     <SelectItem value="sang">Ca Sáng</SelectItem>
-                                     <SelectItem value="trua">Ca Trưa</SelectItem>
-                                     <SelectItem value="toi">Ca Tối</SelectItem>
+                                    <SelectItem value="sang">Ca Sáng</SelectItem>
+                                    <SelectItem value="trua">Ca Trưa</SelectItem>
+                                    <SelectItem value="toi">Ca Tối</SelectItem>
                                 </SelectContent>
                             </Select>
-                             <Select onValueChange={setTargetSection} disabled={isGenerating}>
+                             <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn mục..." />
                                 </SelectTrigger>
@@ -169,15 +280,85 @@ function ServerTasksAiGenerator({
                                      <SelectItem value="Cuối ca">Cuối ca</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput || !targetShift || !targetSection} className="w-full sm:w-auto">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo
+                            <Button onClick={handleGenerateSort} disabled={isGenerating || !targetShift || !targetSection} className="w-full sm:w-auto">
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                Sắp xếp bằng AI
                             </Button>
                         </div>
                     </TabsContent>
                 </Tabs>
             </CardContent>
         </Card>
+
+        {/* Add Preview Dialog */}
+        <Dialog open={showAddPreview} onOpenChange={setShowAddPreview}>
+            <DialogContent className="max-w-2xl">
+                 <AlertDialogHeader>
+                    <AlertDialogTitle>Xem trước các công việc sẽ được thêm</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào mục <span className="font-bold">"{targetSection}"</span> của <span className="font-bold">Ca {tasksByShift?.[targetShift]?.name}</span>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                 <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
+                   <ul className="space-y-2">
+                        {addPreviewTasks.map((task, index) => (
+                            <li key={index} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
+                                {task.isCritical ? <Star className="h-4 w-4 text-yellow-500"/> : <Plus className="h-4 w-4 text-green-500"/>}
+                                <span>{task.text}</span>
+                            </li>
+                        ))}
+                   </ul>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmAdd}>Thêm {addPreviewTasks.length} công việc</AlertDialogAction>
+                </AlertDialogFooter>
+            </DialogContent>
+        </Dialog>
+        
+        {/* Sort Preview Dialog */}
+        <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}>
+            <DialogContent className="max-w-4xl">
+                 <AlertDialogHeader>
+                    <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
+                    <AlertDialogDescription>
+                         AI đề xuất sắp xếp lại các công việc trong mục <span className="font-bold">"{targetSection}"</span> của <span className="font-bold">Ca {tasksByShift?.[targetShift]?.name}</span> như sau. Bạn có muốn áp dụng thay đổi không?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                 <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4">
+                   <div>
+                       <h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4>
+                       <ul className="space-y-2 text-sm">
+                           {sortPreview.oldOrder.map((task, index) => (
+                               <li key={index} className="p-2 rounded-md bg-muted/50">
+                                   {index + 1}. {task}
+                               </li>
+                           ))}
+                       </ul>
+                   </div>
+                    <div>
+                       <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
+                       <ul className="space-y-2 text-sm">
+                           {sortPreview.newOrder.map((task, index) => {
+                                // Find original index for diffing
+                                const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
+                                const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
+                                return (
+                                   <li key={index} className="p-2 rounded-md bg-green-100/50">
+                                       {index + 1}. {renderDiff(oldTaskText, task)}
+                                   </li>
+                                )
+                           })}
+                       </ul>
+                   </div>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
+                </AlertDialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     )
 }
 
@@ -238,7 +419,7 @@ export default function TaskListsPage() {
     });
   }
 
-  const onAiTasksGenerated = (tasks: ParsedServerTask[], shiftKey: string, sectionTitle: string) => {
+  const onAiAddTasks = (tasks: ParsedServerTask[], shiftKey: string, sectionTitle: string) => {
       if (!tasksByShift) return;
 
       const newTasksToAdd: Task[] = tasks.map(task => ({
@@ -266,6 +447,24 @@ export default function TaskListsPage() {
       } else {
           toast({ title: "Lỗi", description: "Không tìm thấy ca hoặc mục để thêm công việc vào.", variant: "destructive"});
       }
+  };
+
+  const onAiSortTasks = (sortedTasksText: string[], shiftKey: string, sectionTitle: string) => {
+    if (!tasksByShift) return;
+    const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+    const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
+
+    if (section) {
+        const taskMap = new Map(section.tasks.map((t: Task) => [t.text, t]));
+        const sortedTasks: Task[] = sortedTasksText.map(text => taskMap.get(text)).filter((t): t is Task => !!t);
+
+        if (sortedTasks.length === section.tasks.length) {
+            section.tasks = sortedTasks;
+            handleUpdateAndSave(newTasksState);
+        } else {
+            toast({ title: "Lỗi sắp xếp", description: "Không thể khớp các công việc đã sắp xếp. Thay đổi đã bị hủy.", variant: "destructive" });
+        }
+    }
   };
 
   const handleAddTask = (shiftKey: string, sectionTitle: string) => {
@@ -395,7 +594,7 @@ export default function TaskListsPage() {
         <p className="text-muted-foreground">Tạo và chỉnh sửa các công việc hàng ngày cho tất cả các ca.</p>
       </header>
 
-       <ServerTasksAiGenerator tasksByShift={tasksByShift} onTasksGenerated={onAiTasksGenerated} />
+       <AiAssistant tasksByShift={tasksByShift} onAddTasks={onAiAddTasks} onSortTasks={onAiSortTasks} />
 
        <Tabs defaultValue="sang" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
@@ -527,5 +726,3 @@ export default function TaskListsPage() {
     </div>
   );
 }
-
-    

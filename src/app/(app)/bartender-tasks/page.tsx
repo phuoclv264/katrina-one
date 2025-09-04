@@ -19,8 +19,8 @@ import { generateBartenderTasks } from '@/ai/flows/generate-bartender-tasks';
 import { sortTasks } from '@/ai/flows/sort-tasks';
 import type { GenerateBartenderTasksOutput } from '@/ai/flows/generate-bartender-tasks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogClose } from '@/components/ui/dialog';
-import { Diff, diffChars } from 'diff';
+import { Dialog } from '@/components/ui/dialog';
+import { diffChars } from 'diff';
 
 
 function AiAssistant({
@@ -306,11 +306,17 @@ function AiAssistant({
                     <div>
                        <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
                        <ul className="space-y-2 text-sm">
-                           {sortPreview.newOrder.map((task, index) => (
-                               <li key={index} className="p-2 rounded-md bg-green-100/50">
-                                   {index + 1}. {renderDiff(sortPreview.oldOrder[index] || '', task)}
-                               </li>
-                           ))}
+                           {sortPreview.newOrder.map((task, index) => {
+                                // Find original index for diffing
+                                const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
+                                const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
+                                // This isn't a perfect diff if items are reordered AND text is changed, but it's a good heuristic.
+                                return (
+                                   <li key={index} className="p-2 rounded-md bg-green-100/50">
+                                       {index + 1}. {renderDiff(oldTaskText, task)}
+                                   </li>
+                                )
+                           })}
                        </ul>
                    </div>
                 </div>
@@ -469,7 +475,7 @@ export default function BartenderTasksPage() {
 
   const handleMoveTask = (sectionIndex: number, taskIndex: number, direction: 'up' | 'down') => {
     if (!sections) return;
-    const newSections = [...sections];
+    const newSections = JSON.parse(JSON.stringify(sections));
     const section = newSections[sectionIndex];
     const tasks = section.tasks;
     const newIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
@@ -481,7 +487,7 @@ export default function BartenderTasksPage() {
 
   const handleMoveSection = (sectionIndex: number, direction: 'up' | 'down') => {
     if (!sections) return;
-    const newSections = [...sections];
+    const newSections = JSON.parse(JSON.stringify(sections));
     const newIndex = direction === 'up' ? sectionIndex - 1 : sectionIndex + 1;
     if (newIndex < 0 || newIndex >= newSections.length) return;
 

@@ -24,8 +24,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateComprehensiveTasks } from '@/ai/flows/generate-comprehensive-tasks';
+import { Dialog } from '@/components/ui/dialog';
 
-function ComprehensiveTasksAiGenerator({
+function AiAssistant({
     sections,
     onTasksGenerated,
 }: {
@@ -36,6 +37,8 @@ function ComprehensiveTasksAiGenerator({
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [targetSection, setTargetSection] = useState('');
+    const [previewTasks, setPreviewTasks] = useState<ParsedComprehensiveTask[]>([]);
+    const [showPreview, setShowPreview] = useState(false);
     const { toast } = useToast();
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,7 +52,7 @@ function ComprehensiveTasksAiGenerator({
         }
     };
 
-    const resetState = () => {
+    const resetAddState = () => {
         setTextInput('');
         setImageInput(null);
         const fileInput = document.getElementById('comp-image-upload') as HTMLInputElement;
@@ -81,10 +84,9 @@ function ComprehensiveTasksAiGenerator({
                 throw new Error('AI không trả về kết quả hợp lệ.');
             }
 
-            onTasksGenerated(result.tasks, targetSection);
+            setPreviewTasks(result.tasks);
+            setShowPreview(true);
 
-            toast({ title: 'Hoàn tất!', description: `AI đã tạo ${result.tasks.length} hạng mục mới trong khu vực "${targetSection}".` });
-            resetState();
         } catch (error) {
             console.error('Failed to generate comprehensive tasks:', error);
             toast({ title: 'Lỗi', description: 'Không thể tạo danh sách hạng mục. Vui lòng thử lại.', variant: 'destructive' });
@@ -93,77 +95,113 @@ function ComprehensiveTasksAiGenerator({
         }
     };
 
+    const handleConfirmAdd = () => {
+        onTasksGenerated(previewTasks, targetSection);
+        toast({ title: 'Hoàn tất!', description: `Đã thêm ${previewTasks.length} hạng mục mới vào khu vực "${targetSection}".` });
+        resetAddState();
+        setShowPreview(false);
+        setPreviewTasks([]);
+    }
+
     return (
-        <Card className="mb-8">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
-                    <Wand2 /> Thêm hàng loạt bằng AI
-                </CardTitle>
-                <CardDescription>Dán văn bản hoặc tải ảnh danh sách hạng mục để AI tự động thêm vào khu vực bạn chọn.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Tabs defaultValue="text">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="text">
-                            <FileText className="mr-2 h-4 w-4" />
-                            Dán văn bản
-                        </TabsTrigger>
-                        <TabsTrigger value="image">
-                            <ImageIcon className="mr-2 h-4 w-4" />
-                            Tải ảnh lên
-                        </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="text" className="mt-4 space-y-4">
-                        <Textarea
-                            placeholder="Dán danh sách các hạng mục vào đây. Mỗi dòng là một hạng mục. Có thể bao gồm loại báo cáo mong muốn (ví dụ: 'Sàn nhà sạch sẽ - hình ảnh')."
-                            rows={4}
-                            value={textInput}
-                            onChange={(e) => setTextInput(e.target.value)}
-                            disabled={isGenerating}
-                        />
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sections.map((section) => (
-                                        <SelectItem key={section.title} value={section.title}>
-                                            {section.title}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim() || !targetSection} className="w-full sm:w-auto">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo
-                            </Button>
-                        </div>
-                    </TabsContent>
-                    <TabsContent value="image" className="mt-4 space-y-4">
-                        <Input id="comp-image-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isGenerating} />
-                        <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sections.map((section) => (
-                                        <SelectItem key={section.title} value={section.title}>
-                                            {section.title}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput || !targetSection} className="w-full sm:w-auto">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo
-                            </Button>
-                        </div>
-                    </TabsContent>
-                </Tabs>
-            </CardContent>
-        </Card>
+        <>
+            <Card className="mb-8">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
+                        <Wand2 /> Công cụ hỗ trợ AI
+                    </CardTitle>
+                    <CardDescription>Dán văn bản hoặc tải ảnh danh sách hạng mục để AI tự động thêm vào khu vực bạn chọn.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="text">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="text">
+                                <FileText className="mr-2 h-4 w-4" />
+                                Dán văn bản
+                            </TabsTrigger>
+                            <TabsTrigger value="image">
+                                <ImageIcon className="mr-2 h-4 w-4" />
+                                Tải ảnh lên
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="text" className="mt-4 space-y-4">
+                            <Textarea
+                                placeholder="Dán danh sách các hạng mục vào đây. Mỗi dòng là một hạng mục. Có thể bao gồm loại báo cáo mong muốn (ví dụ: 'Sàn nhà sạch sẽ - hình ảnh')."
+                                rows={4}
+                                value={textInput}
+                                onChange={(e) => setTextInput(e.target.value)}
+                                disabled={isGenerating}
+                            />
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Chọn khu vực..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sections.map((section) => (
+                                            <SelectItem key={section.title} value={section.title}>
+                                                {section.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim() || !targetSection} className="w-full sm:w-auto">
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Tạo
+                                </Button>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="image" className="mt-4 space-y-4">
+                            <Input id="comp-image-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isGenerating} />
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Chọn khu vực..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sections.map((section) => (
+                                            <SelectItem key={section.title} value={section.title}>
+                                                {section.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput || !targetSection} className="w-full sm:w-auto">
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Tạo
+                                </Button>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                <DialogContent className="max-w-2xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Xem trước các hạng mục sẽ được thêm</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào khu vực <span className="font-bold">"{targetSection}"</span>.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
+                        <ul className="space-y-2">
+                            {previewTasks.map((task, index) => (
+                                <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
+                                    <Plus className="h-4 w-4 text-green-500"/>
+                                    <span className="flex-1">{task.text}</span>
+                                    <Badge variant="outline">{task.type}</Badge>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmAdd}>Thêm {previewTasks.length} hạng mục</AlertDialogAction>
+                    </AlertDialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 
@@ -413,7 +451,7 @@ export default function ComprehensiveChecklistPage() {
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các khu vực, hạng mục kiểm tra cho Quản lý.</p>
       </header>
 
-      <ComprehensiveTasksAiGenerator sections={sections} onTasksGenerated={onAiTasksGenerated} />
+      <AiAssistant sections={sections} onTasksGenerated={onAiTasksGenerated} />
 
        <Card className="mb-8">
             <CardHeader>
@@ -659,5 +697,3 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
-
-    
