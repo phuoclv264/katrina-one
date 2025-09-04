@@ -76,7 +76,7 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error(error);
       let description = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+      if (error.code === 'auth/invalid-credential') {
         description = 'Email hoặc mật khẩu không chính xác.';
       }
       toast({
