@@ -20,10 +20,12 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
 function HygieneReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
   const shiftKey = 'bartender_hygiene';
@@ -47,19 +49,34 @@ function HygieneReportView() {
       return;
     };
 
-    dataStore.subscribeToBartenderTasks((tasks) => {
-        setTaskSections(tasks);
-    });
+    let unsubscribeTasks: (() => void) | null = null;
+    try {
+        unsubscribeTasks = dataStore.subscribeToBartenderTasks((tasks) => {
+            setTaskSections(tasks);
+        });
 
-    dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
-        setReports(fetchedReports);
-        if (fetchedReports.length > 0 && !selectedReportId) {
-            setSelectedReportId(fetchedReports[0].id);
-        }
-        setIsLoading(false);
-    });
+        dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
+            setReports(fetchedReports);
+            if (fetchedReports.length > 0 && !selectedReportId) {
+                setSelectedReportId(fetchedReports[0].id);
+            }
+            setIsLoading(false);
+        });
+    } catch (error) {
+        console.error("Error loading hygiene report data:", error);
+        toast({
+            title: "Lỗi tải dữ liệu",
+            description: "Không thể tải báo cáo vệ sinh. Đang chuyển hướng bạn về trang chính.",
+            variant: "destructive",
+        });
+        router.replace('/reports');
+    }
 
-  }, [date, shiftKey, selectedReportId, user, authLoading, router]);
+    return () => {
+        if(unsubscribeTasks) unsubscribeTasks();
+    }
+
+  }, [date, shiftKey, selectedReportId, user, authLoading, router, toast]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;

@@ -21,10 +21,12 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
 function ReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
   const shiftKey = searchParams.get('shiftKey');
@@ -48,24 +50,37 @@ function ReportView() {
       return;
     };
 
-    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
-        setTasksByShift(tasks);
-    });
+    let unsubscribeTasks: (() => void) | null = null;
+    let unsubscribeReports: (() => void) | null = null;
 
-    const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
-        const submittedReports = fetchedReports.filter(r => r.status === 'submitted');
-        setReports(submittedReports);
-        if (submittedReports.length > 0 && !selectedReportId) {
-            setSelectedReportId(submittedReports[0].id);
-        }
-        setIsLoading(false);
-    });
+    try {
+        unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
+            setTasksByShift(tasks);
+        });
+
+        unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
+            setReports(fetchedReports);
+            if (fetchedReports.length > 0 && !selectedReportId) {
+                setSelectedReportId(fetchedReports[0].id);
+            }
+            setIsLoading(false);
+        });
+    } catch (error) {
+        console.error("Error subscribing to data:", error);
+        toast({
+            title: "Lỗi tải dữ liệu",
+            description: "Không thể tải dữ liệu báo cáo. Đang chuyển hướng bạn về trang chính.",
+            variant: "destructive",
+        });
+        router.replace('/reports');
+    }
+
 
     return () => {
-        unsubscribeTasks();
-        unsubscribeReports();
+        if(unsubscribeTasks) unsubscribeTasks();
+        if(unsubscribeReports) unsubscribeReports();
     };
-  }, [date, shiftKey, selectedReportId, user, authLoading, router]);
+  }, [date, shiftKey, selectedReportId, user, authLoading, router, toast]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;

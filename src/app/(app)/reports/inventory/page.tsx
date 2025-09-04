@@ -13,12 +13,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
 function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
 
@@ -37,23 +39,34 @@ function InventoryReportView() {
       setIsLoading(false);
       return;
     }
-
-    const unsubscribeInventoryList = dataStore.subscribeToInventoryList((items) => {
-      setInventoryList(items);
-    });
-
-    dataStore.getInventoryReportForDate(date).then(fetchedReports => {
-      setReports(fetchedReports);
-      if (fetchedReports.length > 0 && !selectedReportId) {
-        setSelectedReportId(fetchedReports[0].id);
-      }
-      setIsLoading(false);
-    });
     
-    return () => {
-        unsubscribeInventoryList();
+    let unsubscribeInventoryList: (() => void) | null = null;
+    try {
+        unsubscribeInventoryList = dataStore.subscribeToInventoryList((items) => {
+            setInventoryList(items);
+        });
+
+        dataStore.getInventoryReportForDate(date).then(fetchedReports => {
+            setReports(fetchedReports);
+            if (fetchedReports.length > 0 && !selectedReportId) {
+                setSelectedReportId(fetchedReports[0].id);
+            }
+            setIsLoading(false);
+        });
+    } catch (error) {
+        console.error("Error loading inventory report data:", error);
+        toast({
+            title: "Lỗi tải dữ liệu",
+            description: "Không thể tải báo cáo tồn kho. Đang chuyển hướng bạn về trang chính.",
+            variant: "destructive",
+        });
+        router.replace('/reports');
     }
-  }, [date, selectedReportId, user, authLoading, router]);
+
+    return () => {
+        if(unsubscribeInventoryList) unsubscribeInventoryList();
+    }
+  }, [date, selectedReportId, user, authLoading, router, toast]);
   
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
