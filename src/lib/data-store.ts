@@ -118,17 +118,29 @@ export const dataStore = {
     await setDoc(docRef, { items: newList });
   },
   
+  /**
+   * Retrieves or creates an inventory report for a given user for the current day.
+   * This logic is simpler than the shift reports as it prioritizes local data to prevent loss of input.
+   * It does not perform a complex version comparison.
+   * 
+   * @param userId - The ID of the current user.
+   * @param staffName - The display name of the current user.
+   * @returns A promise that resolves to the user's inventory report for the day.
+   */
   async getOrCreateInventoryReport(userId: string, staffName: string): Promise<InventoryReport> {
     if (typeof window === 'undefined') {
        throw new Error("Cannot get report from server-side.");
     }
     const date = getTodaysDateKey();
     const reportId = `inventory-report-${userId}-${date}`;
+    
+    // 1. Prioritize local data: If a report is already in localStorage, use it immediately.
     const localReportString = localStorage.getItem(reportId);
     if(localReportString) {
         return JSON.parse(localReportString);
     }
     
+    // 2. Check Firestore: If no local data, check if a report was submitted from another device.
     const firestoreRef = doc(db, 'inventory-reports', reportId);
     const serverDoc = await getDoc(firestoreRef);
     if (serverDoc.exists()) {
@@ -140,10 +152,12 @@ export const dataStore = {
             lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString(),
         } as InventoryReport;
+        // Save the server version locally for future offline access.
         localStorage.setItem(reportId, JSON.stringify(report));
         return report;
     }
 
+    // 3. Create new report: If no data exists anywhere, create a fresh report object.
     const newReport: InventoryReport = {
         id: reportId,
         userId,
@@ -154,8 +168,7 @@ export const dataStore = {
         suggestions: null,
         lastUpdated: new Date().toISOString(),
     };
-    // Don't save to remote yet, just return the structure.
-    // Save to local storage so subsequent inputs are not lost.
+    // Save to local storage immediately so subsequent inputs are not lost.
     await this.saveLocalInventoryReport(newReport);
     return newReport;
   },
@@ -185,7 +198,15 @@ export const dataStore = {
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
   },
 
-
+  /**
+   * Retrieves or creates a shift/hygiene/comprehensive report, handling local and server data synchronization.
+   * Determines the sync status by comparing `lastUpdated` timestamps.
+   *
+   * @param userId The ID of the current user.
+   * @param staffName The display name of the current user.
+   * @param shiftKey The key for the report type (e.g., 'sang', 'bartender_hygiene').
+   * @returns A promise resolving to an object containing the report and its sync status.
+   */
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{report: ShiftReport, status: 'synced' | 'local-newer' | 'server-newer' | 'error' }> {
     if (typeof window === 'undefined') {
        throw new Error("Cannot get report from server-side.");
@@ -199,8 +220,10 @@ export const dataStore = {
     const firestoreRef = doc(db, 'reports', reportId);
     try {
         const serverDoc = await getDoc(firestoreRef);
+        let localReport: ShiftReport | null = localReportString ? JSON.parse(localReportString) : null;
 
-        if (!localReportString && !serverDoc.exists()) {
+        // Case 1: No data anywhere. Create a new in-memory report.
+        if (!localReport && !serverDoc.exists()) {
             const newReport: ShiftReport = {
                 id: reportId,
                 userId,
@@ -217,36 +240,41 @@ export const dataStore = {
             return { report: newReport, status: 'synced' };
         }
 
-        let localReport: ShiftReport | null = localReportString ? JSON.parse(localReportString) : null;
-        
+        // Case 2: Data on server, but not local (e.g., new device). Download from server.
         if (!localReport && serverDoc.exists()) {
              const serverReport = await this.overwriteLocalReport(reportId);
              return { report: serverReport, status: 'synced' };
         }
         
+        // Case 3: Data on local, but not on server (e.g., offline work started). Local is newer.
         if(localReport && !serverDoc.exists()){
             return { report: localReport, status: 'local-newer' };
         }
 
+        // Case 4: Data exists in both places. Compare timestamps.
         if (localReport && serverDoc.exists()) {
             const serverReportData = serverDoc.data() as ShiftReport;
             const serverLastUpdated = (serverReportData.lastUpdated as Timestamp)?.toDate().getTime() || 0;
             const localLastUpdated = new Date(localReport.lastUpdated as string).getTime();
 
-            // Allow a small tolerance (e.g., 1000ms) to account for client/server time differences
+            // If local is more than 1 second newer, it has unsynced changes.
             if (localLastUpdated > serverLastUpdated + 1000) { 
                 return { report: localReport, status: 'local-newer' };
+            // If server is more than 1 second newer, there's an update to download.
             } else if (serverLastUpdated > localLastUpdated + 1000) {
                 return { report: localReport, status: 'server-newer' };
+            // Otherwise, they are considered in sync.
             } else {
                 return { report: localReport, status: 'synced' };
             }
         }
         
+        // Fallback: Should ideally not be reached, but if it is, prioritize local report.
         if (localReport) {
             return { report: localReport, status: 'local-newer' };
         }
 
+        // Final fallback: create a new report if all else fails.
          const newReport: ShiftReport = {
             id: reportId,
             userId,
@@ -264,10 +292,12 @@ export const dataStore = {
 
 
     } catch(error) {
+        // Offline mode: If Firestore fetch fails, rely on local data.
         console.error("Firebase fetch failed, running in offline mode.", error);
         if (localReportString) {
              return { report: JSON.parse(localReportString), status: 'error' };
         }
+        // If no local data and offline, create a new temporary report.
         const newReport: ShiftReport = {
             id: reportId,
             userId,
@@ -540,5 +570,7 @@ export const dataStore = {
     return reports;
   }
 };
+
+    
 
     
