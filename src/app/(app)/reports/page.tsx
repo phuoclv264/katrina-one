@@ -9,10 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, Users } from 'lucide-react';
-import type { ShiftReport, TasksByShift, InventoryReport } from '@/lib/types';
+import { ArrowRight, CheckCircle, Users, Wand2, Loader2 } from 'lucide-react';
+import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
+import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import ReactMarkdown from 'react-markdown';
+
 
 type ReportType = ShiftReport | InventoryReport;
 
@@ -22,11 +27,71 @@ type GroupedReports = {
   };
 };
 
+function DailySummaryGenerator({ date, reports, taskDefinitions }: { date: string, reports: ReportType[], taskDefinitions: any }) {
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [summary, setSummary] = useState('');
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const { toast } = useToast();
+
+    const handleGenerate = async () => {
+        setIsGenerating(true);
+        setSummary('');
+        try {
+            const result = await generateDailySummary({
+                date,
+                reports,
+                taskDefinitions
+            });
+            setSummary(result.summary);
+            setIsDialogOpen(true);
+        } catch (error) {
+            console.error("Failed to generate summary:", error);
+            toast({
+                title: "Lỗi tạo tóm tắt",
+                description: "Đã có lỗi xảy ra khi AI xử lý dữ liệu. Vui lòng thử lại.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    }
+
+    return (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button onClick={handleGenerate} variant="outline" size="sm" disabled={isGenerating}>
+                    {isGenerating ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Wand2 className="mr-2 h-4 w-4" />
+                    )}
+                    Tóm tắt bằng AI
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Tóm tắt báo cáo ngày {new Date(date).toLocaleDateString('vi-VN')}</DialogTitle>
+                    <DialogDescription>
+                        AI đã phân tích tất cả các báo cáo đã nộp trong ngày.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="prose prose-sm dark:prose-invert max-h-[70vh] overflow-y-auto rounded-md border p-4">
+                    <ReactMarkdown>{summary}</ReactMarkdown>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [reports, setReports] = useState<ReportType[]>([]);
+  const { toast } = useToast();
+  const [allReports, setAllReports] = useState<ReportType[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
+  const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
+  const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -38,20 +103,33 @@ export default function ReportsPage() {
   useEffect(() => {
     if (!user || user.role !== 'Chủ nhà hàng') return;
 
-    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
-      setTasksByShift(tasks);
-    });
-
-    const unsubscribeReports = dataStore.subscribeToReports((allReports) => {
-       setReports(allReports);
-       setIsLoading(false);
-    });
+    const unsubscribes: (()=>void)[] = [];
+    
+    try {
+        unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
+        unsubscribes.push(dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
+        unsubscribes.push(dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
+        unsubscribes.push(dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
+        unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports)));
+    } catch(error) {
+         console.error("Error subscribing to data:", error);
+         toast({
+            title: "Lỗi tải dữ liệu",
+            description: "Không thể tải được một số cấu hình công việc hoặc báo cáo.",
+            variant: "destructive",
+        });
+    }
 
     return () => {
-      unsubscribeTasks();
-      unsubscribeReports();
+      unsubscribes.forEach(unsub => unsub());
     };
-  }, [user]);
+  }, [user, toast]);
+  
+  useEffect(() => {
+      if (tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports) {
+          setIsLoading(false);
+      }
+  }, [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList, allReports]);
 
   const getReportKey = (report: ReportType): string => {
     if ('shiftKey' in report) {
@@ -98,7 +176,7 @@ export default function ReportsPage() {
 
 
   const groupedReports: GroupedReports = useMemo(() => {
-    return reports.reduce((acc, report) => {
+    return allReports.reduce((acc, report) => {
       const date = report.date;
       const key = getReportKey(report);
       
@@ -111,10 +189,17 @@ export default function ReportsPage() {
       acc[date][key].push(report);
       return acc;
     }, {} as GroupedReports);
-  }, [reports]);
+  }, [allReports]);
 
   const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   
+  const taskDefinitions = useMemo(() => ({
+      serverTasks: tasksByShift,
+      bartenderTasks,
+      comprehensiveTasks,
+      inventoryItems: inventoryList,
+  }), [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList]);
+
   if(isLoading || authLoading || user?.role !== 'Chủ nhà hàng') {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -147,52 +232,64 @@ export default function ReportsPage() {
         <CardHeader>
           <CardTitle>Báo cáo gần đây</CardTitle>
           <CardDescription>
-            Hiển thị {reports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày và ca.
+            Hiển thị {allReports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày và ca.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {sortedDates.length > 0 ? (
             <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
-              {sortedDates.map((date) => (
-                <AccordionItem value={date} key={date}>
-                  <AccordionTrigger className="text-lg font-medium">
-                    Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Tên báo cáo</TableHead>
-                          <TableHead>Nhân viên đã nộp</TableHead>
-                          <TableHead className="text-right">Hành động</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
-                          const reportName = getReportName(key);
-                          const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
-                          
-                          return (
-                            <TableRow key={`${date}-${key}`}>
-                              <TableCell className="font-semibold capitalize">{reportName}</TableCell>
-                              <TableCell>
-                                <p className="text-sm text-muted-foreground">{staffNames}</p>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button asChild variant="ghost" size="sm">
-                                  <Link href={getReportLink(date, key)}>
-                                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                                  </Link>
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+              {sortedDates.map((date) => {
+                const reportsForDate = Object.values(groupedReports[date]).flat();
+                return (
+                  <AccordionItem value={date} key={date}>
+                    <AccordionTrigger className="text-lg font-medium hover:no-underline">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-2 w-full">
+                            <span className="flex-1 text-left">Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                            <div className="flex items-center gap-4 justify-self-end">
+                                <DailySummaryGenerator 
+                                    date={date} 
+                                    reports={reportsForDate}
+                                    taskDefinitions={taskDefinitions}
+                                />
+                            </div>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tên báo cáo</TableHead>
+                            <TableHead>Nhân viên đã nộp</TableHead>
+                            <TableHead className="text-right">Hành động</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
+                            const reportName = getReportName(key);
+                            const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
+                            
+                            return (
+                              <TableRow key={`${date}-${key}`}>
+                                <TableCell className="font-semibold capitalize">{reportName}</TableCell>
+                                <TableCell>
+                                  <p className="text-sm text-muted-foreground">{staffNames}</p>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button asChild variant="ghost" size="sm">
+                                    <Link href={getReportLink(date, key)}>
+                                      Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                                    </Link>
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </AccordionContent>
+                  </AccordionItem>
+                )
+              })}
             </Accordion>
           ) : (
              <div className="text-center text-muted-foreground py-8">
