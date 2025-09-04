@@ -68,13 +68,17 @@ export default function ReportsPage() {
     if (tasksByShift?.[key]) { // Checklist reports
         return `/reports/by-shift?date=${date}&shiftKey=${key}`;
     }
-    if (key === 'bartender_hygiene') { // Hygiene report
-        return `/reports/hygiene?date=${date}`;
+    switch (key) {
+        case 'bartender_hygiene':
+            return `/reports/hygiene?date=${date}`;
+        case 'inventory':
+            return `/reports/inventory?date=${date}`;
+        // Add this case in a future update when the report view is created
+        // case 'manager_comprehensive':
+        //     return `/reports/comprehensive?date=${date}`;
+        default:
+             return '#';
     }
-    if (key === 'inventory') { // Inventory report
-        return `/reports/inventory?date=${date}`;
-    }
-    return '#';
   }
   
   const getReportName = (key: string): string => {
@@ -86,6 +90,8 @@ export default function ReportsPage() {
         return 'Báo cáo Vệ sinh quầy';
       case 'inventory':
         return 'Báo cáo Kiểm kê Tồn kho';
+      case 'manager_comprehensive':
+        return 'Phiếu kiểm tra toàn diện';
       default:
         return `Báo cáo không xác định: ${key}`;
     }
