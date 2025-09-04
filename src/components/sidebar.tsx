@@ -32,12 +32,12 @@ export function AppSidebar() {
   const managerMenu = [
     { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
     { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
-    { href: '/reports', label: 'Xem Báo cáo nhân viên', icon: FileText },
-    { href: '/task-lists', label: 'Quản lý Công việc', icon: ClipboardList },
   ];
   
   const ownerMenu = [
-    ...managerMenu,
+    { href: '/reports', label: 'Xem Báo cáo nhân viên', icon: FileText },
+    { href: '/task-lists', label: 'Quản lý Công việc', icon: ClipboardList },
+    ...managerMenu.filter(item => !['/manager'].includes(item.href)), // include manager specific tasks except their dashboard
     { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
   ]
   

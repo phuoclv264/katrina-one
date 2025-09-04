@@ -41,7 +41,9 @@ export const useAuth = () => {
                 router.replace('/shifts');
             } else if (userRole === 'Pha chế') {
                 router.replace('/bartender');
-            } else if (userRole === 'Quản lý' || userRole === 'Chủ nhà hàng') {
+            } else if (userRole === 'Quản lý') {
+                router.replace('/manager');
+            } else if (userRole === 'Chủ nhà hàng') {
                 router.replace('/reports');
             }
           }
