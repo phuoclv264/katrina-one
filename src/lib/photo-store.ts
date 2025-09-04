@@ -95,7 +95,7 @@ export const photoStore = {
       let cursor = await index.openCursor(IDBKeyRange.upperBound(startOfToday, true)); // Get all items *before* today
 
       while (cursor) {
-        console.log(`Deleting old photo: ${cursor.value.id}`);
+        console.log(`[PhotoStore Cleanup] Deleting old photo from previous day: ${cursor.value.id}`);
         cursor.delete();
         cursor = await cursor.continue();
       }
