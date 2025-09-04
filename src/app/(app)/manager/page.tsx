@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileSearch } from 'lucide-react';
+import { FileSearch, FileText, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -32,7 +32,7 @@ export default function ManagerDashboardPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Bảng điều khiển Quản lý</CardTitle>
-          <CardDescription>Chọn loại báo cáo bạn muốn thực hiện hoặc xem.</CardDescription>
+          <CardDescription>Chọn chức năng bạn muốn thực hiện.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <Button asChild size="lg">
@@ -43,7 +43,14 @@ export default function ManagerDashboardPage() {
           </Button>
            <Button asChild size="lg" variant="secondary">
             <Link href="/reports">
+              <FileText className="mr-2" />
               Xem báo cáo nhân viên
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="secondary">
+            <Link href="/task-lists">
+              <ClipboardList className="mr-2" />
+              Quản lý danh sách công việc
             </Link>
           </Button>
         </CardContent>
