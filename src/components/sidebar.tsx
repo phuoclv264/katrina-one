@@ -113,10 +113,10 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
                   isActive={pathname === item.href}
                   tooltip={item.label}
                 >
-                  <>
+                  <span>
                     <item.icon />
                     <span>{item.label}</span>
-                  </>
+                  </span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
