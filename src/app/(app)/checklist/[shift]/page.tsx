@@ -25,6 +25,7 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -180,24 +181,16 @@ export default function ChecklistPage() {
         const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
-            if (completion.photos) {
-              for (const photoUrl of completion.photos) {
-                  photos.push({
-                      src: photoUrl,
-                      description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                  });
-              }
-            }
-            if (completion.photoIds) {
-              for (const photoId of completion.photoIds) {
-                const localUrl = localPhotoUrls.get(photoId);
-                if (localUrl) {
-                  photos.push({
-                      src: localUrl,
-                      description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                  });
-                }
-              }
+             const combinedPhotos = [
+                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
+                ...(completion.photos || [])
+            ].filter((url): url is string => !!url);
+
+            for (const photoUrl of combinedPhotos) {
+                photos.push({
+                    src: photoUrl,
+                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                });
             }
         }
     }
@@ -260,7 +253,7 @@ export default function ChecklistPage() {
       // Also delete from IndexedDB
       await photoStore.deletePhoto(photoId);
       
-      if (taskCompletions[completionIndex].photoIds.length === 0 && (taskCompletions[completionIndex].photos || []).length === 0) {
+      if ((taskCompletions[completionIndex].photoIds ?? []).length === 0 && (taskCompletions[completionIndex].photos ?? []).length === 0) {
           taskCompletions.splice(completionIndex, 1);
       }
       
@@ -444,7 +437,7 @@ export default function ChecklistPage() {
   }
 
   return (
-    <>
+    <TooltipProvider>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-24">
       <header className="mb-8">
          <div className="flex justify-between items-center mb-4">
@@ -514,11 +507,6 @@ export default function ChecklistPage() {
                             {isCompletedOnce && (
                                 <div className="mt-4 space-y-3">
                                 {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                  const combinedPhotos = [
-                                      ...(completion.photoIds || []).map(id => ({ id, url: localPhotoUrls.get(id) })),
-                                      ...(completion.photos || []).map(url => ({ id: url, url }))
-                                  ].filter(p => p.url);
-
                                   return (
                                   <div key={cIndex} className="rounded-md border bg-card p-3">
                                       <div className="flex items-center justify-between mb-2">
@@ -551,34 +539,48 @@ export default function ChecklistPage() {
                                               </AlertDialog>
                                           </div>
                                       </div>
-                                      {combinedPhotos.length > 0 ? (
-                                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                          {combinedPhotos.map((photo, pIndex) => (
-                                              <div key={photo.id} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                  <button
-                                                    onClick={() => openLightbox(photo.url!)}
-                                                    className="w-full h-full block"
-                                                  >
-                                                    <Image src={photo.url!} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
-                                                  </button>
-                                                  
-                                                  {!isReadonly && (completion.photoIds?.includes(photo.id)) && (
-                                                      <Button 
-                                                          variant="destructive"
-                                                          size="icon"
-                                                          className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                          onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo.id); }}
-                                                      >
-                                                          <X className="h-3 w-3" />
-                                                          <span className="sr-only">Xóa ảnh</span>
-                                                      </Button>
-                                                  )}
-                                              </div>
-                                          ))}
+
+                                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                        {(completion.photos || []).map((photoUrl, pIndex) => (
+                                          <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                            <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
+                                              <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                            </button>
                                           </div>
-                                      ): (
-                                          <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
-                                      )}
+                                        ))}
+                                        {(completion.photoIds || []).map((photoId, pIndex) => {
+                                          const photoUrl = localPhotoUrls.get(photoId);
+                                          if (!photoUrl) return null;
+                                          return (
+                                            <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                              <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
+                                                <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                              </button>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
+                                                    <UploadCloud className="h-3 w-3" />
+                                                  </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p>Ảnh chưa được gửi</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                              {!isReadonly && (
+                                                <Button 
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId); }}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                    <span className="sr-only">Xóa ảnh</span>
+                                                </Button>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                   </div>
                                 )})}
                                 {completions.length > 1 && (
@@ -698,6 +700,7 @@ export default function ChecklistPage() {
             descriptionMaxLines: 5
         }}
     />
-    </>
+    </TooltipProvider>
   );
 }
+

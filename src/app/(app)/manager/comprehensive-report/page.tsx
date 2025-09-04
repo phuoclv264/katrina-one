@@ -26,6 +26,7 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -451,7 +452,7 @@ export default function ComprehensiveReportPage() {
   const areAllSectionsOpen = tasks && openAccordionItems.length === tasks.length;
 
   return (
-    <>
+    <TooltipProvider>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-32">
       <header className="mb-8">
          <div className="flex justify-between items-center mb-4">
@@ -557,10 +558,6 @@ export default function ComprehensiveReportPage() {
                             {isTaskCompleted && (
                                 <div className="mt-4 space-y-3">
                                   {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                      const combinedPhotos = [
-                                          ...(completion.photoIds || []).map(id => ({ id, url: localPhotoUrls.get(id) })),
-                                          ...(completion.photos || []).map(url => ({ id: url, url }))
-                                      ].filter(p => p.url);
                                       return (
                                       <div key={cIndex} className="rounded-md border bg-card p-3">
                                         <div className="flex items-center justify-between mb-2">
@@ -597,32 +594,49 @@ export default function ComprehensiveReportPage() {
                                             )}
                                           </div>
                                         </div>
-                                        {combinedPhotos.length > 0 && (
-                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                            {combinedPhotos.map((photo, pIndex) => (
-                                                <div key={photo.id} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                    <button
-                                                    onClick={() => openLightbox(photo.url!)}
-                                                    className="w-full h-full block"
-                                                    >
-                                                    <Image src={photo.url!} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
+                                        
+                                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                            {(completion.photos || []).map((photoUrl, pIndex) => (
+                                                <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                                    <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
+                                                        <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
                                                     </button>
-                                                    
-                                                    {!isReadonly && (completion.photoIds?.includes(photo.id)) && (
-                                                        <Button 
-                                                            variant="destructive"
-                                                            size="icon"
-                                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo.id); }}
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                            <span className="sr-only">Xóa ảnh</span>
-                                                        </Button>
-                                                    )}
                                                 </div>
                                             ))}
-                                            </div>
-                                        )}
+                                            {(completion.photoIds || []).map((photoId, pIndex) => {
+                                                const photoUrl = localPhotoUrls.get(photoId);
+                                                if (!photoUrl) return null;
+                                                return (
+                                                    <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                                        <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
+                                                            <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                                        </button>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
+                                                                    <UploadCloud className="h-3 w-3" />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Ảnh chưa được gửi</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                        {!isReadonly && (
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="icon"
+                                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId); }}
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                                <span className="sr-only">Xóa ảnh</span>
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
                                         {completion.opinion && (
                                             <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
                                         )}
@@ -733,6 +747,6 @@ export default function ComprehensiveReportPage() {
             descriptionMaxLines: 5
         }}
     />
-    </>
+    </TooltipProvider>
   );
 }
