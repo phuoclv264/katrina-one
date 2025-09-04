@@ -370,7 +370,7 @@ export const dataStore = {
     const shiftQ = query(shiftReportsCollection, where('status', '==', 'submitted'), orderBy('submittedAt', 'desc'));
     
     const inventoryReportsCollection = collection(db, 'inventory-reports');
-    const inventoryQ = query(inventoryReportsCollection, where('status', '==', 'submitted'), orderBy('submittedAt', 'desc'));
+    const inventoryQ = query(inventoryReportsCollection, where('status', '==', 'submitted'));
 
     const unsubscribeShift = onSnapshot(shiftQ, (querySnapshot) => {
         const shiftReports: ShiftReport[] = querySnapshot.docs.map(doc => {
@@ -401,6 +401,13 @@ export const dataStore = {
             } as InventoryReport;
         });
         
+        // Sort inventory reports by date on the client
+        inventoryReports.sort((a, b) => {
+             const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+             const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+             return timeB - timeA;
+        });
+
         // Combine with shift reports
         const otherReports = combinedReports.filter(r => 'shiftKey' in r);
         combinedReports = [...inventoryReports, ...otherReports];
@@ -480,3 +487,5 @@ export const dataStore = {
     return reports;
   }
 };
+
+    
