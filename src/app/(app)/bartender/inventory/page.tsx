@@ -120,10 +120,24 @@ export default function InventoryPage() {
             description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
         });
 
-        const itemsWithCurrentStock = inventoryList.map(item => ({
-            ...item,
-            currentStock: report.stockLevels[item.id] ?? 0,
-        }));
+        // Filter for items that have been checked (stock level is not null/undefined)
+        const itemsWithCurrentStock = inventoryList
+            .filter(item => report.stockLevels[item.id] !== undefined && report.stockLevels[item.id] !== null)
+            .map(item => ({
+                ...item,
+                currentStock: report.stockLevels[item.id] as number,
+            }));
+
+        if (itemsWithCurrentStock.length === 0) {
+            toast({
+                title: "Chưa có dữ liệu",
+                description: "Vui lòng nhập số lượng tồn kho trước khi nhận đề xuất.",
+                variant: "default"
+            });
+            setSuggestions({ summary: 'Chưa có mặt hàng nào được kiểm kê.', itemsToOrder: [] });
+            setIsGenerating(false);
+            return;
+        }
         
         const result = await generateInventoryOrderSuggestion({
             items: itemsWithCurrentStock
@@ -356,7 +370,7 @@ export default function InventoryPage() {
                         </div>
                     )}
                     {!(isSubmitting || isGenerating) && suggestions && suggestions.itemsToOrder.length === 0 && (
-                        <p className="text-center text-sm text-muted-foreground py-4">Tất cả hàng hoá đã đủ. Không cần đặt thêm.</p>
+                        <p className="text-center text-sm text-muted-foreground py-4">{suggestions.summary || 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.'}</p>
                     )}
                     {!(isSubmitting || isGenerating) && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
