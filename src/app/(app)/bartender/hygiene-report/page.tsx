@@ -121,7 +121,7 @@ export default function HygieneReportPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthLoading || !user || !shiftKey) return;
+    if (isAuthLoading || !user) return;
     
     const loadReport = async () => {
         setIsLoading(true);
@@ -129,7 +129,7 @@ export default function HygieneReportPage() {
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             setReport(loadedReport);
-            await fetchLocalPhotos(loadedReport);
+            await fetchLocalPhotos(loadedReport); // Fetch photos right after setting report
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
                 setShowSyncDialog(true);
@@ -160,25 +160,21 @@ export default function HygieneReportPage() {
         return "Nhiệm vụ không xác định";
     };
 
-    const photos = [];
+    const photos: { src: string, description: string }[] = [];
     for (const taskId in report.completedTasks) {
         const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
-            for (const photoUrl of completion.photos ?? []) {
-                photos.push({
+             const combinedPhotos = [
+                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
+                ...(completion.photos || [])
+            ].filter((url): url is string => !!url);
+
+            for(const photoUrl of combinedPhotos) {
+                 photos.push({
                     src: photoUrl,
                     description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
                 });
-            }
-            for (const photoId of completion.photoIds ?? []) {
-                const localUrl = localPhotoUrls.get(photoId);
-                if (localUrl) {
-                    photos.push({
-                        src: localUrl,
-                        description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                    });
-                }
             }
         }
     }
@@ -187,12 +183,12 @@ export default function HygieneReportPage() {
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
       setReport(updatedReport);
+      await fetchLocalPhotos(updatedReport); // Refresh photo URLs after every local update
       if (dataStore.isReportEmpty(updatedReport)) {
         await dataStore.deleteLocalReport(updatedReport.id);
         setSyncStatus('synced');
       } else {
         await dataStore.saveLocalReport(updatedReport);
-        await fetchLocalPhotos(updatedReport);
         setSyncStatus('local-newer');
       }
   }, [fetchLocalPhotos]);
@@ -491,7 +487,7 @@ export default function HygieneReportPage() {
                             {isTaskCompleted && (
                                 <div className="mt-4 space-y-3">
                                 {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                 const combinedPhotos = [
+                                  const combinedPhotos = [
                                       ...(completion.photoIds || []).map(id => ({ id, url: localPhotoUrls.get(id) })),
                                       ...(completion.photos || []).map(url => ({ id: url, url }))
                                   ].filter(p => p.url);

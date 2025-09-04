@@ -25,6 +25,7 @@ import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
+import { photoStore } from '@/lib/photo-store';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -50,6 +51,8 @@ export default function ComprehensiveReportPage() {
 
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+  
+  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -65,6 +68,27 @@ export default function ComprehensiveReportPage() {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
+
+  const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
+    if (!currentReport) return;
+
+    const allPhotoIds = new Set<string>();
+    for (const taskId in currentReport.completedTasks) {
+        for (const completion of currentReport.completedTasks[taskId]) {
+            if (completion.photoIds) {
+                completion.photoIds.forEach(id => allPhotoIds.add(id));
+            }
+        }
+    }
+
+    if (allPhotoIds.size === 0) {
+        setLocalPhotoUrls(new Map());
+        return;
+    }
+
+    const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
+    setLocalPhotoUrls(urls);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -88,6 +112,7 @@ export default function ComprehensiveReportPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Quản lý', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
+              await fetchLocalPhotos(loadedReport);
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
@@ -111,7 +136,7 @@ export default function ComprehensiveReportPage() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, toast, router]);
+  }, [isAuthLoading, user, shiftKey, toast, router, fetchLocalPhotos]);
 
   const allPagePhotos = useMemo(() => {
     if (!tasks || !report) return [];
@@ -124,26 +149,30 @@ export default function ComprehensiveReportPage() {
         return "Nhiệm vụ không xác định";
     };
 
-    const photos = [];
+    const photos: { src: string, description: string }[] = [];
     for (const taskId in report.completedTasks) {
-        const task = findTaskText(taskId);
+        const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
-            if (completion.photos) {
-              for (const photoUrl of completion.photos) {
-                  photos.push({
-                      src: photoUrl,
-                      description: `${task}\nThực hiện lúc: ${completion.timestamp}`
-                  });
-              }
+            const combinedPhotos = [
+                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
+                ...(completion.photos || [])
+            ].filter((url): url is string => !!url);
+
+            for (const photoUrl of combinedPhotos) {
+                photos.push({
+                    src: photoUrl,
+                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                });
             }
         }
     }
     return photos;
-  }, [tasks, report]);
+  }, [tasks, report, localPhotoUrls]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
       setReport(updatedReport);
+      await fetchLocalPhotos(updatedReport);
       if (dataStore.isReportEmpty(updatedReport)) {
         await dataStore.deleteLocalReport(updatedReport.id);
         setSyncStatus('synced');
@@ -151,7 +180,7 @@ export default function ComprehensiveReportPage() {
         await dataStore.saveLocalReport(updatedReport);
         setSyncStatus('local-newer');
       }
-  }, []);
+  }, [fetchLocalPhotos]);
 
   const handlePhotoTaskAction = (taskId: string) => {
     setActiveTaskId(taskId);
@@ -169,6 +198,7 @@ export default function ComprehensiveReportPage() {
     const newCompletion: CompletionRecord = {
       timestamp: formattedTime,
       photos: [],
+      photoIds: [],
       value: value,
     };
 
@@ -194,6 +224,7 @@ export default function ComprehensiveReportPage() {
     const newCompletion: CompletionRecord = {
       timestamp: formattedTime,
       photos: [],
+      photoIds: [],
       opinion: opinionText.trim() || undefined,
     };
 
@@ -204,7 +235,7 @@ export default function ComprehensiveReportPage() {
     handleOpinionClose();
   }
 
-  const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
     if (!activeTaskId || !report) return;
 
     const newReport = JSON.parse(JSON.stringify(report));
@@ -214,7 +245,8 @@ export default function ComprehensiveReportPage() {
     
     const newCompletion: CompletionRecord = {
         timestamp: formattedTime,
-        photos: photosDataUris
+        photos: [],
+        photoIds: photoIds
     };
 
     taskCompletions.unshift(newCompletion);
@@ -225,12 +257,41 @@ export default function ComprehensiveReportPage() {
     setActiveTaskId(null);
   }, [activeTaskId, report, updateLocalReport]);
   
+  const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string) => {
+      if (!report) return;
+      
+      const newReport = JSON.parse(JSON.stringify(report));
+      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
+      if (!taskCompletions || !taskCompletions[completionIndex]) return;
+
+      taskCompletions[completionIndex].photoIds = (taskCompletions[completionIndex].photoIds ?? []).filter((p:string) => p !== photoId);
+      
+      await photoStore.deletePhoto(photoId);
+
+      if ((taskCompletions[completionIndex].photoIds ?? []).length === 0 && (taskCompletions[completionIndex].photos ?? []).length === 0) {
+          taskCompletions.splice(completionIndex, 1);
+      }
+      
+      if (taskCompletions.length === 0) {
+          delete newReport.completedTasks[taskId];
+      } else {
+          newReport.completedTasks[taskId] = taskCompletions;
+      }
+      
+      await updateLocalReport(newReport);
+  };
+  
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
       
       const newReport = JSON.parse(JSON.stringify(report));
       const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-
+      
+      const completionToDelete = taskCompletions[completionIndex];
+      if(completionToDelete.photoIds) {
+        await photoStore.deletePhotos(completionToDelete.photoIds);
+      }
+      
       taskCompletions.splice(completionIndex, 1);
       
       if (taskCompletions.length > 0) {
@@ -253,7 +314,9 @@ export default function ComprehensiveReportPage() {
 
         try {
             await dataStore.submitReport(report);
-            setReport(prev => prev ? {...prev, status: 'submitted'} : null);
+            const serverReport = await dataStore.overwriteLocalReport(report.id);
+            setReport(serverReport);
+            await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
             toast({
                 title: "Gửi báo cáo thành công!",
@@ -282,6 +345,7 @@ export default function ComprehensiveReportPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
          toast({
             title: "Tải thành công!",
@@ -492,7 +556,12 @@ export default function ComprehensiveReportPage() {
                             
                             {isTaskCompleted && (
                                 <div className="mt-4 space-y-3">
-                                  {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => (
+                                  {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
+                                      const combinedPhotos = [
+                                          ...(completion.photoIds || []).map(id => ({ id, url: localPhotoUrls.get(id) })),
+                                          ...(completion.photos || []).map(url => ({ id: url, url }))
+                                      ].filter(p => p.url);
+                                      return (
                                       <div key={cIndex} className="rounded-md border bg-card p-3">
                                         <div className="flex items-center justify-between mb-2">
                                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -528,25 +597,38 @@ export default function ComprehensiveReportPage() {
                                             )}
                                           </div>
                                         </div>
-                                        {completion.photos && completion.photos.length > 0 && (
-                                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                            {completion.photos.map((photo, pIndex) => (
-                                              <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                <button
-                                                  onClick={() => openLightbox(photo)}
-                                                  className="w-full h-full block"
-                                                >
-                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
-                                                </button>
-                                              </div>
+                                        {combinedPhotos.length > 0 && (
+                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                            {combinedPhotos.map((photo, pIndex) => (
+                                                <div key={photo.id} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                                    <button
+                                                    onClick={() => openLightbox(photo.url!)}
+                                                    className="w-full h-full block"
+                                                    >
+                                                    <Image src={photo.url!} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
+                                                    </button>
+                                                    
+                                                    {!isReadonly && (completion.photoIds?.includes(photo.id)) && (
+                                                        <Button 
+                                                            variant="destructive"
+                                                            size="icon"
+                                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo.id); }}
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                            <span className="sr-only">Xóa ảnh</span>
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             ))}
-                                          </div>
+                                            </div>
                                         )}
                                         {completion.opinion && (
                                             <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
                                         )}
                                       </div>
-                                    ))}
+                                    )}
+                                    )}
                                     {completions.length > 1 && (
                                       <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
                                         {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1} lần)`}
@@ -595,7 +677,6 @@ export default function ComprehensiveReportPage() {
         isOpen={isCameraOpen}
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
-        initialPhotos={[]}
     />
 
     <OpinionDialog

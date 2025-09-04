@@ -94,7 +94,7 @@ function ComprehensiveReportView() {
         return "Nhiệm vụ không xác định";
     };
 
-    const photos = [];
+    const photos: { src: string, description: string }[] = [];
     for (const taskId in report.completedTasks) {
         const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
