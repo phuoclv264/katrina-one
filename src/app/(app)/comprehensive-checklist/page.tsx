@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -20,17 +20,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 export default function ComprehensiveChecklistPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
+  const [sections, setSections] = useState<ComprehensiveTaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [newText, setNewText] = useState('');
   const [newType, setNewType] = useState<'photo' | 'boolean' | 'opinion'>('boolean');
-  const [newSection, setNewSection] = useState('Tầng 1');
+  const [newSection, setNewSection] = useState('');
+  
+  const [newSectionTitle, setNewSectionTitle] = useState('');
+  const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
+  const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
+
 
   useEffect(() => {
     if (!authLoading) {
@@ -38,16 +45,20 @@ export default function ComprehensiveChecklistPage() {
         router.replace('/');
       } else {
         const unsubscribe = dataStore.subscribeToComprehensiveTasks((data) => {
-          setTasks(data);
+          setSections(data);
+          if (data.length > 0 && !newSection) {
+            setNewSection(data[0].title);
+          }
           setIsLoading(false);
         });
         return () => unsubscribe();
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, newSection]);
 
-  const handleUpdateAndSave = (newTasks: ComprehensiveTaskSection[]) => {
-    dataStore.updateComprehensiveTasks(newTasks).then(() => {
+  const handleUpdateAndSave = (newSections: ComprehensiveTaskSection[]) => {
+    setSections(newSections); // Optimistic update
+    dataStore.updateComprehensiveTasks(newSections).then(() => {
       toast({
         title: "Đã lưu thay đổi!",
         description: "Danh sách kiểm tra đã được cập nhật.",
@@ -59,11 +70,45 @@ export default function ComprehensiveChecklistPage() {
         variant: "destructive"
       });
       console.error(err);
+      // Optional: revert optimistic update if needed
     });
   }
+  
+  // Section Management
+  const handleAddSection = () => {
+    if (!sections || newSectionTitle.trim() === '') return;
+    if (sections.some(s => s.title === newSectionTitle.trim())) {
+        toast({ title: "Lỗi", description: "Khu vực này đã tồn tại.", variant: "destructive" });
+        return;
+    }
+    const newSectionToAdd: ComprehensiveTaskSection = { title: newSectionTitle.trim(), tasks: [] };
+    const newSectionsState = [...sections, newSectionToAdd];
+    handleUpdateAndSave(newSectionsState);
+    setNewSectionTitle('');
+  }
 
+  const handleDeleteSection = (sectionTitle: string) => {
+      if (!sections) return;
+      const newSectionsState = sections.filter(s => s.title !== sectionTitle);
+      handleUpdateAndSave(newSectionsState);
+  }
+
+  const handleRenameSection = (oldTitle: string) => {
+      if (!sections || !editingSection || editingSection.newTitle.trim() === '') return;
+      if (sections.some(s => s.title === editingSection.newTitle.trim())) {
+        toast({ title: "Lỗi", description: "Tên khu vực này đã tồn tại.", variant: "destructive" });
+        return;
+      }
+      const newSectionsState = sections.map(s => 
+          s.title === oldTitle ? { ...s, title: editingSection.newTitle.trim() } : s
+      );
+      handleUpdateAndSave(newSectionsState);
+      setEditingSection(null);
+  }
+
+  // Task Management
   const handleAddTask = () => {
-    if (!tasks || newText.trim() === '' || !newSection || !newType) {
+    if (!sections || newText.trim() === '' || !newSection || !newType) {
         toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin.", variant: "destructive" });
         return;
     };
@@ -74,26 +119,39 @@ export default function ComprehensiveChecklistPage() {
       type: newType,
     };
 
-    const newTasksState = JSON.parse(JSON.stringify(tasks));
-    const section = newTasksState.find((s: ComprehensiveTaskSection) => s.title === newSection);
+    const newSectionsState = JSON.parse(JSON.stringify(sections));
+    const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === newSection);
     if (section) {
       section.tasks.push(newTaskToAdd);
     }
 
-    handleUpdateAndSave(newTasksState);
-    
-    // Reset form
+    handleUpdateAndSave(newSectionsState);
     setNewText('');
   };
 
   const handleDeleteTask = (sectionTitle: string, taskId: string) => {
-    if (!tasks) return;
-    const newTasksState = JSON.parse(JSON.stringify(tasks));
-    const section = newTasksState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
+    if (!sections) return;
+    const newSectionsState = JSON.parse(JSON.stringify(sections));
+    const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
     if (section) {
       section.tasks = section.tasks.filter((task: ComprehensiveTask) => task.id !== taskId);
     }
-    handleUpdateAndSave(newTasksState);
+    handleUpdateAndSave(newSectionsState);
+  };
+  
+   const handleUpdateTask = (sectionTitle: string, taskId: string) => {
+    if (!sections || !editingTask || editingTask.newText.trim() === '') return;
+
+    const newSectionsState = JSON.parse(JSON.stringify(sections));
+    const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
+    if (section) {
+        const task = section.tasks.find((t: ComprehensiveTask) => t.id === taskId);
+        if (task) {
+            task.text = editingTask.newText.trim();
+        }
+    }
+    handleUpdateAndSave(newSectionsState);
+    setEditingTask(null);
   };
   
   const getTaskTypeIcon = (type: 'photo' | 'boolean' | 'opinion') => {
@@ -120,7 +178,7 @@ export default function ComprehensiveChecklistPage() {
     )
   }
 
-  if (!tasks) {
+  if (!sections) {
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
   }
 
@@ -128,8 +186,25 @@ export default function ComprehensiveChecklistPage() {
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><ListChecks/> Quản lý Hạng mục Kiểm tra Toàn diện</h1>
-        <p className="text-muted-foreground">Thêm, sửa, xóa các hạng mục kiểm tra cho Quản lý.</p>
+        <p className="text-muted-foreground">Thêm, sửa, xóa các khu vực và hạng mục kiểm tra cho Quản lý.</p>
       </header>
+
+       <Card className="mb-8">
+            <CardHeader>
+                <CardTitle>Quản lý Khu vực</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="Tên khu vực mới, ví dụ: Tầng 3"
+                        value={newSectionTitle}
+                        onChange={e => setNewSectionTitle(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddSection()}
+                    />
+                    <Button onClick={handleAddSection}><Plus className="mr-2 h-4 w-4" /> Thêm khu vực</Button>
+                </div>
+            </CardContent>
+       </Card>
       
       <Card className="mb-8">
           <CardHeader>
@@ -149,12 +224,12 @@ export default function ComprehensiveChecklistPage() {
                    </div>
                    <div className="space-y-2">
                        <Label htmlFor="new-task-section">Khu vực</Label>
-                       <Select value={newSection} onValueChange={value => setNewSection(value)}>
+                       <Select value={newSection} onValueChange={value => setNewSection(value)} disabled={sections.length === 0}>
                             <SelectTrigger id="new-task-section">
                                 <SelectValue placeholder="Chọn khu vực..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {tasks.map(section => (
+                                {sections.map(section => (
                                     <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -174,21 +249,63 @@ export default function ComprehensiveChecklistPage() {
                        </Select>
                    </div>
                </div>
-                <Button onClick={handleAddTask} className="w-full md:w-auto">
+                <Button onClick={handleAddTask} className="w-full md:w-auto" disabled={sections.length === 0}>
                   <Plus className="mr-2 h-4 w-4" /> Thêm hạng mục
                 </Button>
+                {sections.length === 0 && <p className="text-sm text-muted-foreground text-center">Vui lòng thêm một khu vực trước khi thêm hạng mục.</p>}
           </CardContent>
       </Card>
 
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={tasks.map(s => s.title)} className="w-full space-y-4">
-            {tasks.map(section => (
+          <Accordion type="multiple" defaultValue={sections.map(s => s.title)} className="w-full space-y-4">
+            {sections.map(section => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                <AccordionTrigger className="p-4 text-lg font-medium">
-                  <div className="flex items-center gap-3">
+                <AccordionTrigger className="p-4 text-lg font-medium hover:no-underline">
+                  <div className="flex items-center gap-3 w-full">
                     <Building className="h-5 w-5 text-primary"/>
-                    {section.title}
+                     {editingSection?.title === section.title ? (
+                         <Input
+                            value={editingSection.newTitle}
+                            onChange={(e) => setEditingSection({...editingSection, newTitle: e.target.value})}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameSection(section.title);
+                                if (e.key === 'Escape') setEditingSection(null);
+                            }}
+                            onBlur={() => handleRenameSection(section.title)}
+                            autoFocus
+                            className="text-lg font-medium h-9"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                     ) : (
+                        <span className="flex-1 text-left">{section.title}</span>
+                     )}
+                    
+                    <div className="flex items-center gap-1 ml-auto mr-2" onClick={e => e.stopPropagation()}>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Xóa khu vực "{section.title}"?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Hành động này không thể được hoàn tác. Việc này sẽ xóa vĩnh viễn khu vực và tất cả các hạng mục công việc bên trong nó.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteSection(section.title)}>Xóa</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+
                   </div>
                   </AccordionTrigger>
                 <AccordionContent className="p-4 border-t">
@@ -196,11 +313,30 @@ export default function ComprehensiveChecklistPage() {
                       {section.tasks.map(task => (
                         <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
                            {getTaskTypeIcon(task.type)}
-                          <p className="flex-1 text-sm">{task.text}</p>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Xóa công việc</span>
-                          </Button>
+                            {editingTask?.taskId === task.id ? (
+                                <Input
+                                    value={editingTask.newText}
+                                    onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleUpdateTask(section.title, task.id);
+                                        if (e.key === 'Escape') setEditingTask(null);
+                                    }}
+                                    onBlur={() => handleUpdateTask(section.title, task.id)}
+                                    autoFocus
+                                    className="text-sm h-8"
+                                />
+                            ) : (
+                               <p className="flex-1 text-sm">{task.text}</p>
+                            )}
+                          
+                          <div className="flex items-center gap-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                       {section.tasks.length === 0 && (
