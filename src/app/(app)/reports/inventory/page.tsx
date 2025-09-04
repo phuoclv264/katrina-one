@@ -99,7 +99,9 @@ function InventoryReportView() {
 
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
     const currentStock = report?.stockLevels[itemId];
-    if (currentStock === undefined || currentStock === null) return 'ok';
+    if (currentStock === undefined || currentStock === null || typeof currentStock !== 'number') {
+      return 'ok';
+    }
     if (currentStock <= 0) return 'out';
     if (currentStock < minStock) return 'low';
     return 'ok';
@@ -290,4 +292,5 @@ export default function InventoryReportPage() {
         </Suspense>
     )
 }
+
 

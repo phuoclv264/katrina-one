@@ -76,27 +76,8 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <h1 className="text-2xl font-bold text-primary font-headline">Katrina One</h1>
       </SidebarHeader>
-      <SidebarSeparator />
-      <SidebarContent>
-        <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={() => setOpenMobile(false)}>
-              <Link href={item.href}>
-                <SidebarMenuButton
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarSeparator />
-      <SidebarFooter className="p-4">
-        <div className="flex items-center gap-3">
+      <SidebarFooter className="p-2">
+        <div className="flex items-center gap-3 p-2 rounded-md bg-muted">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 {getRoleIcon()}
             </div>
@@ -116,6 +97,24 @@ export function AppSidebar() {
             </SidebarMenuButton>
         </div>
       </SidebarFooter>
+      <SidebarSeparator />
+      <SidebarContent>
+        <SidebarMenu>
+          {menuItems.map((item) => (
+            <SidebarMenuItem key={item.href} onClick={() => setOpenMobile(false)}>
+              <Link href={item.href}>
+                <SidebarMenuButton
+                  isActive={pathname === item.href}
+                  tooltip={item.label}
+                >
+                  <item.icon />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
     </>
   );
 }

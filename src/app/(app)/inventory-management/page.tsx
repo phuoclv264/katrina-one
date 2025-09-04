@@ -322,19 +322,19 @@ function AiAssistant({
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Tên mặt hàng</TableHead>
-                                                <TableHead>Đơn vị</TableHead>
-                                                <TableHead>Tồn tối thiểu</TableHead>
-                                                <TableHead>Gợi ý đặt hàng</TableHead>
-                                                <TableHead className="text-right">Xóa</TableHead>
+                                                <TableHead className="w-28">Đơn vị</TableHead>
+                                                <TableHead className="w-32">Tồn tối thiểu</TableHead>
+                                                <TableHead className="w-32">Gợi ý đặt</TableHead>
+                                                <TableHead className="text-right w-20">Xóa</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {previewNewItems.map((item, index) => (
                                                 <TableRow key={item.id}>
                                                     <TableCell><Input value={item.name} onChange={e => handleEditNewItem(index, 'name', e.target.value)} /></TableCell>
-                                                    <TableCell><Input value={item.unit} onChange={e => handleEditNewItem(index, 'unit', e.target.value)} className="w-24" /></TableCell>
-                                                    <TableCell><Input type="number" value={item.minStock} onChange={e => handleEditNewItem(index, 'minStock', parseInt(e.target.value) || 0)} className="w-24" /></TableCell>
-                                                    <TableCell><Input value={item.orderSuggestion} onChange={e => handleEditNewItem(index, 'orderSuggestion', e.target.value)} className="w-28" /></TableCell>
+                                                    <TableCell><Input value={item.unit} onChange={e => handleEditNewItem(index, 'unit', e.target.value)} /></TableCell>
+                                                    <TableCell><Input type="number" value={item.minStock} onChange={e => handleEditNewItem(index, 'minStock', parseInt(e.target.value) || 0)} /></TableCell>
+                                                    <TableCell><Input value={item.orderSuggestion} onChange={e => handleEditNewItem(index, 'orderSuggestion', e.target.value)} /></TableCell>
                                                     <TableCell className="text-right">
                                                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteNewItem(item.id)}>
                                                             <Trash2 className="h-4 w-4" />
@@ -450,7 +450,7 @@ function AiAssistant({
                                     const hasChanged = JSON.stringify(oldItem) !== JSON.stringify(newItem);
 
                                     return (
-                                        <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30' : ''}>
+                                        <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}>
                                             <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
@@ -798,7 +798,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    
-
-    
