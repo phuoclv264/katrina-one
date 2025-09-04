@@ -243,49 +243,49 @@ export default function ReportsPage() {
                 return (
                   <AccordionItem value={date} key={date}>
                     <AccordionTrigger className="text-lg font-medium hover:no-underline">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-2 w-full">
-                            <span className="flex-1 text-left">Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                            <div className="flex items-center gap-4 justify-self-end">
-                                <DailySummaryGenerator 
-                                    date={date} 
-                                    reports={reportsForDate}
-                                    taskDefinitions={taskDefinitions}
-                                />
-                            </div>
-                        </div>
+                        <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Tên báo cáo</TableHead>
-                            <TableHead>Nhân viên đã nộp</TableHead>
-                            <TableHead className="text-right">Hành động</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
-                            const reportName = getReportName(key);
-                            const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
-                            
-                            return (
-                              <TableRow key={`${date}-${key}`}>
-                                <TableCell className="font-semibold capitalize">{reportName}</TableCell>
-                                <TableCell>
-                                  <p className="text-sm text-muted-foreground">{staffNames}</p>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button asChild variant="ghost" size="sm">
-                                    <Link href={getReportLink(date, key)}>
-                                      Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      <div className="space-y-4">
+                        <div className="flex justify-end">
+                            <DailySummaryGenerator 
+                                date={date} 
+                                reports={reportsForDate}
+                                taskDefinitions={taskDefinitions}
+                            />
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Tên báo cáo</TableHead>
+                              <TableHead>Nhân viên đã nộp</TableHead>
+                              <TableHead className="text-right">Hành động</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
+                              const reportName = getReportName(key);
+                              const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
+                              
+                              return (
+                                <TableRow key={`${date}-${key}`}>
+                                  <TableCell className="font-semibold capitalize">{reportName}</TableCell>
+                                  <TableCell>
+                                    <p className="text-sm text-muted-foreground">{staffNames}</p>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button asChild variant="ghost" size="sm">
+                                      <Link href={getReportLink(date, key)}>
+                                        Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                                      </Link>
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 )
