@@ -67,12 +67,12 @@ export const useAuth = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    setLoading(true);
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will handle the redirect
       toast({ title: 'Đăng nhập thành công!' });
+      return true;
     } catch (error: any) {
       console.error(error);
       let description = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
@@ -84,12 +84,11 @@ export const useAuth = () => {
         title: 'Lỗi đăng nhập',
         description: description,
       });
-      setLoading(false);
+      return false;
     }
   }, [toast]);
 
-  const register = useCallback(async (email: string, password: string, displayName: string, role: UserRole) => {
-    setLoading(true);
+  const register = useCallback(async (email: string, password: string, displayName: string, role: UserRole): Promise<boolean> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
@@ -104,6 +103,7 @@ export const useAuth = () => {
 
       // onAuthStateChanged will handle the user state update and redirect
        toast({ title: 'Đăng ký thành công!', description: 'Đang chuyển hướng bạn...' });
+       return true;
     } catch (error: any) {
        console.error(error);
       toast({
@@ -111,7 +111,7 @@ export const useAuth = () => {
         title: 'Lỗi đăng ký',
         description: error.message,
       });
-      setLoading(false);
+      return false;
     }
   }, [toast]);
 

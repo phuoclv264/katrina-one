@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserRole } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 export default function AuthPage() {
   const { user, login, register, loading } = useAuth();
@@ -28,6 +29,8 @@ export default function AuthPage() {
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +38,12 @@ export default function AuthPage() {
       toast({ title: 'Lỗi', description: 'Vui lòng nhập email và mật khẩu.', variant: 'destructive' });
       return;
     }
-    await login(loginEmail, loginPassword);
+    setIsLoggingIn(true);
+    const success = await login(loginEmail, loginPassword);
+    if (!success) {
+      setIsLoggingIn(false);
+    }
+    // On success, isLoggingIn remains true while the redirect happens.
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -44,7 +52,11 @@ export default function AuthPage() {
       toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.', variant: 'destructive' });
       return;
     }
-    await register(registerEmail, registerPassword, registerName, registerRole);
+    setIsLoggingIn(true);
+    const success = await register(registerEmail, registerPassword, registerName, registerRole);
+    if (!success) {
+        setIsLoggingIn(false);
+    }
   };
   
   if (loading && !user) {
@@ -55,6 +67,8 @@ export default function AuthPage() {
       </div>
     )
   }
+
+  const isProcessing = loading || isLoggingIn;
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
@@ -74,7 +88,12 @@ export default function AuthPage() {
         
         {/* Login Tab */}
         <TabsContent value="login">
-          <Card>
+          <Card className="relative">
+             {isProcessing && (
+              <div className="absolute inset-0 z-10 bg-white/70 dark:bg-black/70 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
             <CardHeader>
               <CardTitle>Chào mừng trở lại</CardTitle>
               <CardDescription>Đăng nhập vào tài khoản của bạn để tiếp tục.</CardDescription>
@@ -83,7 +102,7 @@ export default function AuthPage() {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
-                  <Input id="login-email" type="email" placeholder="email@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required disabled={loading} />
+                  <Input id="login-email" type="email" placeholder="email@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required disabled={isProcessing} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Mật khẩu</Label>
@@ -94,7 +113,7 @@ export default function AuthPage() {
                         value={loginPassword} 
                         onChange={(e) => setLoginPassword(e.target.value)} 
                         required 
-                        disabled={loading} 
+                        disabled={isProcessing} 
                         className="pr-10"
                       />
                       <Button 
@@ -103,14 +122,15 @@ export default function AuthPage() {
                         size="icon" 
                         className="absolute inset-y-0 right-0 h-full px-3"
                         onClick={() => setShowLoginPassword(prev => !prev)}
+                        disabled={isProcessing}
                       >
                         {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         <span className="sr-only">{showLoginPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
                       </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                <Button type="submit" className="w-full" disabled={isProcessing}>
+                  {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Đăng nhập
                 </Button>
               </form>
@@ -120,7 +140,12 @@ export default function AuthPage() {
 
         {/* Register Tab */}
         <TabsContent value="register">
-          <Card>
+          <Card className="relative">
+            {isProcessing && (
+              <div className="absolute inset-0 z-10 bg-white/70 dark:bg-black/70 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
             <CardHeader>
               <CardTitle>Tạo tài khoản mới</CardTitle>
               <CardDescription>Điền thông tin bên dưới để tạo tài khoản.</CardDescription>
@@ -129,11 +154,11 @@ export default function AuthPage() {
                <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-name">Tên hiển thị</Label>
-                  <Input id="register-name" placeholder="Ví dụ: Phước" value={registerName} onChange={(e) => setRegisterName(e.target.value)} required disabled={loading}/>
+                  <Input id="register-name" placeholder="Ví dụ: Phước" value={registerName} onChange={(e) => setRegisterName(e.target.value)} required disabled={isProcessing}/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
-                  <Input id="register-email" type="email" placeholder="email@example.com" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} required disabled={loading}/>
+                  <Input id="register-email" type="email" placeholder="email@example.com" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} required disabled={isProcessing}/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Mật khẩu</Label>
@@ -144,7 +169,7 @@ export default function AuthPage() {
                           value={registerPassword} 
                           onChange={(e) => setRegisterPassword(e.target.value)} 
                           required 
-                          disabled={loading}
+                          disabled={isProcessing}
                           className="pr-10"
                       />
                        <Button 
@@ -153,6 +178,7 @@ export default function AuthPage() {
                         size="icon" 
                         className="absolute inset-y-0 right-0 h-full px-3"
                         onClick={() => setShowRegisterPassword(prev => !prev)}
+                        disabled={isProcessing}
                       >
                         {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         <span className="sr-only">{showRegisterPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
@@ -161,7 +187,7 @@ export default function AuthPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="register-role">Vai trò</Label>
-                    <Select onValueChange={(value) => setRegisterRole(value as UserRole)} disabled={loading} value={registerRole}>
+                    <Select onValueChange={(value) => setRegisterRole(value as UserRole)} disabled={isProcessing} value={registerRole}>
                         <SelectTrigger id="register-role">
                             <SelectValue placeholder="Chọn vai trò của bạn" />
                         </SelectTrigger>
@@ -172,8 +198,8 @@ export default function AuthPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                <Button type="submit" className="w-full" disabled={isProcessing}>
+                  {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Đăng ký
                 </Button>
               </form>
