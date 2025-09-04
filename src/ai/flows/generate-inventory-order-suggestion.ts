@@ -18,7 +18,7 @@ const InventoryItemSchema = z.object({
     unit: z.string(),
     minStock: z.number().describe('The minimum required stock level for this item.'),
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
-    currentStock: z.number().describe('The current actual stock level entered by the employee.'),
+    currentStock: z.union([z.number(), z.string()]).describe('The current actual stock level entered by the employee. Can be a number or a text description like "còn ít", "sắp hết".'),
 });
 
 const GenerateInventoryOrderSuggestionInputSchema = z.object({
@@ -50,7 +50,10 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert inventory management assistant for a coffee and tea shop.
 Your task is to analyze the provided list of inventory items and determine which items need to be reordered.
 
-An item needs to be reordered if its 'currentStock' is less than its 'minStock'.
+An item needs to be reordered based on its 'currentStock'.
+- If 'currentStock' is a number, you MUST reorder it if 'currentStock' is less than its 'minStock'.
+- If 'currentStock' is a text description (e.g., "còn ít", "sắp hết", "gần hết"), you must interpret this as a low stock level and REORDER the item.
+- If the 'currentStock' is a number and is greater than or equal to 'minStock', DO NOT reorder it.
 
 For each item that needs reordering, you must use the 'orderSuggestion' field to determine the quantity to order. The 'orderSuggestion' provides the exact amount to order (e.g., if it says "5kg", you should order "5kg").
 
@@ -63,7 +66,7 @@ Here is the list of inventory items:
 - Item ID: {{{id}}}, Name: {{{name}}}, Unit: {{{unit}}}, Minimum Stock: {{{minStock}}}, Current Stock: {{{currentStock}}}, Suggested Order Quantity: {{{orderSuggestion}}}
 {{/each}}
 
-Analyze this list and generate the order suggestion. If an item's stock is sufficient (currentStock >= minStock), do not include it in the 'itemsToOrder' list.
+Analyze this list and generate the order suggestion.
 `,
 });
 

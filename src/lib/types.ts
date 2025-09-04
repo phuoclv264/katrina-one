@@ -99,7 +99,7 @@ export type InventoryItem = {
 export type ParsedInventoryItem = Omit<InventoryItem, 'id'>;
 
 export type InventoryStockLevels = {
-    [itemId: string]: number; // current stock
+    [itemId: string]: number | string; // current stock, can be text
 };
 
 export type InventoryOrderItem = {

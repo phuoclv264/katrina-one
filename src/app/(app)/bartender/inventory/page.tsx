@@ -102,10 +102,14 @@ export default function InventoryPage() {
       setHasUnsubmittedChanges(true);
   }, []);
 
-  const handleStockChange = (itemId: string, currentStock: number) => {
+  const handleStockChange = (itemId: string, value: string) => {
     if (!report) return;
+    
+    // Determine if the value is purely numeric
+    const isNumeric = value.trim() !== '' && !isNaN(Number(value));
+    const stockValue = isNumeric ? Number(value) : value;
 
-    const newReport = { ...report, stockLevels: { ...report.stockLevels, [itemId]: currentStock } };
+    const newReport = { ...report, stockLevels: { ...report.stockLevels, [itemId]: stockValue } };
     setReport(newReport);
     handleLocalSave(newReport);
   };
@@ -120,12 +124,15 @@ export default function InventoryPage() {
             description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
         });
 
-        // Filter for items that have been checked (stock level is not null/undefined)
+        // Filter for items that have been checked (stock level is not null/undefined/empty string)
         const itemsWithCurrentStock = inventoryList
-            .filter(item => report.stockLevels[item.id] !== undefined && report.stockLevels[item.id] !== null)
+            .filter(item => {
+                const stock = report.stockLevels[item.id];
+                return stock !== undefined && stock !== null && String(stock).trim() !== '';
+            })
             .map(item => ({
                 ...item,
-                currentStock: report.stockLevels[item.id] as number,
+                currentStock: report.stockLevels[item.id] as (string | number),
             }));
 
         if (itemsWithCurrentStock.length === 0) {
@@ -206,7 +213,11 @@ export default function InventoryPage() {
   
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
       const currentStock = report?.stockLevels[itemId];
-      if (currentStock === undefined || currentStock === null) return 'ok';
+
+      if (typeof currentStock !== 'number') {
+        return 'ok';
+      }
+
       if (currentStock <= 0) return 'out';
       if (currentStock < minStock) return 'low';
       return 'ok';
@@ -315,9 +326,9 @@ export default function InventoryPage() {
                                                             <TableCell>{item.unit}</TableCell>
                                                             <TableCell className="text-right">
                                                                 <Input
-                                                                    type="number"
+                                                                    type="text"
                                                                     value={report.stockLevels[item.id] ?? ''}
-                                                                    onChange={e => handleStockChange(item.id, parseFloat(e.target.value) || 0)}
+                                                                    onChange={e => handleStockChange(item.id, e.target.value)}
                                                                     className="text-right"
                                                                     placeholder="Nhập..."
                                                                     disabled={isSubmitting || isGenerating}
@@ -401,4 +412,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
