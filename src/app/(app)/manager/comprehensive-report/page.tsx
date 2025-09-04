@@ -342,6 +342,14 @@ export default function ComprehensiveReportPage() {
     }
   }
 
+  const handleSaveNotes = (newIssues: string) => {
+    if(!report) return;
+    if (newIssues !== (report.issues || '')) {
+      const newReport = { ...report, issues: newIssues || null };
+      updateLocalReport(newReport);
+    }
+  }
+
   return (
     <>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-24">
@@ -525,11 +533,7 @@ export default function ComprehensiveReportPage() {
 
         <ShiftNotesCard
           initialIssues={report.issues || ''}
-          onSave={(newIssues) => {
-            if(!report) return;
-            const newReport = { ...report, issues: newIssues || null };
-            updateLocalReport(newReport);
-          }}
+          onSave={handleSaveNotes}
           disabled={isReadonly}
         />
 
