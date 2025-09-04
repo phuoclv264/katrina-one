@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type Staff = {
@@ -97,6 +98,10 @@ export type InventoryItem = {
 
 // Type for AI-parsed items before they get a real ID
 export type ParsedInventoryItem = Omit<InventoryItem, 'id'>;
+
+export type UpdateInventoryItemsOutput = {
+    items: InventoryItem[];
+};
 
 export type InventoryStockLevels = {
     [itemId: string]: number | string; // current stock, can be text

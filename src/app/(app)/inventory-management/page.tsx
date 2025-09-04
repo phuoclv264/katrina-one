@@ -2,11 +2,11 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { InventoryItem, ParsedInventoryItem } from '@/lib/types';
+import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,20 +16,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
 import { sortTasks } from '@/ai/flows/sort-tasks';
+import { updateInventoryItems } from '@/ai/flows/update-inventory-items';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 
 
 function AiAssistant({
     inventoryList,
     onItemsGenerated,
-    onItemsSorted
+    onItemsSorted,
+    onItemsUpdated,
 }: {
     inventoryList: InventoryItem[],
     onItemsGenerated: (items: InventoryItem[]) => void,
-    onItemsSorted: (sortedNames: string[]) => void
+    onItemsSorted: (sortedNames: string[]) => void,
+    onItemsUpdated: (updatedItems: InventoryItem[]) => void,
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
@@ -37,6 +39,7 @@ function AiAssistant({
     const [activeTab, setActiveTab] = useState('add');
     const { toast } = useToast();
     const [sortInstruction, setSortInstruction] = useState('');
+    const [updateInstruction, setUpdateInstruction] = useState('');
 
 
     const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
@@ -45,6 +48,9 @@ function AiAssistant({
 
     const [showSortPreview, setShowSortPreview] = useState(false);
     const [sortPreview, setSortPreview] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
+    
+    const [showUpdatePreview, setShowUpdatePreview] = useState(false);
+    const [updatePreview, setUpdatePreview] = useState<{ oldList: InventoryItem[], newList: InventoryItem[] }>({ oldList: [], newList: [] });
 
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,27 +181,65 @@ function AiAssistant({
         setSortInstruction('');
     }
 
+    const handleGenerateUpdate = async () => {
+        if (!updateInstruction.trim()) {
+            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu chỉnh sửa.", variant: "destructive" });
+            return;
+        }
+
+        setIsGenerating(true);
+        toast({ title: "AI đang phân tích yêu cầu...", description: "Vui lòng đợi. AI sẽ xử lý và đưa ra bản xem trước." });
+
+        try {
+            const result = await updateInventoryItems({
+                items: inventoryList,
+                instruction: updateInstruction,
+            });
+
+            if (!result || !result.items || result.items.length !== inventoryList.length) {
+                throw new Error("AI không trả về một danh sách hợp lệ.");
+            }
+
+            setUpdatePreview({ oldList: inventoryList, newList: result.items });
+            setShowUpdatePreview(true);
+
+        } catch(error) {
+            console.error("Failed to update inventory:", error);
+            toast({ title: "Lỗi", description: "Không thể thực hiện chỉnh sửa. Vui lòng thử lại với yêu cầu rõ ràng hơn.", variant: "destructive"});
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleConfirmUpdate = () => {
+        onItemsUpdated(updatePreview.newList);
+        toast({ title: "Hoàn tất!", description: "Đã cập nhật danh sách hàng tồn kho."});
+        setShowUpdatePreview(false);
+        setUpdateInstruction('');
+    };
+
     const renderDiff = (oldText: string, newText: string) => {
+        if (oldText === newText) return newText;
         const differences = diffChars(oldText, newText);
         return differences.map((part, index) => {
-            const color = part.added ? 'bg-green-200/50' : part.removed ? 'bg-red-200/50' : 'bg-transparent';
+            const color = part.added ? 'bg-green-200 dark:bg-green-900/50' : part.removed ? 'line-through bg-red-200 dark:bg-red-900/50' : 'bg-transparent';
             return <span key={index} className={color}>{part.value}</span>;
         });
-    }
-
+    };
 
     return (
         <>
             <Card className="mb-8">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ hỗ trợ AI</CardTitle>
-                    <CardDescription>Sử dụng AI để thêm hoặc sắp xếp lại các mặt hàng một cách thông minh.</CardDescription>
+                    <CardDescription>Sử dụng AI để thêm, sắp xếp, hoặc chỉnh sửa hàng loạt các mặt hàng một cách thông minh.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm mới</TabsTrigger>
                             <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp</TabsTrigger>
+                            <TabsTrigger value="edit"><FileEdit className="mr-2 h-4 w-4"/>Chỉnh sửa</TabsTrigger>
                         </TabsList>
                         <TabsContent value="add" className="mt-4 space-y-4">
                              <Tabs defaultValue="text">
@@ -242,6 +286,19 @@ function AiAssistant({
                             <Button onClick={handleGenerateSort} disabled={isGenerating || inventoryList.length < 2 || !sortInstruction.trim()}>
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp toàn bộ bằng AI
+                            </Button>
+                        </TabsContent>
+                         <TabsContent value="edit" className="mt-4 space-y-4">
+                             <Textarea
+                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'đổi tên tiền tố TRÁI CÂY thành HOA QUẢ'"
+                                rows={3}
+                                value={updateInstruction}
+                                onChange={(e) => setUpdateInstruction(e.target.value)}
+                                disabled={isGenerating}
+                            />
+                            <Button onClick={handleGenerateUpdate} disabled={isGenerating || !updateInstruction.trim()}>
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileEdit className="mr-2 h-4 w-4" />}
+                                Xem trước & Chỉnh sửa bằng AI
                             </Button>
                         </TabsContent>
                     </Tabs>
@@ -363,6 +420,50 @@ function AiAssistant({
                     <AlertDialogFooter>
                         <AlertDialogCancel>Hủy</AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+             <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview}>
+                <AlertDialogContent className="max-w-6xl">
+                     <AlertDialogHeader>
+                        <AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle>
+                        <AlertDialogDescription>
+                           AI đã xử lý yêu cầu của bạn. Các thay đổi sẽ được highlight màu xanh (thêm) và đỏ (xóa). Vui lòng kiểm tra kỹ trước khi áp dụng.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                     <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md">
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
+                                    <TableHead>Đơn vị</TableHead>
+                                    <TableHead>Tồn tối thiểu</TableHead>
+                                    <TableHead>Gợi ý đặt hàng</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {updatePreview.newList.map((newItem, index) => {
+                                    const oldItem = updatePreview.oldList.find(item => item.id === newItem.id);
+                                    if (!oldItem) return null;
+                                    
+                                    const hasChanged = JSON.stringify(oldItem) !== JSON.stringify(newItem);
+
+                                    return (
+                                        <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30' : ''}>
+                                            <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
+                                            <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                         </Table>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmUpdate}>Áp dụng các thay đổi</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -513,6 +614,11 @@ export default function InventoryManagementPage() {
     }
   }
 
+   const onItemsUpdated = (updatedItems: InventoryItem[]) => {
+        setInventoryList(updatedItems);
+        dataStore.updateInventoryList(updatedItems); // Auto-save after updating
+  };
+
   const handleDeleteItem = (id: string) => {
     if (!inventoryList) return;
     const newList = inventoryList.filter(item => item.id !== id);
@@ -577,6 +683,7 @@ export default function InventoryManagementPage() {
         inventoryList={inventoryList}
         onItemsGenerated={onItemsGenerated}
         onItemsSorted={onItemsSorted}
+        onItemsUpdated={onItemsUpdated}
       />
 
       <Card>
