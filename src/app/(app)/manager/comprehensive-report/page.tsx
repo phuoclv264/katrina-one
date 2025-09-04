@@ -352,7 +352,7 @@ export default function ComprehensiveReportPage() {
 
   return (
     <>
-    <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-24">
+    <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-32">
       <header className="mb-8">
          <div className="flex justify-between items-center mb-4">
             <Button asChild variant="ghost" className="-ml-4">
@@ -526,25 +526,23 @@ export default function ComprehensiveReportPage() {
           onSave={handleSaveNotes}
           disabled={isReadonly}
         />
-
-        <Card className="border-green-500/50">
-           <CardHeader>
-                <CardTitle>Gửi báo cáo</CardTitle>
-                <CardDescription>Khi hoàn tất kiểm tra, nhấn nút bên dưới để gửi báo cáo của bạn.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Button className="w-full" size="lg" onClick={handleSubmitReport} disabled={isReadonly || syncStatus === 'server-newer'}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                    {report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
-                </Button>
-                 {report.status === 'submitted' && (
-                    <p className="text-xs text-muted-foreground mt-2 text-center">Bạn đã gửi báo cáo cho hôm nay. Gửi lại sẽ ghi đè lên báo cáo trước đó.</p>
-                 )}
-                 {syncStatus === 'server-newer' && (
-                    <p className="text-xs text-destructive mt-2 text-center">Vui lòng tải phiên bản mới nhất từ máy chủ trước khi gửi báo cáo.</p>
-                 )}
-            </CardContent>
-        </Card>
+      </div>
+    </div>
+    
+    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+      <div className="relative">
+        <Button 
+            size="icon"
+            className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
+            onClick={handleSubmitReport} 
+            disabled={isReadonly || syncStatus === 'server-newer'}
+            aria-label="Gửi báo cáo"
+        >
+            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
+        </Button>
+        {syncStatus === 'local-newer' && (
+          <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-background" />
+        )}
       </div>
     </div>
 
