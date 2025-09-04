@@ -83,6 +83,9 @@ export type InventoryItem = {
     orderSuggestion: string; // e.g., "4" or "5kg"
 };
 
+// Type for AI-parsed items before they get a real ID
+export type ParsedInventoryItem = Omit<InventoryItem, 'id'>;
+
 export type InventoryStockLevels = {
     [itemId: string]: number; // current stock
 };
