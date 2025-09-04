@@ -52,7 +52,8 @@ export type TasksByShift = {
 
 export type CompletionRecord = {
   timestamp: string;
-  photos: string[]; // Can be data URIs (local) or Firebase Storage URLs (synced)
+  photoIds?: string[]; // Temp IDs for photos in IndexedDB
+  photos?: string[]; // Permanent Firebase Storage URLs
   value?: boolean; // For boolean tasks (Yes/No)
   opinion?: string; // For opinion tasks
 };
@@ -80,10 +81,6 @@ export type ShiftReport = {
   // Report data
   completedTasks: TaskCompletion;
   issues: string | null;
-  
-  // Photos that have been uploaded and have a firebase URL
-  // This is mainly for the manager's view and for cleanup.
-  uploadedPhotos: string[];
 };
 
 // --- Inventory Types ---

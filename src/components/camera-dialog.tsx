@@ -14,25 +14,23 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, VideoOff, RefreshCw, Trash2, CheckCircle, X } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-
+import { photoStore } from '@/lib/photo-store';
+import { v4 as uuidv4 } from 'uuid';
 
 type CameraDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (photos: string[]) => void;
-  initialPhotos?: string[];
+  onSubmit: (photoIds: string[]) => void;
 };
 
-export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos = [] }: CameraDialogProps) {
+export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialogProps) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
-  const [newlyCaptured, setNewlyCaptured] = useState<string[]>([]);
+  const [capturedPhotos, setCapturedPhotos] = useState<{ id: string; url: string }[]>([]);
 
   const stopCameraStream = useCallback(() => {
     if (streamRef.current) {
@@ -80,40 +78,62 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
   
   useEffect(() => {
     if (isOpen) {
-      setCapturedPhotos(initialPhotos);
-      setNewlyCaptured([]);
+      setCapturedPhotos([]);
       startCamera();
     } else {
+      // Cleanup object URLs when dialog is closed
+      capturedPhotos.forEach(p => URL.revokeObjectURL(p.url));
       stopCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, initialPhotos]);
+  }, [isOpen]);
 
-  const handleCapture = () => {
-    if (videoRef.current && canvasRef.current && hasCameraPermission) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const context = canvas.getContext('2d');
-      if (context) {
+  const handleCapture = async () => {
+    if (videoRef.current && hasCameraPermission) {
+        const video = videoRef.current;
+        
+        // Create a canvas to get the image data
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        if (!context) return;
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const dataUri = canvas.toDataURL('image/jpeg');
-        setCapturedPhotos(prev => [dataUri, ...prev]);
-        setNewlyCaptured(prev => [dataUri, ...prev]);
-      }
+
+        // Get the image as a Blob
+        canvas.toBlob(async (blob) => {
+            if (blob) {
+                const photoId = uuidv4();
+                try {
+                    await photoStore.addPhoto(photoId, blob);
+                    const objectUrl = URL.createObjectURL(blob);
+                    setCapturedPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+                } catch(error) {
+                    console.error("Failed to save photo to IndexedDB", error);
+                    toast({
+                        title: "Lỗi lưu ảnh",
+                        description: "Không thể lưu ảnh tạm thời. Vui lòng thử lại.",
+                        variant: "destructive"
+                    });
+                }
+            }
+        }, 'image/jpeg', 0.9); // 90% quality
     }
   };
 
-  const handleDeletePhoto = (index: number, photoUrl: string) => {
-    setCapturedPhotos(prev => prev.filter((_, i) => i !== index));
-    setNewlyCaptured(prev => prev.filter(p => p !== photoUrl));
+  const handleDeletePhoto = async (photoId: string) => {
+    // Revoke the object URL to free up memory
+    const photoToDelete = capturedPhotos.find(p => p.id === photoId);
+    if (photoToDelete) {
+        URL.revokeObjectURL(photoToDelete.url);
+    }
+    
+    setCapturedPhotos(prev => prev.filter((p) => p.id !== photoId));
+    await photoStore.deletePhoto(photoId);
   };
   
   const handleSubmit = () => {
-    onSubmit(newlyCaptured);
+    onSubmit(capturedPhotos.map(p => p.id));
   };
   
   const handleDialogClose = () => {
@@ -158,14 +178,14 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
         {capturedPhotos.length > 0 && (
           <ScrollArea className="w-full">
             <div className="flex space-x-2 pb-4">
-              {capturedPhotos.map((photo, index) => (
-                <div key={index} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-md">
-                   <Image src={photo} alt={`Ảnh đã chụp ${index + 1}`} fill className="object-cover" />
+              {capturedPhotos.map((photo) => (
+                <div key={photo.id} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-md">
+                   <Image src={photo.url} alt={`Ảnh đã chụp`} fill className="object-cover" />
                    <Button
                       variant="destructive"
                       size="icon"
                       className="absolute top-1 right-1 h-5 w-5 rounded-full z-10"
-                      onClick={() => handleDeletePhoto(index, photo)}
+                      onClick={() => handleDeletePhoto(photo.id)}
                     >
                       <X className="h-3 w-3" />
                       <span className="sr-only">Xóa ảnh</span>
@@ -179,13 +199,11 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, initialPhotos 
 
         <DialogFooter>
           <Button variant="outline" onClick={handleDialogClose}>Hủy</Button>
-          <Button onClick={handleSubmit} disabled={newlyCaptured.length === 0}>
+          <Button onClick={handleSubmit} disabled={capturedPhotos.length === 0}>
             <CheckCircle className="mr-2 h-4 w-4" />
-            Xong ({newlyCaptured.length})
+            Xong ({capturedPhotos.length})
           </Button>
         </DialogFooter>
-
-        <canvas ref={canvasRef} className="hidden" />
       </DialogContent>
     </Dialog>
   );

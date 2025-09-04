@@ -16,10 +16,11 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks } from './data';
 import { v4 as uuidv4 } from 'uuid';
+import { photoStore } from './photo-store';
 
 const getTodaysDateKey = () => {
     const now = new Date();
@@ -42,6 +43,8 @@ const cleanupOldLocalStorage = () => {
 
 // Run cleanup when the app loads
 cleanupOldLocalStorage();
+// Also clean up old photos from IndexedDB
+photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
@@ -120,7 +123,7 @@ export const dataStore = {
   
   /**
    * Retrieves or creates an inventory report for a given user for the current day.
-   * This logic is simpler than the shift reports as it prioritizes local data to prevent loss of input.
+   * This logic prioritizes local data to prevent loss of input.
    * It does not perform a complex version comparison.
    * 
    * @param userId - The ID of the current user.
@@ -235,7 +238,6 @@ export const dataStore = {
                 lastUpdated: new Date().toISOString(),
                 completedTasks: {},
                 issues: null,
-                uploadedPhotos: [],
             };
             return { report: newReport, status: 'synced' };
         }
@@ -286,7 +288,6 @@ export const dataStore = {
             lastUpdated: new Date().toISOString(),
             completedTasks: {},
             issues: null,
-            uploadedPhotos: [],
         };
         return { report: newReport, status: 'synced' };
 
@@ -309,7 +310,6 @@ export const dataStore = {
             lastUpdated: new Date().toISOString(),
             completedTasks: {},
             issues: null,
-            uploadedPhotos: [],
         };
         return { report: newReport, status: 'error' };
     }
@@ -323,7 +323,7 @@ export const dataStore = {
   },
 
   isReportEmpty(report: ShiftReport): boolean {
-    const hasCompletedTasks = Object.keys(report.completedTasks).length > 0;
+    const hasCompletedTasks = Object.keys(report.completedTasks).some(key => report.completedTasks[key]?.length > 0);
     const hasIssues = report.issues && report.issues.trim() !== '';
     return !hasCompletedTasks && !hasIssues;
   },
@@ -334,82 +334,92 @@ export const dataStore = {
     }
   },
 
+  /**
+   * Submits a report to Firestore.
+   * 1. Iterates through all tasks to find photos that need uploading.
+   * 2. Uploads photos from IndexedDB to Firebase Storage.
+   * 3. Replaces temporary photo IDs with permanent Firebase Storage URLs.
+   * 4. Updates the report document on Firestore with the new data and server timestamps.
+   * 5. Cleans up the uploaded photos from IndexedDB.
+   */
   async submitReport(report: ShiftReport): Promise<void> {
     if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
   
     const firestoreRef = doc(db, 'reports', report.id);
     const reportToSubmit = JSON.parse(JSON.stringify(report));
   
-    const photosToUpload: {dataUri: string}[] = [];
+    // 1. Collect all unique photo IDs from the report
+    const photoIdsToUpload = new Set<string>();
     for (const taskId in reportToSubmit.completedTasks) {
-      for (const completion of reportToSubmit.completedTasks[taskId]) {
-        if (completion.photos) {
-          for (const photo of completion.photos) {
-            if (photo.startsWith('data:image')) {
-              photosToUpload.push({ dataUri: photo });
-            }
-          }
+      for (const completion of reportToSubmit.completedTasks[taskId] as CompletionRecord[]) {
+        if (completion.photoIds) {
+          completion.photoIds.forEach(id => photoIdsToUpload.add(id));
         }
       }
     }
-  
-    const uploadPromises = photosToUpload.map(({ dataUri }) => {
-      const uniqueId = `photo_${uuidv4()}.jpg`;
-      const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${uniqueId}`);
-      return uploadString(storageRef, dataUri, 'data_url').then(snapshot => getDownloadURL(snapshot.ref));
+    
+    // 2. Fetch photo blobs from IndexedDB and prepare for upload
+    const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) {
+            console.warn(`Photo with ID ${photoId} not found in local store.`);
+            return { photoId, downloadURL: null };
+        }
+        const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${photoId}.jpg`);
+        await uploadBytes(storageRef, photoBlob);
+        const downloadURL = await getDownloadURL(storageRef);
+        return { photoId, downloadURL };
     });
-  
-    const uploadedUrls = await Promise.all(uploadPromises);
-  
-    const dataUriToUrlMap = new Map<string, string>();
-    photosToUpload.forEach((photo, index) => {
-      dataUriToUrlMap.set(photo.dataUri, uploadedUrls[index]);
-    });
-  
-    let allUploadedUrls: string[] = report.uploadedPhotos || [];
-    const urlSet = new Set<string>(allUploadedUrls);
 
-    for (const taskId in reportToSubmit.completedTasks) {
-      for (const completion of reportToSubmit.completedTasks[taskId]) {
-        if (completion.photos) {
-          completion.photos = completion.photos.map((photo: string) => {
-            if (photo.startsWith('data:image')) {
-              const finalUrl = dataUriToUrlMap.get(photo)!;
-              urlSet.add(finalUrl);
-              return finalUrl;
-            }
-            urlSet.add(photo);
-            return photo;
-          });
+    const uploadResults = await Promise.all(uploadPromises);
+    const photoIdToUrlMap = new Map<string, string>();
+    uploadResults.forEach(result => {
+        if (result.downloadURL) {
+            photoIdToUrlMap.set(result.photoId, result.downloadURL);
         }
+    });
+
+    // 3. Replace photoIds with permanent URLs in the report object
+    for (const taskId in reportToSubmit.completedTasks) {
+      for (const completion of reportToSubmit.completedTasks[taskId] as CompletionRecord[]) {
+        const finalUrls = (completion.photoIds || [])
+            .map(id => photoIdToUrlMap.get(id))
+            .filter((url): url is string => !!url);
+        
+        // Ensure photos array exists and merge with any existing URLs
+        completion.photos = Array.from(new Set([...(completion.photos || []), ...finalUrls]));
+        delete completion.photoIds; // Clean up temporary IDs
       }
     }
   
-    reportToSubmit.uploadedPhotos = Array.from(urlSet);
     reportToSubmit.status = 'submitted';
-    // We use serverTimestamp to ensure the "source of truth" for time is the server,
-    // avoiding issues with client-side clock skew. The client's `startedAt` is converted
-    // to a Firestore Timestamp for consistency.
+    // Use serverTimestamp for accuracy and consistency
     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
     reportToSubmit.submittedAt = serverTimestamp();
     reportToSubmit.lastUpdated = serverTimestamp();
     
     delete reportToSubmit.id;
   
+    // 4. Set the final data to Firestore
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
   
+    // 5. Cleanup: remove uploaded photos from IndexedDB
+    await photoStore.deletePhotos(Array.from(photoIdsToUpload));
+    
     // After successful submission, refetch the report from the server to get accurate timestamps
     const savedDoc = await getDoc(firestoreRef);
     const savedData = savedDoc.data();
-    const finalReport: ShiftReport = {
-        ...report, // keep local fields like id
-        ...savedData,
-        startedAt: (savedData?.startedAt as Timestamp).toDate().toISOString(),
-        submittedAt: (savedData?.submittedAt as Timestamp).toDate().toISOString(),
-        lastUpdated: (savedData?.lastUpdated as Timestamp).toDate().toISOString(),
-    } as ShiftReport;
-
-    await this.saveLocalReport(finalReport);
+    if(savedData) {
+        const finalReport: ShiftReport = {
+            ...report, // keep local fields like id
+            ...savedData,
+            startedAt: (savedData.startedAt as Timestamp).toDate().toISOString(),
+            submittedAt: (savedData.submittedAt as Timestamp).toDate().toISOString(),
+            lastUpdated: (savedData.lastUpdated as Timestamp).toDate().toISOString(),
+        } as ShiftReport;
+    
+        await this.saveLocalReport(finalReport);
+    }
   },
 
   async overwriteLocalReport(reportId: string): Promise<ShiftReport> {
@@ -573,7 +583,3 @@ export const dataStore = {
     return reports;
   }
 };
-
-    
-
-    
