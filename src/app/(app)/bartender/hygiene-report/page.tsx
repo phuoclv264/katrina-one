@@ -24,6 +24,7 @@ import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
+import { photoStore } from '@/lib/photo-store';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -42,12 +43,13 @@ export default function HygieneReportPage() {
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
     
   const [tasks, setTasks] = useState<TaskSection[] | null>(null);
 
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+  
+  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -83,6 +85,27 @@ export default function HygieneReportPage() {
     }
   }, [report]);
 
+    const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
+        if (!currentReport) return;
+
+        const allPhotoIds = new Set<string>();
+        for (const taskId in currentReport.completedTasks) {
+            for (const completion of currentReport.completedTasks[taskId]) {
+                if (completion.photoIds) {
+                    completion.photoIds.forEach(id => allPhotoIds.add(id));
+                }
+            }
+        }
+
+        if (allPhotoIds.size === 0) {
+            setLocalPhotoUrls(new Map());
+            return;
+        }
+
+        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
+        setLocalPhotoUrls(urls);
+    }, []);
+
   // --- Data Loading and Initialization ---
   useEffect(() => {
     if (!isAuthLoading && (!user || user.role !== 'Pha chế')) {
@@ -106,6 +129,7 @@ export default function HygieneReportPage() {
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             setReport(loadedReport);
+            await fetchLocalPhotos(loadedReport);
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
                 setShowSyncDialog(true);
@@ -123,7 +147,7 @@ export default function HygieneReportPage() {
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, toast]);
+  }, [isAuthLoading, user, shiftKey, toast, fetchLocalPhotos]);
 
   const allPagePhotos = useMemo(() => {
     if (!tasks || !report) return [];
@@ -141,16 +165,25 @@ export default function HygieneReportPage() {
         const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
-            for (const photoUrl of completion.photos) {
+            for (const photoUrl of completion.photos ?? []) {
                 photos.push({
                     src: photoUrl,
                     description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
                 });
             }
+            for (const photoId of completion.photoIds ?? []) {
+                const localUrl = localPhotoUrls.get(photoId);
+                if (localUrl) {
+                    photos.push({
+                        src: localUrl,
+                        description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                    });
+                }
+            }
         }
     }
     return photos;
-  }, [tasks, report]);
+  }, [tasks, report, localPhotoUrls]);
 
   const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
       setReport(updatedReport);
@@ -159,39 +192,30 @@ export default function HygieneReportPage() {
         setSyncStatus('synced');
       } else {
         await dataStore.saveLocalReport(updatedReport);
+        await fetchLocalPhotos(updatedReport);
         setSyncStatus('local-newer');
       }
-  }, []);
+  }, [fetchLocalPhotos]);
 
   const handleTaskAction = (taskId: string, section: TaskSection) => {
     setActiveTaskId(taskId);
-    setActiveCompletionIndex(null);
     setIsCameraOpen(true);
     collapseCompletedSection(section);
   };
-
-  const handleEditPhotos = (taskId: string, completionIndex: number) => {
-    setActiveTaskId(taskId);
-    setActiveCompletionIndex(completionIndex);
-    setIsCameraOpen(true);
-  };
   
-  const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
     if (!activeTaskId || !report) return;
 
     const newReport = JSON.parse(JSON.stringify(report));
     let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
     
-    if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-        taskCompletions[activeCompletionIndex].photos.push(...photosDataUris);
-    } else {
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        taskCompletions.unshift({
-            timestamp: formattedTime,
-            photos: photosDataUris
-        });
-    }
+    const now = new Date();
+    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    taskCompletions.unshift({
+        timestamp: formattedTime,
+        photoIds: photoIds,
+        photos: [],
+    });
     
     newReport.completedTasks[activeTaskId] = taskCompletions;
     await updateLocalReport(newReport);
@@ -203,19 +227,20 @@ export default function HygieneReportPage() {
 
     setIsCameraOpen(false);
     setActiveTaskId(null);
-    setActiveCompletionIndex(null);
-  }, [activeTaskId, activeCompletionIndex, report, updateLocalReport, tasks, collapseCompletedSection]);
+  }, [activeTaskId, report, updateLocalReport, tasks, collapseCompletedSection]);
   
-  const handleDeletePhoto = async (taskId: string, completionIndex: number, photoUrl: string) => {
+  const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string) => {
       if (!report) return;
       
       const newReport = JSON.parse(JSON.stringify(report));
       const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
       if (!taskCompletions || !taskCompletions[completionIndex]) return;
 
-      taskCompletions[completionIndex].photos = taskCompletions[completionIndex].photos.filter((p:string) => p !== photoUrl);
+      taskCompletions[completionIndex].photoIds = (taskCompletions[completionIndex].photoIds ?? []).filter((p:string) => p !== photoId);
       
-      if (taskCompletions[completionIndex].photos.length === 0) {
+      await photoStore.deletePhoto(photoId);
+
+      if ((taskCompletions[completionIndex].photoIds ?? []).length === 0 && (taskCompletions[completionIndex].photos ?? []).length === 0) {
           taskCompletions.splice(completionIndex, 1);
       }
       
@@ -233,6 +258,11 @@ export default function HygieneReportPage() {
       
       const newReport = JSON.parse(JSON.stringify(report));
       const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
+      
+      const completionToDelete = taskCompletions[completionIndex];
+      if(completionToDelete.photoIds) {
+        await photoStore.deletePhotos(completionToDelete.photoIds);
+      }
 
       taskCompletions.splice(completionIndex, 1);
       
@@ -256,7 +286,9 @@ export default function HygieneReportPage() {
 
         try {
             await dataStore.submitReport(report);
-            setReport(prev => prev ? {...prev, status: 'submitted'} : null);
+            const serverReport = await dataStore.overwriteLocalReport(report.id);
+            setReport(serverReport);
+            await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
             toast({
                 title: "Gửi báo cáo thành công!",
@@ -285,6 +317,7 @@ export default function HygieneReportPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
          toast({
             title: "Tải thành công!",
@@ -303,18 +336,9 @@ export default function HygieneReportPage() {
       }
   }
     
-  const cameraInitialPhotos = useMemo(() => {
-    if (activeTaskId && activeCompletionIndex !== null && report) {
-      const completions = (report.completedTasks[activeTaskId] || []) as CompletionRecord[];
-      return completions[activeCompletionIndex]?.photos || [];
-    }
-    return [];
-  }, [activeTaskId, activeCompletionIndex, report]);
-
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTaskId(null);
-    setActiveCompletionIndex(null);
   }, []);
   
   const getSectionIcon = (title: string) => {
@@ -445,7 +469,6 @@ export default function HygieneReportPage() {
                       {section.tasks.map((task) => {
                         const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
                         const isTaskCompleted = completions.length > 0;
-                        const isDisabledForNew = isTaskCompleted || isReadonly;
                         const isExpanded = expandedTaskIds.has(task.id);
                         
                         return (
@@ -458,7 +481,7 @@ export default function HygieneReportPage() {
                                 size="sm" 
                                 className="w-full md:w-auto active:scale-95 transition-transform"
                                 onClick={() => handleTaskAction(task.id, section)}
-                                disabled={isDisabledForNew}
+                                disabled={isReadonly}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>
                                   Đã hoàn thành
@@ -467,7 +490,13 @@ export default function HygieneReportPage() {
                             
                             {isTaskCompleted && (
                                 <div className="mt-4 space-y-3">
-                                {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => (
+                                {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
+                                 const combinedPhotos = [
+                                      ...(completion.photoIds || []).map(id => ({ id, url: localPhotoUrls.get(id) })),
+                                      ...(completion.photos || []).map(url => ({ id: url, url }))
+                                  ].filter(p => p.url);
+
+                                  return (
                                 <div key={cIndex} className="rounded-md border bg-card p-3">
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -499,23 +528,23 @@ export default function HygieneReportPage() {
                                             </AlertDialog>
                                         </div>
                                     </div>
-                                    {completion.photos.length > 0 ? (
+                                    {combinedPhotos.length > 0 ? (
                                         <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                        {completion.photos.map((photo, pIndex) => (
-                                            <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                        {combinedPhotos.map((photo, pIndex) => (
+                                            <div key={photo.id} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
                                                 <button
-                                                  onClick={() => openLightbox(photo)}
+                                                  onClick={() => openLightbox(photo.url!)}
                                                   className="w-full h-full block"
                                                 >
-                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
+                                                  <Image src={photo.url!} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
                                                 </button>
                                                 
-                                                {!isReadonly && (
+                                                {!isReadonly && (completion.photoIds?.includes(photo.id)) && (
                                                     <Button 
                                                         variant="destructive"
                                                         size="icon"
                                                         className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photo.id); }}
                                                     >
                                                         <X className="h-3 w-3" />
                                                         <span className="sr-only">Xóa ảnh</span>
@@ -528,7 +557,7 @@ export default function HygieneReportPage() {
                                         <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
                                     )}
                                 </div>
-                                ))}
+                                )})}
                                 {completions.length > 1 && (
                                     <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
                                         {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1})`}
@@ -578,7 +607,6 @@ export default function HygieneReportPage() {
         isOpen={isCameraOpen}
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
-        initialPhotos={cameraInitialPhotos}
     />
     
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>

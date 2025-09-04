@@ -306,8 +306,9 @@ export default function ChecklistPage() {
 
         try {
             await dataStore.submitReport(report);
-            setReport(prev => prev ? {...prev, status: 'submitted'} : null);
-            await fetchLocalPhotos(null); // Clear local photo URLs after submission
+            const serverReport = await dataStore.overwriteLocalReport(report.id);
+            setReport(serverReport);
+            await fetchLocalPhotos(serverReport); 
             setSyncStatus('synced');
             toast({
                 title: "Gửi báo cáo thành công!",
@@ -336,6 +337,7 @@ export default function ChecklistPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
          toast({
             title: "Tải thành công!",
@@ -396,11 +398,6 @@ export default function ChecklistPage() {
       return newSet;
     });
   }, []);
-
-  const openLightboxForLocal = (photoId: string) => {
-    const url = localPhotoUrls.get(photoId);
-    if(url) openLightbox(url);
-  }
 
   const openLightbox = (photoUrl: string) => {
     const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
