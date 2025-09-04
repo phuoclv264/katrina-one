@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, RadioTower, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 export default function ComprehensiveChecklistPage() {
   const { user, loading: authLoading } = useAuth();
@@ -26,7 +27,10 @@ export default function ComprehensiveChecklistPage() {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [newTask, setNewTask] = useState<{ [sectionTitle: string]: { text: string; type: 'photo' | 'boolean' } }>({});
+  
+  const [newText, setNewText] = useState('');
+  const [newType, setNewType] = useState<'photo' | 'boolean' | 'opinion'>('boolean');
+  const [newSection, setNewSection] = useState('Tầng 1');
 
   useEffect(() => {
     if (!authLoading) {
@@ -58,30 +62,28 @@ export default function ComprehensiveChecklistPage() {
     });
   }
 
-  const handleAddTask = (sectionTitle: string) => {
-    if (!tasks) return;
-    const taskDetails = newTask[sectionTitle];
-    if (!taskDetails || taskDetails.text.trim() === '') return;
+  const handleAddTask = () => {
+    if (!tasks || newText.trim() === '' || !newSection || !newType) {
+        toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin.", variant: "destructive" });
+        return;
+    };
 
     const newTaskToAdd: ComprehensiveTask = {
       id: `comp-task-${Date.now()}`,
-      text: taskDetails.text.trim(),
-      type: taskDetails.type,
+      text: newText.trim(),
+      type: newType,
     };
 
     const newTasksState = JSON.parse(JSON.stringify(tasks));
-    const section = newTasksState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
+    const section = newTasksState.find((s: ComprehensiveTaskSection) => s.title === newSection);
     if (section) {
       section.tasks.push(newTaskToAdd);
     }
 
     handleUpdateAndSave(newTasksState);
-
-    setNewTask(current => {
-      const newTasksInputState = JSON.parse(JSON.stringify(current));
-      delete newTasksInputState[sectionTitle];
-      return newTasksInputState;
-    });
+    
+    // Reset form
+    setNewText('');
   };
 
   const handleDeleteTask = (sectionTitle: string, taskId: string) => {
@@ -93,15 +95,15 @@ export default function ComprehensiveChecklistPage() {
     }
     handleUpdateAndSave(newTasksState);
   };
-
-  const handleNewTaskChange = (sectionTitle: string, field: 'text' | 'type', value: string) => {
-    setNewTask(current => {
-      const newState = JSON.parse(JSON.stringify(current));
-      if (!newState[sectionTitle]) newState[sectionTitle] = { text: '', type: 'boolean' };
-      (newState[sectionTitle] as any)[field] = value;
-      return newState;
-    });
-  };
+  
+  const getTaskTypeIcon = (type: 'photo' | 'boolean' | 'opinion') => {
+      switch(type) {
+          case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
+          case 'boolean': return <CheckSquare className="h-4 w-4 text-sky-500 shrink-0" />;
+          case 'opinion': return <MessageSquare className="h-4 w-4 text-orange-500 shrink-0" />;
+          default: return null;
+      }
+  }
 
   if (isLoading || authLoading) {
     return (
@@ -126,8 +128,57 @@ export default function ComprehensiveChecklistPage() {
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><ListChecks/> Quản lý Hạng mục Kiểm tra Toàn diện</h1>
-        <p className="text-muted-foreground">Chỉnh sửa danh sách các hạng mục kiểm tra cho Quản lý.</p>
+        <p className="text-muted-foreground">Thêm, sửa, xóa các hạng mục kiểm tra cho Quản lý.</p>
       </header>
+      
+      <Card className="mb-8">
+          <CardHeader>
+              <CardTitle>Thêm hạng mục mới</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                   <div className="space-y-2 col-span-1 md:col-span-3">
+                       <Label htmlFor="new-task-text">Nội dung hạng mục</Label>
+                       <Input
+                        id="new-task-text"
+                        placeholder="ví dụ: 'Sàn nhà sạch sẽ'"
+                        value={newText}
+                        onChange={e => setNewText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddTask()}
+                      />
+                   </div>
+                   <div className="space-y-2">
+                       <Label htmlFor="new-task-section">Khu vực</Label>
+                       <Select value={newSection} onValueChange={value => setNewSection(value)}>
+                            <SelectTrigger id="new-task-section">
+                                <SelectValue placeholder="Chọn khu vực..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {tasks.map(section => (
+                                    <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
+                                ))}
+                            </SelectContent>
+                       </Select>
+                   </div>
+                   <div className="space-y-2">
+                       <Label htmlFor="new-task-type">Loại báo cáo</Label>
+                       <Select value={newType} onValueChange={(value) => setNewType(value as 'photo' | 'boolean' | 'opinion')}>
+                            <SelectTrigger id="new-task-type">
+                                <SelectValue placeholder="Chọn loại báo cáo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
+                                <SelectItem value="photo">Hình ảnh</SelectItem>
+                                <SelectItem value="opinion">Ý kiến</SelectItem>
+                            </SelectContent>
+                       </Select>
+                   </div>
+               </div>
+                <Button onClick={handleAddTask} className="w-full md:w-auto">
+                  <Plus className="mr-2 h-4 w-4" /> Thêm hạng mục
+                </Button>
+          </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="pt-6">
@@ -141,11 +192,10 @@ export default function ComprehensiveChecklistPage() {
                   </div>
                   </AccordionTrigger>
                 <AccordionContent className="p-4 border-t">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                       {section.tasks.map(task => (
-                        <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
-                           {task.type === 'boolean' ? <RadioTower className="h-4 w-4 text-sky-500 shrink-0" /> : <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />}
+                        <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
+                           {getTaskTypeIcon(task.type)}
                           <p className="flex-1 text-sm">{task.text}</p>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
                             <Trash2 className="h-4 w-4" />
@@ -154,37 +204,9 @@ export default function ComprehensiveChecklistPage() {
                         </div>
                       ))}
                       {section.tasks.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-4">Chưa có công việc nào.</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">Chưa có hạng mục nào trong khu vực này.</p>
                       )}
                     </div>
-                    <div className="flex flex-col gap-2 rounded-md border p-3">
-                      <Input
-                        placeholder="Nhập mô tả công việc mới"
-                        value={newTask[section.title]?.text || ''}
-                        onChange={e => handleNewTaskChange(section.title, 'text', e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAddTask(section.title)}
-                      />
-                      <div className="flex items-center justify-between">
-                         <div className="w-48">
-                            <Select 
-                                value={newTask[section.title]?.type || 'boolean'}
-                                onValueChange={(value) => handleNewTaskChange(section.title, 'type', value)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Loại công việc" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="boolean">Có / Không</SelectItem>
-                                    <SelectItem value="photo">Chụp ảnh</SelectItem>
-                                </SelectContent>
-                            </Select>
-                         </div>
-                        <Button onClick={() => handleAddTask(section.title)} size="sm">
-                          <Plus className="mr-2 h-4 w-4" /> Thêm công việc
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -194,5 +216,3 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
-
-    

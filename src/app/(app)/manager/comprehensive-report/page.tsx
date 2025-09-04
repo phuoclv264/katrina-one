@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -173,6 +173,17 @@ export default function ComprehensiveReportPage() {
     newReport.completedTasks[taskId] = taskCompletions;
     await updateLocalReport(newReport);
   };
+  
+  // Placeholder for opinion task action
+  const handleOpinionTaskAction = (taskId: string) => {
+      // For now, it works like a boolean task.
+      // We can implement a text input dialog later.
+      handleBooleanTaskAction(taskId, true);
+      toast({
+          title: "Đã ghi nhận",
+          description: "Vui lòng ghi chi tiết ý kiến của bạn vào phần Ghi chú ca ở cuối trang.",
+      });
+  }
 
   const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
     if (!activeTaskId || !report) return;
@@ -426,6 +437,16 @@ export default function ComprehensiveReportPage() {
                                         </Button>
                                     </>
                                 )}
+                                {task.type === 'opinion' && (
+                                    <Button
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => handleOpinionTaskAction(task.id)}
+                                        disabled={isReadonly}
+                                    >
+                                        <MessageSquare className="mr-2 h-4 w-4"/> Ghi nhận
+                                    </Button>
+                                )}
                               </div>
                             </div>
                             
@@ -441,7 +462,7 @@ export default function ComprehensiveReportPage() {
                                           <div className="flex items-center gap-1">
                                             {completion.value !== undefined && (
                                               <Badge variant={completion.value ? "default" : "destructive"}>
-                                                {completion.value ? "Có" : "Không"}
+                                                {completion.value ? "Đảm bảo" : "Không đảm bảo"}
                                               </Badge>
                                             )}
                                             {!isReadonly && (
@@ -590,5 +611,3 @@ export default function ComprehensiveReportPage() {
     </>
   );
 }
-
-    

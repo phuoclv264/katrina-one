@@ -16,7 +16,7 @@ export type Task = {
 export type ComprehensiveTask = {
   id: string;
   text: string;
-  type: 'photo' | 'boolean';
+  type: 'photo' | 'boolean' | 'opinion';
 }
 
 export type TaskSection = {

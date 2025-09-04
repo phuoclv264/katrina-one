@@ -122,87 +122,24 @@ export const bartenderTasks: TaskSection[] = [
 
 export const comprehensiveTasks: ComprehensiveTaskSection[] = [
   {
-    title: "Tầng 1 - Trong nhà",
+    title: "Tầng 1",
     tasks: [
       { "id": "comp-1-1", "text": "Không có mùi lạ", "type": "boolean" },
       { "id": "comp-1-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
-      { "id": "comp-1-3", "text": "Bàn ghế sạch bụi, không dính vết bẩn", "type": "photo" },
-      { "id": "comp-1-4", "text": "Các khu vực khách vừa về đã được dọn sạch", "type": "photo" },
-      { "id": "comp-1_5", "text": "Thùng rác sạch", "type": "photo" },
-      { "id": "comp-1-6", "text": "Thùng tách nước sạch", "type": "photo" },
-      { "id": "comp-1-7", "text": "Khu vực nhân viên phục vụ sạch", "type": "photo" },
-      { "id": "comp-1-8", "text": "Thùng và cây lau nhà đã được rửa sạch", "type": "photo" }
     ]
   },
   {
-    title: "Tầng 1 - Ngoài sân",
+    title: "Tầng 2",
     tasks: [
-      { "id": "comp-2-1", "text": "Không có mùi lạ", "type": "boolean" },
-      { "id": "comp-2-2", "text": "Không có rác nhiều (chú ý khu vực bồn cây)", "type": "boolean" },
-      { "id": "comp-2-3", "text": "Bàn sạch bụi, không dính vết bẩn", "type": "photo" },
-      { "id": "comp-2-4", "text": "Ghế dù sạch, không dính vết bẩn", "type": "photo" },
-      { "id": "comp-2-5", "text": "Các khu vực khách về đã được dọn sạch", "type": "photo" },
-      { "id": "comp-2-6", "text": "Thùng rác lớn sạch sẽ, đã đậy nắp và đặt đúng vị trí", "type": "photo" }
+       { "id": "comp-2-1", "text": "Không có mùi lạ", "type": "boolean" },
+       { "id": "comp-2-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
     ]
   },
-  {
-    title: "Tầng 1 - Vỉa hè và lòng đường",
+    {
+    title: "Các công việc khác",
     tasks: [
-      { "id": "comp-3-1", "text": "Không có rác", "type": "boolean" },
-      { "id": "comp-3-2", "text": "Đã được quét sạch sẽ", "type": "photo" }
-    ]
-  },
-  {
-    title: "Tầng 1 - Nhà vệ sinh Nam",
-    tasks: [
-      { "id": "comp-4-1", "text": "Còn mùi thơm (máy xịt thơm, tấm lót bồn tiểu)", "type": "boolean" },
-      { "id": "comp-4-2", "text": "Không có mùi hôi", "type": "boolean" },
-      { "id": "comp-4-3", "text": "Sàn nhà sạch", "type": "photo" },
-      { "id": "comp-4-4", "text": "Bồn tiểu nam không có rác, tấm lót sạch, tổng thể không ám màu nào khác ngoài màu trắng", "type": "photo" },
-      { "id": "comp-4-5", "text": "Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra", "type": "photo" },
-      { "id": "comp-4-6", "text": "Bao rác không đầy, giấy vệ sinh không hết", "type": "boolean" }
-    ]
-  },
-  {
-    title: "Tầng 1 - Nhà vệ sinh Nữ",
-    tasks: [
-      { "id": "comp-5-1", "text": "Còn mùi thơm của máy xịt thơm", "type": "boolean" },
-      { "id": "comp-5-2", "text": "Không có mùi hôi", "type": "boolean" },
-      { "id": "comp-5-3", "text": "Sàn nhà sạch", "type": "photo" },
-      { "id": "comp-5-4", "text": "Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra", "type": "photo" },
-      { "id": "comp-5-5", "text": "Bao rác không đầy, giấy vệ sinh không hết", "type": "boolean" }
-    ]
-  },
-  {
-    title: "Tầng 2 - Trong nhà và ngoài sân",
-    tasks: [
-      { "id": "comp-6-1", "text": "Không có mùi lạ", "type": "boolean" },
-      { "id": "comp-6-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
-      { "id": "comp-6-3", "text": "Bàn ghế sạch bụi, không dính vết bẩn", "type": "photo" },
-      { "id": "comp-6-4", "text": "Bàn dài ngoài sân sạch", "type": "photo" },
-      { "id": "comp-6-5", "text": "Ghế dù sạch, không dính vết bẩn", "type": "photo" },
-      { "id": "comp-6-6", "text": "Các khu vực khách vừa về đã được dọn sạch", "type": "photo" },
-      { "id": "comp-6-7", "text": "Thùng rác và khu vực để thùng rác sạch", "type_": "photo" }
-    ]
-  },
-  {
-    title: "Tầng 2 - Nhà vệ sinh",
-    tasks: [
-      { "id": "comp-7-1", "text": "Còn mùi thơm (máy xịt thơm, tấm lót bồn tiểu)", "type": "boolean" },
-      { "id": "comp-7-2", "text": "Không có mùi hôi", "type": "boolean" },
-      { "id": "comp-7-3", "text": "Sàn nhà sạch", "type": "photo" },
-      { "id": "comp-7-4", "text": "Bồn tiểu nam không có rác, tấm lót sạch, tổng thể không ám màu nào khác ngoài màu trắng", "type": "photo" },
-      { "id": "comp-7-5", "text": "Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra", "type": "photo" },
-      { "id": "comp-7-6", "text": "Bao rác không đầy, giấy vệ sinh không hết", "type": "boolean" }
-    ]
-  },
-  {
-    title: "Nhóm công việc khác",
-    tasks: [
-      { "id": "comp-8-1", "text": "Đánh giá thái độ làm việc nhân viên", "type": "boolean" },
+      { "id": "comp-8-1", "text": "Đánh giá thái độ làm việc nhân viên", "type": "opinion" },
       { "id": "comp-8-2", "text": "Trà nước đã được chuẩn bị sẵn sàng để phục vụ cho lượng khách đông (đặc biệt là ca sáng)", "type": "boolean" },
-      { "id": "comp-8-3", "text": "Trà nước tầng 2 đầy đủ", "type": "boolean" },
-      { "id": "comp-8-4", "text": "Đảm bảo công việc của nhân viên phục vụ được thực hiện đầy đủ", "type": "boolean" }
     ]
   }
 ];
