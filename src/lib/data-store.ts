@@ -40,6 +40,7 @@ const cleanupOldLocalStorage = () => {
     });
 };
 
+// Run cleanup when the app loads
 cleanupOldLocalStorage();
 
 

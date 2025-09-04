@@ -306,7 +306,7 @@ export default function ComprehensiveReportPage() {
     }
   };
 
-  const isReadonly = isSubmitting || report?.status === 'submitted';
+  const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasks) {
       return (
@@ -372,16 +372,6 @@ export default function ComprehensiveReportPage() {
             </div>
         </div>
       </header>
-       {report.status === 'submitted' && (
-            <Card className="mb-8 border-green-500 text-green-700">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><CheckCircle/> Báo cáo đã được gửi</CardTitle>
-                    <CardDescription className="text-green-600">
-                        Báo cáo này đã được gửi lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Không thể chỉnh sửa thêm.
-                    </CardDescription>
-                </CardHeader>
-            </Card>
-        )}
 
       <div className="space-y-8">
         <Card>
@@ -615,3 +605,5 @@ export default function ComprehensiveReportPage() {
     </>
   );
 }
+
+    
