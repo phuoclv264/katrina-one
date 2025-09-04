@@ -122,20 +122,54 @@ export const bartenderTasks: TaskSection[] = [
 
 export const comprehensiveTasks: ComprehensiveTaskSection[] = [
   {
-    title: "Tầng 1",
+    title: "Tầng 1 - Trong nhà",
     tasks: [
-      { "id": "comp-1-1", "text": "Không có mùi lạ", "type": "boolean" },
-      { "id": "comp-1-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
+      { "id": "comp-1-1-1", "text": "Không có mùi lạ", "type": "boolean" },
+      { "id": "comp-1-1-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
     ]
   },
   {
-    title: "Tầng 2",
+    title: "Tầng 1 - WC Nam",
     tasks: [
-       { "id": "comp-2-1", "text": "Không có mùi lạ", "type": "boolean" },
-       { "id": "comp-2-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
+      { "id": "comp-1-2-1", "text": "Không có mùi lạ", "type": "boolean" },
+      { "id": "comp-1-2-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
     ]
   },
-    {
+  {
+    title: "Tầng 1 - WC Nữ",
+    tasks: [
+      { "id": "comp-1-3-1", "text": "Không có mùi lạ", "type": "boolean" },
+      { "id": "comp-1-3-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
+    ]
+  },
+  {
+    title: "Tầng 1 - Ngoài sân",
+    tasks: [
+      { "id": "comp-1-4-1", "text": "Không có mùi lạ", "type": "boolean" },
+      { "id": "comp-1-4-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
+    ]
+  },
+  {
+    title: "Tầng 1 - Vỉa hè và lòng đường",
+    tasks: [
+       { "id": "comp-1-5-1", "text": "Sạch sẽ, không có rác", "type": "photo" },
+    ]
+  },
+  {
+    title: "Tầng 2 - Trong nhà và Ngoài sân",
+    tasks: [
+       { "id": "comp-2-1-1", "text": "Không có mùi lạ", "type": "boolean" },
+       { "id": "comp-2-1-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
+    ]
+  },
+  {
+    title: "Tầng 2 - WC",
+    tasks: [
+       { "id": "comp-2-2-1", "text": "Không có mùi lạ", "type": "boolean" },
+       { "id": "comp-2-2-2", "text": "Sàn nhà sạch sẽ", "type": "photo" },
+    ]
+  },
+  {
     title: "Các công việc khác",
     tasks: [
       { "id": "comp-8-1", "text": "Đánh giá thái độ làm việc nhân viên", "type": "opinion" },
@@ -143,6 +177,7 @@ export const comprehensiveTasks: ComprehensiveTaskSection[] = [
     ]
   }
 ];
+
 
 export const inventoryList: InventoryItem[] = [
   { id: 'item-1', name: 'TOPPING - Đào Ngâm Thái Lan Dedu (12 hộp/thùng, 820gram/hộp)', unit: 'lon', minStock: 1, orderSuggestion: '4' },
@@ -191,3 +226,5 @@ export const inventoryList: InventoryItem[] = [
   { id: 'item-44', name: 'DCVS - Giấy ăn Gumi', unit: 'gói', minStock: 20, orderSuggestion: '20' },
   { id: 'item-45', name: 'DCVS - Giấy vệ sinh cuộn lớn', unit: 'cuộn', minStock: 5, orderSuggestion: '5' },
 ];
+
+    
