@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,26 +15,35 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
+import { sortTasks } from '@/ai/flows/sort-tasks';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { diffChars } from 'diff';
 
 
-function AiAssistant({ 
+function AiAssistant({
     inventoryList,
-    onItemsGenerated 
-}: { 
+    onItemsGenerated,
+    onItemsSorted
+}: {
     inventoryList: InventoryItem[],
-    onItemsGenerated: (items: InventoryItem[]) => void 
+    onItemsGenerated: (items: InventoryItem[]) => void,
+    onItemsSorted: (sortedNames: string[]) => void
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState('add');
     const { toast } = useToast();
 
     const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
-    const [showPreview, setShowPreview] = useState(false);
+    const [showAddPreview, setShowAddPreview] = useState(false);
+
+    const [showSortPreview, setShowSortPreview] = useState(false);
+    const [sortPreview, setSortPreview] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
+
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -50,33 +59,32 @@ function AiAssistant({
     const resetState = () => {
         setTextInput('');
         setImageInput(null);
-        // Also reset the file input visually
         const fileInput = document.getElementById('image-upload') as HTMLInputElement;
         if(fileInput) fileInput.value = '';
     }
 
-    const handleGenerate = async (source: 'text' | 'image') => {
+    const handleGenerateAdd = async (source: 'text' | 'image') => {
         setIsGenerating(true);
 
         try {
-            const input = source === 'text' 
+            const input = source === 'text'
                 ? { source, inputText: textInput }
                 : { source, imageDataUri: imageInput! };
-            
+
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
                 setIsGenerating(false);
                 return;
             }
-            
+
             toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian."});
 
             const result = await generateInventoryList(input);
-            
+
             if (!result || !result.items) {
                  throw new Error("AI không trả về kết quả hợp lệ.");
             }
-            
+
             const existingNames = new Set(inventoryList.map(item => item.name.trim().toLowerCase()));
             const generatedNewItems: InventoryItem[] = [];
             const generatedExistingItems: ParsedInventoryItem[] = [];
@@ -94,7 +102,7 @@ function AiAssistant({
 
             setPreviewNewItems(generatedNewItems);
             setPreviewExistingItems(generatedExistingItems);
-            setShowPreview(true);
+            setShowAddPreview(true);
 
         } catch (error) {
             console.error("Failed to generate inventory list:", error);
@@ -108,7 +116,7 @@ function AiAssistant({
         onItemsGenerated(previewNewItems);
         toast({ title: "Hoàn tất!", description: `Đã thêm ${previewNewItems.length} mặt hàng mới.`});
         resetState();
-        setShowPreview(false);
+        setShowAddPreview(false);
     }
 
     const handleEditNewItem = (index: number, field: keyof InventoryItem, value: string | number) => {
@@ -116,11 +124,57 @@ function AiAssistant({
         (updatedItems[index] as any)[field] = value;
         setPreviewNewItems(updatedItems);
     }
-    
+
     const handleDeleteNewItem = (id: string) => {
         const updatedItems = previewNewItems.filter(item => item.id !== id);
         setPreviewNewItems(updatedItems);
     }
+    
+    const handleGenerateSort = async () => {
+        if (inventoryList.length < 2) {
+            toast({ title: "Không cần sắp xếp", description: "Cần có ít nhất 2 mặt hàng để sắp xếp.", variant: "default" });
+            return;
+        }
+
+        setIsGenerating(true);
+        toast({ title: "AI đang sắp xếp...", description: "Vui lòng đợi một lát. AI sẽ nhóm các mặt hàng theo chủng loại." });
+
+        try {
+            const currentItems = inventoryList.map(t => t.name);
+            const result = await sortTasks({
+                context: `A complete inventory list for a coffee shop. The list needs to be sorted by category (e.g., all 'TOPPING' items together, all 'TRÁI CÂY' items together, etc.).`,
+                tasks: currentItems
+            });
+
+            if (!result || !result.sortedTasks || result.sortedTasks.length !== currentItems.length) {
+                throw new Error("AI did not return a valid sorted list.");
+            }
+
+            setSortPreview({ oldOrder: currentItems, newOrder: result.sortedTasks });
+            setShowSortPreview(true);
+
+        } catch(error) {
+            console.error("Failed to sort inventory:", error);
+            toast({ title: "Lỗi", description: "Không thể sắp xếp. Vui lòng thử lại.", variant: "destructive"});
+        } finally {
+            setIsGenerating(false);
+        }
+    }
+
+    const handleConfirmSort = () => {
+        onItemsSorted(sortPreview.newOrder);
+        toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại danh sách hàng tồn kho.` });
+        setShowSortPreview(false);
+    }
+
+    const renderDiff = (oldText: string, newText: string) => {
+        const differences = diffChars(oldText, newText);
+        return differences.map((part, index) => {
+            const color = part.added ? 'bg-green-200/50' : part.removed ? 'bg-red-200/50' : 'bg-transparent';
+            return <span key={index} className={color}>{part.value}</span>;
+        });
+    }
+
 
     return (
         <>
@@ -130,10 +184,10 @@ function AiAssistant({
                     <CardDescription>Sử dụng AI để thêm hoặc sắp xếp lại các mặt hàng một cách thông minh.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="add">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm mới</TabsTrigger>
-                            <TabsTrigger value="sort" disabled><Shuffle className="mr-2 h-4 w-4"/>Sắp xếp (sắp có)</TabsTrigger>
+                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp</TabsTrigger>
                         </TabsList>
                         <TabsContent value="add" className="mt-4 space-y-4">
                              <Tabs defaultValue="text">
@@ -142,38 +196,45 @@ function AiAssistant({
                                     <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="text" className="mt-4 space-y-4">
-                                    <Textarea 
+                                    <Textarea
                                         placeholder="Dán dữ liệu từ Excel/Google Sheets vào đây. Mỗi dòng là một mặt hàng, các cột bao gồm Tên, Đơn vị, Tồn tối thiểu, Gợi ý đặt hàng."
                                         rows={6}
                                         value={textInput}
                                         onChange={(e) => setTextInput(e.target.value)}
                                         disabled={isGenerating}
                                     />
-                                    <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()}>
+                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()}>
                                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                         Tạo danh sách
                                     </Button>
                                 </TabsContent>
                                 <TabsContent value="image" className="mt-4 space-y-4">
-                                    <Input 
+                                    <Input
                                         id="image-upload"
-                                        type="file" 
-                                        accept="image/*" 
+                                        type="file"
+                                        accept="image/*"
                                         onChange={handleFileChange}
                                         disabled={isGenerating}
                                     />
-                                    <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput}>
+                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput}>
                                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                         Tạo danh sách
                                     </Button>
                                 </TabsContent>
                             </Tabs>
                         </TabsContent>
+                         <TabsContent value="sort" className="mt-4 space-y-4">
+                             <p className="text-sm text-muted-foreground">Để AI tự động sắp xếp lại toàn bộ danh sách hàng tồn kho của bạn theo từng chủng loại (ví dụ: Topping, Trái cây, Gia vị, v.v.).</p>
+                            <Button onClick={handleGenerateSort} disabled={isGenerating || inventoryList.length < 2}>
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                Sắp xếp toàn bộ bằng AI
+                            </Button>
+                        </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
 
-            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <Dialog open={showAddPreview} onOpenChange={setShowAddPreview}>
                 <DialogContent className="max-w-4xl">
                      <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle>
@@ -242,11 +303,52 @@ function AiAssistant({
                         )}
                     </div>
                      <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setShowPreview(false)}>Hủy bỏ</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => setShowAddPreview(false)}>Hủy bỏ</AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}>
                             <Plus className="mr-2 h-4 w-4" />
                             Thêm {previewNewItems.length} mặt hàng mới
                         </AlertDialogAction>
+                    </AlertDialogFooter>
+                </DialogContent>
+            </Dialog>
+
+             <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}>
+                <DialogContent className="max-w-4xl">
+                     <AlertDialogHeader>
+                        <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            AI đề xuất sắp xếp lại danh sách hàng tồn kho như sau. Bạn có muốn áp dụng thay đổi không?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                     <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4">
+                       <div>
+                           <h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4>
+                           <ul className="space-y-2 text-sm">
+                               {sortPreview.oldOrder.map((task, index) => (
+                                   <li key={index} className="p-2 rounded-md bg-muted/50 truncate">
+                                       {index + 1}. {task}
+                                   </li>
+                               ))}
+                           </ul>
+                       </div>
+                        <div>
+                           <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
+                           <ul className="space-y-2 text-sm">
+                               {sortPreview.newOrder.map((task, index) => {
+                                    const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
+                                    const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
+                                    return (
+                                       <li key={index} className="p-2 rounded-md bg-green-100/50 truncate">
+                                           {index + 1}. {renderDiff(oldTaskText, task)}
+                                       </li>
+                                    )
+                               })}
+                           </ul>
+                       </div>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
                     </AlertDialogFooter>
                 </DialogContent>
             </Dialog>
@@ -274,17 +376,17 @@ export default function InventoryManagementPage() {
         router.replace('/');
       } else {
         const unsubscribe = dataStore.subscribeToInventoryList((items) => {
-          setInventoryList(items); 
+          setInventoryList(items);
           setIsLoading(false);
         });
         return () => unsubscribe();
       }
     }
   }, [user, authLoading, router]);
-  
+
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
-      
+
       const categoryOrder: string[] = [];
       const grouped: { [key: string]: InventoryItem[] } = {};
 
@@ -296,7 +398,7 @@ export default function InventoryManagementPage() {
           }
           grouped[category].push(item);
       });
-      
+
       return categoryOrder.map(category => ({ category, items: grouped[category] }));
 
   }, [inventoryList]);
@@ -312,21 +414,21 @@ export default function InventoryManagementPage() {
 
   const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
     if (!inventoryList) return;
-    const newList = inventoryList.map(item => 
+    const newList = inventoryList.map(item =>
         item.id === id ? {...item, [field]: value} : item
     );
     setInventoryList(newList);
   };
-  
+
   const handleMoveItem = (indexToMove: number, direction: 'up' | 'down') => {
     if (!inventoryList) return;
-    
+
     // Create a mutable copy of the list
     const newList = [...inventoryList];
-    
+
     const newIndex = direction === 'up' ? indexToMove - 1 : indexToMove + 1;
     if (newIndex < 0 || newIndex >= newList.length) return;
-    
+
     // Check if the move is within the same category
     const itemToMove = newList[indexToMove];
     const itemToSwap = newList[newIndex];
@@ -341,7 +443,7 @@ export default function InventoryManagementPage() {
         toast({ title: "Thông báo", description: "Chỉ có thể sắp xếp các mục trong cùng một chủng loại."});
     }
   };
-  
+
   const handleSaveChanges = (showToast: boolean = true) => {
       if(!inventoryList) return;
       dataStore.updateInventoryList(inventoryList).then(() => {
@@ -373,7 +475,7 @@ export default function InventoryManagementPage() {
     const newList = [...inventoryList, newItem];
     setInventoryList(newList);
   };
-  
+
   const onItemsGenerated = (items: InventoryItem[]) => {
       if (inventoryList) {
           const newList = [...inventoryList, ...items];
@@ -383,20 +485,34 @@ export default function InventoryManagementPage() {
       }
   }
 
+  const onItemsSorted = (sortedNames: string[]) => {
+    if (!inventoryList) return;
+
+    const itemMap = new Map(inventoryList.map(item => [item.name, item]));
+    const sortedList: InventoryItem[] = sortedNames.map(name => itemMap.get(name)).filter((item): item is InventoryItem => !!item);
+
+    if (sortedList.length === inventoryList.length) {
+      setInventoryList(sortedList);
+      dataStore.updateInventoryList(sortedList); // Auto-save after sorting
+    } else {
+      toast({ title: "Lỗi Sắp xếp", description: "Không thể sắp xếp danh sách. Một vài mặt hàng có thể đã bị thiếu.", variant: "destructive"});
+    }
+  }
+
   const handleDeleteItem = (id: string) => {
     if (!inventoryList) return;
     const newList = inventoryList.filter(item => item.id !== id);
     setInventoryList(newList);
   };
-  
+
   const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
       if (!inventoryList || !categorizedList) return;
-      
+
       const newCategoryOrder = [...categorizedList];
       const targetIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
 
       if (targetIndex < 0 || targetIndex >= newCategoryOrder.length) return;
-      
+
       [newCategoryOrder[categoryIndex], newCategoryOrder[targetIndex]] = [newCategoryOrder[targetIndex], newCategoryOrder[categoryIndex]];
 
       const newFlatList = newCategoryOrder.flatMap(category => category.items);
@@ -443,7 +559,11 @@ export default function InventoryManagementPage() {
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
       </header>
 
-      <AiAssistant inventoryList={inventoryList} onItemsGenerated={onItemsGenerated} />
+      <AiAssistant
+        inventoryList={inventoryList}
+        onItemsGenerated={onItemsGenerated}
+        onItemsSorted={onItemsSorted}
+      />
 
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -545,7 +665,7 @@ export default function InventoryManagementPage() {
                 </AccordionItem>
             ))}
             </Accordion>
-            
+
             <div className="mt-6 flex justify-start items-center">
                 <Button variant="outline" onClick={handleAddItem}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -558,3 +678,4 @@ export default function InventoryManagementPage() {
   );
 }
 
+    
