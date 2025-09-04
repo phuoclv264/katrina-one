@@ -46,6 +46,8 @@ export default function ComprehensiveReportPage() {
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
 
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -157,6 +159,7 @@ export default function ComprehensiveReportPage() {
     if (!report) return;
 
     const newReport = JSON.parse(JSON.stringify(report));
+    let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     
@@ -166,15 +169,16 @@ export default function ComprehensiveReportPage() {
       value: value,
     };
 
-    newReport.completedTasks[taskId] = [newCompletion]; // Overwrite previous boolean check
+    taskCompletions.unshift(newCompletion);
+    newReport.completedTasks[taskId] = taskCompletions;
     await updateLocalReport(newReport);
   };
-
 
   const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
     if (!activeTaskId || !report) return;
 
     const newReport = JSON.parse(JSON.stringify(report));
+    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     
@@ -183,17 +187,28 @@ export default function ComprehensiveReportPage() {
         photos: photosDataUris
     };
 
-    newReport.completedTasks[activeTaskId] = [newCompletion]; // Overwrite previous photo check
+    taskCompletions.unshift(newCompletion);
+    newReport.completedTasks[activeTaskId] = taskCompletions;
     await updateLocalReport(newReport);
 
     setIsCameraOpen(false);
     setActiveTaskId(null);
   }, [activeTaskId, report, updateLocalReport]);
   
-  const handleDeleteCompletion = async (taskId: string) => {
+  const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
+      
       const newReport = JSON.parse(JSON.stringify(report));
-      delete newReport.completedTasks[taskId];
+      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
+
+      taskCompletions.splice(completionIndex, 1);
+      
+      if (taskCompletions.length > 0) {
+          newReport.completedTasks[taskId] = taskCompletions;
+      } else {
+          delete newReport.completedTasks[taskId];
+      }
+      
       await updateLocalReport(newReport);
   }
   
@@ -254,6 +269,18 @@ export default function ComprehensiveReportPage() {
         setIsSubmitting(false);
       }
   }
+
+  const toggleExpandTask = useCallback((taskId: string) => {
+    setExpandedTaskIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  }, []);
     
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -357,7 +384,7 @@ export default function ComprehensiveReportPage() {
                       {section.tasks.map((task) => {
                         const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
                         const isTaskCompleted = completions.length > 0;
-                        const completion = isTaskCompleted ? completions[0] : null;
+                        const isExpanded = expandedTaskIds.has(task.id);
 
                         return (
                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${isTaskCompleted ? 'bg-accent/20' : ''}`}>
@@ -365,7 +392,7 @@ export default function ComprehensiveReportPage() {
                               <p className="font-semibold flex-1">
                                 {task.text}
                               </p>
-                              <div className="flex items-center gap-2 w-full md:w-auto">
+                              <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
                                 {task.type === 'photo' && (
                                   <Button 
                                     size="sm" 
@@ -374,14 +401,14 @@ export default function ComprehensiveReportPage() {
                                     disabled={isReadonly}
                                   >
                                       <Camera className="mr-2 h-4 w-4"/>
-                                      {isTaskCompleted ? "Chụp lại" : "Chụp ảnh"}
+                                      Chụp ảnh
                                   </Button>
                                 )}
                                 {task.type === 'boolean' && (
                                     <>
                                         <Button
                                             size="sm"
-                                            variant={completion?.value === true ? "default" : "outline"}
+                                            variant={"outline"}
                                             className="w-full"
                                             onClick={() => handleBooleanTaskAction(task.id, true)}
                                             disabled={isReadonly}
@@ -390,7 +417,7 @@ export default function ComprehensiveReportPage() {
                                         </Button>
                                         <Button
                                             size="sm"
-                                            variant={completion?.value === false ? "destructive" : "outline"}
+                                            variant={"outline"}
                                             className="w-full"
                                             onClick={() => handleBooleanTaskAction(task.id, false)}
                                             disabled={isReadonly}
@@ -399,43 +426,69 @@ export default function ComprehensiveReportPage() {
                                         </Button>
                                     </>
                                 )}
-                                {isTaskCompleted && (
-                                    <Button size="icon" variant="ghost" className="text-destructive h-9 w-9" onClick={() => handleDeleteCompletion(task.id)} disabled={isReadonly}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                )}
                               </div>
                             </div>
                             
-                            {isTaskCompleted && completion && (
+                            {isTaskCompleted && (
                                 <div className="mt-4 space-y-3">
-                                  <div className="rounded-md border bg-card p-3">
-                                      <div className="flex items-center justify-between mb-2">
+                                  {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => (
+                                      <div key={cIndex} className="rounded-md border bg-card p-3">
+                                        <div className="flex items-center justify-between mb-2">
                                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                              <Clock className="h-4 w-4 flex-shrink-0" />
-                                              <span>Kiểm tra lúc: {completion.timestamp}</span>
+                                            <Clock className="h-4 w-4 flex-shrink-0" />
+                                            <span>Kiểm tra lúc: {completion.timestamp}</span>
                                           </div>
-                                          {completion.value !== undefined && (
-                                            <Badge variant={completion.value ? "default" : "destructive"}>
+                                          <div className="flex items-center gap-1">
+                                            {completion.value !== undefined && (
+                                              <Badge variant={completion.value ? "default" : "destructive"}>
                                                 {completion.value ? "Có" : "Không"}
-                                            </Badge>
-                                          )}
-                                      </div>
-                                      {completion.photos && completion.photos.length > 0 && (
-                                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                          {completion.photos.map((photo, pIndex) => (
-                                              <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                  <button
-                                                    onClick={() => openLightbox(photo)}
-                                                    className="w-full h-full block"
-                                                  >
-                                                    <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
-                                                  </button>
-                                              </div>
-                                          ))}
+                                              </Badge>
+                                            )}
+                                            {!isReadonly && (
+                                              <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                  <Button size="icon" variant="ghost" className="text-destructive h-7 w-7">
+                                                    <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                  <AlertDialogHeader>
+                                                    <AlertDialogTitle>Bạn có chắc không?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                      Hành động này sẽ xóa lần kiểm tra này.
+                                                    </AlertDialogDescription>
+                                                  </AlertDialogHeader>
+                                                  <AlertDialogFooter>
+                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
+                                                  </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                              </AlertDialog>
+                                            )}
                                           </div>
-                                      )}
-                                  </div>
+                                        </div>
+                                        {completion.photos && completion.photos.length > 0 && (
+                                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                            {completion.photos.map((photo, pIndex) => (
+                                              <div key={photo.slice(0, 50) + pIndex} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                                <button
+                                                  onClick={() => openLightbox(photo)}
+                                                  className="w-full h-full block"
+                                                >
+                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className={`object-cover`} />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {completions.length > 1 && (
+                                      <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
+                                        {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1} lần)`}
+                                        {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
+                                      </Button>
+                                    )}
                                 </div>
                             )}
                           </div>
@@ -537,3 +590,5 @@ export default function ComprehensiveReportPage() {
     </>
   );
 }
+
+    
