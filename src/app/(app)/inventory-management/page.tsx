@@ -18,7 +18,7 @@ import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
 import { sortTasks } from '@/ai/flows/sort-tasks';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 
 
@@ -248,8 +248,8 @@ function AiAssistant({
                 </CardContent>
             </Card>
 
-            <Dialog open={showAddPreview} onOpenChange={setShowAddPreview}>
-                <DialogContent className="max-w-4xl">
+            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}>
+                <AlertDialogContent className="max-w-4xl">
                      <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -323,11 +323,11 @@ function AiAssistant({
                             Thêm {previewNewItems.length} mặt hàng mới
                         </AlertDialogAction>
                     </AlertDialogFooter>
-                </DialogContent>
-            </Dialog>
+                </AlertDialogContent>
+            </AlertDialog>
 
-             <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}>
-                <DialogContent className="max-w-4xl">
+            <AlertDialog open={showSortPreview} onOpenChange={setShowSortPreview}>
+                <AlertDialogContent className="max-w-4xl">
                      <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -364,8 +364,8 @@ function AiAssistant({
                         <AlertDialogCancel>Hủy</AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
                     </AlertDialogFooter>
-                </DialogContent>
-            </Dialog>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }
@@ -691,5 +691,7 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+    
 
     
