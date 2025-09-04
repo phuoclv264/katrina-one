@@ -1,5 +1,5 @@
 
-import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem } from './types';
+import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection } from './types';
 
 export const staff: Staff[] = [
   { pin: '0001', name: 'Phước' },
@@ -13,23 +13,23 @@ export const tasksByShift: TasksByShift = {
       {
         title: 'Đầu ca',
         tasks: [
-          { id: 'sang-1', text: 'Đảm bảo trà nước của khách luôn đầy đủ' },
-          { id: 'sang-2', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng' },
-          { id: 'sang-3', text: 'Đảm bảo các cửa kính đã được lau sạch sẽ' },
+          { id: 'sang-1', text: 'Đảm bảo trà nước của khách luôn đầy đủ', type: 'photo' },
+          { id: 'sang-2', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng', type: 'photo' },
+          { id: 'sang-3', text: 'Đảm bảo các cửa kính đã được lau sạch sẽ', type: 'photo' },
         ],
       },
       {
         title: 'Trong ca',
         tasks: [
-            { id: 'sang-4', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch' },
-            { id: 'sang-5', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch' },
+            { id: 'sang-4', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', type: 'photo' },
+            { id: 'sang-5', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', type: 'photo' },
         ]
       },
       {
         title: 'Cuối ca',
         tasks: [
-            { id: 'sang-6', text: 'Đảm bảo khu vực không có khách đã được dọn sạch sẽ, cả trên mặt bàn lẫn dưới đất, bàn ghế sắp xếp gọn gàng' },
-            { id: 'sang-7', text: 'Đảm bảo các bao rác đầy đều đã được thay' },
+            { id: 'sang-6', text: 'Đảm bảo khu vực không có khách đã được dọn sạch sẽ, cả trên mặt bàn lẫn dưới đất, bàn ghế sắp xếp gọn gàng', type: 'photo' },
+            { id: 'sang-7', text: 'Đảm bảo các bao rác đầy đều đã được thay', type: 'photo' },
         ]
       }
     ],
@@ -40,22 +40,22 @@ export const tasksByShift: TasksByShift = {
         {
             title: 'Đầu ca',
             tasks: [
-                { id: 'trua-1', text: 'Đảm bảo khu vực không có khách đã được dọn sạch sẽ, cả trên mặt bàn lẫn dưới đất, bàn ghế sắp xếp gọn gàng' },
-                { id: 'trua-2', text: 'Đảm bảo các ghế dù đều sạch, hoặc đều được rửa' },
+                { id: 'trua-1', text: 'Đảm bảo khu vực không có khách đã được dọn sạch sẽ, cả trên mặt bàn lẫn dưới đất, bàn ghế sắp xếp gọn gàng', type: 'photo' },
+                { id: 'trua-2', text: 'Đảm bảo các ghế dù đều sạch, hoặc đều được rửa', type: 'photo' },
             ]
         },
         {
             title: 'Trong ca',
             tasks: [
-                { id: 'trua-3', text: 'Đảm bảo thùng tách nước, thùng lau nhà đã được dọn sạch, các bao rác đã được kiểm tra, thay thế' },
+                { id: 'trua-3', text: 'Đảm bảo thùng tách nước, thùng lau nhà đã được dọn sạch, các bao rác đã được kiểm tra, thay thế', type: 'photo' },
             ]
         },
         {
             title: 'Cuối ca',
             tasks: [
-                { id: 'trua-4', text: 'Đảm bảo ly trà đã được rửa đầy đủ, xếp chồng kiểu tháp để nước trong ly chảy ra, chấm công ra' },
-                { id: 'trua-5', text: 'Đảm bảo đèn đã được bật đúng' },
-                { id: 'trua-6', text: 'Đảm bảo các chậu cây đã được tưới' },
+                { id: 'trua-4', text: 'Đảm bảo ly trà đã được rửa đầy đủ, xếp chồng kiểu tháp để nước trong ly chảy ra, chấm công ra', type: 'photo' },
+                { id: 'trua-5', text: 'Đảm bảo đèn đã được bật đúng', type: 'photo' },
+                { id: 'trua-6', text: 'Đảm bảo các chậu cây đã được tưới', type: 'photo' },
             ]
         }
     ],
@@ -66,27 +66,27 @@ export const tasksByShift: TasksByShift = {
         {
             title: 'Đầu ca',
             tasks: [
-                { id: 'toi-1', text: 'Đảm bảo rèm che nắng cửa kính trong nhà đã được kéo lên (chỉ kéo khu vực không có khách)' },
-                { id: 'toi-2', text: 'Đảm bảo bạt đã kéo vào, tất cả dù đã được thu về' },
-                { id: 'toi-3', text: 'Đảm bảo các cửa kính đã được lau sạch sẽ' },
+                { id: 'toi-1', text: 'Đảm bảo rèm che nắng cửa kính trong nhà đã được kéo lên (chỉ kéo khu vực không có khách)', type: 'photo' },
+                { id: 'toi-2', text: 'Đảm bảo bạt đã kéo vào, tất cả dù đã được thu về', type: 'photo' },
+                { id: 'toi-3', text: 'Đảm bảo các cửa kính đã được lau sạch sẽ', type: 'photo' },
             ]
         },
         {
             title: 'Trong ca',
             tasks: [
-                { id: 'toi-4', text: 'Đảm bảo trà nước của khách luôn đầy đủ' },
-                { id: 'toi-5', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng' },
-                { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch' },
-                { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch' },
+                { id: 'toi-4', text: 'Đảm bảo trà nước của khách luôn đầy đủ', type: 'photo' },
+                { id: 'toi-5', text: 'Đảm bảo trà nước tự phục vụ T2 luôn sẵn sàng', type: 'photo' },
+                { id: 'toi-6', text: 'Đảm bảo WC T1 sạch, thơm, bồn tiểu, bồn cầu sạch', type: 'photo' },
+                { id: 'toi-7', text: 'Đảm bảo WC T2 sạch, thơm, bồn tiểu, bồn cầu sạch', type: 'photo' },
             ]
         },
         {
             title: 'Cuối ca',
             tasks: [
-                { id: 'toi-8', text: 'Đảm bảo ly trà đã được rửa đầy đủ, xếp chồng kiểu tháp để nước trong ly chảy ra, chấm công ra' },
-                { id: 'toi-9', text: 'Đảm bảo đèn đã được bật đúng' },
-                { id: 'toi-10', text: 'Đảm bảo các chậu cây đã được tưới' },
-                { id: 'toi-11', text: 'Đảm bảo các bao rác đầy đều đã được thay' }
+                { id: 'toi-8', text: 'Đảm bảo ly trà đã được rửa đầy đủ, xếp chồng kiểu tháp để nước trong ly chảy ra, chấm công ra', type: 'photo' },
+                { id: 'toi-9', text: 'Đảm bảo đèn đã được bật đúng', type: 'photo' },
+                { id: 'toi-10', text: 'Đảm bảo các chậu cây đã được tưới', type: 'photo' },
+                { id: 'toi-11', text: 'Đảm bảo các bao rác đầy đều đã được thay', type: 'photo' }
             ]
         }
     ],
@@ -97,25 +97,73 @@ export const bartenderTasks: TaskSection[] = [
     {
         title: 'Vệ sinh khu vực pha chế',
         tasks: [
-            { id: 'bt-1', text: 'Lau dọn sạch sẽ bề mặt quầy bar' },
-            { id: 'bt-2', text: 'Sắp xếp gọn gàng các chai siro, nguyên liệu' },
-            { id: 'bt-3', text: 'Vệ sinh bồn rửa, đảm bảo không có rác tồn đọng' },
+            { id: 'bt-1', text: 'Lau dọn sạch sẽ bề mặt quầy bar', type: 'photo' },
+            { id: 'bt-2', text: 'Sắp xếp gọn gàng các chai siro, nguyên liệu', type: 'photo' },
+            { id: 'bt-3', text: 'Vệ sinh bồn rửa, đảm bảo không có rác tồn đọng', type: 'photo' },
         ]
     },
     {
         title: 'Vệ sinh dụng cụ',
         tasks: [
-            { id: 'bt-4', text: 'Rửa sạch và lau khô các loại ly, cốc' },
-            { id: 'bt-5', text: 'Vệ sinh shaker, jigger và các dụng cụ pha chế khác' },
-            { id: 'bt-6', text: 'Tráng và úp ráo các ca đong, bình ủ trà' },
+            { id: 'bt-4', text: 'Rửa sạch và lau khô các loại ly, cốc', type: 'photo' },
+            { id: 'bt-5', text: 'Vệ sinh shaker, jigger và các dụng cụ pha chế khác', type: 'photo' },
+            { id: 'bt-6', text: 'Tráng và úp ráo các ca đong, bình ủ trà', type: 'photo' },
         ]
     },
     {
         title: 'Vệ sinh thiết bị',
         tasks: [
-            { id: 'bt-7', text: 'Vệ sinh máy pha cà phê: họng pha, tay cầm, vòi đánh sữa' },
-            { id: 'bt-8', text: 'Lau chùi bên ngoài tủ lạnh, tủ mát, tủ đông' },
-            { id: 'bt-9', text: 'Vệ sinh máy xay sinh tố, đảm bảo cối xay sạch sẽ' },
+            { id: 'bt-7', text: 'Vệ sinh máy pha cà phê: họng pha, tay cầm, vòi đánh sữa', type: 'photo' },
+            { id: 'bt-8', text: 'Lau chùi bên ngoài tủ lạnh, tủ mát, tủ đông', type: 'photo' },
+            { id: 'bt-9', text: 'Vệ sinh máy xay sinh tố, đảm bảo cối xay sạch sẽ', type: 'photo' },
+        ]
+    }
+];
+
+export const comprehensiveTasks: ComprehensiveTaskSection[] = [
+    {
+        title: 'Trong nhà - Vệ sinh Tầng 1',
+        tasks: [
+            { id: 'comp-1', text: 'Không có mùi lạ', type: 'boolean' },
+            { id: 'comp-2', text: 'Sàn nhà sạch sẽ', type: 'photo' },
+            { id: 'comp-3', text: 'Bàn ghế sạch bụi, không dính vết bẩn', type: 'photo' },
+            { id: 'comp-4', text: 'Các khu vực khách vừa về đã được dọn sạch', type: 'photo' },
+            { id: 'comp-5', text: 'Thùng rác sạch', type: 'photo' },
+            { id: 'comp-6', text: 'Thùng tách nước sạch', type: 'photo' },
+            { id: 'comp-7', text: 'Khu vực nhân viên phục vụ sạch', type: 'photo' },
+            { id: 'comp-8', text: 'Thùng và cây lau nhà đã được rửa sạch', type 'photo' },
+        ]
+    },
+    {
+        title: 'Nhà vệ sinh Nam',
+        tasks: [
+            { id: 'comp-9', text: 'Còn mùi thơm (máy xịt thơm, tấm lót bồn tiểu)', type: 'boolean' },
+            { id: 'comp-10', text: 'Không có mùi hôi', type: 'boolean' },
+            { id: 'comp-11', text: 'Sàn nhà sạch', type: 'photo' },
+            { id: 'comp-12', text: 'Bồn tiểu nam không có rác, tấm lót sạch, tổng thể không ám màu nào khác ngoài màu trắng', type: 'photo' },
+            { id: 'comp-13', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
+            { id: 'comp-14', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
+        ]
+    },
+    {
+        title: 'Nhà vệ sinh Nữ',
+        tasks: [
+            { id: 'comp-15', text: 'Còn mùi thơm của máy xịt thơm', type: 'boolean' },
+            { id: 'comp-16', text: 'Không có mùi hôi', type: 'boolean' },
+            { id: 'comp-17', text: 'Sàn nhà sạch', type: 'photo' },
+            { id: 'comp-18', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
+            { id: 'comp-19', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
+        ]
+    },
+    {
+        title: 'Ngoài sân',
+        tasks: [
+            { id: 'comp-20', text: 'Không có mùi lạ', type: 'boolean' },
+            { id: 'comp-21', text: 'Không có rác nhiều (chú ý khu vực bồn cây)', type: 'boolean' },
+            { id_ 'comp-22', text: 'Bàn sạch bụi, không dính vết bẩn', type: 'photo' },
+            { id: 'comp-23', text: 'Ghế dù sạch, không dính vết bẩn', type: 'photo' },
+            { id: 'comp-24', text: 'Các khu vực khách về đã được dọn sạch', type: 'photo' },
+            { id: 'comp-25', text: 'Thùng rác lớn sạch sẽ, đã đậy nắp và đặt đúng vị trí', type: 'photo' },
         ]
     }
 ];

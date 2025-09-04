@@ -10,11 +10,23 @@ export type Task = {
   id: string;
   text: string;
   isCritical?: boolean;
+  type: 'photo';
 };
+
+export type ComprehensiveTask = {
+  id: string;
+  text: string;
+  type: 'photo' | 'boolean';
+}
 
 export type TaskSection = {
   title: string;
   tasks: Task[];
+}
+
+export type ComprehensiveTaskSection = {
+  title: string;
+  tasks: ComprehensiveTask[];
 }
 
 export type Shift = {
@@ -29,6 +41,7 @@ export type TasksByShift = {
 export type CompletionRecord = {
   timestamp: string;
   photos: string[]; // Can be data URIs (local) or Firebase Storage URLs (synced)
+  value?: boolean; // For boolean tasks (Yes/No)
 };
 
 export type TaskCompletion = {

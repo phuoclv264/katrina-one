@@ -17,8 +17,8 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks } from './data';
 import { v4 as uuidv4 } from 'uuid';
 
 const getTodaysDateKey = () => {
@@ -71,6 +71,19 @@ export const dataStore = {
       } else {
         await setDoc(docRef, { tasks: initialBartenderTasks });
         callback(initialBartenderTasks);
+      }
+    });
+    return unsubscribe;
+  },
+
+  subscribeToComprehensiveTasks(callback: (tasks: ComprehensiveTaskSection[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'comprehensiveTasks');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data().tasks as ComprehensiveTaskSection[]);
+      } else {
+        await setDoc(docRef, { tasks: initialComprehensiveTasks });
+        callback(initialComprehensiveTasks);
       }
     });
     return unsubscribe;
@@ -283,9 +296,11 @@ export const dataStore = {
     const photosToUpload: {dataUri: string}[] = [];
     for (const taskId in reportToSubmit.completedTasks) {
       for (const completion of reportToSubmit.completedTasks[taskId]) {
-        for (const photo of completion.photos) {
-          if (photo.startsWith('data:image')) {
-            photosToUpload.push({ dataUri: photo });
+        if (completion.photos) {
+          for (const photo of completion.photos) {
+            if (photo.startsWith('data:image')) {
+              photosToUpload.push({ dataUri: photo });
+            }
           }
         }
       }
@@ -309,15 +324,17 @@ export const dataStore = {
 
     for (const taskId in reportToSubmit.completedTasks) {
       for (const completion of reportToSubmit.completedTasks[taskId]) {
-        completion.photos = completion.photos.map((photo: string) => {
-          if (photo.startsWith('data:image')) {
-            const finalUrl = dataUriToUrlMap.get(photo)!;
-            urlSet.add(finalUrl);
-            return finalUrl;
-          }
-          urlSet.add(photo);
-          return photo;
-        });
+        if (completion.photos) {
+          completion.photos = completion.photos.map((photo: string) => {
+            if (photo.startsWith('data:image')) {
+              const finalUrl = dataUriToUrlMap.get(photo)!;
+              urlSet.add(finalUrl);
+              return finalUrl;
+            }
+            urlSet.add(photo);
+            return photo;
+          });
+        }
       }
     }
   
@@ -372,6 +389,16 @@ export const dataStore = {
     const inventoryReportsCollection = collection(db, 'inventory-reports');
     const inventoryQ = query(inventoryReportsCollection, where('status', '==', 'submitted'));
 
+    const processResults = () => {
+      // Sort after combining
+        combinedReports.sort((a, b) => {
+             const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+             const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+             return timeB - timeA;
+        });
+        callback(combinedReports);
+    }
+
     const unsubscribeShift = onSnapshot(shiftQ, (querySnapshot) => {
         const shiftReports: ShiftReport[] = querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -387,13 +414,7 @@ export const dataStore = {
         // Combine with inventory reports
         const otherReports = combinedReports.filter(r => !('shiftKey' in r));
         combinedReports = [...shiftReports, ...otherReports];
-        // Sort after combining
-        combinedReports.sort((a, b) => {
-             const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-             const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
-             return timeB - timeA;
-        });
-        callback(combinedReports);
+        processResults();
     });
 
     const unsubscribeInventory = onSnapshot(inventoryQ, (querySnapshot) => {
@@ -410,13 +431,7 @@ export const dataStore = {
         // Combine with shift reports
         const otherReports = combinedReports.filter(r => 'shiftKey' in r);
         combinedReports = [...inventoryReports, ...otherReports];
-        // Sort after combining
-         combinedReports.sort((a, b) => {
-             const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-             const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
-             return timeB - timeA;
-        });
-        callback(combinedReports);
+        processResults();
     });
 
     return () => {
@@ -504,5 +519,3 @@ export const dataStore = {
     return reports;
   }
 };
-
-    

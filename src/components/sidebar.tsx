@@ -11,7 +11,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -30,8 +30,10 @@ export function AppSidebar() {
   ];
 
   const managerMenu = [
-    { href: '/reports', label: 'Báo cáo ca', icon: FileText },
-    { href: '/task-lists', label: 'Danh sách công việc', icon: ClipboardList },
+    { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
+    { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
+    { href: '/reports', label: 'Xem Báo cáo nhân viên', icon: FileText },
+    { href: '/task-lists', label: 'Quản lý Công việc', icon: ClipboardList },
   ];
   
   const ownerMenu = [
@@ -113,5 +115,3 @@ export function AppSidebar() {
     </>
   );
 }
-
-    
