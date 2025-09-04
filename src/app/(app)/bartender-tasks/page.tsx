@@ -6,7 +6,7 @@ import type { Task, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -25,6 +25,7 @@ export default function BartenderTasksPage() {
   const [newText, setNewText] = useState('');
   
   const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
+  const [openItems, setOpenItems] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function BartenderTasksPage() {
       } else {
         const unsubscribe = dataStore.subscribeToBartenderTasks((data) => {
           setSections(data);
+          setOpenItems(data.map(s => s.title));
           setIsLoading(false);
         });
         return () => unsubscribe();
@@ -162,8 +164,24 @@ export default function BartenderTasksPage() {
       </header>
       
       <Card>
-        <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={sections.map(s => s.title)} className="w-full space-y-4">
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-1.5">
+                <CardTitle>Danh sách công việc</CardTitle>
+                <CardDescription>Các thay đổi sẽ được lưu tự động.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setOpenItems(sections.map(s => s.title))}>
+                  <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                  Mở rộng tất cả
+              </Button>
+               <Button variant="outline" size="sm" onClick={() => setOpenItems([])}>
+                  <ChevronsUpDown className="mr-2 h-4 w-4"/>
+                  Thu gọn tất cả
+              </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
             {sections.map((section, sectionIndex) => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
                 <div className="flex items-center p-2">
@@ -241,3 +259,5 @@ export default function BartenderTasksPage() {
     </div>
   );
 }
+
+    

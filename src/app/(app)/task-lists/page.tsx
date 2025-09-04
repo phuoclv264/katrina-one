@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Star, ListTodo, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Plus, Star, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -24,6 +24,8 @@ export default function TaskListsPage() {
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
+  
+  const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
 
   useEffect(() => {
     if (!authLoading) {
@@ -33,6 +35,12 @@ export default function TaskListsPage() {
         const unsubscribe = dataStore.subscribeToTasks((tasks) => {
           setTasksByShift(tasks);
           setIsLoading(false);
+          // Initialize accordion state
+          const initialOpenState: { [shiftKey: string]: string[] } = {};
+          for (const shiftKey in tasks) {
+            initialOpenState[shiftKey] = tasks[shiftKey].sections.map(s => s.title);
+          }
+          setOpenSections(initialOpenState);
         });
         return () => unsubscribe();
       }
@@ -155,12 +163,29 @@ export default function TaskListsPage() {
         {Object.entries(tasksByShift).map(([shiftKey, shiftData]) => (
           <TabsContent value={shiftKey} key={shiftKey}>
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ListTodo /> Công việc {shiftData.name}</CardTitle>
-                <CardDescription>Danh sách này sẽ được hiển thị cho nhân viên vào đầu mỗi ca.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1.5">
+                    <CardTitle className="flex items-center gap-2"><ListTodo /> Công việc {shiftData.name}</CardTitle>
+                    <CardDescription>Danh sách này sẽ được hiển thị cho nhân viên vào đầu mỗi ca.</CardDescription>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setOpenSections(prev => ({ ...prev, [shiftKey]: shiftData.sections.map(s => s.title) }))}>
+                        <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                        Mở rộng tất cả
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setOpenSections(prev => ({...prev, [shiftKey]: []}))}>
+                        <ChevronsUpDown className="mr-2 h-4 w-4"/>
+                        Thu gọn tất cả
+                    </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <Accordion type="multiple" defaultValue={shiftData.sections.map(s => s.title)} className="w-full space-y-4">
+                <Accordion 
+                    type="multiple" 
+                    value={openSections[shiftKey] || []} 
+                    onValueChange={(value) => setOpenSections(prev => ({...prev, [shiftKey]: value}))} 
+                    className="w-full space-y-4"
+                >
                   {shiftData.sections.map(section => (
                     <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
                       <AccordionTrigger className="p-4 text-lg font-medium">{section.title}</AccordionTrigger>
@@ -221,3 +246,5 @@ export default function TaskListsPage() {
     </div>
   );
 }
+
+    

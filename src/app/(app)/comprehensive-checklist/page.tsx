@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -38,6 +38,7 @@ export default function ComprehensiveChecklistPage() {
   const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
   const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
 
+  const [openItems, setOpenItems] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -46,8 +47,11 @@ export default function ComprehensiveChecklistPage() {
       } else {
         const unsubscribe = dataStore.subscribeToComprehensiveTasks((data) => {
           setSections(data);
-          if (data.length > 0 && !newSection) {
-            setNewSection(data[0].title);
+          if (data.length > 0) {
+            if (!newSection) {
+              setNewSection(data[0].title);
+            }
+            setOpenItems(data.map(s => s.title));
           }
           setIsLoading(false);
         });
@@ -277,8 +281,24 @@ export default function ComprehensiveChecklistPage() {
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={sections.map(s => s.title)} className="w-full space-y-4">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="space-y-1.5">
+            <CardTitle>Danh sách hạng mục</CardTitle>
+            <CardDescription>Xem và quản lý các hạng mục trong từng khu vực.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setOpenItems(sections.map(s => s.title))}>
+                  <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                  Mở rộng tất cả
+              </Button>
+               <Button variant="outline" size="sm" onClick={() => setOpenItems([])}>
+                  <ChevronsUpDown className="mr-2 h-4 w-4"/>
+                  Thu gọn tất cả
+              </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
             {sections.map((section, sectionIndex) => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
                 <div className="flex items-center p-2">
@@ -304,7 +324,7 @@ export default function ComprehensiveChecklistPage() {
                       </div>
                     </AccordionTrigger>
                     
-                    <div className="flex items-center gap-1 ml-auto pl-4" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 ml-auto pl-4">
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
                             <ArrowUp className="h-4 w-4" />
                           </Button>
@@ -386,5 +406,7 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
+
+    
 
     
