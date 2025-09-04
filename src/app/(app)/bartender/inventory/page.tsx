@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -11,12 +11,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp } from 'lucide-react';
 import Link from 'next/link';
 import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type ItemStatus = 'ok' | 'low' | 'out';
+
+type CategorizedList = {
+    category: string;
+    items: InventoryItem[];
+}[];
 
 export default function InventoryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -29,6 +35,7 @@ export default function InventoryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [suggestions, setSuggestions] = useState<InventoryOrderSuggestion | null>(null);
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
@@ -42,6 +49,33 @@ export default function InventoryPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  const categorizedList = useMemo((): CategorizedList => {
+      if (!inventoryList) return [];
+      
+      const categoryOrder: string[] = [];
+      const grouped: { [key: string]: InventoryItem[] } = {};
+
+      inventoryList.forEach(item => {
+          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+          if (!grouped[category]) {
+              grouped[category] = [];
+              categoryOrder.push(category);
+          }
+          grouped[category].push(item);
+      });
+      
+      return categoryOrder.map(category => ({ category, items: grouped[category] }));
+
+  }, [inventoryList]);
+
+  // Set accordion to open all by default
+  useEffect(() => {
+      if (categorizedList.length > 0) {
+          setOpenCategories(categorizedList.map(c => c.category));
+      }
+  }, [categorizedList]);
+
 
   useEffect(() => {
     if (!user || inventoryList.length === 0) return;
@@ -158,6 +192,14 @@ export default function InventoryPage() {
           default: return 'bg-transparent';
       }
   }
+  
+  const handleToggleAll = () => {
+    if (openCategories.length === categorizedList.length) {
+      setOpenCategories([]);
+    } else {
+      setOpenCategories(categorizedList.map(c => c.category));
+    }
+  };
 
   if (isLoading || authLoading || !report) {
     return (
@@ -176,6 +218,7 @@ export default function InventoryPage() {
   }
 
   const isSubmitted = report.status === 'submitted';
+  const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -206,47 +249,66 @@ export default function InventoryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
             <Card>
-                <CardHeader>
-                    <CardTitle>Danh sách nguyên vật liệu</CardTitle>
-                    <CardDescription>
-                        Trạng thái sẽ tự động cập nhật khi bạn nhập số lượng tồn kho.
-                    </CardDescription>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Danh sách nguyên vật liệu</CardTitle>
+                        <CardDescription>
+                            Trạng thái sẽ tự động cập nhật khi bạn nhập số lượng tồn kho.
+                        </CardDescription>
+                    </div>
+                    {categorizedList.length > 0 && (
+                        <Button variant="outline" onClick={handleToggleAll} size="sm">
+                            <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                            {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
+                        </Button>
+                    )}
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="min-w-[250px]">Tên nguyên liệu</TableHead>
-                                <TableHead>Đơn vị</TableHead>
-                                <TableHead>Tồn tối thiểu</TableHead>
-                                <TableHead className="text-right w-[150px]">Tồn thực tế</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {inventoryList.map(item => {
-                                    const status = getItemStatus(item.id, item.minStock);
-                                    return (
-                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
-                                            <TableCell className="font-medium">{item.name}</TableCell>
-                                            <TableCell>{item.unit}</TableCell>
-                                            <TableCell>{item.minStock}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Input
-                                                type="number"
-                                                value={report.stockLevels[item.id] ?? ''}
-                                                onChange={e => handleStockChange(item.id, parseFloat(e.target.value) || 0)}
-                                                className="text-right"
-                                                placeholder="Nhập..."
-                                                disabled={isSubmitted}
-                                                />
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
+                        {categorizedList.map(({ category, items }) => (
+                            <AccordionItem value={category} key={category} className="border rounded-lg">
+                                <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
+                                    {category}
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 border-t">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="min-w-[250px]">Tên nguyên liệu</TableHead>
+                                                    <TableHead>Đơn vị</TableHead>
+                                                    <TableHead>Tồn tối thiểu</TableHead>
+                                                    <TableHead className="text-right w-[150px]">Tồn thực tế</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {items.map(item => {
+                                                    const status = getItemStatus(item.id, item.minStock);
+                                                    return (
+                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
+                                                            <TableCell className="font-medium">{item.name.split(' - ')[1] || item.name}</TableCell>
+                                                            <TableCell>{item.unit}</TableCell>
+                                                            <TableCell>{item.minStock}</TableCell>
+                                                            <TableCell className="text-right">
+                                                                <Input
+                                                                    type="number"
+                                                                    value={report.stockLevels[item.id] ?? ''}
+                                                                    onChange={e => handleStockChange(item.id, parseFloat(e.target.value) || 0)}
+                                                                    className="text-right"
+                                                                    placeholder="Nhập..."
+                                                                    disabled={isSubmitted}
+                                                                />
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
                 </CardContent>
             </Card>
         </div>

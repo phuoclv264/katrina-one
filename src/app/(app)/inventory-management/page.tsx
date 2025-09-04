@@ -398,9 +398,6 @@ export default function InventoryManagementPage() {
     setIsSorting(newSortState);
     if (!newSortState) {
         handleSaveChanges();
-        toast({
-            title: "Đã lưu thứ tự mới!",
-        });
     }
   };
 
@@ -439,7 +436,7 @@ export default function InventoryManagementPage() {
                  {isSorting ? (
                     <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Check className="mr-2 h-4 w-4"/>
-                        Xong
+                        Lưu thứ tự
                     </Button>
                 ) : (
                     <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
@@ -541,5 +538,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    
