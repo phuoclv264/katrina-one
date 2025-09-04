@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -306,6 +306,15 @@ export default function ComprehensiveReportPage() {
     }
   };
 
+  const handleToggleAll = () => {
+    if (!tasks) return;
+    if (openAccordionItems.length === tasks.length) {
+      setOpenAccordionItems([]);
+    } else {
+      setOpenAccordionItems(tasks.map(s => s.title));
+    }
+  };
+  
   const isReadonly = isSubmitting;
 
   if (isAuthLoading || isLoading || !report || !tasks) {
@@ -350,6 +359,8 @@ export default function ComprehensiveReportPage() {
     }
   }
 
+  const areAllSectionsOpen = tasks && openAccordionItems.length === tasks.length;
+
   return (
     <>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-32">
@@ -375,8 +386,14 @@ export default function ComprehensiveReportPage() {
 
       <div className="space-y-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Danh sách kiểm tra</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <CardTitle>Danh sách kiểm tra</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
+                <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+            </Button>
           </CardHeader>
           <CardContent>
             <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
@@ -603,5 +620,3 @@ export default function ComprehensiveReportPage() {
     </>
   );
 }
-
-    
