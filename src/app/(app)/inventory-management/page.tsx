@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,11 +16,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
 
-function AiInventoryGenerator({ onItemsGenerated }: { onItemsGenerated: (items: InventoryItem[]) => void }) {
+function AiInventoryGenerator({ 
+    inventoryList,
+    onItemsGenerated 
+}: { 
+    inventoryList: InventoryItem[],
+    onItemsGenerated: (items: InventoryItem[]) => void 
+}) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
     const { toast } = useToast();
+
+    const [newItems, setNewItems] = useState<InventoryItem[]>([]);
+    const [existingItems, setExistingItems] = useState<ParsedInventoryItem[]>([]);
+    const [hasResult, setHasResult] = useState(false);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -33,8 +43,21 @@ function AiInventoryGenerator({ onItemsGenerated }: { onItemsGenerated: (items: 
         }
     };
 
+    const resetState = () => {
+        setNewItems([]);
+        setExistingItems([]);
+        setHasResult(false);
+        setTextInput('');
+        setImageInput(null);
+        // Also reset the file input visually
+        const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+        if(fileInput) fileInput.value = '';
+    }
+
     const handleGenerate = async (source: 'text' | 'image') => {
         setIsGenerating(true);
+        resetState();
+
         try {
             const input = source === 'text' 
                 ? { source, inputText: textInput }
@@ -49,15 +72,27 @@ function AiInventoryGenerator({ onItemsGenerated }: { onItemsGenerated: (items: 
 
             const result = await generateInventoryList(input);
             
-            const newItems: InventoryItem[] = result.items.map(item => ({
-                ...item,
-                id: `item-${Date.now()}-${Math.random()}`
-            }));
+            // --- Logic to compare with existing inventory ---
+            const existingNames = new Set(inventoryList.map(item => item.name.trim().toLowerCase()));
+            const generatedNewItems: InventoryItem[] = [];
+            const generatedExistingItems: ParsedInventoryItem[] = [];
 
-            onItemsGenerated(newItems);
-            toast({ title: "Thành công!", description: `AI đã nhận diện được ${newItems.length} mặt hàng.`});
-            setTextInput('');
-            setImageInput(null);
+            result.items.forEach(item => {
+                if (existingNames.has(item.name.trim().toLowerCase())) {
+                    generatedExistingItems.push(item);
+                } else {
+                    generatedNewItems.push({
+                         ...item,
+                        id: `item-${Date.now()}-${Math.random()}`
+                    });
+                }
+            });
+
+            setNewItems(generatedNewItems);
+            setExistingItems(generatedExistingItems);
+            setHasResult(true);
+            
+            toast({ title: "Hoàn tất!", description: `AI đã nhận diện được ${result.items.length} mặt hàng. ${generatedNewItems.length} mặt hàng mới.`});
 
         } catch (error) {
             console.error("Failed to generate inventory list:", error);
@@ -66,6 +101,11 @@ function AiInventoryGenerator({ onItemsGenerated }: { onItemsGenerated: (items: 
             setIsGenerating(false);
         }
     };
+    
+    const handleAddItems = () => {
+        onItemsGenerated(newItems);
+        resetState();
+    }
 
     return (
         <Card className="mb-8">
@@ -74,42 +114,105 @@ function AiInventoryGenerator({ onItemsGenerated }: { onItemsGenerated: (items: 
                 <CardDescription>Dán dữ liệu từ bảng tính hoặc tải ảnh lên để AI tự động tạo danh sách hàng tồn kho.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Tabs defaultValue="text">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger>
-                        <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="text" className="mt-4 space-y-4">
-                        <Textarea 
-                            placeholder="Dán dữ liệu từ Excel/Google Sheets vào đây. Mỗi dòng là một mặt hàng, các cột bao gồm Tên, Đơn vị, Tồn tối thiểu, Gợi ý đặt hàng."
-                            rows={6}
-                            value={textInput}
-                            onChange={(e) => setTextInput(e.target.value)}
-                            disabled={isGenerating}
-                        />
-                        <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput}>
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Tạo danh sách từ văn bản
-                        </Button>
-                    </TabsContent>
-                    <TabsContent value="image" className="mt-4 space-y-4">
-                        <Input 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={handleFileChange}
-                            disabled={isGenerating}
-                        />
-                        {imageInput && (
-                            <div className="text-center text-sm text-muted-foreground">
-                                <p>Đã chọn ảnh. Nhấn nút bên dưới để xử lý.</p>
+                {!hasResult && (
+                    <Tabs defaultValue="text">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger>
+                            <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="text" className="mt-4 space-y-4">
+                            <Textarea 
+                                placeholder="Dán dữ liệu từ Excel/Google Sheets vào đây. Mỗi dòng là một mặt hàng, các cột bao gồm Tên, Đơn vị, Tồn tối thiểu, Gợi ý đặt hàng."
+                                rows={6}
+                                value={textInput}
+                                onChange={(e) => setTextInput(e.target.value)}
+                                disabled={isGenerating}
+                            />
+                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput}>
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                Tạo danh sách từ văn bản
+                            </Button>
+                        </TabsContent>
+                        <TabsContent value="image" className="mt-4 space-y-4">
+                            <Input 
+                                id="image-upload"
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleFileChange}
+                                disabled={isGenerating}
+                            />
+                            {imageInput && (
+                                <div className="text-center text-sm text-muted-foreground">
+                                    <p>Đã chọn ảnh. Nhấn nút bên dưới để xử lý.</p>
+                                </div>
+                            )}
+                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput}>
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                Tạo danh sách từ ảnh
+                            </Button>
+                        </TabsContent>
+                    </Tabs>
+                )}
+
+                {hasResult && (
+                    <div className="space-y-6">
+                        {newItems.length > 0 && (
+                             <div className="space-y-4">
+                                <h3 className="text-lg font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới cần bổ sung</h3>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Tên mặt hàng</TableHead>
+                                            <TableHead>Đơn vị</TableHead>
+                                            <TableHead>Tồn tối thiểu</TableHead>
+                                            <TableHead>Gợi ý đặt hàng</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {newItems.map(item => (
+                                            <TableRow key={item.id}>
+                                                <TableCell>{item.name}</TableCell>
+                                                <TableCell>{item.unit}</TableCell>
+                                                <TableCell>{item.minStock}</TableCell>
+                                                <TableCell>{item.orderSuggestion}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </div>
                         )}
-                        <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput}>
-                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Tạo danh sách từ ảnh
-                        </Button>
-                    </TabsContent>
-                </Tabs>
+
+                       {existingItems.length > 0 && (
+                             <div className="space-y-4">
+                               <h3 className="text-lg font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có trong kho (sẽ được bỏ qua)</h3>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Tên mặt hàng</TableHead>
+                                            <TableHead>Đơn vị</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {existingItems.map((item, index) => (
+                                            <TableRow key={index} className="bg-muted/50">
+                                                <TableCell>{item.name}</TableCell>
+                                                <TableCell>{item.unit}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                        
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={resetState}>Hủy bỏ</Button>
+                            <Button onClick={handleAddItems} disabled={newItems.length === 0}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Thêm {newItems.length} mặt hàng mới vào kho
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     )
@@ -121,6 +224,8 @@ export default function InventoryManagementPage() {
   const { toast } = useToast();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // This state is now only for items ready to be added.
   const [parsedItems, setParsedItems] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
@@ -136,6 +241,17 @@ export default function InventoryManagementPage() {
       }
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+      // Automatically add items to the list when parsedItems changes
+      if (parsedItems.length > 0 && inventoryList) {
+          setInventoryList(prev => [...prev!, ...parsedItems]);
+          toast({ title: "Thành công", description: `${parsedItems.length} mặt hàng đã được thêm vào danh sách.`});
+          // Clear parsed items after adding
+          setParsedItems([]);
+      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedItems]);
 
   const handleUpdate = (index: number, field: keyof InventoryItem, value: string | number) => {
     if (!inventoryList) return;
@@ -188,14 +304,7 @@ export default function InventoryManagementPage() {
     setInventoryList(newList);
   };
 
-  const handleAddParsedItems = () => {
-    if (!inventoryList) return;
-    setInventoryList(prev => [...prev!, ...parsedItems]);
-    setParsedItems([]);
-    toast({ title: "Thành công", description: `${parsedItems.length} mặt hàng đã được thêm vào danh sách chính.`});
-  }
-  
-  if (isLoading || authLoading) {
+  if (isLoading || authLoading || !inventoryList) {
     return (
       <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
         <header className="mb-8">
@@ -210,10 +319,6 @@ export default function InventoryManagementPage() {
     )
   }
 
-  if (!inventoryList) {
-    return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách hàng tồn kho.</div>;
-  }
-
   return (
     <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
@@ -221,42 +326,7 @@ export default function InventoryManagementPage() {
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
       </header>
 
-      <AiInventoryGenerator onItemsGenerated={setParsedItems} />
-
-      {parsedItems.length > 0 && (
-          <Card className="mb-8">
-              <CardHeader>
-                  <CardTitle>Kết quả từ AI</CardTitle>
-                  <CardDescription>Đây là các mặt hàng được AI nhận diện. Kiểm tra và thêm vào kho.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <Table>
-                      <TableHeader>
-                          <TableRow>
-                              <TableHead>Tên mặt hàng</TableHead>
-                              <TableHead>Đơn vị</TableHead>
-                              <TableHead>Tồn tối thiểu</TableHead>
-                              <TableHead>Gợi ý đặt hàng</TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {parsedItems.map(item => (
-                              <TableRow key={item.id}>
-                                  <TableCell>{item.name}</TableCell>
-                                  <TableCell>{item.unit}</TableCell>
-                                  <TableCell>{item.minStock}</TableCell>
-                                  <TableCell>{item.orderSuggestion}</TableCell>
-                              </TableRow>
-                          ))}
-                      </TableBody>
-                  </Table>
-                   <div className="mt-4 flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setParsedItems([])}>Hủy</Button>
-                        <Button onClick={handleAddParsedItems}>Thêm {parsedItems.length} mặt hàng vào kho</Button>
-                    </div>
-              </CardContent>
-          </Card>
-      )}
+      <AiInventoryGenerator inventoryList={inventoryList} onItemsGenerated={setParsedItems} />
 
       <Card>
         <CardHeader>
@@ -318,3 +388,5 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+    
