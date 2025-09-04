@@ -13,11 +13,18 @@ export type Task = {
   type: 'photo';
 };
 
+// Type for AI-parsed server tasks
+export type ParsedServerTask = Omit<Task, 'id' | 'type'>;
+
 export type ComprehensiveTask = {
   id: string;
   text: string;
   type: 'photo' | 'boolean' | 'opinion';
 }
+
+// Type for AI-parsed comprehensive tasks
+export type ParsedComprehensiveTask = Omit<ComprehensiveTask, 'id'>;
+
 
 export type TaskSection = {
   title: string;
