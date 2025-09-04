@@ -333,7 +333,7 @@ export default function ComprehensiveReportPage() {
           <CardContent>
             <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
               {tasks.map((section) => (
-                <AccordionItem value={section.title} key={section.title} className="rounded-lg border bg-card">
+                <AccordionItem value={section.title} key={section.title} className="border rounded-lg bg-card">
                   <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
                      <div className="flex items-center">
                         <Building className="mr-3 h-5 w-5 text-primary" />
@@ -384,7 +384,7 @@ export default function ComprehensiveReportPage() {
                                             disabled={isReadonly}
                                         >
                                             <ThumbsDown className="mr-2 h-4 w-4"/> Không
-                                        Button>
+                                        </Button>
                                     </>
                                 )}
                                 {isTaskCompleted && (

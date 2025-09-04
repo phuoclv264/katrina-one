@@ -131,7 +131,7 @@ export const comprehensiveTasks: ComprehensiveTaskSection[] = [
             { id: 'comp-5', text: 'Thùng rác sạch', type: 'photo' },
             { id: 'comp-6', text: 'Thùng tách nước sạch', type: 'photo' },
             { id: 'comp-7', text: 'Khu vực nhân viên phục vụ sạch', type: 'photo' },
-            { id: 'comp-8', text: 'Thùng và cây lau nhà đã được rửa sạch', type 'photo' },
+            { id: 'comp-8', text: 'Thùng và cây lau nhà đã được rửa sạch', type: 'photo' },
         ]
     },
     {
@@ -160,7 +160,7 @@ export const comprehensiveTasks: ComprehensiveTaskSection[] = [
         tasks: [
             { id: 'comp-20', text: 'Không có mùi lạ', type: 'boolean' },
             { id: 'comp-21', text: 'Không có rác nhiều (chú ý khu vực bồn cây)', type: 'boolean' },
-            { id_ 'comp-22', text: 'Bàn sạch bụi, không dính vết bẩn', type: 'photo' },
+            { id: 'comp-22', text: 'Bàn sạch bụi, không dính vết bẩn', type: 'photo' },
             { id: 'comp-23', text: 'Ghế dù sạch, không dính vết bẩn', type: 'photo' },
             { id: 'comp-24', text: 'Các khu vực khách về đã được dọn sạch', type: 'photo' },
             { id: 'comp-25', text: 'Thùng rác lớn sạch sẽ, đã đậy nắp và đặt đúng vị trí', type: 'photo' },
