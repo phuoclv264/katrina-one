@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { InventoryItem, ParsedInventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -56,14 +56,14 @@ function AiInventoryGenerator({
 
     const handleGenerate = async (source: 'text' | 'image') => {
         setIsGenerating(true);
-        resetState();
+        setHasResult(false); // Reset previous results
 
         try {
             const input = source === 'text' 
                 ? { source, inputText: textInput }
                 : { source, imageDataUri: imageInput! };
             
-            if ((source === 'text' && !textInput) || (source === 'image' && !imageInput)) {
+            if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
                 return;
             }
@@ -71,6 +71,10 @@ function AiInventoryGenerator({
             toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian."});
 
             const result = await generateInventoryList(input);
+            
+            if (!result || !result.items) {
+                 throw new Error("AI không trả về kết quả hợp lệ.");
+            }
             
             // --- Logic to compare with existing inventory ---
             const existingNames = new Set(inventoryList.map(item => item.name.trim().toLowerCase()));
@@ -140,7 +144,7 @@ function AiInventoryGenerator({
                                 onChange={(e) => setTextInput(e.target.value)}
                                 disabled={isGenerating}
                             />
-                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput}>
+                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()}>
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                 Tạo danh sách từ văn bản
                             </Button>
@@ -171,32 +175,34 @@ function AiInventoryGenerator({
                         {newItems.length > 0 && (
                              <div className="space-y-4">
                                 <h3 className="text-lg font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới (Có thể chỉnh sửa)</h3>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Tên mặt hàng</TableHead>
-                                            <TableHead>Đơn vị</TableHead>
-                                            <TableHead>Tồn tối thiểu</TableHead>
-                                            <TableHead>Gợi ý đặt hàng</TableHead>
-                                            <TableHead className="text-right">Xóa</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {newItems.map((item, index) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell><Input value={item.name} onChange={e => handleEditNewItem(index, 'name', e.target.value)} /></TableCell>
-                                                <TableCell><Input value={item.unit} onChange={e => handleEditNewItem(index, 'unit', e.target.value)} className="w-24" /></TableCell>
-                                                <TableCell><Input type="number" value={item.minStock} onChange={e => handleEditNewItem(index, 'minStock', parseInt(e.target.value) || 0)} className="w-24" /></TableCell>
-                                                <TableCell><Input value={item.orderSuggestion} onChange={e => handleEditNewItem(index, 'orderSuggestion', e.target.value)} className="w-28" /></TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteNewItem(item.id)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Tên mặt hàng</TableHead>
+                                                <TableHead>Đơn vị</TableHead>
+                                                <TableHead>Tồn tối thiểu</TableHead>
+                                                <TableHead>Gợi ý đặt hàng</TableHead>
+                                                <TableHead className="text-right">Xóa</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {newItems.map((item, index) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell><Input value={item.name} onChange={e => handleEditNewItem(index, 'name', e.target.value)} /></TableCell>
+                                                    <TableCell><Input value={item.unit} onChange={e => handleEditNewItem(index, 'unit', e.target.value)} className="w-24" /></TableCell>
+                                                    <TableCell><Input type="number" value={item.minStock} onChange={e => handleEditNewItem(index, 'minStock', parseInt(e.target.value) || 0)} className="w-24" /></TableCell>
+                                                    <TableCell><Input value={item.orderSuggestion} onChange={e => handleEditNewItem(index, 'orderSuggestion', e.target.value)} className="w-28" /></TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteNewItem(item.id)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         )}
 
@@ -236,6 +242,11 @@ function AiInventoryGenerator({
     )
 }
 
+type CategorizedList = {
+    category: string;
+    items: InventoryItem[];
+}[];
+
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -249,50 +260,41 @@ export default function InventoryManagementPage() {
         router.replace('/');
       } else {
         const unsubscribe = dataStore.subscribeToInventoryList((items) => {
-          setInventoryList(items.sort((a, b) => a.name.localeCompare(b.name)));
+          setInventoryList(items); // Keep original order from DB
           setIsLoading(false);
         });
         return () => unsubscribe();
       }
     }
   }, [user, authLoading, router]);
-
-  const sortInventory = (list: InventoryItem[]) => {
-      return [...list].sort((a, b) => a.name.localeCompare(b.name));
-  }
   
-  const handleSetInventoryList = (list: InventoryItem[]) => {
-      setInventoryList(sortInventory(list));
-  }
+  const sortAndSetList = useCallback((list: InventoryItem[]) => {
+      const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name));
+      setInventoryList(sorted);
+      return sorted;
+  }, []);
 
-  const handleUpdate = (index: number, field: keyof InventoryItem, value: string | number) => {
+  const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
     if (!inventoryList) return;
-    const newList = [...inventoryList];
-    (newList[index] as any)[field] = value;
-    setInventoryList(newList); // Do not sort here to allow free editing
+    const newList = inventoryList.map(item => 
+        item.id === id ? {...item, [field]: value} : item
+    );
+    setInventoryList(newList);
   };
-
-  const handleBlur = () => {
-      if(inventoryList) {
-          handleSetInventoryList(inventoryList);
-      }
-  }
-
-  const handleMoveItem = (index: number, direction: 'up' | 'down') => {
+  
+  const handleMoveItem = (indexToMove: number, direction: 'up' | 'down') => {
     if (!inventoryList) return;
     const newList = [...inventoryList];
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const newIndex = direction === 'up' ? indexToMove - 1 : indexToMove + 1;
     if (newIndex < 0 || newIndex >= newList.length) return;
-    [newList[index], newList[newIndex]] = [newList[newIndex], newList[index]];
-    handleSetInventoryList(newList);
+    
+    [newList[indexToMove], newList[newIndex]] = [newList[newIndex], newList[indexToMove]];
+    setInventoryList(newList);
   };
   
   const handleSaveChanges = () => {
       if(!inventoryList) return;
-      // Final sort before saving
-      const sortedList = sortInventory(inventoryList);
-      setInventoryList(sortedList);
-      dataStore.updateInventoryList(sortedList).then(() => {
+      dataStore.updateInventoryList(inventoryList).then(() => { // Save with current (potentially manual) order
           toast({
               title: "Đã lưu thay đổi!",
               description: "Danh sách hàng tồn kho đã được cập nhật.",
@@ -316,24 +318,44 @@ export default function InventoryManagementPage() {
       minStock: 1,
       orderSuggestion: '1'
     };
-    handleSetInventoryList([...inventoryList, newItem]);
+    const newList = [...inventoryList, newItem];
+    sortAndSetList(newList);
   };
   
   const onItemsGenerated = (items: InventoryItem[]) => {
       if (inventoryList) {
-          handleSetInventoryList([...inventoryList, ...items]);
+          const newList = [...inventoryList, ...items];
+          sortAndSetList(newList);
       }
   }
 
   const handleDeleteItem = (id: string) => {
     if (!inventoryList) return;
     const newList = inventoryList.filter(item => item.id !== id);
-    handleSetInventoryList(newList);
+    setInventoryList(newList);
   };
+  
+  const categorizedList = useMemo((): CategorizedList => {
+      if (!inventoryList) return [];
+      
+      const grouped: { [key: string]: InventoryItem[] } = {};
+      inventoryList.forEach(item => {
+          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].toUpperCase() : 'CHƯA PHÂN LOẠI';
+          if (!grouped[category]) {
+              grouped[category] = [];
+          }
+          grouped[category].push(item);
+      });
+      
+      return Object.entries(grouped)
+        .sort(([catA], [catB]) => catA.localeCompare(catB))
+        .map(([category, items]) => ({ category, items }));
+
+  }, [inventoryList]);
 
   if (isLoading || authLoading || !inventoryList) {
     return (
-      <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
+      <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
         <header className="mb-8">
           <Skeleton className="h-10 w-3/4" />
           <Skeleton className="h-4 w-1/2 mt-2" />
@@ -358,51 +380,62 @@ export default function InventoryManagementPage() {
       <Card>
         <CardHeader>
             <CardTitle>Danh sách kho hiện tại</CardTitle>
-            <CardDescription>Các thay đổi sẽ không được lưu cho đến khi bạn nhấn nút "Lưu tất cả thay đổi". Danh sách sẽ tự động sắp xếp theo tên.</CardDescription>
+            <CardDescription>Các thay đổi sẽ không được lưu cho đến khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="min-w-[300px]">Tên mặt hàng</TableHead>
-                            <TableHead>Đơn vị</TableHead>
-                            <TableHead>Tồn tối thiểu</TableHead>
-                            <TableHead>Gợi ý đặt hàng</TableHead>
-                            <TableHead className="text-right">Hành động</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {inventoryList.map((item, index) => (
-                            <TableRow key={item.id}>
-                                <TableCell>
-                                    <Input value={item.name} onChange={e => handleUpdate(index, 'name', e.target.value)} onBlur={handleBlur}/>
-                                </TableCell>
-                                <TableCell>
-                                    <Input value={item.unit} onChange={e => handleUpdate(index, 'unit', e.target.value)} className="w-24" />
-                                </TableCell>
-                                <TableCell>
-                                    <Input type="number" value={item.minStock} onChange={e => handleUpdate(index, 'minStock', parseInt(e.target.value) || 0)} className="w-24" />
-                                </TableCell>
-                                <TableCell>
-                                    <Input value={item.orderSuggestion} onChange={e => handleUpdate(index, 'orderSuggestion', e.target.value)} className="w-28"/>
-                                </TableCell>
-                                <TableCell className="text-right flex items-center justify-end gap-0">
-                                    <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(index, 'up')} disabled={index === 0}>
-                                        <ArrowUp className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(index, 'down')} disabled={index === inventoryList.length - 1}>
-                                        <ArrowDown className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
+        <CardContent className="pt-6 space-y-6">
+            {categorizedList.map(({category, items}) => {
+                 const globalStartIndex = inventoryList.findIndex(item => item.id === items[0]?.id);
+                 return (
+                    <div key={category}>
+                        <h3 className="text-lg font-semibold mb-2 pl-2">{category}</h3>
+                        <div className="overflow-x-auto border rounded-lg">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="min-w-[300px]">Tên mặt hàng</TableHead>
+                                        <TableHead>Đơn vị</TableHead>
+                                        <TableHead>Tồn tối thiểu</TableHead>
+                                        <TableHead>Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-right">Hành động</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {items.map((item, localIndex) => {
+                                        const globalIndex = inventoryList.findIndex(i => i.id === item.id);
+                                        return (
+                                        <TableRow key={item.id}>
+                                            <TableCell>
+                                                <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} className="w-24" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} className="w-24" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} className="w-28"/>
+                                            </TableCell>
+                                            <TableCell className="text-right flex items-center justify-end gap-0">
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={globalIndex === 0}>
+                                                    <ArrowUp className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={globalIndex === inventoryList.length - 1}>
+                                                    <ArrowDown className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )})}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                )
+            })}
+            
             <div className="mt-6 flex justify-between items-center">
                 <Button variant="outline" onClick={handleAddItem}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -415,7 +448,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    
-
-    
