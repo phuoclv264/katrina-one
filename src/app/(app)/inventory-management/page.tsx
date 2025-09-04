@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 function AiInventoryGenerator({ 
     inventoryList,
@@ -253,6 +254,7 @@ export default function InventoryManagementPage() {
   const { toast } = useToast();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -260,7 +262,7 @@ export default function InventoryManagementPage() {
         router.replace('/');
       } else {
         const unsubscribe = dataStore.subscribeToInventoryList((items) => {
-          setInventoryList(items); // Keep original order from DB
+          setInventoryList(items); 
           setIsLoading(false);
         });
         return () => unsubscribe();
@@ -268,17 +270,39 @@ export default function InventoryManagementPage() {
     }
   }, [user, authLoading, router]);
   
-  const sortAndSetList = useCallback((list: InventoryItem[]) => {
-      const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name));
-      setInventoryList(sorted);
-      return sorted;
-  }, []);
+  const categorizedList = useMemo((): CategorizedList => {
+      if (!inventoryList) return [];
+      
+      const categoryOrder: string[] = [];
+      const grouped: { [key: string]: InventoryItem[] } = {};
+
+      inventoryList.forEach(item => {
+          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+          if (!grouped[category]) {
+              grouped[category] = [];
+              categoryOrder.push(category);
+          }
+          grouped[category].push(item);
+      });
+      
+      return categoryOrder.map(category => ({ category, items: grouped[category] }));
+
+  }, [inventoryList]);
+
+  // Set accordion to open all by default
+  useEffect(() => {
+      if (categorizedList.length > 0) {
+          setOpenCategories(categorizedList.map(c => c.category));
+      }
+  }, [categorizedList]);
+
 
   const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
     if (!inventoryList) return;
     const newList = inventoryList.map(item => 
         item.id === id ? {...item, [field]: value} : item
     );
+    // Do not sort here to prevent UI jumps while editing name
     setInventoryList(newList);
   };
   
@@ -288,13 +312,23 @@ export default function InventoryManagementPage() {
     const newIndex = direction === 'up' ? indexToMove - 1 : indexToMove + 1;
     if (newIndex < 0 || newIndex >= newList.length) return;
     
-    [newList[indexToMove], newList[newIndex]] = [newList[newIndex], newList[indexToMove]];
-    setInventoryList(newList);
+    // Check if the move is within the same category
+    const itemToMove = newList[indexToMove];
+    const itemToSwap = newList[newIndex];
+    const categoryOfItemToMove = itemToMove.name.includes(' - ') ? itemToMove.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+    const categoryOfItemToSwap = itemToSwap.name.includes(' - ') ? itemToSwap.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+
+    if (categoryOfItemToMove === categoryOfItemToSwap) {
+        [newList[indexToMove], newList[newIndex]] = [newList[newIndex], newList[indexToMove]];
+        setInventoryList(newList);
+    } else {
+        toast({ title: "Thông báo", description: "Chỉ có thể sắp xếp các mục trong cùng một chủng loại."});
+    }
   };
   
   const handleSaveChanges = () => {
       if(!inventoryList) return;
-      dataStore.updateInventoryList(inventoryList).then(() => { // Save with current (potentially manual) order
+      dataStore.updateInventoryList(inventoryList).then(() => {
           toast({
               title: "Đã lưu thay đổi!",
               description: "Danh sách hàng tồn kho đã được cập nhật.",
@@ -313,19 +347,21 @@ export default function InventoryManagementPage() {
     if (!inventoryList) return;
     const newItem: InventoryItem = {
       id: `item-${Date.now()}`,
-      name: 'Mặt hàng mới',
+      name: 'CHƯA PHÂN LOẠI - Mặt hàng mới',
       unit: 'cái',
       minStock: 1,
       orderSuggestion: '1'
     };
     const newList = [...inventoryList, newItem];
-    sortAndSetList(newList);
+    setInventoryList(newList);
   };
   
   const onItemsGenerated = (items: InventoryItem[]) => {
       if (inventoryList) {
           const newList = [...inventoryList, ...items];
-          sortAndSetList(newList);
+          // Sort after adding new items from AI
+          const sorted = newList.sort((a,b) => a.name.localeCompare(b.name));
+          setInventoryList(sorted);
       }
   }
 
@@ -335,23 +371,27 @@ export default function InventoryManagementPage() {
     setInventoryList(newList);
   };
   
-  const categorizedList = useMemo((): CategorizedList => {
-      if (!inventoryList) return [];
+  const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
+      if (!inventoryList || !categorizedList) return;
       
-      const grouped: { [key: string]: InventoryItem[] } = {};
-      inventoryList.forEach(item => {
-          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].toUpperCase() : 'CHƯA PHÂN LOẠI';
-          if (!grouped[category]) {
-              grouped[category] = [];
-          }
-          grouped[category].push(item);
-      });
-      
-      return Object.entries(grouped)
-        .sort(([catA], [catB]) => catA.localeCompare(catB))
-        .map(([category, items]) => ({ category, items }));
+      const newCategoryOrder = [...categorizedList];
+      const targetIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
 
-  }, [inventoryList]);
+      if (targetIndex < 0 || targetIndex >= newCategoryOrder.length) return;
+      
+      [newCategoryOrder[categoryIndex], newCategoryOrder[targetIndex]] = [newCategoryOrder[targetIndex], newCategoryOrder[categoryIndex]];
+
+      const newFlatList = newCategoryOrder.flatMap(category => category.items);
+      setInventoryList(newFlatList);
+  };
+
+   const handleToggleAll = () => {
+    if (openCategories.length === categorizedList.length) {
+      setOpenCategories([]);
+    } else {
+      setOpenCategories(categorizedList.map(c => c.category));
+    }
+  };
 
   if (isLoading || authLoading || !inventoryList) {
     return (
@@ -367,6 +407,7 @@ export default function InventoryManagementPage() {
       </div>
     )
   }
+   const areAllCategoriesOpen = openCategories.length === categorizedList.length;
 
   return (
     <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
@@ -378,17 +419,38 @@ export default function InventoryManagementPage() {
       <AiInventoryGenerator inventoryList={inventoryList} onItemsGenerated={onItemsGenerated} />
 
       <Card>
-        <CardHeader>
-            <CardTitle>Danh sách kho hiện tại</CardTitle>
-            <CardDescription>Các thay đổi sẽ không được lưu cho đến khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>Danh sách kho hiện tại</CardTitle>
+                <CardDescription>Các thay đổi sẽ không được lưu cho đến khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
+            </div>
+             <div className="flex items-center gap-2">
+                 <Button variant="outline" onClick={handleToggleAll}>
+                     <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                     {areAllCategoriesOpen ? "Thu gọn tất cả" : "Mở rộng tất cả"}
+                 </Button>
+                <Button onClick={handleSaveChanges}>Lưu tất cả thay đổi</Button>
+            </div>
         </CardHeader>
-        <CardContent className="pt-6 space-y-6">
-            {categorizedList.map(({category, items}) => {
-                 const globalStartIndex = inventoryList.findIndex(item => item.id === items[0]?.id);
-                 return (
-                    <div key={category}>
-                        <h3 className="text-lg font-semibold mb-2 pl-2">{category}</h3>
-                        <div className="overflow-x-auto border rounded-lg">
+        <CardContent className="pt-6">
+            <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
+            {categorizedList.map(({category, items}, categoryIndex) => (
+                <AccordionItem value={category} key={category} className="border rounded-lg">
+                    <div className="flex items-center p-2">
+                        <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2">
+                            {category}
+                        </AccordionTrigger>
+                         <div className="flex items-center gap-1 pl-4">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
+                                <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categoryIndex === categorizedList.length - 1}>
+                                <ArrowDown className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                    <AccordionContent className="p-4 border-t">
+                        <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -400,7 +462,7 @@ export default function InventoryManagementPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {items.map((item, localIndex) => {
+                                    {items.map((item) => {
                                         const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                         return (
                                         <TableRow key={item.id}>
@@ -417,10 +479,10 @@ export default function InventoryManagementPage() {
                                                 <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} className="w-28"/>
                                             </TableCell>
                                             <TableCell className="text-right flex items-center justify-end gap-0">
-                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={globalIndex === 0}>
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={items.findIndex(i => i.id === item.id) === 0}>
                                                     <ArrowUp className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={globalIndex === inventoryList.length - 1}>
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={items.findIndex(i => i.id === item.id) === items.length - 1}>
                                                     <ArrowDown className="h-4 w-4" />
                                                 </Button>
                                                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
@@ -432,19 +494,21 @@ export default function InventoryManagementPage() {
                                 </TableBody>
                             </Table>
                         </div>
-                    </div>
-                )
-            })}
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+            </Accordion>
             
-            <div className="mt-6 flex justify-between items-center">
+            <div className="mt-6 flex justify-start items-center">
                 <Button variant="outline" onClick={handleAddItem}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Thêm mặt hàng
+                    Thêm mặt hàng mới
                 </Button>
-                <Button onClick={handleSaveChanges}>Lưu tất cả thay đổi</Button>
             </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    
