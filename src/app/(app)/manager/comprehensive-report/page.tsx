@@ -13,8 +13,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp, FilePen } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
+import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import ShiftNotesCard from '@/components/shift-notes-card';
@@ -25,8 +25,6 @@ import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
-import { Textarea } from '@/components/ui/textarea';
-
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -47,7 +45,6 @@ export default function ComprehensiveReportPage() {
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [activeTaskText, setActiveTaskText] = useState('');
-  const [opinionText, setOpinionText] = useState('');
   
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
 
@@ -186,7 +183,7 @@ export default function ComprehensiveReportPage() {
       setIsOpinionOpen(true);
   }
 
-  const handleSaveOpinion = async () => {
+  const handleSaveOpinion = async (opinionText: string) => {
     if (!report || !activeTaskId) return;
 
     const newReport = JSON.parse(JSON.stringify(report));
@@ -324,7 +321,6 @@ export default function ComprehensiveReportPage() {
     setIsOpinionOpen(false);
     setActiveTaskId(null);
     setActiveTaskText('');
-    setOpinionText('');
   }, []);
   
   const openLightbox = (photoUrl: string) => {
@@ -602,27 +598,12 @@ export default function ComprehensiveReportPage() {
         initialPhotos={[]}
     />
 
-    <Dialog open={isOpinionOpen} onOpenChange={(open) => !open && handleOpinionClose()}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Ghi nhận ý kiến cho:</DialogTitle>
-                <DialogDescription className="font-semibold text-foreground">
-                  "{activeTaskText}"
-                </DialogDescription>
-            </DialogHeader>
-            <Textarea
-                placeholder="Nhập ý kiến, đánh giá của bạn ở đây... (có thể bỏ trống)"
-                rows={4}
-                value={opinionText}
-                onChange={(e) => setOpinionText(e.target.value)}
-                autoFocus
-            />
-            <DialogFooter>
-                <Button variant="outline" onClick={handleOpinionClose}>Hủy</Button>
-                <Button onClick={handleSaveOpinion}>Lưu ý kiến</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <OpinionDialog
+        isOpen={isOpinionOpen}
+        onClose={handleOpinionClose}
+        onSubmit={handleSaveOpinion}
+        taskText={activeTaskText}
+    />
     
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
