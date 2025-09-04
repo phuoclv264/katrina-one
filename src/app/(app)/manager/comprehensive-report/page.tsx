@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp, FilePen } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import ShiftNotesCard from '@/components/shift-notes-card';
@@ -24,6 +25,8 @@ import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
+import { Textarea } from '@/components/ui/textarea';
+
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -41,7 +44,9 @@ export default function ComprehensiveReportPage() {
   const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isOpinionOpen, setIsOpinionOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [opinionText, setOpinionText] = useState('');
   
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
 
@@ -174,15 +179,30 @@ export default function ComprehensiveReportPage() {
     await updateLocalReport(newReport);
   };
   
-  // Placeholder for opinion task action
   const handleOpinionTaskAction = (taskId: string) => {
-      // For now, it works like a boolean task.
-      // We can implement a text input dialog later.
-      handleBooleanTaskAction(taskId, true);
-      toast({
-          title: "Đã ghi nhận",
-          description: "Vui lòng ghi chi tiết ý kiến của bạn vào phần Ghi chú ca ở cuối trang.",
-      });
+      setActiveTaskId(taskId);
+      setIsOpinionOpen(true);
+  }
+
+  const handleSaveOpinion = async () => {
+    if (!report || !activeTaskId || opinionText.trim() === '') return;
+
+    const newReport = JSON.parse(JSON.stringify(report));
+    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+    const now = new Date();
+    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    
+    const newCompletion: CompletionRecord = {
+      timestamp: formattedTime,
+      photos: [],
+      opinion: opinionText.trim(),
+    };
+
+    taskCompletions.unshift(newCompletion);
+    newReport.completedTasks[activeTaskId] = taskCompletions;
+    await updateLocalReport(newReport);
+    
+    handleOpinionClose();
   }
 
   const handleCapturePhotos = useCallback(async (photosDataUris: string[]) => {
@@ -296,6 +316,12 @@ export default function ComprehensiveReportPage() {
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTaskId(null);
+  }, []);
+  
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTaskId(null);
+    setOpinionText('');
   }, []);
   
   const openLightbox = (photoUrl: string) => {
@@ -459,7 +485,7 @@ export default function ComprehensiveReportPage() {
                                         onClick={() => handleOpinionTaskAction(task.id)}
                                         disabled={isReadonly}
                                     >
-                                        <MessageSquare className="mr-2 h-4 w-4"/> Ghi nhận
+                                        <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
                                     </Button>
                                 )}
                               </div>
@@ -517,6 +543,9 @@ export default function ComprehensiveReportPage() {
                                             ))}
                                           </div>
                                         )}
+                                        {completion.opinion && (
+                                            <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
+                                        )}
                                       </div>
                                     ))}
                                     {completions.length > 1 && (
@@ -569,6 +598,28 @@ export default function ComprehensiveReportPage() {
         onSubmit={handleCapturePhotos}
         initialPhotos={[]}
     />
+
+    <Dialog open={isOpinionOpen} onOpenChange={(open) => !open && handleOpinionClose()}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Ghi nhận ý kiến</DialogTitle>
+                <DialogDescription>
+                    Nhập ý kiến, đánh giá hoặc ghi chú của bạn cho hạng mục này.
+                </DialogDescription>
+            </DialogHeader>
+            <Textarea
+                placeholder="Nhập ý kiến của bạn ở đây..."
+                rows={4}
+                value={opinionText}
+                onChange={(e) => setOpinionText(e.target.value)}
+                autoFocus
+            />
+            <DialogFooter>
+                <Button variant="outline" onClick={handleOpinionClose}>Hủy</Button>
+                <Button onClick={handleSaveOpinion} disabled={opinionText.trim() === ''}>Lưu ý kiến</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>

@@ -49,6 +49,7 @@ export type CompletionRecord = {
   timestamp: string;
   photos: string[]; // Can be data URIs (local) or Firebase Storage URLs (synced)
   value?: boolean; // For boolean tasks (Yes/No)
+  opinion?: string; // For opinion tasks
 };
 
 export type TaskCompletion = {

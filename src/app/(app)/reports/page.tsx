@@ -73,9 +73,8 @@ export default function ReportsPage() {
             return `/reports/hygiene?date=${date}`;
         case 'inventory':
             return `/reports/inventory?date=${date}`;
-        // Add this case in a future update when the report view is created
-        // case 'manager_comprehensive':
-        //     return `/reports/comprehensive?date=${date}`;
+        case 'manager_comprehensive':
+            return `/reports/comprehensive?date=${date}`;
         default:
              return '#';
     }
