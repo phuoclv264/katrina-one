@@ -89,6 +89,11 @@ export const dataStore = {
     return unsubscribe;
   },
   
+   async updateComprehensiveTasks(newTasks: ComprehensiveTaskSection[]) {
+    const docRef = doc(db, 'app-data', 'comprehensiveTasks');
+    await setDoc(docRef, { tasks: newTasks });
+  },
+
   subscribeToInventoryList(callback: (items: InventoryItem[]) => void): () => void {
     const docRef = doc(db, 'app-data', 'inventoryList');
      const unsubscribe = onSnapshot(docRef, async (docSnap) => {
@@ -100,6 +105,11 @@ export const dataStore = {
       }
     });
     return unsubscribe;
+  },
+  
+  async updateInventoryList(newList: InventoryItem[]) {
+    const docRef = doc(db, 'app-data', 'inventoryList');
+    await setDoc(docRef, { items: newList });
   },
   
   async getOrCreateInventoryReport(userId: string, staffName: string): Promise<InventoryReport> {

@@ -11,7 +11,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -35,9 +35,10 @@ export function AppSidebar() {
   ];
   
   const ownerMenu = [
-    { href: '/reports', label: 'Xem Báo cáo nhân viên', icon: FileText },
-    { href: '/task-lists', label: 'Quản lý Công việc', icon: ClipboardList },
-    ...managerMenu.filter(item => !['/manager'].includes(item.href)), // include manager specific tasks except their dashboard
+    { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
+    { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
+    { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
+    { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
     { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
   ]
   
