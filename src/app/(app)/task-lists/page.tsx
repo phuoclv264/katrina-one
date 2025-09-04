@@ -14,20 +14,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sun, Moon, Sunset } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
 
 export default function TaskListsPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
 
   useEffect(() => {
-    const unsubscribe = dataStore.subscribeToTasks((tasks) => {
-      setTasksByShift(tasks);
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    if (!authLoading) {
+      if (!user || user.role !== 'Chủ nhà hàng') {
+        router.replace('/shifts');
+      } else {
+        const unsubscribe = dataStore.subscribeToTasks((tasks) => {
+          setTasksByShift(tasks);
+          setIsLoading(false);
+        });
+        return () => unsubscribe();
+      }
+    }
+  }, [user, authLoading, router]);
 
   const handleUpdateAndSave = (newTasks: TasksByShift) => {
     dataStore.updateTasks(newTasks).then(() => {
@@ -54,6 +64,7 @@ export default function TaskListsPage() {
       id: `task-${Date.now()}`,
       text: taskDetails.text.trim(),
       isCritical: taskDetails.isCritical,
+      type: 'photo',
     };
 
     const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
@@ -93,7 +104,7 @@ export default function TaskListsPage() {
     });
   };
   
-  if(isLoading) {
+  if(isLoading || authLoading) {
     return (
         <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
              <header className="mb-8">
