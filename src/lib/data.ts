@@ -121,51 +121,83 @@ export const bartenderTasks: TaskSection[] = [
 ];
 
 export const comprehensiveTasks: ComprehensiveTaskSection[] = [
-    {
-        title: 'Trong nhà - Vệ sinh Tầng 1',
-        tasks: [
-            { id: 'comp-1', text: 'Không có mùi lạ', type: 'boolean' },
-            { id: 'comp-2', text: 'Sàn nhà sạch sẽ', type: 'photo' },
-            { id: 'comp-3', text: 'Bàn ghế sạch bụi, không dính vết bẩn', type: 'photo' },
-            { id: 'comp-4', text: 'Các khu vực khách vừa về đã được dọn sạch', type: 'photo' },
-            { id: 'comp-5', text: 'Thùng rác sạch', type: 'photo' },
-            { id: 'comp-6', text: 'Thùng tách nước sạch', type: 'photo' },
-            { id: 'comp-7', text: 'Khu vực nhân viên phục vụ sạch', type: 'photo' },
-            { id: 'comp-8', text: 'Thùng và cây lau nhà đã được rửa sạch', type: 'photo' },
-        ]
-    },
-    {
-        title: 'Nhà vệ sinh Nam',
-        tasks: [
-            { id: 'comp-9', text: 'Còn mùi thơm (máy xịt thơm, tấm lót bồn tiểu)', type: 'boolean' },
-            { id: 'comp-10', text: 'Không có mùi hôi', type: 'boolean' },
-            { id: 'comp-11', text: 'Sàn nhà sạch', type: 'photo' },
-            { id: 'comp-12', text: 'Bồn tiểu nam không có rác, tấm lót sạch, tổng thể không ám màu nào khác ngoài màu trắng', type: 'photo' },
-            { id: 'comp-13', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
-            { id: 'comp-14', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
-        ]
-    },
-    {
-        title: 'Nhà vệ sinh Nữ',
-        tasks: [
-            { id: 'comp-15', text: 'Còn mùi thơm của máy xịt thơm', type: 'boolean' },
-            { id: 'comp-16', text: 'Không có mùi hôi', type: 'boolean' },
-            { id: 'comp-17', text: 'Sàn nhà sạch', type: 'photo' },
-            { id: 'comp-18', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
-            { id: 'comp-19', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
-        ]
-    },
-    {
-        title: 'Ngoài sân',
-        tasks: [
-            { id: 'comp-20', text: 'Không có mùi lạ', type: 'boolean' },
-            { id: 'comp-21', text: 'Không có rác nhiều (chú ý khu vực bồn cây)', type: 'boolean' },
-            { id: 'comp-22', text: 'Bàn sạch bụi, không dính vết bẩn', type: 'photo' },
-            { id: 'comp-23', text: 'Ghế dù sạch, không dính vết bẩn', type: 'photo' },
-            { id: 'comp-24', text: 'Các khu vực khách về đã được dọn sạch', type: 'photo' },
-            { id: 'comp-25', text: 'Thùng rác lớn sạch sẽ, đã đậy nắp và đặt đúng vị trí', type: 'photo' },
-        ]
-    }
+  {
+    title: 'Vệ sinh Tầng 1 - Trong nhà',
+    tasks: [
+      { id: 'comp-t1-in-1', text: 'Không có mùi lạ', type: 'boolean' },
+      { id: 'comp-t1-in-2', text: 'Sàn nhà sạch sẽ', type: 'photo' },
+      { id: 'comp-t1-in-3', text: 'Bàn ghế sạch bụi, không dính vết bẩn', type: 'photo' },
+      { id: 'comp-t1-in-4', text: 'Các khu vực khách vừa về đã được dọn sạch', type: 'photo' },
+      { id: 'comp-t1-in-5', text: 'Thùng rác sạch', type: 'photo' },
+      { id: 'comp-t1-in-6', text: 'Thùng tách nước sạch', type: 'photo' },
+      { id: 'comp-t1-in-7', text: 'Khu vực nhân viên phục vụ sạch', type: 'photo' },
+      { id: 'comp-t1-in-8', text: 'Thùng và cây lau nhà đã được rửa sạch', type: 'photo' },
+    ],
+  },
+  {
+    title: 'Vệ sinh Tầng 1 - Nhà vệ sinh Nam',
+    tasks: [
+      { id: 'comp-t1-wc-nam-1', text: 'Còn mùi thơm (máy xịt thơm, tấm lót bồn tiểu)', type: 'boolean' },
+      { id: 'comp-t1-wc-nam-2', text: 'Không có mùi hôi', type: 'boolean' },
+      { id: 'comp-t1-wc-nam-3', text: 'Sàn nhà sạch', type: 'photo' },
+      { id: 'comp-t1-wc-nam-4', text: 'Bồn tiểu nam không có rác, tấm lót sạch, tổng thể không ám màu nào khác ngoài màu trắng', type: 'photo' },
+      { id: 'comp-t1-wc-nam-5', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
+      { id: 'comp-t1-wc-nam-6', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
+    ],
+  },
+  {
+    title: 'Vệ sinh Tầng 1 - Nhà vệ sinh Nữ',
+    tasks: [
+      { id: 'comp-t1-wc-nu-1', text: 'Còn mùi thơm của máy xịt thơm', type: 'boolean' },
+      { id: 'comp-t1-wc-nu-2', text: 'Không có mùi hôi', type: 'boolean' },
+      { id: 'comp-t1-wc-nu-3', text: 'Sàn nhà sạch', type: 'photo' },
+      { id: 'comp-t1-wc-nu-4', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
+      { id: 'comp-t1-wc-nu-5', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
+    ],
+  },
+  {
+    title: 'Vệ sinh Tầng 1 - Ngoài sân',
+    tasks: [
+      { id: 'comp-t1-out-1', text: 'Không có mùi lạ', type: 'boolean' },
+      { id: 'comp-t1-out-2', text: 'Không có rác nhiều (chú ý khu vực bồn cây)', type: 'boolean' },
+      { id: 'comp-t1-out-3', text: 'Bàn sạch bụi, không dính vết bẩn', type: 'photo' },
+      { id: 'comp-t1-out-4', text: 'Ghế dù sạch, không dính vết bẩn', type: 'photo' },
+      { id: 'comp-t1-out-5', text: 'Các khu vực khách về đã được dọn sạch', type: 'photo' },
+      { id: 'comp-t1-out-6', text: 'Thùng rác lớn sạch sẽ, đã đậy nắp và đặt đúng vị trí', type: 'photo' },
+    ],
+  },
+  {
+    title: 'Vệ sinh Tầng 2 - Trong nhà và ngoài sân',
+    tasks: [
+      { id: 'comp-t2-all-1', text: 'Không có mùi lạ', type: 'boolean' },
+      { id: 'comp-t2-all-2', text: 'Sàn nhà sạch sẽ', type: 'photo' },
+      { id: 'comp-t2-all-3', text: 'Bàn ghế sạch bụi, không dính vết bẩn', type: 'photo' },
+      { id: 'comp-t2-all-4', text: 'Bàn dài ngoài sân sạch', type: 'photo' },
+      { id: 'comp-t2-all-5', text: 'Ghế dù sạch, không dính vết bẩn', type: 'photo' },
+      { id: 'comp-t2-all-6', text: 'Các khu vực khách vừa về đã được dọn sạch', type: 'photo' },
+      { id: 'comp-t2-all-7', text: 'Thùng rác và khu vực để thùng rác sạch', type: 'photo' },
+    ],
+  },
+  {
+    title: 'Vệ sinh Tầng 2 - Nhà vệ sinh',
+    tasks: [
+        { id: 'comp-t2-wc-1', text: 'Còn mùi thơm (máy xịt thơm, tấm lót bồn tiểu)', type: 'boolean' },
+        { id: 'comp-t2-wc-2', text: 'Không có mùi hôi', type: 'boolean' },
+        { id: 'comp-t2-wc-3', text: 'Sàn nhà sạch', type: 'photo' },
+        { id: 'comp-t2-wc-4', text: 'Bồn tiểu nam không có rác, tấm lót sạch, tổng thể không ám màu nào khác ngoài màu trắng', type: 'photo' },
+        { id: 'comp-t2-wc-5', text: 'Bồn cầu sạch thơm, không dính vết bẩn, nhớ mở nắp lên kiểm tra', type: 'photo' },
+        { id: 'comp-t2-wc-6', text: 'Bao rác không đầy, giấy vệ sinh không hết', type: 'boolean' },
+    ],
+  },
+  {
+    title: 'Các vấn đề khác',
+    tasks: [
+        { id: 'comp-other-1', text: 'Đánh giá thái độ làm việc nhân viên', type: 'boolean' },
+        { id: 'comp-other-2', text: 'Trà nước đã được chuẩn bị sẵn sàng để phục vụ cho lượng khách đông (đặc biệt là ca sáng)', type: 'boolean' },
+        { id: 'comp-other-3', text: 'Trà nước tầng 2 đầy đủ', type: 'boolean' },
+        { id: 'comp-other-4', text: 'Đảm bảo công việc của nhân viên phục vụ được thực hiện đầy đủ', type: 'boolean' },
+    ],
+  }
 ];
 
 export const inventoryList: InventoryItem[] = [
