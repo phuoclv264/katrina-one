@@ -14,7 +14,11 @@ export type Task = {
 };
 
 // Type for AI-parsed server tasks
-export type ParsedServerTask = Omit<Task, 'id' | 'type'>;
+export type ParsedServerTask = Omit<Task, 'id' | 'type'> & {
+    text: string;
+    isCritical: boolean;
+};
+
 
 export type ComprehensiveTask = {
   id: string;

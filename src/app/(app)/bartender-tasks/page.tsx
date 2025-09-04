@@ -6,7 +6,7 @@ import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,21 +16,36 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateBartenderTasks } from '@/ai/flows/generate-bartender-tasks';
+import { sortTasks } from '@/ai/flows/sort-tasks';
 import type { GenerateBartenderTasksOutput } from '@/ai/flows/generate-bartender-tasks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogClose } from '@/components/ui/dialog';
+import { Diff, diffChars } from 'diff';
 
 
-function BartenderTasksAiGenerator({
+function AiAssistant({
     sections,
-    onTasksGenerated
+    onAddTasks,
+    onSortTasks,
 }: {
     sections: TaskSection[],
-    onTasksGenerated: (tasks: GenerateBartenderTasksOutput['tasks'], section: string) => void,
+    onAddTasks: (tasks: GenerateBartenderTasksOutput['tasks'], section: string) => void,
+    onSortTasks: (sortedTasks: string[], sectionTitle: string) => void;
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState('add');
+
     const [targetSection, setTargetSection] = useState('');
+
+    const [showAddPreview, setShowAddPreview] = useState(false);
+    const [addPreviewTasks, setAddPreviewTasks] = useState<GenerateBartenderTasksOutput['tasks']>([]);
+
+    const [showSortPreview, setShowSortPreview] = useState(false);
+    const [sortPreview, setSortPreview] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
+
+
     const { toast } = useToast();
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,14 +59,14 @@ function BartenderTasksAiGenerator({
         }
     };
 
-    const resetState = () => {
+    const resetAddState = () => {
         setTextInput('');
         setImageInput(null);
         const fileInput = document.getElementById('bt-image-upload') as HTMLInputElement;
         if(fileInput) fileInput.value = '';
     }
 
-    const handleGenerate = async (source: 'text' | 'image') => {
+    const handleGenerateAdd = async (source: 'text' | 'image') => {
         setIsGenerating(true);
 
         try {
@@ -77,11 +92,9 @@ function BartenderTasksAiGenerator({
             if (!result || !result.tasks) {
                  throw new Error("AI không trả về kết quả hợp lệ.");
             }
-
-            onTasksGenerated(result.tasks, targetSection);
-
-            toast({ title: "Hoàn tất!", description: `AI đã tạo ${result.tasks.length} công việc mới trong khu vực "${targetSection}".`});
-            resetState();
+            
+            setAddPreviewTasks(result.tasks);
+            setShowAddPreview(true);
 
         } catch (error) {
             console.error("Failed to generate bartender tasks:", error);
@@ -90,57 +103,143 @@ function BartenderTasksAiGenerator({
             setIsGenerating(false);
         }
     };
+    
+    const handleConfirmAdd = () => {
+        onAddTasks(addPreviewTasks, targetSection);
+        toast({ title: "Hoàn tất!", description: `Đã thêm ${addPreviewTasks.length} công việc mới vào khu vực "${targetSection}".`});
+        resetAddState();
+        setShowAddPreview(false);
+        setAddPreviewTasks([]);
+    }
+    
+    const handleGenerateSort = async () => {
+        if (!targetSection) {
+            toast({ title: "Lỗi", description: "Vui lòng chọn một khu vực để sắp xếp.", variant: "destructive" });
+            return;
+        }
 
+        const sectionToSort = sections.find(s => s.title === targetSection);
+        if (!sectionToSort || sectionToSort.tasks.length < 2) {
+            toast({ title: "Không cần sắp xếp", description: "Khu vực này có ít hơn 2 công việc.", variant: "default" });
+            return;
+        }
+        
+        setIsGenerating(true);
+        toast({ title: "AI đang sắp xếp...", description: "Vui lòng đợi một lát." });
+
+        try {
+            const currentTasks = sectionToSort.tasks.map(t => t.text);
+            const result = await sortTasks({
+                context: `Bartender tasks for section: ${targetSection}`,
+                tasks: currentTasks
+            });
+            
+            if (!result || !result.sortedTasks || result.sortedTasks.length !== currentTasks.length) {
+                throw new Error("AI did not return a valid sorted list.");
+            }
+
+            setSortPreview({ oldOrder: currentTasks, newOrder: result.sortedTasks });
+            setShowSortPreview(true);
+
+        } catch(error) {
+            console.error("Failed to sort tasks:", error);
+            toast({ title: "Lỗi", description: "Không thể sắp xếp công việc. Vui lòng thử lại.", variant: "destructive"});
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleConfirmSort = () => {
+        onSortTasks(sortPreview.newOrder, targetSection);
+        toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại công việc trong khu vực "${targetSection}".` });
+        setShowSortPreview(false);
+    }
+    
+    const renderDiff = (oldText: string, newText: string) => {
+        const differences = diffChars(oldText, newText);
+        return differences.map((part, index) => {
+            const color = part.added ? 'bg-green-200/50' : part.removed ? 'bg-red-200/50' : 'bg-transparent';
+            return <span key={index} className={color}>{part.value}</span>;
+        });
+    }
 
     return (
+        <>
         <Card className="mb-8">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Thêm hàng loạt bằng AI</CardTitle>
-                <CardDescription>Dán văn bản hoặc tải ảnh danh sách công việc để AI tự động thêm vào khu vực bạn chọn.</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ hỗ trợ AI</CardTitle>
+                <CardDescription>Sử dụng AI để thêm hoặc sắp xếp lại các công việc một cách thông minh.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Tabs defaultValue="text">
+                <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setTargetSection('')}}>
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger>
-                        <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                        <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm mới</TabsTrigger>
+                        <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="text" className="mt-4 space-y-4">
-                        <Textarea
-                            placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng."
-                            rows={4}
-                            value={textInput}
-                            onChange={(e) => setTextInput(e.target.value)}
-                            disabled={isGenerating}
-                        />
-                         <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực để thêm vào..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sections.map(section => (
-                                        <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim() || !targetSection} className="w-full sm:w-auto">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo từ văn bản
-                            </Button>
-                        </div>
+                    <TabsContent value="add" className="mt-4 space-y-4">
+                        <Tabs defaultValue="text">
+                             <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger>
+                                <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="text" className="mt-4 space-y-4">
+                                <Textarea
+                                    placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng."
+                                    rows={4}
+                                    value={textInput}
+                                    onChange={(e) => setTextInput(e.target.value)}
+                                    disabled={isGenerating}
+                                />
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn khu vực để thêm vào..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {sections.map(section => (
+                                                <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim() || !targetSection} className="w-full sm:w-auto">
+                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                        Tạo từ văn bản
+                                    </Button>
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="image" className="mt-4 space-y-4">
+                                <Input
+                                    id="bt-image-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    disabled={isGenerating}
+                                />
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn khu vực để thêm vào..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {sections.map(section => (
+                                                <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput || !targetSection} className="w-full sm:w-auto">
+                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                        Tạo từ ảnh
+                                    </Button>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
                     </TabsContent>
-                    <TabsContent value="image" className="mt-4 space-y-4">
-                        <Input
-                            id="bt-image-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            disabled={isGenerating}
-                        />
-                         <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetSection} disabled={isGenerating || sections.length === 0}>
+                     <TabsContent value="sort" className="mt-4 space-y-4">
+                        <p className="text-sm text-muted-foreground">Chọn một khu vực và để AI sắp xếp lại các công việc trong đó theo một thứ tự logic và hiệu quả hơn.</p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                             <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực để thêm vào..." />
+                                    <SelectValue placeholder="Chọn khu vực để sắp xếp..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sections.map(section => (
@@ -148,15 +247,81 @@ function BartenderTasksAiGenerator({
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput || !targetSection} className="w-full sm:w-auto">
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                Tạo từ ảnh
+                            <Button onClick={handleGenerateSort} disabled={isGenerating || !targetSection} className="w-full sm:w-auto">
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                Sắp xếp bằng AI
                             </Button>
                         </div>
                     </TabsContent>
                 </Tabs>
             </CardContent>
         </Card>
+
+        {/* Add Preview Dialog */}
+        <Dialog open={showAddPreview} onOpenChange={setShowAddPreview}>
+            <DialogContent className="max-w-2xl">
+                 <AlertDialogHeader>
+                    <AlertDialogTitle>Xem trước các công việc sẽ được thêm</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào khu vực <span className="font-bold">"{targetSection}"</span>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                 <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
+                   <ul className="space-y-2">
+                        {addPreviewTasks.map((task, index) => (
+                            <li key={index} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
+                                <Plus className="h-4 w-4 text-green-500"/>
+                                <span>{task.text}</span>
+                            </li>
+                        ))}
+                   </ul>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmAdd}>Thêm {addPreviewTasks.length} công việc</AlertDialogAction>
+                </AlertDialogFooter>
+            </DialogContent>
+        </Dialog>
+        
+        {/* Sort Preview Dialog */}
+        <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}>
+            <DialogContent className="max-w-4xl">
+                 <AlertDialogHeader>
+                    <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        AI đề xuất sắp xếp lại các công việc trong khu vực <span className="font-bold">"{targetSection}"</span> như sau. Bạn có muốn áp dụng thay đổi không?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                 <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4">
+                   <div>
+                       <h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4>
+                       <ul className="space-y-2 text-sm">
+                           {sortPreview.oldOrder.map((task, index) => (
+                               <li key={index} className="p-2 rounded-md bg-muted/50">
+                                   {index + 1}. {task}
+                               </li>
+                           ))}
+                       </ul>
+                   </div>
+                    <div>
+                       <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
+                       <ul className="space-y-2 text-sm">
+                           {sortPreview.newOrder.map((task, index) => (
+                               <li key={index} className="p-2 rounded-md bg-green-100/50">
+                                   {index + 1}. {renderDiff(sortPreview.oldOrder[index] || '', task)}
+                               </li>
+                           ))}
+                       </ul>
+                   </div>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
+                </AlertDialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        </>
     )
 }
 
@@ -211,7 +376,7 @@ export default function BartenderTasksPage() {
     });
   }
 
-  const onAiTasksGenerated = (tasks: GenerateBartenderTasksOutput['tasks'], sectionTitle: string) => {
+  const onAiAddTasks = (tasks: GenerateBartenderTasksOutput['tasks'], sectionTitle: string) => {
     if (!sections) return;
 
     const newTasksToAdd: Task[] = tasks.map(task => ({
@@ -230,6 +395,26 @@ export default function BartenderTasksPage() {
         setOpenItems(prev => [...prev, sectionTitle]);
       }
     }
+  };
+  
+  const onAiSortTasks = (sortedTasksText: string[], sectionTitle: string) => {
+      if (!sections) return;
+      const newSectionsState = JSON.parse(JSON.stringify(sections));
+      const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
+
+      if (section) {
+          // Create a map of text -> task object to preserve IDs and other properties
+          const taskMap = new Map(section.tasks.map((t: Task) => [t.text, t]));
+          const sortedTasks: Task[] = sortedTasksText.map(text => taskMap.get(text)).filter((t): t is Task => !!t);
+
+          // Check if any tasks were lost during mapping
+          if (sortedTasks.length === section.tasks.length) {
+              section.tasks = sortedTasks;
+              handleUpdateAndSave(newSectionsState);
+          } else {
+              toast({ title: "Lỗi sắp xếp", description: "Không thể khớp các công việc đã sắp xếp. Thay đổi đã bị hủy.", variant: "destructive" });
+          }
+      }
   };
 
   const handleAddTask = (sectionTitle: string) => {
@@ -360,7 +545,7 @@ export default function BartenderTasksPage() {
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các hạng mục trong checklist Vệ sinh quầy của Pha chế.</p>
       </header>
 
-      <BartenderTasksAiGenerator sections={sections} onTasksGenerated={onAiTasksGenerated} />
+      <AiAssistant sections={sections} onAddTasks={onAiAddTasks} onSortTasks={onAiSortTasks} />
 
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -484,5 +669,3 @@ export default function BartenderTasksPage() {
     </div>
   );
 }
-
-    
