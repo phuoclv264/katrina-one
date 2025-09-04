@@ -261,27 +261,30 @@ export default function ComprehensiveChecklistPage() {
           <Accordion type="multiple" defaultValue={sections.map(s => s.title)} className="w-full space-y-4">
             {sections.map(section => (
               <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                <AccordionTrigger className="p-4 text-lg font-medium hover:no-underline">
-                  <div className="flex items-center gap-3 w-full">
-                    <Building className="h-5 w-5 text-primary"/>
-                     {editingSection?.title === section.title ? (
-                         <Input
-                            value={editingSection.newTitle}
-                            onChange={(e) => setEditingSection({...editingSection, newTitle: e.target.value})}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRenameSection(section.title);
-                                if (e.key === 'Escape') setEditingSection(null);
-                            }}
-                            onBlur={() => handleRenameSection(section.title)}
-                            autoFocus
-                            className="text-lg font-medium h-9"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                     ) : (
-                        <span className="flex-1 text-left">{section.title}</span>
-                     )}
+                <div className="flex items-center p-4">
+                    <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 p-0">
+                      <div className="flex items-center gap-3">
+                        <Building className="h-5 w-5 text-primary"/>
+                        {editingSection?.title === section.title ? (
+                            <Input
+                                value={editingSection.newTitle}
+                                onChange={(e) => setEditingSection({...editingSection, newTitle: e.target.value})}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleRenameSection(section.title);
+                                    if (e.key === 'Escape') setEditingSection(null);
+                                }}
+                                onBlur={() => handleRenameSection(section.title)}
+                                autoFocus
+                                className="text-lg font-medium h-9"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        ) : (
+                            <span className="flex-1 text-left">{section.title}</span>
+                        )}
+                      </div>
+                    </AccordionTrigger>
                     
-                    <div className="flex items-center gap-1 ml-auto mr-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 ml-auto pl-4" onClick={e => e.stopPropagation()}>
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
                             <Pencil className="h-4 w-4" />
                         </Button>
@@ -305,9 +308,8 @@ export default function ComprehensiveChecklistPage() {
                             </AlertDialogContent>
                         </AlertDialog>
                     </div>
+                </div>
 
-                  </div>
-                  </AccordionTrigger>
                 <AccordionContent className="p-4 border-t">
                   <div className="space-y-2">
                       {section.tasks.map(task => (
@@ -352,3 +354,5 @@ export default function ComprehensiveChecklistPage() {
     </div>
   );
 }
+
+    
