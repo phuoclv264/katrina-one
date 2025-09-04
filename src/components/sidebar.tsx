@@ -81,7 +81,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarHeader className="p-4">
         <h1 className="text-2xl font-bold text-primary font-headline">Katrina One</h1>
       </SidebarHeader>
-      <SidebarFooter className="p-2">
+      <SidebarFooter className="p-2 mt-auto">
         <div className="flex items-center gap-3 p-2 rounded-md bg-muted">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 {getRoleIcon()}
@@ -103,11 +103,11 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
         </div>
       </SidebarFooter>
       <SidebarSeparator />
-      <SidebarContent>
+      <SidebarContent className="flex-1">
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href} onClick={handleNavigation}>
-              <Link href={item.href} legacyBehavior passHref>
+              <Link href={item.href} passHref>
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.href}
