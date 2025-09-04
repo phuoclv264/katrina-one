@@ -384,16 +384,15 @@ export const dataStore = {
             } as ShiftReport;
         });
 
-        // Sort shift reports by date on the client
-        shiftReports.sort((a, b) => {
+        // Combine with inventory reports
+        const otherReports = combinedReports.filter(r => !('shiftKey' in r));
+        combinedReports = [...shiftReports, ...otherReports];
+        // Sort after combining
+        combinedReports.sort((a, b) => {
              const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
              const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
              return timeB - timeA;
         });
-        
-        // Combine with inventory reports
-        const otherReports = combinedReports.filter(r => !('shiftKey' in r));
-        combinedReports = [...shiftReports, ...otherReports];
         callback(combinedReports);
     });
 
@@ -408,16 +407,15 @@ export const dataStore = {
             } as InventoryReport;
         });
         
-        // Sort inventory reports by date on the client
-        inventoryReports.sort((a, b) => {
+        // Combine with shift reports
+        const otherReports = combinedReports.filter(r => 'shiftKey' in r);
+        combinedReports = [...inventoryReports, ...otherReports];
+        // Sort after combining
+         combinedReports.sort((a, b) => {
              const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
              const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
              return timeB - timeA;
         });
-
-        // Combine with shift reports
-        const otherReports = combinedReports.filter(r => 'shiftKey' in r);
-        combinedReports = [...inventoryReports, ...otherReports];
         callback(combinedReports);
     });
 
@@ -474,6 +472,12 @@ export const dataStore = {
             lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
         } as InventoryReport);
     });
+    // Client-side sort
+    reports.sort((a, b) => {
+      const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+      const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+      return timeB - timeA;
+    });
     return reports;
   },
 
@@ -490,6 +494,12 @@ export const dataStore = {
             submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
             lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
         } as ShiftReport);
+    });
+     // Client-side sort
+    reports.sort((a, b) => {
+      const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+      const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+      return timeB - timeA;
     });
     return reports;
   }

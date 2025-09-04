@@ -11,7 +11,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -34,13 +34,17 @@ export function AppSidebar() {
     { href: '/task-lists', label: 'Danh sách công việc', icon: ClipboardList },
   ];
   
+  const ownerMenu = [
+    ...managerMenu,
+    { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
+  ]
+  
   const getMenuItems = () => {
       switch(user?.role) {
           case 'Phục vụ': return staffMenu;
           case 'Pha chế': return bartenderMenu;
-          case 'Quản lý':
-          case 'Chủ nhà hàng':
-              return managerMenu;
+          case 'Quản lý': return managerMenu;
+          case 'Chủ nhà hàng': return ownerMenu;
           default: return [];
       }
   }
@@ -109,3 +113,5 @@ export function AppSidebar() {
     </>
   );
 }
+
+    
