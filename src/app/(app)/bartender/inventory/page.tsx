@@ -490,15 +490,8 @@ export default function InventoryPage() {
               {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               <span className="ml-2">{ isProcessing ? 'Đang xử lý...' : 'Gửi & Nhận đề xuất'}</span>
           </Button>
-          {hasUnsubmittedChanges && (
-            <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-background" />
-          )}
         </div>
       </div>
     </div>
   );
 }
-
-    
-
-
