@@ -786,11 +786,11 @@ export default function InventoryManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Tên mặt hàng</TableHead>
-                                        <TableHead className="w-32">Đơn vị</TableHead>
-                                        <TableHead className="w-36">Tồn tối thiểu</TableHead>
-                                        <TableHead className="w-40">Gợi ý đặt hàng</TableHead>
-                                        <TableHead className="text-right w-28">Hành động</TableHead>
+                                        <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
+                                        <TableHead className="w-[15%]">Đơn vị</TableHead>
+                                        <TableHead className="w-[15%]">Tồn tối thiểu</TableHead>
+                                        <TableHead className="w-[15%]">Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-right w-[15%]">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -802,15 +802,16 @@ export default function InventoryManagementPage() {
                                                 <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
-                                                <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} className="w-24" disabled={isSorting} />
+                                                <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
-                                                <Input type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} className="w-24" disabled={isSorting}/>
+                                                <Input type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                             </TableCell>
                                             <TableCell>
-                                                <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} className="w-28" disabled={isSorting}/>
+                                                <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
                                             </TableCell>
-                                            <TableCell className="text-right flex items-center justify-end gap-0">
+                                            <TableCell className="text-right">
+                                                <div className="flex items-center justify-end gap-0">
                                                 {isSorting ? (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={items.findIndex(i => i.id === item.id) === 0}>
@@ -825,6 +826,7 @@ export default function InventoryManagementPage() {
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     )})}
