@@ -116,8 +116,9 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)}>
-              <Link href={item.href}>
+              <Link href={item.href} passHref>
                 <SidebarMenuButton
+                  asChild
                   isActive={pathname === item.href}
                   tooltip={item.label}
                 >
@@ -135,7 +136,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarFooter>
          <SidebarMenu>
             <SidebarMenuItem>
-                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
+                <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>
          </SidebarMenu>
       </SidebarFooter>
