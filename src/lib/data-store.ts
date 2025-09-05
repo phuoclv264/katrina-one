@@ -469,8 +469,8 @@ export const dataStore = {
     
     delete reportToSubmit.id;
   
-    // 4. Set the final data to Firestore
-    await setDoc(firestoreRef, reportToSubmit, { merge: true });
+    // 4. Set the final data to Firestore, overwriting the document
+    await setDoc(firestoreRef, reportToSubmit);
   
     // 5. Cleanup: remove uploaded photos from IndexedDB
     await photoStore.deletePhotos(Array.from(photoIdsToUpload));
@@ -653,3 +653,5 @@ export const dataStore = {
     return reports;
   }
 };
+
+    
