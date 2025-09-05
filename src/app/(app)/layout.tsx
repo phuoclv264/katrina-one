@@ -26,14 +26,14 @@ export default function AppLayout({
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="offcanvas">
+      <Sidebar collapsible="icon">
         <AppSidebar onNavigate={() => setIsNavigating(true)} />
       </Sidebar>
       <SidebarInset>
          {isNavigating && <PageTransitionIndicator />}
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6 md:hidden">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
           <SidebarTrigger>
-            <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+            <Button variant="outline" size="icon" className="shrink-0">
               <PanelLeft />
               <span className="sr-only">Toggle navigation menu</span>
             </Button>

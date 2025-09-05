@@ -674,7 +674,7 @@ export default function InventoryManagementPage() {
    const areAllCategoriesOpen = categorizedList && categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
-    <div className="container mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
+    <div className="container mx-auto max-w-none p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
@@ -786,11 +786,11 @@ export default function InventoryManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
-                                        <TableHead>Đơn vị</TableHead>
-                                        <TableHead>Tồn tối thiểu</TableHead>
-                                        <TableHead>Gợi ý đặt hàng</TableHead>
-                                        <TableHead className="text-right">Hành động</TableHead>
+                                        <TableHead>Tên mặt hàng</TableHead>
+                                        <TableHead className="w-32">Đơn vị</TableHead>
+                                        <TableHead className="w-36">Tồn tối thiểu</TableHead>
+                                        <TableHead className="w-40">Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-right w-28">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
