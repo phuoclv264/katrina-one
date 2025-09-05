@@ -18,8 +18,8 @@ import {
   addDoc,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 
@@ -152,6 +152,24 @@ export const dataStore = {
   async updateInventoryList(newList: InventoryItem[]) {
     const docRef = doc(db, 'app-data', 'inventoryList');
     await setDoc(docRef, { items: newList });
+  },
+
+  subscribeToSuppliers(callback: (suppliers: string[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'suppliers');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+        if(docSnap.exists()) {
+            callback(docSnap.data().list as string[]);
+        } else {
+            await setDoc(docRef, { list: initialSuppliers });
+            callback(initialSuppliers);
+        }
+    });
+    return unsubscribe;
+  },
+
+  async updateSuppliers(newSuppliers: string[]) {
+    const docRef = doc(db, 'app-data', 'suppliers');
+    await setDoc(docRef, { list: newSuppliers });
   },
   
   /**

@@ -1,5 +1,6 @@
 
-import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection } from './types';
+
+import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers } from './types';
 
 export const staff: Staff[] = [
   { pin: '0001', name: 'Phước' },
@@ -225,4 +226,15 @@ export const inventoryList: InventoryItem[] = [
     { id: 'item-43', name: 'DCVS - Chổi quét sân', supplier: 'Tạp hóa', unit: 'cây', minStock: 1, orderSuggestion: '1' },
     { id: 'item-44', name: 'DCVS - Giấy ăn Gumi', supplier: 'Tạp hóa', unit: 'gói', minStock: 20, orderSuggestion: '20' },
     { id: 'item-45', name: 'DCVS - Giấy vệ sinh cuộn lớn', supplier: 'Tạp hóa', unit: 'cuộn', minStock: 5, orderSuggestion: '5' },
+];
+
+export const suppliers: Suppliers = [
+    "Thiên Phước",
+    "Chợ",
+    "Siêu thị",
+    "Ly Giấy Việt",
+    "Gốm sứ Minh Long",
+    "Ocean",
+    "Inox Kim Hằng",
+    "Tạp hóa",
 ];

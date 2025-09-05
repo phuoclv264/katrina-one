@@ -22,6 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { diffChars } from 'diff';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { SupplierCombobox } from '@/components/supplier-combobox';
 
 
 function AiAssistant({
@@ -489,6 +490,7 @@ export default function InventoryManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [isSorting, setIsSorting] = useState(false);
@@ -498,14 +500,22 @@ export default function InventoryManagementPage() {
       if (!user || user.role !== 'Chủ nhà hàng') {
         router.replace('/');
       } else {
-        const unsubscribe = dataStore.subscribeToInventoryList((items) => {
+        const unsubInventory = dataStore.subscribeToInventoryList((items) => {
           setInventoryList(items);
-          setIsLoading(false);
+          if (suppliers.length > 0) setIsLoading(false);
         });
-        return () => unsubscribe();
+        const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => {
+            setSuppliers(supplierList);
+            if (inventoryList) setIsLoading(false);
+        });
+
+        return () => {
+            unsubInventory();
+            unsubSuppliers();
+        };
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, inventoryList, suppliers.length]);
 
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -541,6 +551,16 @@ export default function InventoryManagementPage() {
         item.id === id ? { ...item, [field]: value } : item
     );
     setInventoryList(newList);
+  };
+  
+  const handleSupplierChange = (id: string, newSupplier: string) => {
+    handleUpdate(id, 'supplier', newSupplier);
+    if (!suppliers.includes(newSupplier)) {
+        const newSuppliers = [...suppliers, newSupplier].sort();
+        setSuppliers(newSuppliers);
+        dataStore.updateSuppliers(newSuppliers);
+        toast({ title: "Đã thêm nhà cung cấp mới!", description: `"${newSupplier}" đã được thêm vào danh sách chung.`});
+    }
   };
 
   const handleMoveItem = (indexToMove: number, direction: 'up' | 'down') => {
@@ -604,6 +624,13 @@ export default function InventoryManagementPage() {
       if (inventoryList) {
           const newList = [...inventoryList, ...items];
           setInventoryList(newList);
+          
+          const newSuppliers = new Set(suppliers);
+          items.forEach(item => newSuppliers.add(item.supplier));
+          const sortedNewSuppliers = Array.from(newSuppliers).sort();
+          setSuppliers(sortedNewSuppliers);
+          dataStore.updateSuppliers(sortedNewSuppliers);
+
           // Automatically save after adding new items from AI
           dataStore.updateInventoryList(newList);
       }
@@ -797,7 +824,12 @@ export default function InventoryManagementPage() {
                                   </div>
                                    <div className="space-y-2">
                                     <Label htmlFor={`supplier-m-${item.id}`}>Nhà cung cấp</Label>
-                                    <Input id={`supplier-m-${item.id}`} value={item.supplier} onChange={e => handleUpdate(item.id, 'supplier', e.target.value)} disabled={isSorting} />
+                                    <SupplierCombobox
+                                      suppliers={suppliers}
+                                      value={item.supplier}
+                                      onChange={(newSupplier) => handleSupplierChange(item.id, newSupplier)}
+                                      disabled={isSorting}
+                                    />
                                   </div>
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
@@ -840,24 +872,29 @@ export default function InventoryManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
+                                        <TableHead className="w-[35%]">Tên mặt hàng</TableHead>
                                         <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
-                                        <TableHead className="w-[20%]">Đơn vị</TableHead>
+                                        <TableHead>Đơn vị</TableHead>
                                         <TableHead>Tồn tối thiểu</TableHead>
                                         <TableHead>Gợi ý đặt hàng</TableHead>
                                         <TableHead className="text-right w-24">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {items.map((item) => {
+                                    {items.map((item, index) => {
                                         const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                         return (
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                             </TableCell>
-                                             <TableCell>
-                                                <Input value={item.supplier} onChange={e => handleUpdate(item.id, 'supplier', e.target.value)} disabled={isSorting} />
+                                            <TableCell>
+                                                <SupplierCombobox
+                                                    suppliers={suppliers}
+                                                    value={item.supplier}
+                                                    onChange={(newSupplier) => handleSupplierChange(item.id, newSupplier)}
+                                                    disabled={isSorting}
+                                                />
                                             </TableCell>
                                             <TableCell>
                                                 <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
@@ -872,10 +909,10 @@ export default function InventoryManagementPage() {
                                                 <div className="flex items-center justify-end gap-0">
                                                 {isSorting ? (
                                                     <>
-                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={items.findIndex(i => i.id === item.id) === 0}>
+                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}>
                                                             <ArrowUp className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={items.findIndex(i => i.id === item.id) === items.length - 1}>
+                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}>
                                                             <ArrowDown className="h-4 w-4" />
                                                         </Button>
                                                     </>
@@ -907,4 +944,5 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
 
