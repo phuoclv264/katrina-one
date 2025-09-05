@@ -35,7 +35,7 @@ const ShiftNotesCard = ({ initialIssues, onSave, disabled }: ShiftNotesCardProps
       </CardHeader>
       <CardContent>
         <Textarea
-          placeholder="ví dụ: 'Máy pha cà phê bị rò rỉ.'"
+          placeholder="Ví dụ: Máy pha cà phê ở quầy chính bị rò rỉ nước."
           value={issueInputValue}
           onChange={(e) => setIssueInputValue(e.target.value)}
           onBlur={handleBlur}
