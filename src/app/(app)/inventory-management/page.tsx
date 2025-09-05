@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -21,6 +21,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 function AiAssistant({
@@ -250,7 +251,7 @@ function AiAssistant({
                                 </TabsList>
                                 <TabsContent value="text" className="mt-4 space-y-4">
                                     <Textarea
-                                        placeholder="Dán dữ liệu từ Excel/Google Sheets vào đây. Mỗi dòng là một mặt hàng, các cột bao gồm Tên, Đơn vị, Tồn tối thiểu, Gợi ý đặt hàng."
+                                        placeholder="Dán dữ liệu từ Excel/Google Sheets vào đây. Các cột bao gồm Tên, NCC, Đơn vị, Tồn tối thiểu, Gợi ý đặt hàng."
                                         rows={6}
                                         value={textInput}
                                         onChange={(e) => setTextInput(e.target.value)}
@@ -291,7 +292,7 @@ function AiAssistant({
                         </TabsContent>
                          <TabsContent value="edit" className="mt-4 space-y-4">
                              <Textarea
-                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'đổi tên tiền tố TRÁI CÂY thành HOA QUẢ'"
+                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'đổi nhà cung cấp của tất cả siro thành ABC'"
                                 rows={3}
                                 value={updateInstruction}
                                 onChange={(e) => setUpdateInstruction(e.target.value)}
@@ -323,6 +324,7 @@ function AiAssistant({
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Tên mặt hàng</TableHead>
+                                                <TableHead className="w-40">Nhà cung cấp</TableHead>
                                                 <TableHead className="w-28">Đơn vị</TableHead>
                                                 <TableHead className="w-32">Tồn tối thiểu</TableHead>
                                                 <TableHead className="w-32">Gợi ý đặt</TableHead>
@@ -333,6 +335,7 @@ function AiAssistant({
                                             {previewNewItems.map((item, index) => (
                                                 <TableRow key={item.id}>
                                                     <TableCell><Input value={item.name} onChange={e => handleEditNewItem(index, 'name', e.target.value)} /></TableCell>
+                                                    <TableCell><Input value={item.supplier} onChange={e => handleEditNewItem(index, 'supplier', e.target.value)} /></TableCell>
                                                     <TableCell><Input value={item.unit} onChange={e => handleEditNewItem(index, 'unit', e.target.value)} /></TableCell>
                                                     <TableCell><Input type="number" value={item.minStock} onChange={e => handleEditNewItem(index, 'minStock', parseInt(e.target.value) || 0)} /></TableCell>
                                                     <TableCell><Input value={item.orderSuggestion} onChange={e => handleEditNewItem(index, 'orderSuggestion', e.target.value)} /></TableCell>
@@ -356,6 +359,7 @@ function AiAssistant({
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Tên mặt hàng</TableHead>
+                                            <TableHead>Nhà cung cấp</TableHead>
                                             <TableHead>Đơn vị</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -363,6 +367,7 @@ function AiAssistant({
                                         {previewExistingItems.map((item, index) => (
                                             <TableRow key={index} className="bg-muted/50">
                                                 <TableCell>{item.name}</TableCell>
+                                                <TableCell>{item.supplier}</TableCell>
                                                 <TableCell>{item.unit}</TableCell>
                                             </TableRow>
                                         ))}
@@ -437,7 +442,8 @@ function AiAssistant({
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
+                                    <TableHead className="w-[35%]">Tên mặt hàng</TableHead>
+                                    <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
                                     <TableHead>Đơn vị</TableHead>
                                     <TableHead>Tồn tối thiểu</TableHead>
                                     <TableHead>Gợi ý đặt hàng</TableHead>
@@ -453,6 +459,7 @@ function AiAssistant({
                                     return (
                                         <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}>
                                             <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
                                             <TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell>
@@ -584,6 +591,7 @@ export default function InventoryManagementPage() {
     const newItem: InventoryItem = {
       id: `item-${Date.now()}`,
       name: 'CHƯA PHÂN LOẠI - Mặt hàng mới',
+      supplier: 'Chưa xác định',
       unit: 'cái',
       minStock: 1,
       orderSuggestion: '1'
@@ -656,6 +664,36 @@ export default function InventoryManagementPage() {
         handleSaveChanges();
     }
   };
+  
+    const handleExport = (type: 'names' | 'full') => {
+        if (!inventoryList) return;
+
+        let textToCopy = '';
+        if (type === 'names') {
+            textToCopy = inventoryList.map(item => `${item.name}\t${item.supplier}`).join('\n');
+        } else {
+            // Create TSV (Tab-Separated Values) string for easy pasting into Excel
+            const headers = ['Tên mặt hàng', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng'];
+            const rows = inventoryList.map(item => 
+                [item.name, item.supplier, item.unit, item.minStock, item.orderSuggestion].join('\t')
+            );
+            textToCopy = [headers.join('\t'), ...rows].join('\n');
+        }
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: "Đã sao chép!",
+                description: "Danh sách đã được sao chép vào bộ nhớ tạm.",
+            });
+        }).catch(err => {
+            toast({
+                title: "Lỗi",
+                description: "Không thể sao chép danh sách.",
+                variant: "destructive",
+            });
+            console.error("Copy to clipboard failed:", err);
+        });
+    };
 
   if (isLoading || authLoading || !inventoryList) {
     return (
@@ -691,9 +729,21 @@ export default function InventoryManagementPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <CardTitle>Danh sách kho hiện tại</CardTitle>
-                <CardDescription>Các thay đổi về nội dung sẽ được lưu khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
+                <CardDescription>Các thay đổi sẽ được lưu khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
             </div>
              <div className="flex items-center gap-2 w-full sm:w-auto">
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            <Download className="mr-2 h-4 w-4"/>
+                            Xuất dữ liệu
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleExport('names')}>Sao chép Tên & NCC</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExport('full')}>Sao chép Toàn bộ (dạng bảng)</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                  {isSorting ? (
                     <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Check className="mr-2 h-4 w-4"/>
@@ -745,6 +795,10 @@ export default function InventoryManagementPage() {
                                     <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
                                     <Input id={`name-${item.id}`} value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                   </div>
+                                   <div className="space-y-2">
+                                    <Label htmlFor={`supplier-m-${item.id}`}>Nhà cung cấp</Label>
+                                    <Input id={`supplier-m-${item.id}`} value={item.supplier} onChange={e => handleUpdate(item.id, 'supplier', e.target.value)} disabled={isSorting} />
+                                  </div>
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                       <Label htmlFor={`unit-${item.id}`}>Đơn vị</Label>
@@ -786,11 +840,12 @@ export default function InventoryManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
-                                        <TableHead className="w-[15%]">Đơn vị</TableHead>
+                                        <TableHead className="w-[35%]">Tên mặt hàng</TableHead>
+                                        <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
+                                        <TableHead className="w-[10%]">Đơn vị</TableHead>
                                         <TableHead className="w-[15%]">Tồn tối thiểu</TableHead>
                                         <TableHead className="w-[15%]">Gợi ý đặt hàng</TableHead>
-                                        <TableHead className="text-right w-[15%]">Hành động</TableHead>
+                                        <TableHead className="text-right w-24">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -800,6 +855,9 @@ export default function InventoryManagementPage() {
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                            </TableCell>
+                                             <TableCell>
+                                                <Input value={item.supplier} onChange={e => handleUpdate(item.id, 'supplier', e.target.value)} disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
                                                 <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />

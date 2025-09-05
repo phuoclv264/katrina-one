@@ -20,6 +20,7 @@ export type GenerateInventoryListInput = z.infer<typeof GenerateInventoryListInp
 
 const ParsedInventoryItemSchema = z.object({
     name: z.string().describe('The full name of the inventory item.'),
+    supplier: z.string().describe('The name of the supplier for this item.'),
     unit: z.string().describe('The unit of measurement for the item (e.g., "kg", "box", "lon", "cây").'),
     minStock: z.number().describe('The minimum required stock level for this item.'),
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
@@ -42,6 +43,7 @@ const prompt = ai.definePrompt({
 
 The input contains a list of products for a coffee shop. You must extract the following fields for each item:
 - name: The full name of the product.
+- supplier: The name of the supplier for this item.
 - unit: The unit of measurement (e.g., kg, gram, hộp, gói, lon, cây, etc.).
 - minStock: The minimum stock quantity required.
 - orderSuggestion: The suggested quantity to order when stock is low.

@@ -88,6 +88,7 @@ export type ShiftReport = {
 export type InventoryItem = {
     id: string;
     name: string;
+    supplier: string;
     unit: string;
     minStock: number;
     orderSuggestion: string; // e.g., "4" or "5kg"
