@@ -42,6 +42,8 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
   const managerMenu = [
     { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
     { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
+    { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
+    { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
   ];
   
   const ownerMenu = [
