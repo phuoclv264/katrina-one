@@ -538,7 +538,7 @@ export default function InventoryManagementPage() {
   const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
     if (!inventoryList) return;
     const newList = inventoryList.map(item =>
-        item.id === id ? {...item, [field]: value} : item
+        item.id === id ? { ...item, [field]: value } : item
     );
     setInventoryList(newList);
   };
@@ -840,11 +840,11 @@ export default function InventoryManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[35%]">Tên mặt hàng</TableHead>
+                                        <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
                                         <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
                                         <TableHead className="w-[10%]">Đơn vị</TableHead>
-                                        <TableHead className="w-[15%]">Tồn tối thiểu</TableHead>
-                                        <TableHead className="w-[15%]">Gợi ý đặt hàng</TableHead>
+                                        <TableHead>Tồn tối thiểu</TableHead>
+                                        <TableHead>Gợi ý đặt hàng</TableHead>
                                         <TableHead className="text-right w-24">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
