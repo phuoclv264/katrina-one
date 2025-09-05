@@ -61,7 +61,7 @@ export function SupplierCombobox({ suppliers, value, onChange, disabled }: Suppl
         >
           {value
             ? suppliers.find((supplier) => supplier.toLowerCase() === value.toLowerCase())
-            : "Chọn nhà cung cấp..."}
+            : "Chọn NCC"}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
