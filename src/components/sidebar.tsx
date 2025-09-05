@@ -120,7 +120,6 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={item.label}
-                  asChild
                 >
                   <div className="flex items-center gap-2">
                     <item.icon />
@@ -136,11 +135,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarFooter>
          <SidebarMenu>
             <SidebarMenuItem>
-                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} asChild>
-                    <div className="w-full flex items-center justify-end">
-                        <LogOut className="rotate-180 group-data-[collapsible=icon]:hidden"/>
-                    </div>
-                </SidebarTrigger>
+                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>
          </SidebarMenu>
       </SidebarFooter>
