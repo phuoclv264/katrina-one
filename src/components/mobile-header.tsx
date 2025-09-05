@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 
 const pathToTitleMap: { [key: string]: string } = {
     '/shifts': 'Chọn ca làm việc',
-    '/bartender': 'Bảng điều khiển Pha chế',
+    '/bartender': 'Danh mục Báo cáo Pha chế',
     '/bartender/hygiene-report': 'Báo cáo Vệ sinh quầy',
     '/bartender/inventory': 'Kiểm kê Tồn kho',
     '/manager': 'Bảng điều khiển Quản lý',
