@@ -842,7 +842,7 @@ export default function InventoryManagementPage() {
                                     <TableRow>
                                         <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
                                         <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
-                                        <TableHead className="w-[10%]">Đơn vị</TableHead>
+                                        <TableHead className="w-[20%]">Đơn vị</TableHead>
                                         <TableHead>Tồn tối thiểu</TableHead>
                                         <TableHead>Gợi ý đặt hàng</TableHead>
                                         <TableHead className="text-right w-24">Hành động</TableHead>
@@ -907,3 +907,4 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
