@@ -11,6 +11,8 @@ const pathToTitleMap: { [key: string]: string } = {
     '/bartender/inventory': 'Kiểm kê Tồn kho',
     '/manager': 'Bảng điều khiển Quản lý',
     '/manager/comprehensive-report': 'Phiếu kiểm tra toàn diện',
+    '/manager/hygiene-report': 'Xem Báo cáo Vệ sinh',
+    '/manager/inventory-report': 'Xem Báo cáo Tồn kho',
     '/reports': 'Xem Báo cáo',
     '/reports/by-shift': 'Chi tiết Báo cáo',
     '/reports/hygiene': 'Báo cáo Vệ sinh',

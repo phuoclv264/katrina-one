@@ -552,7 +552,7 @@ export default function ComprehensiveReportPage() {
                                             onClick={() => handleBooleanTaskAction(task.id, true)}
                                             disabled={isReadonly}
                                         >
-                                            <ThumbsUp className="mr-2 h-4 w-4"/> Có
+                                            <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
                                         </Button>
                                         <Button
                                             size="sm"
@@ -561,7 +561,7 @@ export default function ComprehensiveReportPage() {
                                             onClick={() => handleBooleanTaskAction(task.id, false)}
                                             disabled={isReadonly}
                                         >
-                                            <ThumbsDown className="mr-2 h-4 w-4"/> Không
+                                            <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
                                         </Button>
                                     </>
                                 )}

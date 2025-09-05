@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileSearch } from 'lucide-react';
+import { FileSearch, ClipboardList, Archive } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -39,6 +39,18 @@ export default function ManagerDashboardPage() {
             <Link href="/manager/comprehensive-report">
               <FileSearch className="mr-2" />
               Phiếu kiểm tra toàn diện
+            </Link>
+          </Button>
+           <Button asChild size="lg" variant="outline">
+            <Link href="/manager/hygiene-report">
+              <ClipboardList className="mr-2" />
+              Xem Báo cáo Vệ sinh
+            </Link>
+          </Button>
+           <Button asChild size="lg" variant="outline">
+            <Link href="/manager/inventory-report">
+              <Archive className="mr-2" />
+              Xem Báo cáo Tồn kho
             </Link>
           </Button>
         </CardContent>
