@@ -334,6 +334,19 @@ export const dataStore = {
     }
   },
 
+  async deletePhotoFromStorage(photoUrl: string): Promise<void> {
+    if (typeof window === 'undefined' || !photoUrl.includes('firebasestorage.googleapis.com')) return;
+    try {
+        const photoRef = ref(storage, photoUrl);
+        await deleteObject(photoRef);
+    } catch(error: any) {
+        // It's okay if the file doesn't exist (e.g., already deleted).
+        if(error.code !== 'storage/object-not-found') {
+            console.error("Error deleting photo from Firebase Storage:", error);
+        }
+    }
+  },
+
   /**
    * Submits a report to Firestore.
    * 1. Iterates through all tasks to find photos that need uploading.

@@ -241,19 +241,27 @@ export default function ChecklistPage() {
     setActiveTaskId(null);
   }, [activeTaskId, report, updateLocalReport, shift, collapseCompletedSection]);
   
-  const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string) => {
+  const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
       
       const newReport = JSON.parse(JSON.stringify(report));
       const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      if (!taskCompletions || !taskCompletions[completionIndex]) return;
+      const completionToUpdate = taskCompletions[completionIndex];
 
-      taskCompletions[completionIndex].photoIds = (taskCompletions[completionIndex].photoIds || []).filter((p:string) => p !== photoId);
+      if (!completionToUpdate) return;
       
-      // Also delete from IndexedDB
-      await photoStore.deletePhoto(photoId);
-      
-      if ((taskCompletions[completionIndex].photoIds ?? []).length === 0 && (taskCompletions[completionIndex].photos ?? []).length === 0) {
+      if (isLocal) {
+          // Delete from local state and IndexedDB
+          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+          await photoStore.deletePhoto(photoId);
+      } else {
+          // Delete from server and local state
+          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
+          await dataStore.deletePhotoFromStorage(photoId);
+      }
+
+      // If a completion no longer has any photos, remove the completion itself
+      if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
           taskCompletions.splice(completionIndex, 1);
       }
       
@@ -273,8 +281,14 @@ export default function ChecklistPage() {
       const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
       
       const completionToDelete = taskCompletions[completionIndex];
+      if (!completionToDelete) return;
+
+      // Delete all associated photos, local and remote
       if (completionToDelete.photoIds) {
         await photoStore.deletePhotos(completionToDelete.photoIds);
+      }
+      if (completionToDelete.photos) {
+        await Promise.all(completionToDelete.photos.map(url => dataStore.deletePhotoFromStorage(url)));
       }
       
       taskCompletions.splice(completionIndex, 1);
@@ -571,7 +585,7 @@ export default function ChecklistPage() {
                                                     variant="destructive"
                                                     size="icon"
                                                     className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId); }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId, true); }}
                                                 >
                                                     <X className="h-3 w-3" />
                                                     <span className="sr-only">Xóa ảnh</span>
