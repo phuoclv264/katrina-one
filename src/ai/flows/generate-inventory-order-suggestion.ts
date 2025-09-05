@@ -16,6 +16,7 @@ const InventoryItemSchema = z.object({
     id: z.string(),
     name: z.string(),
     unit: z.string(),
+    supplier: z.string().describe('The supplier of the item.'),
     minStock: z.number().describe('The minimum required stock level for this item.'),
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
     currentStock: z.union([z.number(), z.string()]).describe('The current actual stock level entered by the employee. Can be a number or a text description like "còn ít", "sắp hết".'),
@@ -32,9 +33,14 @@ const OrderItemSchema = z.object({
     quantityToOrder: z.string().describe('The quantity and unit to order, e.g., "5kg" or "2 boxes".'),
 });
 
+const OrderBySupplierSchema = z.object({
+    supplier: z.string().describe('The name of the supplier.'),
+    itemsToOrder: z.array(OrderItemSchema).describe('A list of items to order from this specific supplier.'),
+});
+
 const GenerateInventoryOrderSuggestionOutputSchema = z.object({
-  summary: z.string().describe('A brief summary of the order suggestion, e.g., "Cần đặt thêm 5 mặt hàng."'),
-  itemsToOrder: z.array(OrderItemSchema).describe('A list of items that need to be re-ordered.'),
+  summary: z.string().describe('A brief summary of the order suggestion, e.g., "Cần đặt thêm 5 mặt hàng từ 3 nhà cung cấp."'),
+  ordersBySupplier: z.array(OrderBySupplierSchema).describe('A list of orders, grouped by supplier.'),
 });
 export type InventoryOrderSuggestion = z.infer<typeof GenerateInventoryOrderSuggestionOutputSchema>;
 
@@ -58,15 +64,15 @@ An item needs to be reordered based on its 'currentStock'.
 For each item that needs reordering, you must use the 'orderSuggestion' field to determine the quantity to order. The 'orderSuggestion' provides the exact amount to order (e.g., if it says "5kg", you should order "5kg").
 
 Your output must be a JSON object that includes:
-1. A 'summary' (in Vietnamese) of how many items need to be ordered. If no items are needed, state that.
-2. A list of 'itemsToOrder', containing the 'itemId' and the 'quantityToOrder' for each item that needs restocking.
+1. A 'summary' (in Vietnamese) of how many items need to be ordered and from how many suppliers.
+2. A list of 'ordersBySupplier', where each object in the list contains the 'supplier' name and an 'itemsToOrder' array. Each item in 'itemsToOrder' should have the 'itemId' and the 'quantityToOrder'.
 
 Here is the list of inventory items:
 {{#each items}}
-- Item ID: {{{id}}}, Name: {{{name}}}, Unit: {{{unit}}}, Minimum Stock: {{{minStock}}}, Current Stock: {{{currentStock}}}, Suggested Order Quantity: {{{orderSuggestion}}}
+- Item ID: {{{id}}}, Name: {{{name}}}, Supplier: {{{supplier}}}, Unit: {{{unit}}}, Minimum Stock: {{{minStock}}}, Current Stock: {{{currentStock}}}, Suggested Order Quantity: {{{orderSuggestion}}}
 {{/each}}
 
-Analyze this list and generate the order suggestion.
+Analyze this list and generate the order suggestion, ensuring items are grouped by their respective supplier.
 `,
 });
 
@@ -81,3 +87,4 @@ const generateInventoryOrderSuggestionFlow = ai.defineFlow(
     return output!;
   }
 );
+

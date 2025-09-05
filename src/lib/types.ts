@@ -112,9 +112,14 @@ export type InventoryOrderItem = {
     quantityToOrder: string;
 };
 
+export type OrderBySupplier = {
+  supplier: string;
+  itemsToOrder: InventoryOrderItem[];
+}
+
 export type InventoryOrderSuggestion = {
     summary: string;
-    itemsToOrder: InventoryOrderItem[];
+    ordersBySupplier: OrderBySupplier[];
 };
 
 export type InventoryReport = {

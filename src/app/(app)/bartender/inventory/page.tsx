@@ -141,7 +141,7 @@ export default function InventoryPage() {
                 description: "Vui lòng nhập số lượng tồn kho trước khi nhận đề xuất.",
                 variant: "default"
             });
-            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê.', itemsToOrder: [] };
+            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê.', ordersBySupplier: [] };
             setSuggestions(noItemsSuggestion);
             const updatedReport = { ...report, suggestions: noItemsSuggestion };
             setReport(updatedReport);
@@ -253,15 +253,21 @@ export default function InventoryPage() {
   };
   
     const handleCopySuggestions = () => {
-        if (!suggestions || suggestions.itemsToOrder.length === 0) return;
+        if (!suggestions || suggestions.ordersBySupplier.length === 0) return;
 
-        const textToCopy = suggestions.itemsToOrder
-            .map(orderItem => {
-                const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
-                const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
-                return `${displayName} - ${orderItem.quantityToOrder}`;
+        const textToCopy = suggestions.ordersBySupplier
+            .map(orderBySupplier => {
+                const header = `✦✦✦ Katrina Coffee đặt hàng ${orderBySupplier.supplier} ✦✦✦`;
+                const items = orderBySupplier.itemsToOrder
+                    .map(orderItem => {
+                        const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
+                        const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
+                        return `⬤ ${displayName} - ${orderItem.quantityToOrder}`;
+                    })
+                    .join('\n');
+                return `${header}\n${items}`;
             })
-            .join('\n');
+            .join('\n\n'); // Add a blank line between suppliers
             
         navigator.clipboard.writeText(textToCopy).then(() => {
             toast({
@@ -297,6 +303,7 @@ export default function InventoryPage() {
   const isSubmitted = report.status === 'submitted';
   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
   const isProcessing = isSubmitting || isGenerating;
+  const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
@@ -422,7 +429,7 @@ export default function InventoryPage() {
                             <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
                         </div>
                     )}
-                    {!isProcessing && suggestions && suggestions.itemsToOrder.length > 0 && (
+                    {!isProcessing && hasSuggestions && (
                         <div className="space-y-4">
                              <div className="flex justify-between items-center">
                                 <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
@@ -431,29 +438,35 @@ export default function InventoryPage() {
                                     Sao chép
                                 </Button>
                              </div>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Mặt hàng</TableHead>
-                                        <TableHead className="text-right">Số lượng</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {suggestions.itemsToOrder.map((orderItem) => {
-                                        const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
-                                        const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
-                                        return (
-                                            <TableRow key={orderItem.itemId}>
-                                                <TableCell className="font-medium">{displayName}</TableCell>
-                                                <TableCell className="text-right font-bold">{orderItem.quantityToOrder}</TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
+                            
+                             <Accordion type="multiple" defaultValue={suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
+                                {suggestions.ordersBySupplier.map((orderBySupplier) => (
+                                    <AccordionItem value={orderBySupplier.supplier} key={orderBySupplier.supplier} className="border-b-0">
+                                        <AccordionTrigger className="text-base font-medium hover:no-underline p-2 bg-muted rounded-md">
+                                            {orderBySupplier.supplier}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="p-0 pt-2">
+                                            <Table>
+                                                <TableBody>
+                                                    {orderBySupplier.itemsToOrder.map((orderItem) => {
+                                                        const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
+                                                        const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
+                                                        return (
+                                                            <TableRow key={orderItem.itemId}>
+                                                                <TableCell className="font-normal text-sm p-2">{displayName}</TableCell>
+                                                                <TableCell className="text-right font-semibold text-sm p-2">{orderItem.quantityToOrder}</TableCell>
+                                                            </TableRow>
+                                                        );
+                                                    })}
+                                                </TableBody>
+                                            </Table>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
                         </div>
                     )}
-                    {!isProcessing && suggestions && suggestions.itemsToOrder.length === 0 && (
+                    {!isProcessing && suggestions && !hasSuggestions && (
                         <p className="text-center text-sm text-muted-foreground py-4">{suggestions.summary || 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.'}</p>
                     )}
                     {!isProcessing && !suggestions &&(
@@ -487,4 +500,5 @@ export default function InventoryPage() {
 }
 
     
+
 
