@@ -285,6 +285,7 @@ export default function HygieneReportPage() {
   
     const handleSubmitReport = async () => {
         if (!report) return;
+        const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
         toast({
@@ -298,9 +299,11 @@ export default function HygieneReportPage() {
             setReport(serverReport);
             await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
+            const endTime = Date.now();
+            const duration = ((endTime - startTime) / 1000).toFixed(2);
             toast({
                 title: "Gửi báo cáo thành công!",
-                description: "Báo cáo của bạn đã được đồng bộ lên hệ thống.",
+                description: `Báo cáo đã được đồng bộ. (Thời gian: ${duration} giây)`,
             });
         } catch (error) {
             console.error("Failed to submit report:", error);

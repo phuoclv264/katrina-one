@@ -181,6 +181,7 @@ export default function InventoryPage() {
 
   const handleSubmit = async () => {
     if (!report || !user) return;
+    const startTime = Date.now();
     setIsSubmitting(true);
      toast({
         title: "Đang gửi báo cáo tồn kho...",
@@ -191,9 +192,11 @@ export default function InventoryPage() {
         await dataStore.saveInventoryReport(finalReport);
         setReport(finalReport);
         setHasUnsubmittedChanges(false);
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(2);
         toast({
             title: "Gửi báo cáo thành công!",
-            description: "Báo cáo kiểm kê tồn kho đã được lưu lại. Đang tạo đề xuất..."
+            description: `Báo cáo đã được lưu. (Thời gian: ${duration} giây). Đang tạo đề xuất...`
         });
         
         // After submitting, automatically generate suggestions
