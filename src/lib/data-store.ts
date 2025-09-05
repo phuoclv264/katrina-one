@@ -350,7 +350,7 @@ export const dataStore = {
   /**
    * Submits a report to Firestore.
    * 1. Iterates through all tasks to find photos that need uploading.
-   * 2. Uploads photos from IndexedDB to Firebase Storage.
+   * 2. Uploads photos from IndexedDB to Firebase Storage in parallel.
    * 3. Replaces temporary photo IDs with permanent Firebase Storage URLs.
    * 4. Updates the report document on Firestore with the new data and server timestamps.
    * 5. Cleans up the uploaded photos from IndexedDB.
@@ -371,7 +371,7 @@ export const dataStore = {
       }
     }
     
-    // 2. Fetch photo blobs from IndexedDB and prepare for upload
+    // 2. Create an array of upload promises to run in parallel
     const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) {
@@ -399,7 +399,6 @@ export const dataStore = {
             .map(id => photoIdToUrlMap.get(id))
             .filter((url): url is string => !!url);
         
-        // Ensure photos array exists and merge with any existing URLs
         completion.photos = Array.from(new Set([...(completion.photos || []), ...finalUrls]));
         delete completion.photoIds; // Clean up temporary IDs
       }
@@ -426,6 +425,7 @@ export const dataStore = {
         const finalReport: ShiftReport = {
             ...report, // keep local fields like id
             ...savedData,
+            id: savedDoc.id,
             startedAt: (savedData.startedAt as Timestamp).toDate().toISOString(),
             submittedAt: (savedData.submittedAt as Timestamp).toDate().toISOString(),
             lastUpdated: (savedData.lastUpdated as Timestamp).toDate().toISOString(),
@@ -567,7 +567,7 @@ export const dataStore = {
     // Client-side sort
     reports.sort((a, b) => {
       const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-      const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+      const timeB = new Date(b.submittedAt as string).getTime() : 0;
       return timeB - timeA;
     });
     return reports;
@@ -590,9 +590,11 @@ export const dataStore = {
      // Client-side sort
     reports.sort((a, b) => {
       const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-      const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+      const timeB = new Date(b.submittedAt as string).getTime() : 0;
       return timeB - timeA;
     });
     return reports;
   }
 };
+
+    
