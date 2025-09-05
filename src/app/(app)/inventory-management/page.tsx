@@ -490,7 +490,7 @@ export default function InventoryManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
-  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [suppliers, setSuppliers] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [isSorting, setIsSorting] = useState(false);
@@ -499,29 +499,35 @@ export default function InventoryManagementPage() {
     if (!authLoading) {
       if (!user || user.role !== 'Chủ nhà hàng') {
         router.replace('/');
-      } else {
-        const unsubInventory = dataStore.subscribeToInventoryList((items) => {
-          // Defensive coding: ensure every item has a supplier property
-          const sanitizedItems = items.map(item => ({
-            ...item,
-            supplier: item.supplier ?? 'Chưa xác định',
-          }));
-          setInventoryList(sanitizedItems);
-          if (suppliers.length > 0) setIsLoading(false);
-        });
-        const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => {
-            setSuppliers(supplierList);
-            if (inventoryList) setIsLoading(false);
-        });
-
-        return () => {
-            unsubInventory();
-            unsubSuppliers();
-        };
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => {
+        setSuppliers(supplierList);
+    });
+    return () => unsubSuppliers();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubInventory = dataStore.subscribeToInventoryList((items) => {
+        const sanitizedItems = items.map(item => ({
+          ...item,
+          supplier: item.supplier ?? 'Chưa xác định',
+        }));
+        setInventoryList(sanitizedItems);
+    });
+    return () => unsubInventory();
+  }, [user]);
+
+  useEffect(() => {
+    if (inventoryList !== null && suppliers !== null) {
+      setIsLoading(false);
+    }
+  }, [inventoryList, suppliers]);
 
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -565,7 +571,7 @@ export default function InventoryManagementPage() {
   };
   
   const handleSupplierChange = (id: string, newSupplier: string) => {
-    if (!inventoryList) return;
+    if (!inventoryList || !suppliers) return;
     const newList = inventoryList.map(item =>
         item.id === id ? { ...item, supplier: newSupplier } : item
     );
@@ -619,7 +625,7 @@ export default function InventoryManagementPage() {
   };
 
   const onItemsGenerated = (items: InventoryItem[]) => {
-      if (inventoryList) {
+      if (inventoryList && suppliers) {
           const newList = [...inventoryList, ...items];
           handleUpdateAndSave(newList);
           
@@ -718,7 +724,7 @@ export default function InventoryManagementPage() {
         });
     };
 
-  if (isLoading || authLoading || !inventoryList) {
+  if (isLoading || authLoading || !inventoryList || !suppliers) {
     return (
       <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
         <header className="mb-8">
@@ -939,5 +945,7 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+    
 
     
