@@ -29,11 +29,11 @@ type SupplierComboboxProps = {
 
 export function SupplierCombobox({ suppliers, value, onChange, disabled }: SupplierComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [inputValue, setInputValue] = React.useState(value || "")
+  const [inputValue, setInputValue] = React.useState(value === 'Chưa xác định' ? '' : value || "")
 
   React.useEffect(() => {
-    setInputValue(value)
-  }, [value])
+    setInputValue(value === 'Chưa xác định' ? '' : value || "")
+  }, [value, open])
 
   const handleSelect = (currentValue: string) => {
     const newValue = currentValue === value ? "" : currentValue
