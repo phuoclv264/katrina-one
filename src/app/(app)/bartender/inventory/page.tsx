@@ -395,12 +395,16 @@ export default function InventoryPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {suggestions.itemsToOrder.map((item) => (
-                                        <TableRow key={item.itemId}>
-                                            <TableCell className="font-medium">{inventoryList.find(i => i.id === item.itemId)?.name || 'Không rõ'}</TableCell>
-                                            <TableCell className="text-right font-bold">{item.quantityToOrder}</TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {suggestions.itemsToOrder.map((orderItem) => {
+                                        const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
+                                        const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
+                                        return (
+                                            <TableRow key={orderItem.itemId}>
+                                                <TableCell className="font-medium">{displayName}</TableCell>
+                                                <TableCell className="text-right font-bold">{orderItem.quantityToOrder}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </div>
