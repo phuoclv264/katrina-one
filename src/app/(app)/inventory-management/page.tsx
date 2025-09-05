@@ -20,6 +20,7 @@ import { updateInventoryItems } from '@/ai/flows/update-inventory-items';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
+import { Label } from '@/components/ui/label';
 
 
 function AiAssistant({
@@ -673,7 +674,7 @@ export default function InventoryManagementPage() {
    const areAllCategoriesOpen = categorizedList && categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
-    <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
+    <div className="container mx-auto max-w-6xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
         <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
@@ -733,11 +734,59 @@ export default function InventoryManagementPage() {
                          )}
                     </div>
                     <AccordionContent className="p-4 border-t">
-                        <div className="overflow-x-auto">
+                        {/* Mobile view: list of cards */}
+                        <div className="md:hidden space-y-4">
+                          {items.map((item, index) => {
+                             const globalIndex = inventoryList.findIndex(i => i.id === item.id);
+                            return (
+                              <Card key={item.id}>
+                                <CardContent className="p-4 space-y-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
+                                    <Input id={`name-${item.id}`} value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`unit-${item.id}`}>Đơn vị</Label>
+                                      <Input id={`unit-${item.id}`} value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`minStock-${item.id}`}>Tồn tối thiểu</Label>
+                                      <Input id={`minStock-${item.id}`} type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`orderSuggestion-${item.id}`}>Gợi ý đặt hàng</Label>
+                                    <Input id={`orderSuggestion-${item.id}`} value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-0 border-t pt-4">
+                                    {isSorting ? (
+                                      <>
+                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}>
+                                          <ArrowUp className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}>
+                                          <ArrowDown className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )
+                          })}
+                        </div>
+                        {/* Desktop view: table */}
+                        <div className="overflow-x-auto hidden md:block">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="min-w-[300px]">Tên mặt hàng</TableHead>
+                                        <TableHead className="w-[40%]">Tên mặt hàng</TableHead>
                                         <TableHead>Đơn vị</TableHead>
                                         <TableHead>Tồn tối thiểu</TableHead>
                                         <TableHead>Gợi ý đặt hàng</TableHead>
