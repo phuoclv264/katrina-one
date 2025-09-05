@@ -2,32 +2,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Progress } from '@/components/ui/progress';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function PageTransitionIndicator() {
-  const [progress, setProgress] = useState(0);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
-    // Start the progress bar animation immediately upon component mount
-    const timer = setTimeout(() => setProgress(90), 10);
-    
-    // Finish the progress bar after a short delay
-    const finishTimer = setTimeout(() => {
-      setProgress(100);
-    }, 500); // Adjust duration as needed
+    // Only show the indicator if navigation takes more than 150ms
+    const timer = setTimeout(() => {
+      setShow(true);
+    }, 150);
 
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(finishTimer);
-    };
-  }, []); // Empty dependency array means this runs once on mount
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <div className="fixed top-0 left-0 w-full z-50 h-1">
-        <Progress 
-            value={progress} 
-            className="h-1 w-full transition-all duration-500 ease-in-out [&>div]:bg-primary"
-        />
+    <div
+      className={cn(
+        'fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-opacity duration-300',
+        show ? 'opacity-100' : 'opacity-0'
+      )}
+    >
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
 }
