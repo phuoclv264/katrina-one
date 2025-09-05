@@ -49,6 +49,7 @@ IMPORTANT RULES:
 3.  You MUST preserve the original 'id' of every item. Do not change, add, or remove 'id' fields.
 4.  Only modify the fields ('name', 'supplier', 'unit', 'minStock', 'orderSuggestion') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
 5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with "TOPPING" in their name and add 2 to their existing 'minStock'. If asked to "change the prefix 'TRÁI CÂY' to 'FRUIT'", update the 'name' field for all relevant items.
+6.  If the user asks to change the supplier for a type of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items whose name contains 'SIRO' or similar keywords and change their 'supplier' field to "ABC".
 
 User's Instruction: "{{{instruction}}}"
 
