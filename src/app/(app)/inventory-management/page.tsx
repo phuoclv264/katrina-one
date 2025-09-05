@@ -897,16 +897,16 @@ export default function InventoryManagementPage() {
                                                     disabled={isSorting}
                                                 />
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="w-[150px]">
                                                 <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="w-[120px]">
                                                 <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="w-[120px]">
                                                 <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right w-[50px]">
                                                 <div className="flex items-center justify-end gap-0">
                                                 {isSorting ? (
                                                     <>
@@ -945,11 +945,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    
-
-    
-
-
-
-
