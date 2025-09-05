@@ -111,14 +111,14 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
             <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)}>
               <Link href={item.href}>
                 <SidebarMenuButton
-                  asChild
                   isActive={pathname === item.href}
                   tooltip={item.label}
+                  asChild
                 >
-                  <>
+                  <div className="flex items-center gap-2">
                     <item.icon />
                     <span>{item.label}</span>
-                  </>
+                  </div>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
