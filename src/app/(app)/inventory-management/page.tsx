@@ -544,17 +544,41 @@ export default function InventoryManagementPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorizedList]);
 
+  const handleUpdateAndSave = useCallback((newList: InventoryItem[], showToast = true) => {
+    setInventoryList(newList);
+    dataStore.updateInventoryList(newList).then(() => {
+      if (showToast) {
+        toast({
+          title: "Đã lưu!",
+          description: "Các thay đổi của bạn đã được đồng bộ.",
+        });
+      }
+    }).catch(err => {
+      toast({
+        title: "Lỗi!",
+        description: "Không thể lưu thay đổi. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+      console.error(err);
+    });
+  }, [toast]);
+
 
   const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
     if (!inventoryList) return;
     const newList = inventoryList.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     );
-    setInventoryList(newList);
+    handleUpdateAndSave(newList, false); // Save without showing toast for every keystroke
   };
   
   const handleSupplierChange = (id: string, newSupplier: string) => {
-    handleUpdate(id, 'supplier', newSupplier);
+    if (!inventoryList) return;
+    const newList = inventoryList.map(item =>
+        item.id === id ? { ...item, supplier: newSupplier } : item
+    );
+    handleUpdateAndSave(newList); // Show toast for this significant change
+
     if (!suppliers.includes(newSupplier)) {
         const newSuppliers = [...suppliers, newSupplier].sort();
         setSuppliers(newSuppliers);
@@ -587,24 +611,6 @@ export default function InventoryManagementPage() {
     }
   };
 
-  const handleSaveChanges = (showToast: boolean = true) => {
-      if(!inventoryList) return;
-      dataStore.updateInventoryList(inventoryList).then(() => {
-          if (showToast) {
-            toast({
-                title: "Đã lưu thay đổi!",
-                description: "Danh sách hàng tồn kho đã được cập nhật.",
-            });
-          }
-      }).catch(err => {
-          toast({
-              title: "Lỗi!",
-              description: "Không thể lưu thay đổi. Vui lòng thử lại.",
-              variant: "destructive"
-          });
-          console.error(err);
-      });
-  }
 
   const handleAddItem = () => {
     if (!inventoryList) return;
@@ -617,22 +623,19 @@ export default function InventoryManagementPage() {
       orderSuggestion: '1'
     };
     const newList = [...inventoryList, newItem];
-    setInventoryList(newList);
+    handleUpdateAndSave(newList);
   };
 
   const onItemsGenerated = (items: InventoryItem[]) => {
       if (inventoryList) {
           const newList = [...inventoryList, ...items];
-          setInventoryList(newList);
+          handleUpdateAndSave(newList);
           
           const newSuppliers = new Set(suppliers);
           items.forEach(item => newSuppliers.add(item.supplier));
           const sortedNewSuppliers = Array.from(newSuppliers).sort();
           setSuppliers(sortedNewSuppliers);
           dataStore.updateSuppliers(sortedNewSuppliers);
-
-          // Automatically save after adding new items from AI
-          dataStore.updateInventoryList(newList);
       }
   }
 
@@ -643,22 +646,20 @@ export default function InventoryManagementPage() {
     const sortedList: InventoryItem[] = sortedNames.map(name => itemMap.get(name)).filter((item): item is InventoryItem => !!item);
 
     if (sortedList.length === inventoryList.length) {
-      setInventoryList(sortedList);
-      dataStore.updateInventoryList(sortedList); // Auto-save after sorting
+      handleUpdateAndSave(sortedList);
     } else {
       toast({ title: "Lỗi Sắp xếp", description: "Không thể sắp xếp danh sách. Một vài mặt hàng có thể đã bị thiếu.", variant: "destructive"});
     }
   }
 
    const onItemsUpdated = (updatedItems: InventoryItem[]) => {
-        setInventoryList(updatedItems);
-        dataStore.updateInventoryList(updatedItems); // Auto-save after updating
+        handleUpdateAndSave(updatedItems);
   };
 
   const handleDeleteItem = (id: string) => {
     if (!inventoryList) return;
     const newList = inventoryList.filter(item => item.id !== id);
-    setInventoryList(newList);
+    handleUpdateAndSave(newList);
   };
 
   const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
@@ -687,8 +688,11 @@ export default function InventoryManagementPage() {
   const toggleSortMode = () => {
     const newSortState = !isSorting;
     setIsSorting(newSortState);
-    if (!newSortState) {
-        handleSaveChanges();
+    if (!newSortState && inventoryList) {
+        dataStore.updateInventoryList(inventoryList);
+        toast({
+            title: "Đã lưu thứ tự mới!",
+        });
     }
   };
   
@@ -742,7 +746,7 @@ export default function InventoryManagementPage() {
     <div className="container mx-auto max-w-none p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
-        <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các mặt hàng trong danh sách kiểm kê kho.</p>
+        <p className="text-muted-foreground">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
       </header>
 
       <AiAssistant
@@ -756,7 +760,7 @@ export default function InventoryManagementPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <CardTitle>Danh sách kho hiện tại</CardTitle>
-                <CardDescription>Các thay đổi sẽ được lưu khi bạn nhấn nút "Lưu tất cả thay đổi".</CardDescription>
+                <CardDescription>Các thay đổi sẽ được lưu tự động.</CardDescription>
             </div>
              <div className="flex items-center gap-2 w-full sm:w-auto">
                  <DropdownMenu>
@@ -788,7 +792,6 @@ export default function InventoryManagementPage() {
                       {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
                   </Button>
                 )}
-                <Button onClick={() => handleSaveChanges()} size="sm" className="w-full sm:w-auto">Lưu tất cả thay đổi</Button>
             </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -820,7 +823,7 @@ export default function InventoryManagementPage() {
                                 <CardContent className="p-4 space-y-4">
                                   <div className="space-y-2">
                                     <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
-                                    <Input id={`name-${item.id}`} value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                    <Input id={`name-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                   </div>
                                    <div className="space-y-2">
                                     <Label htmlFor={`supplier-m-${item.id}`}>Nhà cung cấp</Label>
@@ -834,16 +837,16 @@ export default function InventoryManagementPage() {
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                       <Label htmlFor={`unit-${item.id}`}>Đơn vị</Label>
-                                      <Input id={`unit-${item.id}`} value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
+                                      <Input id={`unit-${item.id}`} defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
                                     </div>
                                     <div className="space-y-2">
                                       <Label htmlFor={`minStock-${item.id}`}>Tồn tối thiểu</Label>
-                                      <Input id={`minStock-${item.id}`} type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                      <Input id={`minStock-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                     </div>
                                   </div>
                                   <div className="space-y-2">
                                     <Label htmlFor={`orderSuggestion-${item.id}`}>Gợi ý đặt hàng</Label>
-                                    <Input id={`orderSuggestion-${item.id}`} value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                    <Input id={`orderSuggestion-${item.id}`} defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
                                   </div>
 
                                   <div className="flex items-center justify-end gap-0 border-t pt-4">
@@ -886,7 +889,7 @@ export default function InventoryManagementPage() {
                                         return (
                                         <TableRow key={item.id}>
                                             <TableCell>
-                                                <Input value={item.name} onChange={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                                <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
                                                 <SupplierCombobox
@@ -897,13 +900,13 @@ export default function InventoryManagementPage() {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Input value={item.unit} onChange={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
+                                                <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
                                             </TableCell>
                                             <TableCell>
-                                                <Input type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                                <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                             </TableCell>
                                             <TableCell>
-                                                <Input value={item.orderSuggestion} onChange={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                                <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-0">
@@ -944,4 +947,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
