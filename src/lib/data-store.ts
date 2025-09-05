@@ -15,9 +15,10 @@ import {
   Timestamp,
   where,
   getDocs,
+  addDoc,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -48,6 +49,38 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+
+  async logErrorToServer(error: AppError) {
+    try {
+      const errorCollection = collection(db, 'errors');
+      await addDoc(errorCollection, {
+        ...error,
+        timestamp: serverTimestamp(),
+      });
+    } catch (loggingError) {
+      console.error("FATAL: Could not log error to server.", loggingError);
+    }
+  },
+
+  subscribeToErrorLog(callback: (errors: AppError[]) => void): () => void {
+    const errorsCollection = collection(db, 'errors');
+    const q = query(errorsCollection, orderBy('timestamp', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const errors: AppError[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        errors.push({
+          id: doc.id,
+          ...data,
+          timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as AppError);
+      });
+      callback(errors);
+    });
+
+    return unsubscribe;
+  },
 
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
     const docRef = doc(db, 'app-data', 'tasks');
@@ -602,5 +635,3 @@ export const dataStore = {
     return reports;
   }
 };
-
-    

@@ -125,3 +125,14 @@ export type InventoryReport = {
     lastUpdated: string | Timestamp;
     submittedAt?: string | Timestamp;
 };
+
+// --- Error Logging Types ---
+export type AppError = {
+  id?: string;
+  message: string;
+  source: string; // e.g., component name or function name
+  stack?: string;
+  userId?: string;
+  userEmail?: string;
+  timestamp?: string | Timestamp;
+};

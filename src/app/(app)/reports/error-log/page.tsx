@@ -1,55 +1,48 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ShieldAlert, ArrowLeft, Bug } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Placeholder data - in a real app, this would come from a logging service
-const placeholderErrors = [
-  {
-    id: '1',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    message: 'Firestore (11.9.0): Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied]: Missing or insufficient permissions.',
-    source: '/reports/by-shift',
-    user: 'manager@example.com'
-  },
-  {
-    id: '2',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    message: 'Failed to upload image to Firebase Storage. User may be offline.',
-    source: '/checklist/sang',
-    user: 'phuoc@example.com'
-  },
-  {
-    id: '3',
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    message: 'AI suggestion flow timed out after 30 seconds.',
-    source: '/bartender/inventory',
-    user: 'thaochef@example.com'
-  },
-];
+import { dataStore } from '@/lib/data-store';
+import type { AppError } from '@/lib/types';
 
 
-export default function ErrorLogPage() {
+function ErrorLogView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [errors, setErrors] = useState<AppError[]>([]);
 
   useEffect(() => {
     if (!authLoading) {
       if (!user || user.role !== 'Chủ nhà hàng') {
         router.replace('/');
       } else {
-        setIsLoading(false);
+        const unsubscribe = dataStore.subscribeToErrorLog((errorLog) => {
+          setErrors(errorLog);
+          setIsLoading(false);
+        });
+        return () => unsubscribe();
       }
     }
   }, [user, authLoading, router]);
+
+  const handleErrorLogging = (error: Error, info: { componentStack: string }) => {
+    const newError: AppError = {
+        message: error.message,
+        source: 'React Error Boundary',
+        stack: info.componentStack,
+        userId: user?.uid,
+        userEmail: user?.email || undefined
+    };
+    dataStore.logErrorToServer(newError);
+  }
 
 
   if (isLoading || authLoading) {
@@ -99,7 +92,7 @@ export default function ErrorLogPage() {
         <CardHeader>
           <CardTitle>Lỗi gần đây</CardTitle>
           <CardDescription>
-            Đây là danh sách các lỗi được ghi nhận tự động. Chức năng đang trong giai đoạn thử nghiệm.
+            Danh sách các lỗi được ghi nhận tự động từ tất cả người dùng.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,10 +106,10 @@ export default function ErrorLogPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {placeholderErrors.map((error) => (
+                {errors.map((error) => (
                     <TableRow key={error.id}>
                         <TableCell className="text-sm text-muted-foreground">
-                            {new Date(error.timestamp).toLocaleString('vi-VN')}
+                            {new Date(error.timestamp as string).toLocaleString('vi-VN')}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-destructive">
                            <div className="flex items-start gap-2">
@@ -125,12 +118,12 @@ export default function ErrorLogPage() {
                            </div>
                         </TableCell>
                         <TableCell className="font-mono text-xs">{error.source}</TableCell>
-                        <TableCell className="text-sm">{error.user}</TableCell>
+                        <TableCell className="text-sm">{error.userEmail || error.userId || 'N/A'}</TableCell>
                     </TableRow>
                 ))}
                 </TableBody>
             </Table>
-             {placeholderErrors.length === 0 && (
+             {errors.length === 0 && (
                 <div className="text-center py-16 text-muted-foreground">
                     <p>Chúc mừng! Không có lỗi nào được ghi nhận.</p>
                 </div>
@@ -141,4 +134,10 @@ export default function ErrorLogPage() {
   );
 }
 
-    
+export default function ErrorLogPage() {
+    return (
+        <Suspense fallback={<Skeleton className="h-screen w-full"/>}>
+            <ErrorLogView />
+        </Suspense>
+    )
+}
