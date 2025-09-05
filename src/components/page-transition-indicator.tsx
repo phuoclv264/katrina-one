@@ -27,4 +27,5 @@ export default function PageTransitionIndicator() {
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
+  
 }

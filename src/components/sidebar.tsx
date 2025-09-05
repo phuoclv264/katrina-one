@@ -21,8 +21,10 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
 
-  const handleNavigation = () => {
-    onNavigate();
+  const handleNavigation = (href: string) => {
+    if (pathname !== href) {
+        onNavigate();
+    }
     setOpenMobile(false);
   }
 
@@ -106,17 +108,17 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarContent className="flex-1">
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={handleNavigation}>
-              <Link href={item.href}>
+            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)}>
+              <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.href}
                   tooltip={item.label}
                 >
-                  <span>
+                  <a>
                     <item.icon />
                     <span>{item.label}</span>
-                  </span>
+                  </a>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
