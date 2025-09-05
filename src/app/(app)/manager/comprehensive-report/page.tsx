@@ -39,6 +39,7 @@ export default function ComprehensiveReportPage() {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
@@ -119,6 +120,9 @@ export default function ComprehensiveReportPage() {
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
               }
+               if(status === 'local-newer') {
+                setHasUnsubmittedChanges(true);
+              }
             }
         } catch (error) {
             console.error("Error loading comprehensive report:", error);
@@ -178,9 +182,11 @@ export default function ComprehensiveReportPage() {
       if (dataStore.isReportEmpty(updatedReport)) {
         await dataStore.deleteLocalReport(updatedReport.id);
         setSyncStatus('synced');
+        setHasUnsubmittedChanges(false);
       } else {
         await dataStore.saveLocalReport(updatedReport);
         setSyncStatus('local-newer');
+        setHasUnsubmittedChanges(true);
       }
   }, [fetchLocalPhotos]);
 
@@ -332,6 +338,7 @@ export default function ComprehensiveReportPage() {
             setReport(serverReport);
             await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
+            setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
             toast({
@@ -363,6 +370,7 @@ export default function ComprehensiveReportPage() {
         setReport(serverReport);
         await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
+        setHasUnsubmittedChanges(false);
          toast({
             title: "Tải thành công!",
             description: "Báo cáo đã được cập nhật với phiên bản mới nhất từ máy chủ.",
@@ -696,6 +704,12 @@ export default function ComprehensiveReportPage() {
         >
             {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
+        {hasUnsubmittedChanges && (
+            <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+            </div>
+        )}
       </div>
     </div>
 

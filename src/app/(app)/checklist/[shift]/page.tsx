@@ -39,6 +39,7 @@ export default function ChecklistPage() {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
@@ -145,6 +146,9 @@ export default function ChecklistPage() {
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
               }
+               if(status === 'local-newer') {
+                setHasUnsubmittedChanges(true);
+            }
             }
         } catch (error) {
             console.error("Error loading report:", error);
@@ -172,12 +176,14 @@ export default function ChecklistPage() {
       if (!report) return;
       if (dataStore.isReportEmpty(report)) {
         await dataStore.deleteLocalReport(report.id);
-        setSyncStatus('synced'); // or 'synced' if it's considered empty and synced
+        setSyncStatus('synced');
+        setHasUnsubmittedChanges(false);
       } else {
         await dataStore.saveLocalReport(report);
         // Only update status if it's not already indicating a server change
         if (syncStatus !== 'server-newer') {
           setSyncStatus('local-newer');
+          setHasUnsubmittedChanges(true);
         }
       }
     };
@@ -341,6 +347,7 @@ export default function ChecklistPage() {
             setReport(serverReport);
             await fetchLocalPhotos(serverReport); 
             setSyncStatus('synced');
+            setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
             toast({
@@ -372,6 +379,7 @@ export default function ChecklistPage() {
         setReport(serverReport);
         await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
+        setHasUnsubmittedChanges(false);
          toast({
             title: "Tải thành công!",
             description: "Báo cáo đã được cập nhật với phiên bản mới nhất từ máy chủ.",
@@ -684,6 +692,12 @@ export default function ChecklistPage() {
         >
             {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
+        {hasUnsubmittedChanges && (
+            <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+            </div>
+        )}
       </div>
     </div>
 

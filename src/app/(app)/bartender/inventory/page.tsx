@@ -88,6 +88,15 @@ export default function InventoryPage() {
       const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
       setReport(todayReport);
       
+      // Check for unsubmitted changes
+      const localReportString = localStorage.getItem(todayReport.id);
+      if (localReportString) {
+          const localReport = JSON.parse(localReportString);
+          if (localReport && Object.keys(localReport.stockLevels).length > 0) {
+              setHasUnsubmittedChanges(true);
+          }
+      }
+      
       if (todayReport.suggestions) {
         setSuggestions(todayReport.suggestions);
       }
@@ -490,6 +499,12 @@ export default function InventoryPage() {
               {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               <span className="ml-2">{ isProcessing ? 'Đang xử lý...' : 'Gửi & Nhận đề xuất'}</span>
           </Button>
+            {hasUnsubmittedChanges && (
+                <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                </div>
+            )}
         </div>
       </div>
     </div>
