@@ -63,7 +63,18 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       }
   }
 
+  const getHomeLink = () => {
+    switch(user?.role) {
+        case 'Phục vụ': return '/shifts';
+        case 'Pha chế': return '/bartender';
+        case 'Quản lý': return '/manager';
+        case 'Chủ nhà hàng': return '/reports';
+        default: return '/';
+    }
+  }
+
   const menuItems = getMenuItems();
+  const homeLink = getHomeLink();
   const displayName = user?.displayName ?? 'Đang tải...';
   const displayRole = user?.role ?? '';
   
@@ -82,13 +93,10 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     <>
       <SidebarHeader className="flex flex-col gap-2 p-2">
          <div className="p-2 flex items-center gap-2">
-            <SidebarMenuButton variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-primary" asChild>
-                <Link href="/">
-                    <ListTodo/>
-                </Link>
-            </SidebarMenuButton>
             <div className="group-data-[collapsible=icon]:hidden">
-                <h1 className="text-xl font-bold text-primary font-headline">Katrina One</h1>
+                <Link href={homeLink} onClick={() => handleNavigation(homeLink)}>
+                  <h1 className="text-xl font-bold text-primary font-headline">Katrina One</h1>
+                </Link>
             </div>
          </div>
         <div className="flex items-center gap-3 p-2 rounded-md bg-muted">
