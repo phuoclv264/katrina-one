@@ -9,6 +9,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarSeparator,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -18,7 +19,7 @@ import { usePathname } from 'next/navigation';
 
 export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout, loading } = useAuth();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
 
   const handleNavigation = (href: string) => {
@@ -77,25 +78,31 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     }
   }
 
-
   return (
     <>
       <SidebarHeader className="flex flex-col gap-2 p-2">
-         <div className="p-2">
-            <h1 className="text-2xl font-bold text-primary font-headline">Katrina One</h1>
+         <div className="p-2 flex items-center gap-2">
+            <SidebarMenuButton variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-primary" asChild>
+                <Link href="/">
+                    <ListTodo/>
+                </Link>
+            </SidebarMenuButton>
+            <div className="group-data-[collapsible=icon]:hidden">
+                <h1 className="text-xl font-bold text-primary font-headline">Katrina One</h1>
+            </div>
          </div>
         <div className="flex items-center gap-3 p-2 rounded-md bg-muted">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 {getRoleIcon()}
             </div>
-            <div className="flex flex-col overflow-hidden">
+            <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
                 <span className="font-semibold truncate">{displayName}</span>
                 <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
             </div>
             <SidebarMenuButton
               variant="ghost"
               size="icon"
-              className="ml-auto h-8 w-8 shrink-0"
+              className="ml-auto h-8 w-8 shrink-0 group-data-[collapsible=icon]:hidden"
               onClick={logout}
               tooltip="Đăng xuất"
               disabled={loading}
@@ -117,7 +124,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
                 >
                   <div className="flex items-center gap-2">
                     <item.icon />
-                    <span>{item.label}</span>
+                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </div>
                 </SidebarMenuButton>
               </Link>
@@ -125,6 +132,18 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
+      <SidebarSeparator />
+      <SidebarFooter>
+         <SidebarMenu>
+            <SidebarMenuItem>
+                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} asChild>
+                    <div className="w-full flex items-center justify-end">
+                        <LogOut className="rotate-180 group-data-[collapsible=icon]:hidden"/>
+                    </div>
+                </SidebarTrigger>
+            </SidebarMenuItem>
+         </SidebarMenu>
+      </SidebarFooter>
     </>
   );
 }
