@@ -266,7 +266,7 @@ Sidebar.displayName = "Sidebar"
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button> & {
-    tooltip?: React.ComponentProps<typeof TooltipContent>;
+    tooltip?: string;
   }
 >(({ className, onClick, tooltip, ...props }, ref) => {
   const { toggleSidebar, state, isMobile } = useSidebar();
@@ -300,8 +300,9 @@ const SidebarTrigger = React.forwardRef<
         side="right"
         align="center"
         hidden={state !== "collapsed" || isMobile}
-        {...tooltip}
-      />
+      >
+        {tooltip}
+      </TooltipContent>
     </Tooltip>
   );
 });
