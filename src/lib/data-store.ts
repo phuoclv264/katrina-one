@@ -185,16 +185,22 @@ export const dataStore = {
 
   async saveInventoryReport(report: InventoryReport): Promise<void> {
     if (typeof window === 'undefined') return;
-    
-    // Save to local storage first
+
     await this.saveLocalInventoryReport(report);
     
-    // Then save to Firestore
     const reportToSubmit: Omit<InventoryReport, 'id'> & {lastUpdated: any, submittedAt?: any} = {
         ...report,
         lastUpdated: serverTimestamp(),
-        submittedAt: report.submittedAt ? Timestamp.fromDate(new Date(report.submittedAt)) : undefined,
     };
+
+    // Only set submittedAt if the report is actually being submitted.
+    if (report.status === 'submitted') {
+        reportToSubmit.submittedAt = serverTimestamp();
+    } else {
+        // Ensure we don't send `undefined` from a previous submission
+        delete reportToSubmit.submittedAt;
+    }
+    
     delete (reportToSubmit as any).id;
 
     const firestoreRef = doc(db, 'inventory-reports', report.id);
@@ -567,7 +573,7 @@ export const dataStore = {
     // Client-side sort
     reports.sort((a, b) => {
       const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-      const timeB = new Date(b.submittedAt as string).getTime() : 0;
+      const timeB = new Date(b.submittedAt as string).getTime();
       return timeB - timeA;
     });
     return reports;
@@ -590,7 +596,7 @@ export const dataStore = {
      // Client-side sort
     reports.sort((a, b) => {
       const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-      const timeB = new Date(b.submittedAt as string).getTime() : 0;
+      const timeB = new Date(b.submittedAt as string).getTime();
       return timeB - timeA;
     });
     return reports;
