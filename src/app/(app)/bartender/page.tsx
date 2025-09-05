@@ -41,7 +41,7 @@ export default function BartenderDashboardPage() {
               Báo cáo Vệ sinh quầy
             </Link>
           </Button>
-          <Button asChild size="lg" variant="secondary">
+          <Button asChild size="lg">
             <Link href="/bartender/inventory">
               <Archive className="mr-2" />
               Kiểm kê Tồn kho
