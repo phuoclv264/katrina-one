@@ -169,30 +169,19 @@ export default function ChecklistPage() {
     return () => { isMounted = false; }
   }, [isAuthLoading, user, shiftKey, toast, fetchLocalPhotos, router]);
   
-  // This effect will run whenever the report state changes, saving it to local storage.
-  // This decouples state updates from saving.
-  useEffect(() => {
-    const updateLocalReport = async () => {
-      if (!report) return;
-      if (dataStore.isReportEmpty(report)) {
-        await dataStore.deleteLocalReport(report.id);
+  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
+      setReport(updatedReport);
+      await fetchLocalPhotos(updatedReport); // Refresh photo URLs after every local update
+      if (dataStore.isReportEmpty(updatedReport)) {
+        await dataStore.deleteLocalReport(updatedReport.id);
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
       } else {
-        await dataStore.saveLocalReport(report);
-        // Only update status if it's not already indicating a server change
-        if (syncStatus !== 'server-newer') {
-          setSyncStatus('local-newer');
-          setHasUnsubmittedChanges(true);
-        }
+        await dataStore.saveLocalReport(updatedReport);
+        setSyncStatus('local-newer');
+        setHasUnsubmittedChanges(true);
       }
-    };
-    // We only want to save if the report is loaded and not during initial loading.
-    if (!isLoading && report) {
-      updateLocalReport();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report, isLoading]);
+  }, [fetchLocalPhotos]);
 
   const allPagePhotos = useMemo(() => {
     if (!shift || !report) return [];
@@ -233,26 +222,22 @@ export default function ChecklistPage() {
   };
   
   const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-    if (!activeTaskId) return;
+    if (!activeTaskId || !report) return;
 
-    setReport(currentReport => {
-      if(!currentReport) return null;
-      const newReport = JSON.parse(JSON.stringify(currentReport));
-      let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-      
-      const now = new Date();
-      const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      taskCompletions.unshift({
-          timestamp: formattedTime,
-          photoIds: photoIds,
-          photos: [],
-      });
-      
-      newReport.completedTasks[activeTaskId] = taskCompletions;
-      fetchLocalPhotos(newReport);
-      return newReport;
+    const newReport = JSON.parse(JSON.stringify(report));
+    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+    
+    const now = new Date();
+    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    taskCompletions.unshift({
+        timestamp: formattedTime,
+        photoIds: photoIds,
+        photos: [],
     });
-
+    
+    newReport.completedTasks[activeTaskId] = taskCompletions;
+    await updateLocalReport(newReport);
+    
     const section = shift?.sections.find(s => s.tasks.some(t => t.id === activeTaskId));
     if (section) {
         collapseCompletedSection(section);
@@ -260,75 +245,63 @@ export default function ChecklistPage() {
 
     setIsCameraOpen(false);
     setActiveTaskId(null);
-  }, [activeTaskId, shift, collapseCompletedSection, fetchLocalPhotos]);
+  }, [activeTaskId, report, updateLocalReport, shift, collapseCompletedSection]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
+      if (!report) return;
+      
+      const newReport = JSON.parse(JSON.stringify(report));
+      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
+      const completionToUpdate = taskCompletions[completionIndex];
+
+      if (!completionToUpdate) return;
+
       if (isLocal) {
-        await photoStore.deletePhoto(photoId);
+          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+          await photoStore.deletePhoto(photoId);
       } else {
-        await dataStore.deletePhotoFromStorage(photoId);
+          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
+          await dataStore.deletePhotoFromStorage(photoId);
       }
 
-      // Update UI state
-      setReport(currentReport => {
-        if (!currentReport) return null;
-        const newReport = JSON.parse(JSON.stringify(currentReport));
-        const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-        const completionToUpdate = taskCompletions[completionIndex];
-        if (!completionToUpdate) return newReport;
-        
-        if (isLocal) {
-          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
-          setLocalPhotoUrls(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(photoId);
-            return newMap;
-          });
-        } else {
-          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
-        }
-
-        if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
+      if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
           taskCompletions.splice(completionIndex, 1);
-        }
-        
-        if (taskCompletions.length === 0) {
+      }
+      
+      if (taskCompletions.length === 0) {
           delete newReport.completedTasks[taskId];
-        } else {
+      } else {
           newReport.completedTasks[taskId] = taskCompletions;
-        }
-
-        return newReport;
-      });
+      }
+      
+      await updateLocalReport(newReport);
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
-      const completionToDelete = report?.completedTasks[taskId]?.[completionIndex];
-      if (!completionToDelete) return;
+      if (!report) return;
       
-      if (completionToDelete.photoIds) {
+      const newReport = JSON.parse(JSON.stringify(report));
+      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
+      
+      const completionToDelete = taskCompletions[completionIndex];
+      if (!completionToDelete) return;
+
+      if(completionToDelete.photoIds) {
         await photoStore.deletePhotos(completionToDelete.photoIds);
       }
       if (completionToDelete.photos) {
         await Promise.all(completionToDelete.photos.map(url => dataStore.deletePhotoFromStorage(url)));
       }
       
-      setReport(currentReport => {
-        if (!currentReport) return null;
-        const newReport = JSON.parse(JSON.stringify(currentReport));
-        const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-        if (!taskCompletions) return newReport;
-
-        taskCompletions.splice(completionIndex, 1);
-        
-        if (taskCompletions.length > 0) {
-            newReport.completedTasks[taskId] = taskCompletions;
-        } else {
-            delete newReport.completedTasks[taskId];
-        }
-        
-        return newReport;
-      });
+      taskCompletions.splice(completionIndex, 1);
+      
+      if (taskCompletions.length > 0) {
+          newReport.completedTasks[taskId] = taskCompletions;
+      } else {
+          delete newReport.completedTasks[taskId];
+      }
+      
+      await updateLocalReport(newReport);
   }
   
     const handleSubmitReport = async () => {
@@ -421,15 +394,12 @@ export default function ChecklistPage() {
   }
     
   const handleSaveNotes = useCallback((newIssues: string) => {
-    setReport(currentReport => {
-      if(!currentReport) return null;
-      if (newIssues !== (currentReport.issues || '')) {
-        const newReport = { ...currentReport, issues: newIssues || null };
-        return newReport;
-      }
-      return currentReport;
-    });
-  }, []);
+    if(!report) return;
+    if (newIssues !== (report.issues || '')) {
+      const newReport = { ...report, issues: newIssues || null };
+      updateLocalReport(newReport);
+    }
+  }, [report, updateLocalReport]);
 
   const toggleExpandTask = useCallback((taskId: string) => {
     setExpandedTaskIds(prev => {
