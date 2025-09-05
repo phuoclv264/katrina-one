@@ -873,12 +873,12 @@ export default function InventoryManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="min-w-[250px]">Tên mặt hàng</TableHead>
-                                        <TableHead>Nhà cung cấp</TableHead>
-                                        <TableHead className="w-[80px]">Đơn vị</TableHead>
-                                        <TableHead className="w-[50px]">Tồn tối thiểu</TableHead>
-                                        <TableHead className="w-[50px]">Gợi ý đặt hàng</TableHead>
-                                        <TableHead className="text-right w-[50px]">Hành động</TableHead>
+                                        <TableHead className="min-w-[250px] whitespace-nowrap">Tên mặt hàng</TableHead>
+                                        <TableHead className="whitespace-nowrap">Nhà cung cấp</TableHead>
+                                        <TableHead className="w-[100px] whitespace-nowrap">Đơn vị</TableHead>
+                                        <TableHead className="w-[120px] whitespace-nowrap">Tồn tối thiểu</TableHead>
+                                        <TableHead className="w-[120px] whitespace-nowrap">Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-right w-[50px] whitespace-nowrap">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -949,3 +949,4 @@ export default function InventoryManagementPage() {
     
 
     
+
