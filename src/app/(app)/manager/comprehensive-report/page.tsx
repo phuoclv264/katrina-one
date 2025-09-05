@@ -58,6 +58,7 @@ export default function ComprehensiveReportPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Initialize accordion to be all open by default
   useEffect(() => {
     if (tasks) {
       setOpenAccordionItems(tasks.map(section => section.title));

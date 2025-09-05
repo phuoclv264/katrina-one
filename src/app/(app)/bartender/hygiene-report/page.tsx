@@ -56,35 +56,12 @@ export default function HygieneReportPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Initialize accordion state
+  // Initialize accordion state to be all open by default
   useEffect(() => {
-    if (tasks && report) {
-      const defaultOpenItems = tasks
-        .filter(section => {
-          const allTasksCompleted = section.tasks.every(task => {
-            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-            return completions.length > 0;
-          });
-          return !allTasksCompleted;
-        })
-        .map(section => section.title);
-        
-      setOpenAccordionItems(defaultOpenItems);
+    if (tasks) {
+      setOpenAccordionItems(tasks.map(section => section.title));
     }
-  }, [tasks, report]);
-
-  const collapseCompletedSection = useCallback((section: TaskSection) => {
-    if (!report) return;
-
-    const allTasksCompleted = section.tasks.every(task => {
-        const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-        return completions.length > 0;
-    });
-
-    if (allTasksCompleted) {
-        setOpenAccordionItems(prev => prev.filter(item => item !== section.title));
-    }
-  }, [report]);
+  }, [tasks]);
 
     const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
         if (!currentReport) return;
@@ -197,7 +174,6 @@ export default function HygieneReportPage() {
   const handleTaskAction = (taskId: string, section: TaskSection) => {
     setActiveTaskId(taskId);
     setIsCameraOpen(true);
-    collapseCompletedSection(section);
   };
   
   const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
@@ -217,14 +193,9 @@ export default function HygieneReportPage() {
     newReport.completedTasks[activeTaskId] = taskCompletions;
     await updateLocalReport(newReport);
     
-    const section = tasks?.find(s => s.tasks.some(t => t.id === activeTaskId));
-    if (section) {
-        collapseCompletedSection(section);
-    }
-
     setIsCameraOpen(false);
     setActiveTaskId(null);
-  }, [activeTaskId, report, updateLocalReport, tasks, collapseCompletedSection]);
+  }, [activeTaskId, report, updateLocalReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
