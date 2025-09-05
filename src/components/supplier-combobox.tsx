@@ -49,6 +49,10 @@ export function SupplierCombobox({ suppliers, value, onChange, disabled }: Suppl
     setOpen(false)
   }
 
+  const displayValue = value && value !== 'Chưa xác định'
+    ? suppliers.find((supplier) => supplier.toLowerCase() === value.toLowerCase())
+    : "Chọn NCC";
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -59,9 +63,7 @@ export function SupplierCombobox({ suppliers, value, onChange, disabled }: Suppl
           className="w-full justify-between"
           disabled={disabled}
         >
-          {value
-            ? suppliers.find((supplier) => supplier.toLowerCase() === value.toLowerCase())
-            : "Chọn NCC"}
+          <span className="truncate flex-1 text-left font-normal">{displayValue}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
