@@ -501,7 +501,12 @@ export default function InventoryManagementPage() {
         router.replace('/');
       } else {
         const unsubInventory = dataStore.subscribeToInventoryList((items) => {
-          setInventoryList(items);
+          // Defensive coding: ensure every item has a supplier property
+          const sanitizedItems = items.map(item => ({
+            ...item,
+            supplier: item.supplier ?? 'Chưa xác định',
+          }));
+          setInventoryList(sanitizedItems);
           if (suppliers.length > 0) setIsLoading(false);
         });
         const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => {
@@ -515,7 +520,8 @@ export default function InventoryManagementPage() {
         };
       }
     }
-  }, [user, authLoading, router, inventoryList, suppliers.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading, router]);
 
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -544,24 +550,10 @@ export default function InventoryManagementPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorizedList]);
 
-  const handleUpdateAndSave = useCallback((newList: InventoryItem[], showToast = true) => {
+  const handleUpdateAndSave = useCallback((newList: InventoryItem[]) => {
     setInventoryList(newList);
-    dataStore.updateInventoryList(newList).then(() => {
-      if (showToast) {
-        toast({
-          title: "Đã lưu!",
-          description: "Các thay đổi của bạn đã được đồng bộ.",
-        });
-      }
-    }).catch(err => {
-      toast({
-        title: "Lỗi!",
-        description: "Không thể lưu thay đổi. Vui lòng thử lại.",
-        variant: "destructive",
-      });
-      console.error(err);
-    });
-  }, [toast]);
+    dataStore.updateInventoryList(newList);
+  }, []);
 
 
   const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
@@ -569,7 +561,7 @@ export default function InventoryManagementPage() {
     const newList = inventoryList.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     );
-    handleUpdateAndSave(newList, false); // Save without showing toast for every keystroke
+    handleUpdateAndSave(newList);
   };
   
   const handleSupplierChange = (id: string, newSupplier: string) => {
@@ -577,7 +569,7 @@ export default function InventoryManagementPage() {
     const newList = inventoryList.map(item =>
         item.id === id ? { ...item, supplier: newSupplier } : item
     );
-    handleUpdateAndSave(newList); // Show toast for this significant change
+    handleUpdateAndSave(newList);
 
     if (!suppliers.includes(newSupplier)) {
         const newSuppliers = [...suppliers, newSupplier].sort();
@@ -947,3 +939,5 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+    
