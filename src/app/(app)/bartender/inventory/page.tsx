@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -141,8 +141,11 @@ export default function InventoryPage() {
                 description: "Vui lòng nhập số lượng tồn kho trước khi nhận đề xuất.",
                 variant: "default"
             });
-            setSuggestions({ summary: 'Chưa có mặt hàng nào được kiểm kê.', itemsToOrder: [] });
-            setIsGenerating(false);
+            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê.', itemsToOrder: [] };
+            setSuggestions(noItemsSuggestion);
+            const updatedReport = { ...report, suggestions: noItemsSuggestion };
+            setReport(updatedReport);
+            await dataStore.saveLocalInventoryReport(updatedReport);
             return;
         }
         
@@ -152,9 +155,10 @@ export default function InventoryPage() {
         
         setSuggestions(result);
         
-        const updatedReport = { ...report, suggestions: result, lastUpdated: new Date().toISOString() };
-        await dataStore.saveInventoryReport(updatedReport);
+        const updatedReport = { ...report, suggestions: result };
         setReport(updatedReport);
+        await dataStore.saveLocalInventoryReport(updatedReport);
+
 
         toast({
             title: "Đã có đề xuất đặt hàng!",
@@ -183,24 +187,31 @@ export default function InventoryPage() {
     if (!report || !user) return;
     const startTime = Date.now();
     setIsSubmitting(true);
-     toast({
+    toast({
         title: "Đang gửi báo cáo tồn kho...",
+        description: "Vui lòng đợi trong giây lát."
     });
 
     try {
-        const finalReport = { ...report, status: 'submitted' as const, submittedAt: new Date().toISOString() };
-        await dataStore.saveInventoryReport(finalReport);
-        setReport(finalReport);
-        setHasUnsubmittedChanges(false);
+        // Run suggestion generation first
+        await handleGenerateSuggestions();
+        
+        // Now save the full report with suggestions to Firestore
+        // Use the latest report state which includes suggestions
+        setReport(currentReport => {
+            if (!currentReport) return null;
+            const finalReport = { ...currentReport, status: 'submitted' as const, submittedAt: new Date().toISOString() };
+            dataStore.saveInventoryReport(finalReport);
+            setHasUnsubmittedChanges(false);
+            return finalReport;
+        });
+
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
         toast({
-            title: "Gửi báo cáo thành công!",
-            description: `Báo cáo đã được lưu. (Thời gian: ${duration} giây). Đang tạo đề xuất...`
+            title: "Gửi và đề xuất thành công!",
+            description: `Quá trình hoàn tất trong ${duration} giây.`
         });
-        
-        // After submitting, automatically generate suggestions
-        await handleGenerateSuggestions();
         
     } catch (error) {
          console.error("Error submitting inventory report:", error);
@@ -240,6 +251,32 @@ export default function InventoryPage() {
       setOpenCategories(categorizedList.map(c => c.category));
     }
   };
+  
+    const handleCopySuggestions = () => {
+        if (!suggestions || suggestions.itemsToOrder.length === 0) return;
+
+        const textToCopy = suggestions.itemsToOrder
+            .map(orderItem => {
+                const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
+                const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
+                return `${displayName} - ${orderItem.quantityToOrder}`;
+            })
+            .join('\n');
+            
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: "Thành công",
+                description: "Đã sao chép danh sách đặt hàng vào bộ nhớ tạm."
+            });
+        }, (err) => {
+            console.error('Could not copy text: ', err);
+            toast({
+                title: "Lỗi",
+                description: "Không thể sao chép danh sách.",
+                variant: "destructive"
+            });
+        });
+    };
 
   if (isLoading || authLoading || !report) {
     return (
@@ -259,6 +296,7 @@ export default function InventoryPage() {
 
   const isSubmitted = report.status === 'submitted';
   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
+  const isProcessing = isSubmitting || isGenerating;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
@@ -325,7 +363,7 @@ export default function InventoryPage() {
                                                         onChange={e => handleStockChange(item.id, e.target.value)}
                                                         className="text-left"
                                                         placeholder="Nhập tồn thực tế..."
-                                                        disabled={isSubmitting || isGenerating}
+                                                        disabled={isProcessing}
                                                     />
                                                 </div>
                                             )
@@ -356,7 +394,7 @@ export default function InventoryPage() {
                                                                     onChange={e => handleStockChange(item.id, e.target.value)}
                                                                     className="text-right"
                                                                     placeholder="Nhập..."
-                                                                    disabled={isSubmitting || isGenerating}
+                                                                    disabled={isProcessing}
                                                                 />
                                                             </TableCell>
                                                         </TableRow>
@@ -378,15 +416,21 @@ export default function InventoryPage() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {(isSubmitting || isGenerating) && (
+                    {isProcessing && !suggestions && (
                         <div className="space-y-2 p-4 text-center">
                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground"/>
                             <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
                         </div>
                     )}
-                    {!(isSubmitting || isGenerating) && suggestions && suggestions.itemsToOrder.length > 0 && (
+                    {!isProcessing && suggestions && suggestions.itemsToOrder.length > 0 && (
                         <div className="space-y-4">
-                            <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
+                             <div className="flex justify-between items-center">
+                                <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
+                                <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
+                                    <Copy className="mr-2 h-4 w-4"/>
+                                    Sao chép
+                                </Button>
+                             </div>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -409,10 +453,10 @@ export default function InventoryPage() {
                             </Table>
                         </div>
                     )}
-                    {!(isSubmitting || isGenerating) && suggestions && suggestions.itemsToOrder.length === 0 && (
+                    {!isProcessing && suggestions && suggestions.itemsToOrder.length === 0 && (
                         <p className="text-center text-sm text-muted-foreground py-4">{suggestions.summary || 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.'}</p>
                     )}
-                    {!(isSubmitting || isGenerating) && !suggestions &&(
+                    {!isProcessing && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
                             <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất từ AI.</p>
                         </div>
@@ -427,11 +471,11 @@ export default function InventoryPage() {
               size="lg"
               className="rounded-full shadow-lg h-16 w-auto px-6" 
               onClick={handleSubmit} 
-              disabled={isSubmitting || isGenerating}
+              disabled={isProcessing}
               aria-label="Gửi báo cáo và nhận đề xuất"
           >
-              {(isSubmitting || isGenerating) ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-              <span className="ml-2">{ (isSubmitting || isGenerating) ? 'Đang xử lý...' : 'Gửi & Nhận đề xuất'}</span>
+              {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              <span className="ml-2">{ isProcessing ? 'Đang xử lý...' : 'Gửi & Nhận đề xuất'}</span>
           </Button>
           {hasUnsubmittedChanges && (
             <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-background" />
@@ -443,3 +487,4 @@ export default function InventoryPage() {
 }
 
     
+
