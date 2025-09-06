@@ -11,6 +11,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { InventoryStockRecord } from '@/lib/types';
+
 
 const InventoryItemSchema = z.object({
     id: z.string(),
@@ -19,7 +21,7 @@ const InventoryItemSchema = z.object({
     supplier: z.string().describe('The supplier of the item.'),
     minStock: z.number().describe('The minimum required stock level for this item.'),
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
-    currentStock: z.union([z.number(), z.string()]).describe('The current actual stock level entered by the employee. Can be a number or a text description like "còn ít", "sắp hết".'),
+    currentStock: z.custom<InventoryStockRecord>().describe('An object containing the current stock level and photo proof if required.'),
 });
 
 const GenerateInventoryOrderSuggestionInputSchema = z.object({
@@ -56,10 +58,10 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert inventory management assistant for a coffee and tea shop.
 Your task is to analyze the provided list of inventory items and determine which items need to be reordered.
 
-An item needs to be reordered based on its 'currentStock'.
-- If 'currentStock' is a number, you MUST reorder it if 'currentStock' is less than its 'minStock'.
-- If 'currentStock' is a text description (e.g., "còn ít", "sắp hết", "gần hết"), you must interpret this as a low stock level and REORDER the item.
-- If the 'currentStock' is a number and is greater than or equal to 'minStock', DO NOT reorder it.
+An item needs to be reordered based on its 'currentStock.stock' value.
+- If 'currentStock.stock' is a number, you MUST reorder it if 'currentStock.stock' is less than its 'minStock'.
+- If 'currentStock.stock' is a text description (e.g., "còn ít", "sắp hết", "gần hết"), you must interpret this as a low stock level and REORDER the item.
+- If the 'currentStock.stock' is a number and is greater than or equal to 'minStock', DO NOT reorder it.
 
 For each item that needs reordering, you must use the 'orderSuggestion' field to determine the quantity to order. The 'orderSuggestion' provides the exact amount to order (e.g., if it says "5kg", you should order "5kg").
 
@@ -69,7 +71,7 @@ Your output must be a JSON object that includes:
 
 Here is the list of inventory items:
 {{#each items}}
-- Item ID: {{{id}}}, Name: {{{name}}}, Supplier: {{{supplier}}}, Unit: {{{unit}}}, Minimum Stock: {{{minStock}}}, Current Stock: {{{currentStock}}}, Suggested Order Quantity: {{{orderSuggestion}}}
+- Item ID: {{{id}}}, Name: {{{name}}}, Supplier: {{{supplier}}}, Unit: {{{unit}}}, Minimum Stock: {{{minStock}}}, Current Stock: {{{currentStock.stock}}}, Suggested Order Quantity: {{{orderSuggestion}}}
 {{/each}}
 
 Analyze this list and generate the order suggestion, ensuring items are grouped by their respective supplier.
@@ -87,4 +89,3 @@ const generateInventoryOrderSuggestionFlow = ai.defineFlow(
     return output!;
   }
 );
-

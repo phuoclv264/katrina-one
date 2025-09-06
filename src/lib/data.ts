@@ -181,7 +181,7 @@ export const comprehensiveTasks: ComprehensiveTaskSection[] = [
 
 
 export const inventoryList: InventoryItem[] = [
-    { id: 'item-1', name: 'TOPPING - Đào Ngâm Thái Lan Dedu (12 hộp/thùng, 820gram/hộp)', supplier: 'Thiên Phước', unit: 'lon', minStock: 1, orderSuggestion: '4' },
+    { id: 'item-1', name: 'TOPPING - Đào Ngâm Thái Lan Dedu (12 hộp/thùng, 820gram/hộp)', supplier: 'Thiên Phước', unit: 'lon', minStock: 1, orderSuggestion: '4', requiresPhoto: true },
     { id: 'item-2', name: 'TOPPING - Hạt nổ củ năng Hồng dạng hũ', supplier: 'Thiên Phước', unit: 'hộp', minStock: 2, orderSuggestion: '5' },
     { id: 'item-3', name: 'TOPPING - Hạt Nổ Củ Năng Trắng Dedu (12 hộp/thùng, 900gram/hộp)', supplier: 'Thiên Phước', unit: 'hộp', minStock: 1, orderSuggestion: '2' },
     { id: 'item-4', name: 'TOPPING - Thạch Nha đam Trendy 1000GR', supplier: 'Thiên Phước', unit: 'gói', minStock: 1, orderSuggestion: '2' },
@@ -192,7 +192,7 @@ export const inventoryList: InventoryItem[] = [
     { id: 'item-9', name: 'TRÁI CÂY - Bơ cấp đông', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '5kg' },
     { id: 'item-10', name: 'TRÁI CÂY - Cà rốt', supplier: 'Chợ', unit: 'trái', minStock: 5, orderSuggestion: '5kg' },
     { id: 'item-11', name: 'TRÁI CÂY - Cam décor', supplier: 'Chợ', unit: 'trái', minStock: 2, orderSuggestion: '2kg' },
-    { id: 'item-12', name: 'TRÁI CÂY - Cam xanh', supplier: 'Chợ', unit: 'trái', minStock: 20, orderSuggestion: '10kg' },
+    { id: 'item-12', name: 'TRÁI CÂY - Cam xanh', supplier: 'Chợ', unit: 'trái', minStock: 20, orderSuggestion: '10kg', requiresPhoto: true },
     { id: 'item-13', name: 'TRÁI CÂY - Chanh dây', supplier: 'Chợ', unit: 'trái', minStock: 10, orderSuggestion: '1-2kg' },
     { id: 'item-14', name: 'TRÁI CÂY - Chanh décor', supplier: 'Chợ', unit: 'trái', minStock: 4, orderSuggestion: '1kg' },
     { id: 'item-15', name: 'TRÁI CÂY - Cóc non', supplier: 'Chợ', unit: 'gr', minStock: 1, orderSuggestion: '3kg' },

@@ -92,6 +92,7 @@ export type InventoryItem = {
     unit: string;
     minStock: number;
     orderSuggestion: string; // e.g., "4" or "5kg"
+    requiresPhoto?: boolean;
 };
 
 export type Suppliers = string[];
@@ -103,8 +104,14 @@ export type UpdateInventoryItemsOutput = {
     items: InventoryItem[];
 };
 
+export type InventoryStockRecord = {
+  stock: number | string;
+  photoIds?: string[];
+  photos?: string[];
+};
+
 export type InventoryStockLevels = {
-    [itemId: string]: number | string; // current stock, can be text
+    [itemId: string]: InventoryStockRecord;
 };
 
 export type InventoryOrderItem = {

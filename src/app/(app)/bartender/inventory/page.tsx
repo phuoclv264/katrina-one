@@ -1,6 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -8,14 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport, InventoryOrderSuggestion } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X } from 'lucide-react';
 import Link from 'next/link';
 import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import CameraDialog from '@/components/camera-dialog';
+import { photoStore } from '@/lib/photo-store';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -38,6 +42,10 @@ export default function InventoryPage() {
   const [suggestions, setSuggestions] = useState<InventoryOrderSuggestion | null>(null);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
+  
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
 
   useEffect(() => {
@@ -78,7 +86,23 @@ export default function InventoryPage() {
           setOpenCategories(categorizedList.map(c => c.category));
       }
   }, [categorizedList]);
-
+  
+  const fetchLocalPhotos = useCallback(async (currentReport: InventoryReport | null) => {
+    if (!currentReport) return;
+    const allPhotoIds = new Set<string>();
+    for (const itemId in currentReport.stockLevels) {
+        const record = currentReport.stockLevels[itemId];
+        if (record.photoIds) {
+            record.photoIds.forEach(id => allPhotoIds.add(id));
+        }
+    }
+    if (allPhotoIds.size > 0) {
+        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
+        setLocalPhotoUrls(urls);
+    } else {
+        setLocalPhotoUrls(new Map());
+    }
+  }, []);
 
   useEffect(() => {
     if (!user || inventoryList.length === 0) return;
@@ -87,8 +111,8 @@ export default function InventoryPage() {
       setIsLoading(true);
       const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
       setReport(todayReport);
+      await fetchLocalPhotos(todayReport);
       
-      // Check for unsubmitted changes
       const localReportString = localStorage.getItem(todayReport.id);
       if (localReportString) {
           const localReport = JSON.parse(localReportString);
@@ -104,25 +128,64 @@ export default function InventoryPage() {
     };
 
     loadReport();
-  }, [user, inventoryList]);
+  }, [user, inventoryList, fetchLocalPhotos]);
   
   const handleLocalSave = useCallback(async (updatedReport: InventoryReport) => {
       await dataStore.saveLocalInventoryReport(updatedReport);
       setHasUnsubmittedChanges(true);
-  }, []);
+      await fetchLocalPhotos(updatedReport);
+  }, [fetchLocalPhotos]);
 
   const handleStockChange = (itemId: string, value: string) => {
     if (!report) return;
     
-    // Determine if the value is purely numeric
     const isNumeric = value.trim() !== '' && !isNaN(Number(value));
     const stockValue = isNumeric ? Number(value) : value;
 
-    const newReport = { ...report, stockLevels: { ...report.stockLevels, [itemId]: stockValue } };
+    const newReport = JSON.parse(JSON.stringify(report));
+    const existingRecord = newReport.stockLevels[itemId] || {};
+    newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
+
     setReport(newReport);
     handleLocalSave(newReport);
   };
   
+    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+        if (!activeItemId || !report) return;
+
+        const newReport = { ...report, stockLevels: { ...report.stockLevels } };
+        const record = newReport.stockLevels[activeItemId] || { stock: '' };
+        
+        record.photoIds = [...(record.photoIds || []), ...photoIds];
+        newReport.stockLevels[activeItemId] = record;
+
+        setReport(newReport);
+        await handleLocalSave(newReport);
+
+        setIsCameraOpen(false);
+        setActiveItemId(null);
+    }, [activeItemId, report, handleLocalSave]);
+
+    const handleDeletePhoto = async (itemId: string, photoId: string, isLocal: boolean) => {
+        if (!report) return;
+        const newReport = { ...report, stockLevels: { ...report.stockLevels } };
+        const record = newReport.stockLevels[itemId];
+
+        if (!record) return;
+
+        if (isLocal) {
+            record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
+            await photoStore.deletePhoto(photoId);
+        } else {
+            record.photos = (record.photos ?? []).filter(p => p !== photoId);
+            await dataStore.deletePhotoFromStorage(photoId);
+        }
+
+        newReport.stockLevels[itemId] = record;
+        setReport(newReport);
+        await handleLocalSave(newReport);
+    };
+
   const handleGenerateSuggestions = async () => {
       if(!report || !user) return;
       setIsGenerating(true);
@@ -133,24 +196,35 @@ export default function InventoryPage() {
             description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
         });
 
-        // Filter for items that have been checked (stock level is not null/undefined/empty string)
         const itemsWithCurrentStock = inventoryList
-            .filter(item => {
-                const stock = report.stockLevels[item.id];
-                return stock !== undefined && stock !== null && String(stock).trim() !== '';
+            .map(item => {
+                const stockRecord = report.stockLevels[item.id];
+                return { item, stockRecord };
             })
-            .map(item => ({
+            .filter(({ item, stockRecord }) => {
+                // Item must be checked
+                if (!stockRecord || stockRecord.stock === undefined || String(stockRecord.stock).trim() === '') {
+                    return false;
+                }
+                // If photo is required, it must be present
+                if (item.requiresPhoto) {
+                    const hasPhotos = (stockRecord.photoIds?.length || 0) > 0 || (stockRecord.photos?.length || 0) > 0;
+                    if (!hasPhotos) return false;
+                }
+                return true;
+            })
+            .map(({ item, stockRecord }) => ({
                 ...item,
-                currentStock: report.stockLevels[item.id] as (string | number),
+                currentStock: stockRecord,
             }));
 
         if (itemsWithCurrentStock.length === 0) {
             toast({
                 title: "Chưa có dữ liệu",
-                description: "Vui lòng nhập số lượng tồn kho trước khi nhận đề xuất.",
+                description: "Vui lòng nhập số lượng tồn kho (và ảnh nếu cần) trước khi nhận đề xuất.",
                 variant: "default"
             });
-            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê.', ordersBySupplier: [] };
+            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê hợp lệ.', ordersBySupplier: [] };
             setSuggestions(noItemsSuggestion);
             const updatedReport = { ...report, suggestions: noItemsSuggestion };
             setReport(updatedReport);
@@ -174,7 +248,6 @@ export default function InventoryPage() {
             description: "Danh sách các mặt hàng cần đặt đã được tạo."
         });
 
-        // Scroll to suggestions
         setTimeout(() => {
             suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 300);
@@ -202,11 +275,8 @@ export default function InventoryPage() {
     });
 
     try {
-        // Run suggestion generation first
         await handleGenerateSuggestions();
         
-        // Now save the full report with suggestions to Firestore
-        // Use the latest report state which includes suggestions
         setReport(currentReport => {
             if (!currentReport) return null;
             const finalReport = { ...currentReport, status: 'submitted' as const, submittedAt: new Date().toISOString() };
@@ -235,14 +305,14 @@ export default function InventoryPage() {
   }
   
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-      const currentStock = report?.stockLevels[itemId];
+      const stockValue = report?.stockLevels[itemId]?.stock;
 
-      if (typeof currentStock !== 'number') {
+      if (typeof stockValue !== 'number') {
         return 'ok';
       }
 
-      if (currentStock <= 0) return 'out';
-      if (currentStock < minStock) return 'low';
+      if (stockValue <= 0) return 'out';
+      if (stockValue < minStock) return 'low';
       return 'ok';
   }
   const getStatusColorClass = (status: ItemStatus) => {
@@ -276,7 +346,7 @@ export default function InventoryPage() {
                     .join('\n');
                 return `${header}\n${items}`;
             })
-            .join('\n\n'); // Add a blank line between suppliers
+            .join('\n\n');
             
         navigator.clipboard.writeText(textToCopy).then(() => {
             toast({
@@ -315,6 +385,7 @@ export default function InventoryPage() {
   const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
 
   return (
+    <TooltipProvider>
     <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
        <header className="mb-8">
           <Button asChild variant="ghost" className="-ml-4 mb-4">
@@ -365,59 +436,68 @@ export default function InventoryPage() {
                                     {category}
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
-                                     {/* Mobile View: List of cards */}
-                                    <div className="space-y-3 md:hidden">
+                                     <div className="space-y-3">
                                         {items.map(item => {
                                             const status = getItemStatus(item.id, item.minStock);
+                                            const record = report.stockLevels[item.id];
+                                            const stockValue = record?.stock ?? '';
+                                            const photoIds = record?.photoIds ?? [];
                                             return (
                                                 <div key={item.id} className={`rounded-lg border p-4 ${getStatusColorClass(status)}`}>
-                                                    <p className="font-semibold">{item.name.split(' - ')[1] || item.name}</p>
-                                                    <p className="text-sm text-muted-foreground mb-2">Đơn vị: {item.unit}</p>
-                                                     <Input
-                                                        type="text"
-                                                        value={report.stockLevels[item.id] ?? ''}
-                                                        onChange={e => handleStockChange(item.id, e.target.value)}
-                                                        className="text-left"
-                                                        placeholder="Nhập tồn thực tế..."
-                                                        disabled={isProcessing}
-                                                    />
+                                                    <div className="flex justify-between items-start gap-4">
+                                                        <div className="flex-1">
+                                                           <p className="font-semibold flex items-center gap-2">
+                                                              {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500"/>}
+                                                              {item.name.split(' - ')[1] || item.name}
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground mb-2">Đơn vị: {item.unit}</p>
+                                                        </div>
+                                                         <div className="flex-shrink-0 w-28">
+                                                            <Input
+                                                                type="text"
+                                                                value={stockValue}
+                                                                onChange={e => handleStockChange(item.id, e.target.value)}
+                                                                className="text-left"
+                                                                placeholder="Nhập tồn..."
+                                                                disabled={isProcessing}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                     {item.requiresPhoto && (
+                                                        <div className="mt-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => { setActiveItemId(item.id); setIsCameraOpen(true); }}
+                                                                disabled={isProcessing}
+                                                            >
+                                                                <Camera className="mr-2 h-4 w-4" />
+                                                                Chụp ảnh
+                                                            </Button>
+                                                            <div className="mt-2 grid grid-cols-5 gap-2">
+                                                                {photoIds.map(photoId => {
+                                                                    const url = localPhotoUrls.get(photoId);
+                                                                    if (!url) return null;
+                                                                    return (
+                                                                        <div key={photoId} className="relative aspect-square rounded-md overflow-hidden">
+                                                                            <Image src={url} alt="Inventory photo" fill className="object-cover" />
+                                                                            <Button
+                                                                                variant="destructive"
+                                                                                size="icon"
+                                                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                                                onClick={() => handleDeletePhoto(item.id, photoId, true)}
+                                                                            >
+                                                                                <X className="h-3 w-3" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )
                                         })}
-                                    </div>
-                                    
-                                     {/* Desktop View: Table */}
-                                    <div className="overflow-x-auto hidden md:block">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="min-w-[250px]">Tên nguyên liệu</TableHead>
-                                                    <TableHead>Đơn vị</TableHead>
-                                                    <TableHead className="text-right w-[150px]">Tồn thực tế</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {items.map(item => {
-                                                    const status = getItemStatus(item.id, item.minStock);
-                                                    return (
-                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
-                                                            <TableCell className="font-medium">{item.name.split(' - ')[1] || item.name}</TableCell>
-                                                            <TableCell>{item.unit}</TableCell>
-                                                            <TableCell className="text-right">
-                                                                <Input
-                                                                    type="text"
-                                                                    value={report.stockLevels[item.id] ?? ''}
-                                                                    onChange={e => handleStockChange(item.id, e.target.value)}
-                                                                    className="text-right"
-                                                                    placeholder="Nhập..."
-                                                                    disabled={isProcessing}
-                                                                />
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )
-                                                })}
-                                            </TableBody>
-                                        </Table>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -507,6 +587,12 @@ export default function InventoryPage() {
             )}
         </div>
       </div>
+      <CameraDialog 
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onSubmit={handleCapturePhotos}
+      />
     </div>
+    </TooltipProvider>
   );
 }

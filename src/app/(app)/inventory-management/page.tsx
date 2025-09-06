@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -23,6 +23,7 @@ import { diffChars } from 'diff';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SupplierCombobox } from '@/components/supplier-combobox';
+import { Switch } from '@/components/ui/switch';
 
 
 function AiAssistant({
@@ -562,7 +563,7 @@ export default function InventoryManagementPage() {
   }, []);
 
 
-  const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number) => {
+  const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number | boolean) => {
     if (!inventoryList) return;
     const newList = inventoryList.map(item =>
       item.id === id ? { ...item, [field]: value } : item
@@ -819,9 +820,20 @@ export default function InventoryManagementPage() {
                             return (
                               <Card key={item.id}>
                                 <CardContent className="p-4 space-y-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
-                                    <Input id={`name-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                  <div className="flex items-start justify-between">
+                                    <div className="space-y-2 flex-1">
+                                        <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
+                                        <Input id={`name-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                    </div>
+                                    <div className="flex flex-col items-center pl-4">
+                                      <Label htmlFor={`photo-m-${item.id}`} className="text-xs mb-2">Y/c ảnh</Label>
+                                      <Switch
+                                          id={`photo-m-${item.id}`}
+                                          checked={item.requiresPhoto}
+                                          onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
+                                          disabled={isSorting}
+                                      />
+                                    </div>
                                   </div>
                                    <div className="space-y-2">
                                     <Label htmlFor={`supplier-m-${item.id}`}>Nhà cung cấp</Label>
@@ -878,6 +890,7 @@ export default function InventoryManagementPage() {
                                         <TableHead className="min-w-[100px] whitespace-nowrap">Đơn vị</TableHead>
                                         <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
                                         <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-center">Y/c ảnh</TableHead>
                                         <TableHead className="text-right w-[50px] whitespace-nowrap">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -887,7 +900,10 @@ export default function InventoryManagementPage() {
                                         return (
                                         <TableRow key={item.id}>
                                             <TableCell>
-                                                <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                               <div className="flex items-center gap-2">
+                                                 {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                 <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="border-none p-0 h-auto focus-visible:ring-0" />
+                                               </div>
                                             </TableCell>
                                             <TableCell>
                                                 <SupplierCombobox
@@ -905,6 +921,13 @@ export default function InventoryManagementPage() {
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                            </TableCell>
+                                             <TableCell className="text-center w-[100px]">
+                                                <Switch
+                                                    checked={item.requiresPhoto}
+                                                    onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
+                                                    disabled={isSorting}
+                                                />
                                             </TableCell>
                                             <TableCell className="text-right w-[50px]">
                                                 <div className="flex items-center justify-end gap-0">

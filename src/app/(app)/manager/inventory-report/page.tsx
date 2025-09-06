@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle, Calendar as CalendarIcon, Star, Camera } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -18,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -46,6 +49,10 @@ function ManagerInventoryReportView() {
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+
 
   useEffect(() => {
     if (!authLoading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
@@ -103,12 +110,12 @@ function ManagerInventoryReportView() {
   }, [inventoryList]);
 
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-    const currentStock = report?.stockLevels[itemId];
-    if (currentStock === undefined || currentStock === null || typeof currentStock !== 'number') {
+    const stockValue = report?.stockLevels[itemId]?.stock;
+    if (stockValue === undefined || stockValue === null || typeof stockValue !== 'number') {
       return 'ok';
     }
-    if (currentStock <= 0) return 'out';
-    if (currentStock < minStock) return 'low';
+    if (stockValue <= 0) return 'out';
+    if (stockValue < minStock) return 'low';
     return 'ok';
   };
 
@@ -137,6 +144,7 @@ function ManagerInventoryReportView() {
   }
 
   return (
+    <>
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
        <header className="mb-8">
           <Button asChild variant="ghost" className="-ml-4 mb-4">
@@ -232,13 +240,28 @@ function ManagerInventoryReportView() {
                                             <TableBody>
                                                 {items.map(item => {
                                                     const status = getItemStatus(item.id, item.minStock);
+                                                    const record = report.stockLevels[item.id];
+                                                    const stockValue = record?.stock ?? 'N/A';
+                                                    const photos = record?.photos ?? [];
                                                     return (
                                                         <TableRow key={item.id} className={getStatusColorClass(status)}>
-                                                            <TableCell className="font-medium">{item.name.split(' - ')[1] || item.name}</TableCell>
+                                                            <TableCell className="font-medium">
+                                                                <div className="flex items-center gap-2">
+                                                                {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                                {item.name.split(' - ')[1] || item.name}
+                                                                </div>
+                                                            </TableCell>
                                                             <TableCell>{item.unit}</TableCell>
                                                             <TableCell>{item.minStock}</TableCell>
                                                             <TableCell className="text-right font-medium">
-                                                                {report.stockLevels[item.id] ?? 'N/A'}
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <span>{stockValue}</span>
+                                                                    {item.requiresPhoto && photos.length > 0 && (
+                                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}>
+                                                                            <Camera className="h-4 w-4 text-blue-500" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
                                                             </TableCell>
                                                         </TableRow>
                                                     )
@@ -308,6 +331,12 @@ function ManagerInventoryReportView() {
       </div>
     )}
     </div>
+    <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={lightboxSlides}
+    />
+    </>
   );
 }
 
