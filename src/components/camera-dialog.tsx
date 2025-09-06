@@ -92,15 +92,45 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
     if (videoRef.current && hasCameraPermission) {
         const video = videoRef.current;
         
-        // Create a canvas to get the image data
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
         if (!context) return;
+        
+        // 1. Draw the video frame
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
-        // Get the image as a Blob
+        // 2. Add timestamp overlay
+        const now = new Date();
+        const timestamp = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+                        + ' ' 
+                        + now.toLocaleDateString('vi-VN');
+        
+        const fontSize = Math.max(16, Math.round(canvas.width / 50)); // Adjust font size based on image width
+        context.font = `bold ${fontSize}px Arial`;
+        context.textAlign = 'right';
+        context.textBaseline = 'bottom';
+        
+        const padding = fontSize / 2;
+        const textMetrics = context.measureText(timestamp);
+        const textWidth = textMetrics.width;
+        const textHeight = fontSize;
+
+        // Draw semi-transparent background for better readability
+        context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        context.fillRect(
+            canvas.width - textWidth - padding * 2, 
+            canvas.height - textHeight - padding * 2, 
+            textWidth + padding * 2, 
+            textHeight + padding * 2
+        );
+
+        // Draw the text
+        context.fillStyle = 'white';
+        context.fillText(timestamp, canvas.width - padding, canvas.height - padding);
+
+        // 3. Get the image as a Blob
         canvas.toBlob(async (blob) => {
             if (blob) {
                 const photoId = uuidv4();
