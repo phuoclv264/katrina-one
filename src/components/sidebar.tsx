@@ -151,7 +151,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarSeparator />
       <SidebarFooter>
          <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem className="justify-end">
                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>
          </SidebarMenu>
