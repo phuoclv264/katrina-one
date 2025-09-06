@@ -161,3 +161,15 @@ export type AppError = {
   userEmail?: string;
   timestamp?: string | Timestamp;
 };
+
+// --- Violation Logging Types ---
+export type Violation = {
+  id: string;
+  content: string;
+  userId: string; // User who committed the violation
+  userName: string;
+  reporterId: string; // User who reported the violation
+  reporterName: string;
+  photos: string[];
+  createdAt: string | Timestamp;
+};

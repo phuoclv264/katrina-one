@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -23,6 +24,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/bartender-tasks': 'QL Công việc Pha chế',
     '/comprehensive-checklist': 'QL Kiểm tra Toàn diện',
     '/inventory-management': 'QL Hàng tồn kho',
+    '/violations': 'Ghi nhận Vi phạm',
 };
 
 export function MobileHeader() {

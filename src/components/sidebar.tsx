@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -13,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2 } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -30,14 +31,20 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     setOpenMobile(false);
   }
 
+  const sharedMenu = [
+     { href: '/violations', label: 'Ghi nhận Vi phạm', icon: ShieldX },
+  ];
+
   const staffMenu = [
     { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
+    ...sharedMenu
   ];
   
   const bartenderMenu = [
     { href: '/bartender', label: 'Danh mục Báo cáo', icon: Coffee },
     { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList },
     { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive },
+    ...sharedMenu
   ];
 
   const managerMenu = [
@@ -45,6 +52,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
     { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
     { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
+     ...sharedMenu
   ];
   
   const ownerMenu = [
@@ -54,6 +62,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
     { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
     { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
+    ...sharedMenu,
     { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
   ]
   
@@ -132,7 +141,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarContent className="flex-1">
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="justify-start group-data-[collapsible=icon]:justify-center">
+            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="group-data-[collapsible=icon]:justify-center">
               <Link href={item.href} passHref>
                 <SidebarMenuButton
                   asChild
