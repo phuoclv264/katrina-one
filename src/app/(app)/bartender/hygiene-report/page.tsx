@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, CameraPlus } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, FilePlus2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -517,7 +517,7 @@ export default function HygieneReportPage() {
                                         <div className="flex items-center gap-1">
                                             {!isReadonly && (
                                                 <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handleTaskAction(task.id, cIndex)}>
-                                                  <CameraPlus className="h-3 w-3" />
+                                                  <FilePlus2 className="h-3 w-3" />
                                                 </Button>
                                             )}
                                             <AlertDialog>

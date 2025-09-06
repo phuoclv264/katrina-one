@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp, FilePen, CameraPlus } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp, FilePen, FilePlus2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
@@ -613,7 +613,7 @@ export default function ComprehensiveReportPage() {
                                             )}
                                             {!isReadonly && task.type === 'photo' && (
                                                 <Button size="icon" variant="ghost" className="text-primary h-7 w-7" onClick={() => handlePhotoTaskAction(task.id, cIndex)}>
-                                                  <CameraPlus className="h-4 w-4" />
+                                                  <FilePlus2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                             {!isReadonly && (
