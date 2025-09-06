@@ -74,7 +74,7 @@ export default function AuthPage() {
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
       <div className="flex flex-col items-center gap-4 text-center mb-8">
-        <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/Katrina%20Logo_20250906_084701_0000.png?alt=media&token=8018a429-8356-46ee-b750-1fcfc9dddf9b" alt="Katrina One Logo" width={80} height={80} />
+        <Image src="/logo_coffee.png" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-48" />
         <h1 className="text-4xl font-bold text-primary font-headline">Katrina One</h1>
         <p className="text-muted-foreground max-w-sm">
           Hệ thống quản lý công việc và báo cáo hàng ngày.
