@@ -4,10 +4,11 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileSearch, ClipboardList, Archive } from 'lucide-react';
+import { FileSearch, ClipboardList, Archive, ShieldX } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Separator } from '@/components/ui/separator';
 
 export default function ManagerDashboardPage() {
   const { user, loading } = useAuth();
@@ -51,6 +52,13 @@ export default function ManagerDashboardPage() {
             <Link href="/manager/inventory-report">
               <Archive className="mr-2" />
               Xem Báo cáo Tồn kho
+            </Link>
+          </Button>
+          <Separator className="my-2" />
+           <Button asChild size="lg" variant="destructive">
+            <Link href="/violations">
+                <ShieldX className="mr-2" />
+                Ghi nhận Vi phạm
             </Link>
           </Button>
         </CardContent>

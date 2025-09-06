@@ -4,10 +4,11 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Archive } from 'lucide-react';
+import { ClipboardList, Archive, ShieldX } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Separator } from '@/components/ui/separator';
 
 export default function BartenderDashboardPage() {
   const { user, loading } = useAuth();
@@ -45,6 +46,13 @@ export default function BartenderDashboardPage() {
             <Link href="/bartender/inventory">
               <Archive className="mr-2" />
               Kiểm kê Tồn kho
+            </Link>
+          </Button>
+          <Separator className="my-2" />
+           <Button asChild size="lg" variant="outline">
+            <Link href="/violations">
+                <ShieldX className="mr-2" />
+                Danh sách Vi phạm
             </Link>
           </Button>
         </CardContent>

@@ -1,9 +1,11 @@
+
 'use client';
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Sunset } from 'lucide-react';
+import { Sun, Moon, Sunset, ShieldX } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 export default function ShiftsPage() {
   return (
@@ -30,6 +32,13 @@ export default function ShiftsPage() {
             <Link href="/checklist/toi">
               <Moon className="mr-2" />
               Ca Tối
+            </Link>
+          </Button>
+          <Separator className="my-2" />
+          <Button asChild size="lg" variant="outline">
+            <Link href="/violations">
+                <ShieldX className="mr-2" />
+                Danh sách Vi phạm
             </Link>
           </Button>
         </CardContent>
