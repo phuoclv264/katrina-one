@@ -16,6 +16,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout, loading } = useAuth();
@@ -97,7 +98,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
          <div className="p-2 flex items-center gap-2">
             <div className="group-data-[collapsible=icon]:hidden">
                 <Link href={homeLink} onClick={() => handleNavigation(homeLink)}>
-                  <h1 className="text-xl font-bold text-primary font-headline">Katrina One</h1>
+                  <Image src="/logo_coffee.png" alt="Katrina One Logo" width={120} height={25} />
                 </Link>
             </div>
          </div>
