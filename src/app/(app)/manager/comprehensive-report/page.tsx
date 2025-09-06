@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp, FilePen } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Check, Building, MessageSquare, ChevronsDownUp, FilePen, CameraPlus } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
@@ -48,6 +48,7 @@ export default function ComprehensiveReportPage() {
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [activeTaskText, setActiveTaskText] = useState('');
+  const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
   
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
 
@@ -190,8 +191,9 @@ export default function ComprehensiveReportPage() {
       }
   }, [fetchLocalPhotos]);
 
-  const handlePhotoTaskAction = (taskId: string) => {
+  const handlePhotoTaskAction = (taskId: string, completionIndex: number | null = null) => {
     setActiveTaskId(taskId);
+    setActiveCompletionIndex(completionIndex);
     setIsCameraOpen(true);
   };
   
@@ -243,27 +245,37 @@ export default function ComprehensiveReportPage() {
     handleOpinionClose();
   }
 
-  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-    if (!activeTaskId || !report) return;
+    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+        if (!activeTaskId || !report) return;
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    
-    const newCompletion: CompletionRecord = {
-        timestamp: formattedTime,
-        photos: [],
-        photoIds: photoIds
-    };
+        const newReport = JSON.parse(JSON.stringify(report));
+        let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
 
-    taskCompletions.unshift(newCompletion);
-    newReport.completedTasks[activeTaskId] = taskCompletions;
-    await updateLocalReport(newReport);
+        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
+            // Add photos to an existing completion record that is of type 'photo'
+            const completionToUpdate = taskCompletions[activeCompletionIndex];
+            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+        } else {
+            // Create a new completion record
+            const now = new Date();
+            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            
+            const newCompletion: CompletionRecord = {
+                timestamp: formattedTime,
+                photos: [],
+                photoIds: photoIds
+            };
+        
+            taskCompletions.unshift(newCompletion);
+        }
 
-    setIsCameraOpen(false);
-    setActiveTaskId(null);
-  }, [activeTaskId, report, updateLocalReport]);
+        newReport.completedTasks[activeTaskId] = taskCompletions;
+        await updateLocalReport(newReport);
+
+        setIsCameraOpen(false);
+        setActiveTaskId(null);
+        setActiveCompletionIndex(null);
+    }, [activeTaskId, activeCompletionIndex, report, updateLocalReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
@@ -283,7 +295,11 @@ export default function ComprehensiveReportPage() {
       }
 
       if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-          taskCompletions.splice(completionIndex, 1);
+          // If the task type is 'photo' and it has no more photos, delete the completion.
+          const taskDefinition = tasks?.flatMap(s => s.tasks).find(t => t.id === taskId);
+          if (taskDefinition?.type === 'photo') {
+              taskCompletions.splice(completionIndex, 1);
+          }
       }
       
       if (taskCompletions.length === 0) {
@@ -403,6 +419,7 @@ export default function ComprehensiveReportPage() {
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTaskId(null);
+    setActiveCompletionIndex(null);
   }, []);
   
   const handleOpinionClose = useCallback(() => {
@@ -593,6 +610,11 @@ export default function ComprehensiveReportPage() {
                                               <Badge variant={completion.value ? "default" : "destructive"}>
                                                 {completion.value ? "Đảm bảo" : "Không đảm bảo"}
                                               </Badge>
+                                            )}
+                                            {!isReadonly && task.type === 'photo' && (
+                                                <Button size="icon" variant="ghost" className="text-primary h-7 w-7" onClick={() => handlePhotoTaskAction(task.id, cIndex)}>
+                                                  <CameraPlus className="h-4 w-4" />
+                                                </Button>
                                             )}
                                             {!isReadonly && (
                                               <AlertDialog>

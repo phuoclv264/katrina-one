@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, CameraPlus } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -45,6 +45,7 @@ export default function HygieneReportPage() {
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
     
   const [tasks, setTasks] = useState<TaskSection[] | null>(null);
 
@@ -177,31 +178,38 @@ export default function HygieneReportPage() {
       }
   }, [fetchLocalPhotos]);
 
-  const handleTaskAction = (taskId: string, section: TaskSection) => {
-    setActiveTaskId(taskId);
-    setIsCameraOpen(true);
-  };
+    const handleTaskAction = (taskId: string, completionIndex: number | null = null) => {
+        setActiveTaskId(taskId);
+        setActiveCompletionIndex(completionIndex);
+        setIsCameraOpen(true);
+    };
   
-  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-    if (!activeTaskId || !report) return;
+    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+        if (!activeTaskId || !report) return;
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-    
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    taskCompletions.unshift({
-        timestamp: formattedTime,
-        photoIds: photoIds,
-        photos: [],
-    });
-    
-    newReport.completedTasks[activeTaskId] = taskCompletions;
-    await updateLocalReport(newReport);
-    
-    setIsCameraOpen(false);
-    setActiveTaskId(null);
-  }, [activeTaskId, report, updateLocalReport]);
+        const newReport = JSON.parse(JSON.stringify(report));
+        let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+
+        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
+            const completionToUpdate = taskCompletions[activeCompletionIndex];
+            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+        } else {
+            const now = new Date();
+            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            taskCompletions.unshift({
+                timestamp: formattedTime,
+                photoIds: photoIds,
+                photos: [],
+            });
+        }
+        
+        newReport.completedTasks[activeTaskId] = taskCompletions;
+        await updateLocalReport(newReport);
+        
+        setIsCameraOpen(false);
+        setActiveTaskId(null);
+        setActiveCompletionIndex(null);
+    }, [activeTaskId, activeCompletionIndex, report, updateLocalReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
@@ -329,6 +337,7 @@ export default function HygieneReportPage() {
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTaskId(null);
+    setActiveCompletionIndex(null);
   }, []);
   
   const getSectionIcon = (title: string) => {
@@ -487,7 +496,7 @@ export default function HygieneReportPage() {
                               <Button 
                                 size="sm" 
                                 className="w-full md:w-auto active:scale-95 transition-transform"
-                                onClick={() => handleTaskAction(task.id, section)}
+                                onClick={() => handleTaskAction(task.id)}
                                 disabled={isReadonly}
                               >
                                   <Camera className="mr-2 h-4 w-4"/>
@@ -506,6 +515,11 @@ export default function HygieneReportPage() {
                                             <span>Thực hiện lúc: {completion.timestamp}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
+                                            {!isReadonly && (
+                                                <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handleTaskAction(task.id, cIndex)}>
+                                                  <CameraPlus className="h-3 w-3" />
+                                                </Button>
+                                            )}
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild disabled={isReadonly}>
                                                 <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isReadonly}>

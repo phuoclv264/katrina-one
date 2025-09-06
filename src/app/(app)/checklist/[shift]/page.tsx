@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, CameraPlus } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -46,6 +46,7 @@ export default function ChecklistPage() {
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
     
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const shift = tasksByShift ? tasksByShift[shiftKey] : null;
@@ -215,37 +216,50 @@ export default function ChecklistPage() {
     return photos;
   }, [shift, report, localPhotoUrls]);
 
-  const handleTaskAction = (taskId: string, section: TaskSection) => {
-    setActiveTaskId(taskId);
-    setIsCameraOpen(true);
-    collapseCompletedSection(section);
-  };
+    const handleTaskAction = (taskId: string, section: TaskSection, completionIndex: number | null = null) => {
+        setActiveTaskId(taskId);
+        setActiveCompletionIndex(completionIndex);
+        setIsCameraOpen(true);
+        if (completionIndex === null) {
+            collapseCompletedSection(section);
+        }
+    };
   
-  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-    if (!activeTaskId || !report) return;
+    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+        if (!activeTaskId || !report) return;
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-    
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    taskCompletions.unshift({
-        timestamp: formattedTime,
-        photoIds: photoIds,
-        photos: [],
-    });
-    
-    newReport.completedTasks[activeTaskId] = taskCompletions;
-    await updateLocalReport(newReport);
-    
-    const section = shift?.sections.find(s => s.tasks.some(t => t.id === activeTaskId));
-    if (section) {
-        collapseCompletedSection(section);
-    }
+        const newReport = JSON.parse(JSON.stringify(report));
+        let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
 
-    setIsCameraOpen(false);
-    setActiveTaskId(null);
-  }, [activeTaskId, report, updateLocalReport, shift, collapseCompletedSection]);
+        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
+            // Add photos to an existing completion
+            const completionToUpdate = taskCompletions[activeCompletionIndex];
+            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+        } else {
+            // Create a new completion record
+            const now = new Date();
+            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            taskCompletions.unshift({
+                timestamp: formattedTime,
+                photoIds: photoIds,
+                photos: [],
+            });
+        }
+        
+        newReport.completedTasks[activeTaskId] = taskCompletions;
+        await updateLocalReport(newReport);
+        
+        if (activeCompletionIndex === null) {
+            const section = shift?.sections.find(s => s.tasks.some(t => t.id === activeTaskId));
+            if (section) {
+                collapseCompletedSection(section);
+            }
+        }
+
+        setIsCameraOpen(false);
+        setActiveTaskId(null);
+        setActiveCompletionIndex(null);
+    }, [activeTaskId, activeCompletionIndex, report, updateLocalReport, shift, collapseCompletedSection]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
@@ -373,6 +387,7 @@ export default function ChecklistPage() {
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTaskId(null);
+    setActiveCompletionIndex(null);
   }, []);
   
   const getSectionIcon = (title: string) => {
@@ -536,6 +551,11 @@ export default function ChecklistPage() {
                                               <span>Thực hiện lúc: {completion.timestamp}</span>
                                           </div>
                                           <div className="flex items-center gap-1">
+                                            {!isReadonly && (
+                                                <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handleTaskAction(task.id, section, cIndex)}>
+                                                  <CameraPlus className="h-3 w-3" />
+                                                </Button>
+                                            )}
                                               <AlertDialog>
                                                   <AlertDialogTrigger asChild disabled={isReadonly}>
                                                   <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isReadonly}>
