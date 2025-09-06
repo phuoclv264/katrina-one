@@ -98,22 +98,27 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
          <div className="p-2 flex items-center gap-2">
             <div className="w-full group-data-[collapsible=icon]:hidden">
                 <Link href={homeLink} onClick={() => handleNavigation(homeLink)} className="flex justify-center">
-                  <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo.png?alt=media&token=6a2114cd-127b-484f-b27e-c82129446489" alt="Katrina One Logo" width={120} height={25} />
+                  <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-32" />
                 </Link>
             </div>
+             <div className="w-full hidden group-data-[collapsible=icon]:block">
+                 <Link href={homeLink} onClick={() => handleNavigation(homeLink)} className="flex justify-center">
+                    <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_squared.png?alt=media&token=b64473fc-e986-48ab-b6cf-d63036a935f1" alt="Katrina One Logo" width={40} height={40} className="h-10 w-10" />
+                 </Link>
+            </div>
          </div>
-        <div className="flex items-center gap-3 p-2 rounded-md bg-muted">
+        <div className="flex items-center gap-3 p-2 rounded-md bg-muted group-data-[collapsible=icon]:hidden">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 {getRoleIcon()}
             </div>
-            <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
+            <div className="flex flex-col overflow-hidden">
                 <span className="font-semibold truncate">{displayName}</span>
                 <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
             </div>
             <SidebarMenuButton
               variant="ghost"
               size="icon"
-              className="ml-auto h-8 w-8 shrink-0 group-data-[collapsible=icon]:hidden"
+              className="ml-auto h-8 w-8 shrink-0"
               onClick={logout}
               tooltip="Đăng xuất"
               disabled={loading}
