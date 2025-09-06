@@ -204,7 +204,7 @@ function ManagerInventoryReportView() {
                     <CardTitle>Chi tiết Tồn kho</CardTitle>
                     <CardDescription>
                        <div className="flex items-center gap-4">
-                            <span>Báo cáo ngày {format(date!, "dd/MM/yyyy")}</span>
+                            <span>Báo cáo ngày {date ? format(date, "dd/MM/yyyy") : ''}</span>
                             <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
                                 <SelectTrigger className="w-full md:w-[200px]">
                                     <SelectValue placeholder="Chọn nhân viên..." />
@@ -244,38 +244,34 @@ function ManagerInventoryReportView() {
                                                     const stockValue = record?.stock ?? 'N/A';
                                                     const photos = record?.photos ?? [];
                                                     return (
-                                                        <React.Fragment key={item.id}>
-                                                            <TableRow className={getStatusColorClass(status)}>
-                                                                <TableCell className="font-medium">
+                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
+                                                            <TableCell className="font-medium align-top">
+                                                                <div className="flex flex-col gap-2">
                                                                     <div className="flex items-center gap-2">
-                                                                    {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                                    {item.name.split(' - ')[1] || item.name}
+                                                                        {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                                        {item.name.split(' - ')[1] || item.name}
                                                                     </div>
-                                                                </TableCell>
-                                                                <TableCell>{item.unit}</TableCell>
-                                                                <TableCell>{item.minStock}</TableCell>
-                                                                <TableCell className="text-right font-medium">
-                                                                    {stockValue}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                            {item.requiresPhoto && photos.length > 0 && (
-                                                                <TableRow className={getStatusColorClass(status)}>
-                                                                    <TableCell colSpan={4}>
-                                                                        <div className="flex gap-2 flex-wrap p-2 bg-muted/50 rounded-md">
+                                                                    {item.requiresPhoto && photos.length > 0 && (
+                                                                        <div className="flex gap-2 flex-wrap pl-6">
                                                                             {photos.map((photo, index) => (
                                                                                 <button
                                                                                     key={index}
-                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
-                                                                                    className="relative w-20 h-20 rounded-md overflow-hidden"
+                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
+                                                                                    className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                                 >
                                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
                                                                                 </button>
                                                                             ))}
                                                                         </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )}
-                                                        </React.Fragment>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="align-top">{item.unit}</TableCell>
+                                                            <TableCell className="align-top">{item.minStock}</TableCell>
+                                                            <TableCell className="text-right font-medium align-top">
+                                                                {stockValue}
+                                                            </TableCell>
+                                                        </TableRow>
                                                     )
                                                 })}
                                             </TableBody>
