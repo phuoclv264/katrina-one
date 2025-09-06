@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: 'Katrina One',
-  description: 'Ứng dụng đơn giản để quản lý công việc theo ca.',
+  description: 'Ứng dụng nội bộ dành riêng cho nhân viên hệ thống Katrina Coffee, giúp quản lý công việc hiệu quả và kết nối dễ dàng hơn. Ứng dụng hỗ trợ nhân viên báo cáo ca làm, theo dõi nhiệm vụ, và nâng cao hiệu suất làm việc hằng ngày.',
 };
 
 export const viewport: Viewport = {

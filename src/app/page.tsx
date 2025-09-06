@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,8 +73,8 @@ export default function AuthPage() {
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
-      <div className="flex flex-col items-center gap-2 text-center mb-8">
-        <KeyRound className="h-12 w-12 text-primary" />
+      <div className="flex flex-col items-center gap-4 text-center mb-8">
+        <Image src="/logo.png" alt="Katrina One Logo" width={80} height={80} />
         <h1 className="text-4xl font-bold text-primary font-headline">Katrina One</h1>
         <p className="text-muted-foreground max-w-sm">
           Hệ thống quản lý công việc và báo cáo hàng ngày.
