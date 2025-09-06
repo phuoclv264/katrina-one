@@ -55,7 +55,7 @@ export default function ManagerDashboardPage() {
             </Link>
           </Button>
           <Separator className="my-2" />
-           <Button asChild size="lg" variant="destructive">
+           <Button asChild size="lg" variant="outline">
             <Link href="/violations">
                 <ShieldX className="mr-2" />
                 Ghi nhận Vi phạm
