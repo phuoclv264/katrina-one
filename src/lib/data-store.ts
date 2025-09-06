@@ -239,23 +239,62 @@ export const dataStore = {
 
     await this.saveLocalInventoryReport(report);
     
-    const reportToSubmit: Omit<InventoryReport, 'id'> & {lastUpdated: any, submittedAt?: any} = {
-        ...report,
-        lastUpdated: serverTimestamp(),
-    };
+    const reportToSubmit = JSON.parse(JSON.stringify(report));
 
-    // Only set submittedAt if the report is actually being submitted.
+    const photoIdsToUpload = new Set<string>();
+    for (const itemId in reportToSubmit.stockLevels) {
+        const record = reportToSubmit.stockLevels[itemId];
+        if (record.photoIds) {
+            record.photoIds.forEach((id: string) => photoIdsToUpload.add(id));
+        }
+    }
+
+    const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) {
+            console.warn(`Photo with ID ${photoId} not found in local store.`);
+            return { photoId, downloadURL: null };
+        }
+        const storageRef = ref(storage, `inventory-reports/${report.date}/${report.staffName}/${photoId}.jpg`);
+        await uploadBytes(storageRef, photoBlob);
+        const downloadURL = await getDownloadURL(storageRef);
+        return { photoId, downloadURL };
+    });
+
+    const uploadResults = await Promise.all(uploadPromises);
+    const photoIdToUrlMap = new Map<string, string>();
+    uploadResults.forEach(result => {
+        if (result.downloadURL) {
+            photoIdToUrlMap.set(result.photoId, result.downloadURL);
+        }
+    });
+
+    for (const itemId in reportToSubmit.stockLevels) {
+        const record = reportToSubmit.stockLevels[itemId];
+        if (record.photoIds) {
+            const finalUrls = record.photoIds
+                .map((id: string) => photoIdToUrlMap.get(id))
+                .filter((url: string | undefined): url is string => !!url);
+            
+            record.photos = Array.from(new Set([...(record.photos || []), ...finalUrls]));
+            delete record.photoIds;
+        }
+    }
+
+    reportToSubmit.lastUpdated = serverTimestamp();
+    
     if (report.status === 'submitted') {
         reportToSubmit.submittedAt = serverTimestamp();
     } else {
-        // Ensure we don't send `undefined` from a previous submission
         delete reportToSubmit.submittedAt;
     }
     
-    delete (reportToSubmit as any).id;
+    delete reportToSubmit.id;
 
     const firestoreRef = doc(db, 'inventory-reports', report.id);
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
+
+    await photoStore.deletePhotos(Array.from(photoIdsToUpload));
   },
 
   /**
