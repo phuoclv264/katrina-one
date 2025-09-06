@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -49,6 +49,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
   
   const ownerMenu = [
     { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
+    { href: '/users', label: 'QL Người dùng', icon: Users2 },
     { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
     { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
     { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
@@ -131,7 +132,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarContent className="flex-1">
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="group-data-[collapsible=icon]:justify-center justify-start">
+            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="justify-start group-data-[collapsible=icon]:justify-center">
               <Link href={item.href} passHref>
                 <SidebarMenuButton
                   asChild
@@ -151,7 +152,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarSeparator />
       <SidebarFooter>
          <SidebarMenu>
-            <SidebarMenuItem className="group-data-[collapsible=icon]:justify-center justify-end">
+            <SidebarMenuItem className="justify-end group-data-[collapsible=icon]:justify-center">
                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>
          </SidebarMenu>

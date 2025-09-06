@@ -7,6 +7,16 @@ export type Staff = {
   name: string;
 };
 
+export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng';
+
+export type ManagedUser = {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  notes?: string;
+};
+
 export type Task = {
   id: string;
   text: string;

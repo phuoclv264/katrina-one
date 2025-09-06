@@ -16,9 +16,10 @@ import {
   where,
   getDocs,
   addDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -80,6 +81,34 @@ export const dataStore = {
     });
 
     return unsubscribe;
+  },
+  
+  subscribeToUsers(callback: (users: ManagedUser[]) => void): () => void {
+    const usersCollection = collection(db, 'users');
+    const q = query(usersCollection, orderBy('displayName'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const users: ManagedUser[] = [];
+      querySnapshot.forEach((doc) => {
+        users.push({
+            ...doc.data(),
+            uid: doc.id,
+        } as ManagedUser);
+      });
+      callback(users);
+    });
+    return unsubscribe;
+  },
+  
+  async updateUserData(uid: string, data: Partial<ManagedUser>): Promise<void> {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, data);
+  },
+
+  async deleteUser(uid: string): Promise<void> {
+    const userRef = doc(db, 'users', uid);
+    await deleteDoc(userRef);
+    // Note: This does NOT delete the user from Firebase Authentication.
+    // That requires a backend function for security reasons.
   },
 
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
@@ -228,7 +257,7 @@ export const dataStore = {
   },
 
   async saveLocalInventoryReport(report: InventoryReport): Promise<void> {
-    if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined') {
        report.lastUpdated = new Date().toISOString();
        localStorage.setItem(report.id, JSON.stringify(report));
    }
@@ -692,5 +721,3 @@ export const dataStore = {
     return reports;
   }
 };
-
-    

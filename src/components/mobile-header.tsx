@@ -18,6 +18,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/reports/hygiene': 'Báo cáo Vệ sinh',
     '/reports/inventory': 'Báo cáo Tồn kho',
     '/reports/error-log': 'Nhật ký lỗi',
+    '/users': 'Quản lý Người dùng',
     '/task-lists': 'QL Công việc Phục vụ',
     '/bartender-tasks': 'QL Công việc Pha chế',
     '/comprehensive-checklist': 'QL Kiểm tra Toàn diện',
