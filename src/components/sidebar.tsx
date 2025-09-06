@@ -151,7 +151,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarSeparator />
       <SidebarFooter>
          <SidebarMenu>
-            <SidebarMenuItem className="justify-center">
+            <SidebarMenuItem className="group-data-[collapsible=icon]:justify-center justify-end">
                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>
          </SidebarMenu>
