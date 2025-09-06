@@ -244,26 +244,38 @@ function ManagerInventoryReportView() {
                                                     const stockValue = record?.stock ?? 'N/A';
                                                     const photos = record?.photos ?? [];
                                                     return (
-                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
-                                                            <TableCell className="font-medium">
-                                                                <div className="flex items-center gap-2">
-                                                                {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                                {item.name.split(' - ')[1] || item.name}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>{item.unit}</TableCell>
-                                                            <TableCell>{item.minStock}</TableCell>
-                                                            <TableCell className="text-right font-medium">
-                                                                <div className="flex items-center justify-end gap-2">
-                                                                    <span>{stockValue}</span>
-                                                                    {item.requiresPhoto && photos.length > 0 && (
-                                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}>
-                                                                            <Camera className="h-4 w-4 text-blue-500" />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
+                                                        <React.Fragment key={item.id}>
+                                                            <TableRow className={getStatusColorClass(status)}>
+                                                                <TableCell className="font-medium">
+                                                                    <div className="flex items-center gap-2">
+                                                                    {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                                    {item.name.split(' - ')[1] || item.name}
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell>{item.unit}</TableCell>
+                                                                <TableCell>{item.minStock}</TableCell>
+                                                                <TableCell className="text-right font-medium">
+                                                                    {stockValue}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                            {item.requiresPhoto && photos.length > 0 && (
+                                                                <TableRow className={getStatusColorClass(status)}>
+                                                                    <TableCell colSpan={4}>
+                                                                        <div className="flex gap-2 flex-wrap p-2 bg-muted/50 rounded-md">
+                                                                            {photos.map((photo, index) => (
+                                                                                <button
+                                                                                    key={index}
+                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
+                                                                                    className="relative w-20 h-20 rounded-md overflow-hidden"
+                                                                                >
+                                                                                    <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
+                                                        </React.Fragment>
                                                     )
                                                 })}
                                             </TableBody>
@@ -279,8 +291,8 @@ function ManagerInventoryReportView() {
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-1 space-y-8">
-            <Card className="sticky top-4">
+        <div className="lg:col-span-1 space-y-8 sticky top-4">
+            <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</CardTitle>
                 </CardHeader>
