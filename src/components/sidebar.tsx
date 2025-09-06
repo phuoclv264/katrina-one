@@ -131,7 +131,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarContent className="flex-1">
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="justify-start">
+            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="group-data-[collapsible=icon]:justify-center justify-start">
               <Link href={item.href} passHref>
                 <SidebarMenuButton
                   asChild
@@ -151,7 +151,7 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarSeparator />
       <SidebarFooter>
          <SidebarMenu>
-            <SidebarMenuItem className="justify-end">
+            <SidebarMenuItem className="justify-center">
                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>
          </SidebarMenu>
