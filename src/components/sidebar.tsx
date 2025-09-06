@@ -96,9 +96,9 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     <>
       <SidebarHeader className="flex flex-col gap-2 p-2">
          <div className="p-2 flex items-center gap-2">
-            <div className="group-data-[collapsible=icon]:hidden">
-                <Link href={homeLink} onClick={() => handleNavigation(homeLink)}>
-                  <Image src="/logo_coffee.png" alt="Katrina One Logo" width={120} height={25} />
+            <div className="w-full group-data-[collapsible=icon]:hidden">
+                <Link href={homeLink} onClick={() => handleNavigation(homeLink)} className="flex justify-center">
+                  <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo.png?alt=media&token=6a2114cd-127b-484f-b27e-c82129446489" alt="Katrina One Logo" width={120} height={25} />
                 </Link>
             </div>
          </div>
