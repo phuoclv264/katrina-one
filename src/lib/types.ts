@@ -172,4 +172,6 @@ export type Violation = {
   reporterName: string;
   photos: string[];
   createdAt: string | Timestamp;
+  penaltyPhotoUrl?: string;
+  penaltySubmittedAt?: string | Timestamp;
 };

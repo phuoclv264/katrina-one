@@ -743,33 +743,56 @@ export const dataStore = {
     const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
     
     // 2. Prepare data for Firestore
-    const finalData = {
+    const finalData: Partial<Violation> = {
         ...data,
         photos: photoUrls,
-        createdAt: id ? undefined : serverTimestamp(), // Only set createdAt on new violation
         lastModified: serverTimestamp()
     };
 
+    if (!id) {
+        finalData.createdAt = serverTimestamp();
+    }
+
     if (id) {
-        // Update existing violation
         const violationRef = doc(db, 'violations', id);
+        // Merge with existing photos if updating
+        const currentDoc = await getDoc(violationRef);
+        if (currentDoc.exists()) {
+            const existingPhotos = currentDoc.data().photos || [];
+            finalData.photos = [...existingPhotos, ...photoUrls];
+        }
         await updateDoc(violationRef, finalData);
     } else {
-        // Add new violation
         await addDoc(collection(db, 'violations'), finalData);
     }
     
-    // 3. Clean up local photos
     await photoStore.deletePhotos(photosToUpload);
   },
   
   async deleteViolation(violationId: string, photoUrls: string[]): Promise<void> {
-    // Delete photos from storage
     const deletePhotoPromises = photoUrls.map(url => this.deletePhotoFromStorage(url));
     await Promise.all(deletePhotoPromises);
     
-    // Delete document from Firestore
     const violationRef = doc(db, 'violations', violationId);
     await deleteDoc(violationRef);
+  },
+  
+  async submitPenaltyProof(violationId: string, photoId: string): Promise<void> {
+    const photoBlob = await photoStore.getPhoto(photoId);
+    if (!photoBlob) {
+        throw new Error("Local penalty photo not found.");
+    }
+
+    const storageRef = ref(storage, `penalties/${violationId}/${uuidv4()}.jpg`);
+    await uploadBytes(storageRef, photoBlob);
+    const downloadURL = await getDownloadURL(storageRef);
+
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+        penaltyPhotoUrl: downloadURL,
+        penaltySubmittedAt: serverTimestamp(),
+    });
+
+    await photoStore.deletePhoto(photoId);
   },
 };

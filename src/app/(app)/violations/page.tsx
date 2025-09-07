@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -15,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo } from 'lucide-react';
+import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye } from 'lucide-react';
 import type { ManagedUser, Violation } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
@@ -180,6 +181,10 @@ export default function ViolationsPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
+  const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
+  const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
+
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/');
@@ -227,6 +232,28 @@ export default function ViolationsPage() {
     }
   };
   
+    const handlePenaltySubmit = async (photoIds: string[]) => {
+        if (!activeViolationForPenalty || photoIds.length === 0) {
+            setIsPenaltyCameraOpen(false);
+            return;
+        }
+        
+        setIsProcessing(true);
+        toast({ title: 'Đang xử lý...', description: 'Bằng chứng nộp phạt đang được tải lên.' });
+
+        try {
+            await dataStore.submitPenaltyProof(activeViolationForPenalty.id, photoIds[0]);
+            toast({ title: 'Thành công', description: 'Đã cập nhật bằng chứng nộp phạt.' });
+        } catch (error) {
+            console.error("Failed to submit penalty proof:", error);
+            toast({ title: 'Lỗi', description: 'Không thể gửi bằng chứng nộp phạt.', variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
+            setActiveViolationForPenalty(null);
+            setIsPenaltyCameraOpen(false);
+        }
+    };
+
   const filteredViolations = useMemo(() => {
       if (!filterUserId) return violations;
       return violations.filter(v => v.userId === filterUserId);
@@ -359,6 +386,26 @@ export default function ViolationsPage() {
                                             ))}
                                         </div>
                                     )}
+                                     <div className="mt-4 pt-4 border-t">
+                                        {v.penaltyPhotoUrl ? (
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
+                                                    <CheckCircle className="h-4 w-4" />
+                                                    <span>Đã nộp phạt lúc {new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN')}</span>
+                                                </div>
+                                                <Button size="sm" variant="secondary" onClick={() => { setLightboxSlides([{ src: v.penaltyPhotoUrl! }]); setLightboxOpen(true); }}>
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    Xem bằng chứng
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            canManage && (
+                                                <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                    Nộp phạt
+                                                </Button>
+                                            )
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </AccordionContent>
@@ -382,6 +429,13 @@ export default function ViolationsPage() {
             isSelfConfession={isSelfConfessMode}
           />
       )}
+      
+       <CameraDialog
+        isOpen={isPenaltyCameraOpen}
+        onClose={() => setIsPenaltyCameraOpen(false)}
+        onSubmit={handlePenaltySubmit}
+      />
+
         <Lightbox
             open={lightboxOpen}
             close={() => setLightboxOpen(false)}
