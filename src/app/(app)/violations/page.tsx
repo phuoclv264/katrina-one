@@ -250,9 +250,10 @@ export default function ViolationsPage() {
                 prevViolations.map(v => {
                     if (v.id === violationId) {
                          const existingPhotos = v.penaltyPhotos || [];
+                         const updatedPhotos = Array.from(new Set([...existingPhotos, ...newPhotoUrls]));
                         return {
                             ...v, 
-                            penaltyPhotos: [...existingPhotos, ...newPhotoUrls],
+                            penaltyPhotos: updatedPhotos,
                             penaltySubmittedAt: new Date().toISOString() 
                         };
                     }

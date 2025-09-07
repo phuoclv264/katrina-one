@@ -799,9 +799,12 @@ export const dataStore = {
     const violationRef = doc(db, 'violations', violationId);
     const currentDoc = await getDoc(violationRef);
     const existingPhotos = currentDoc.exists() ? (currentDoc.data().penaltyPhotos || []) : [];
+    
+    // Use a Set to ensure no duplicates before updating
+    const updatedPhotos = Array.from(new Set([...existingPhotos, ...newPhotoUrls]));
 
     await updateDoc(violationRef, {
-        penaltyPhotos: [...existingPhotos, ...newPhotoUrls],
+        penaltyPhotos: updatedPhotos,
         penaltySubmittedAt: serverTimestamp(),
     });
 
