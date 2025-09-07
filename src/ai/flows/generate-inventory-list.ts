@@ -50,7 +50,9 @@ The input contains a list of products for a coffee shop. You must extract the fo
 - minStock: The minimum stock quantity required.
 - orderSuggestion: The suggested quantity to order when stock is low.
 
-Analyze the following input and extract all items. Pay close attention to the columns and rows.
+The input text could be a table pasted from a spreadsheet, or it could be a multi-line string where each line represents an item, with fields separated by a hyphen '-'. The order of fields in the hyphen-separated format is: Category-Name-Supplier-Unit-MinStock-OrderSuggestion.
+
+Analyze the following input and extract all items. Pay close attention to the columns, rows, or separators.
 If the input is an image, use OCR to read the text from the image first.
 
 Input:

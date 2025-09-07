@@ -253,7 +253,7 @@ function AiAssistant({
                                 </TabsList>
                                 <TabsContent value="text" className="mt-4 space-y-4">
                                     <Textarea
-                                        placeholder="Dán dữ liệu từ Excel/Google Sheets vào đây. Các cột bao gồm Tên, NCC, Đơn vị, Tồn tối thiểu, Gợi ý đặt hàng."
+                                        placeholder="Dán dữ liệu từ Excel/Google Sheets hoặc dạng text theo định dạng: Nhóm-Tên-NCC-Đơn vị-Tồn-Gợi ý đặt hàng"
                                         rows={6}
                                         value={textInput}
                                         onChange={(e) => setTextInput(e.target.value)}
@@ -523,12 +523,7 @@ export default function InventoryManagementPage() {
         checkLoadingDone();
     });
     const unsubInventory = dataStore.subscribeToInventoryList((items) => {
-        const sanitizedItems = items.map(item => ({
-          ...item,
-          supplier: item.supplier ?? 'Chưa xác định',
-          category: item.category ?? 'CHƯA PHÂN LOẠI',
-        }));
-        setInventoryList(sanitizedItems);
+        setInventoryList(items);
         inventorySubscribed = true;
         checkLoadingDone();
     });
@@ -732,19 +727,21 @@ export default function InventoryManagementPage() {
     }
   };
   
-    const handleExport = (type: 'names' | 'full') => {
+    const handleExport = (type: 'table' | 'text') => {
         if (!inventoryList) return;
 
         let textToCopy = '';
-        if (type === 'names') {
-            textToCopy = inventoryList.map(item => `${item.name}\t${item.supplier}`).join('\n');
-        } else {
+        if (type === 'table') {
             // Create TSV (Tab-Separated Values) string for easy pasting into Excel
-            const headers = ['Tên mặt hàng', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng'];
+            const headers = ['Tên mặt hàng', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh'];
             const rows = inventoryList.map(item => 
-                [item.name, item.supplier, item.unit, item.minStock, item.orderSuggestion].join('\t')
+                [item.name, item.category, item.supplier, item.unit, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG'].join('\t')
             );
             textToCopy = [headers.join('\t'), ...rows].join('\n');
+        } else if (type === 'text') {
+            textToCopy = inventoryList.map(item => 
+                [item.category, item.name, item.supplier, item.unit, item.minStock, item.orderSuggestion].join('-')
+            ).join('\n');
         }
 
         navigator.clipboard.writeText(textToCopy).then(() => {
@@ -807,8 +804,8 @@ export default function InventoryManagementPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleExport('names')}>Sao chép Tên & NCC</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExport('full')}>Sao chép Toàn bộ (dạng bảng)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExport('table')}>Sao chép (dạng bảng)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExport('text')}>Sao chép (dạng text)</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
                  {isSorting ? (
