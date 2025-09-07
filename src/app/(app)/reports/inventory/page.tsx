@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
@@ -129,6 +129,37 @@ function InventoryReportView() {
         return acc;
     }, {} as {[key: string]: InventoryReport[]})
   }, [allReports]);
+
+    const handleCopySuggestions = () => {
+        if (!reportToView?.suggestions || !reportToView.suggestions.ordersBySupplier || reportToView.suggestions.ordersBySupplier.length === 0) return;
+
+        const textToCopy = reportToView.suggestions.ordersBySupplier
+            .map(orderBySupplier => {
+                const header = `Katrina Coffee đặt hàng ${orderBySupplier.supplier.toUpperCase()}:`;
+                const items = orderBySupplier.itemsToOrder
+                    .map(orderItem => {
+                        const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
+                        return `⬤ ${fullItem ? fullItem.name : 'Không rõ'} - SL: ${orderItem.quantityToOrder}`;
+                    })
+                    .join('\n');
+                return `${header}\n${items}`;
+            })
+            .join('\n\n');
+            
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: "Thành công",
+                description: "Đã sao chép danh sách đặt hàng vào bộ nhớ tạm."
+            });
+        }, (err) => {
+            console.error('Could not copy text: ', err);
+            toast({
+                title: "Lỗi",
+                description: "Không thể sao chép danh sách.",
+                variant: "destructive"
+            });
+        });
+    };
 
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
@@ -312,7 +343,15 @@ function InventoryReportView() {
         <div className="lg:col-span-1 space-y-8" ref={suggestionsCardRef}>
             <Card className="sticky top-4">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</CardTitle>
+                    <CardTitle className="flex items-center justify-between">
+                        <span className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</span>
+                        {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
+                            <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
+                                <Copy className="mr-2 h-4 w-4"/>
+                                Sao chép
+                            </Button>
+                        )}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                      {reportToView.suggestions && reportToView.suggestions.ordersBySupplier.length > 0 ? (
