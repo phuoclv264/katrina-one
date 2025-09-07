@@ -136,12 +136,11 @@ function ManagerInventoryReportView() {
 
     const textToCopy = reportToView.suggestions.ordersBySupplier
         .map(orderBySupplier => {
-            const header = `✦✦✦ Katrina Coffee đặt hàng ${orderBySupplier.supplier} ✦✦✦`;
+            const header = `Katrina Coffee đặt hàng ${orderBySupplier.supplier.toUpperCase()}:`;
             const items = orderBySupplier.itemsToOrder
                 .map(orderItem => {
                     const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
-                    const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
-                    return `⬤ ${displayName} - SL: ${orderItem.quantityToOrder}`;
+                    return `⬤ ${fullItem ? fullItem.name : 'Không rõ'} - SL: ${orderItem.quantityToOrder}`;
                 })
                 .join('\n');
             return `${header}\n${items}`;
@@ -482,3 +481,5 @@ export default function ManagerInventoryReportPage() {
         </Suspense>
     )
 }
+
+    
