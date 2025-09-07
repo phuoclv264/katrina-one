@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
@@ -41,7 +42,7 @@ function InventoryReportView() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<InventoryReport | null>(null);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -58,24 +59,18 @@ function InventoryReportView() {
      const unsubReports = dataStore.subscribeToAllInventoryReports((reports) => {
         if(isMounted) {
             setAllReports(reports);
-            
-            const requestedId = searchParams.get('id');
-            if (requestedId) {
-              setSelectedReportId(requestedId);
-            } else if (reports.length > 0) {
-              setSelectedReportId(reports[0].id);
+            if (reports.length > 0) {
+              // Set the default selected report to the latest one
+              setSelectedReport(reports[0]);
             }
-
             setIsLoading(false);
         }
     });
 
      return () => { isMounted = false; unsubInventoryList(); unsubReports(); };
-  }, [searchParams])
+  }, [])
   
-  const reportToView = useMemo(() => {
-    return allReports.find(r => r.id === selectedReportId) || null;
-  }, [allReports, selectedReportId]);
+  const reportToView = selectedReport;
   
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -326,10 +321,10 @@ function InventoryReportView() {
                                             </p>
                                         </div>
                                          <Button 
-                                            variant={report.id === selectedReportId ? 'default' : 'secondary'} 
+                                            variant={report.id === selectedReport?.id ? 'default' : 'secondary'} 
                                             size="sm"
                                             onClick={() => {
-                                                setSelectedReportId(report.id);
+                                                setSelectedReport(report);
                                                 setIsHistoryOpen(false);
                                             }}
                                         >
