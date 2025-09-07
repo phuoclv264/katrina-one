@@ -59,6 +59,8 @@ function HygieneReportView() {
             setReports(fetchedReports);
             if (fetchedReports.length > 0 && !selectedReportId) {
                 setSelectedReportId(fetchedReports[0].id);
+            } else if (fetchedReports.length === 0) {
+                setSelectedReportId(null);
             }
             setIsLoading(false);
         });
@@ -76,7 +78,8 @@ function HygieneReportView() {
         if(unsubscribeTasks) unsubscribeTasks();
     }
 
-  }, [date, shiftKey, selectedReportId, user, authLoading, router, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, user, authLoading]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
