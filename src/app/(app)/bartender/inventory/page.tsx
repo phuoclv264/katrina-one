@@ -34,6 +34,7 @@ export default function InventoryPage() {
   const router = useRouter();
   const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
+  const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [report, setReport] = useState<InventoryReport | null>(null);
@@ -447,54 +448,55 @@ export default function InventoryPage() {
                                             const stockValue = record?.stock ?? '';
                                             const latestPhotoId = record?.photoIds?.[record.photoIds.length - 1];
                                             return (
-                                                <div key={item.id} className={`rounded-lg border p-4 ${getStatusColorClass(status)}`}>
-                                                    <div className="flex justify-between items-start gap-4">
-                                                        <div className="flex-1">
-                                                           <p className="font-semibold flex items-center gap-2">
-                                                              {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500"/>}
-                                                              {item.name.split(' - ')[1] || item.name}
-                                                            </p>
-                                                            <p className="text-sm text-muted-foreground mb-2">Đơn vị: {item.unit}</p>
-                                                        </div>
-                                                         <div className="flex-shrink-0 w-28">
-                                                            <Input
-                                                                type="text"
-                                                                value={stockValue}
-                                                                onChange={e => handleStockChange(item.id, e.target.value)}
-                                                                className="text-left"
-                                                                placeholder="Nhập tồn..."
-                                                                disabled={isProcessing}
-                                                            />
-                                                        </div>
+                                                <div 
+                                                    key={item.id} 
+                                                    className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer`}
+                                                    onClick={() => inputRefs.current.get(item.id)?.focus()}
+                                                >
+                                                    <div className="col-span-1">
+                                                        <p className="font-semibold flex items-center gap-2">
+                                                            {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                            {item.name.split(' - ')[1] || item.name}
+                                                        </p>
+                                                        <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
                                                     </div>
-                                                     {item.requiresPhoto && (
-                                                        <div className="mt-2">
+                                                    <div className="col-span-1 flex flex-col items-end gap-2">
+                                                        <Input
+                                                            ref={el => inputRefs.current.set(item.id, el)}
+                                                            type="text"
+                                                            value={stockValue}
+                                                            onChange={e => handleStockChange(item.id, e.target.value)}
+                                                            className="text-center h-9 w-24"
+                                                            placeholder="Tồn kho..."
+                                                            disabled={isProcessing}
+                                                        />
+                                                         {item.requiresPhoto && (
                                                             <div className="flex gap-2 items-center">
                                                                 <Button
                                                                     variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => { setActiveItemId(item.id); setIsCameraOpen(true); }}
+                                                                    size="icon"
+                                                                    className="h-9 w-9"
+                                                                    onClick={(e) => { e.stopPropagation(); setActiveItemId(item.id); setIsCameraOpen(true); }}
                                                                     disabled={isProcessing}
                                                                 >
-                                                                    <Camera className="mr-2 h-4 w-4" />
-                                                                    Chụp ảnh
+                                                                    <Camera className="h-4 w-4" />
                                                                 </Button>
                                                                 {latestPhotoId && localPhotoUrls.get(latestPhotoId) && (
-                                                                    <div className="relative aspect-square rounded-md overflow-hidden w-16 h-16">
+                                                                    <div className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
                                                                         <Image src={localPhotoUrls.get(latestPhotoId)!} alt="Inventory photo" fill className="object-cover" />
                                                                         <Button
                                                                             variant="destructive"
                                                                             size="icon"
-                                                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                                            onClick={() => handleDeletePhoto(item.id, latestPhotoId, true)}
+                                                                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
+                                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, latestPhotoId, true);}}
                                                                         >
-                                                                            <X className="h-3 w-3" />
+                                                                            <X className="h-2 w-2" />
                                                                         </Button>
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                         )}
+                                                    </div>
                                                 </div>
                                             )
                                         })}
