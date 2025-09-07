@@ -15,13 +15,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX } from 'lucide-react';
+import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo } from 'lucide-react';
 import type { ManagedUser, Violation } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import CameraDialog from '@/components/camera-dialog';
+import { Badge } from '@/components/ui/badge';
 
 
 function ViolationDialog({
@@ -32,6 +33,7 @@ function ViolationDialog({
   isProcessing,
   violationToEdit,
   reporter,
+  isSelfConfession = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,6 +42,7 @@ function ViolationDialog({
   isProcessing: boolean;
   violationToEdit: Violation | null;
   reporter: ManagedUser;
+  isSelfConfession?: boolean;
 }) {
   const [content, setContent] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -47,18 +50,23 @@ function ViolationDialog({
   const [photoIds, setPhotoIds] = useState<string[]>([]);
   
   useEffect(() => {
-    if (open && violationToEdit) {
-      setContent(violationToEdit.content);
-      setSelectedUserId(violationToEdit.userId);
-      // Photo editing is not supported for simplicity, only adding new ones
-      setPhotoIds([]);
-    } else if (open) {
-      // Reset for new violation
-      setContent('');
-      setSelectedUserId('');
-      setPhotoIds([]);
+    if (open) {
+        if (violationToEdit) {
+            setContent(violationToEdit.content);
+            setSelectedUserId(violationToEdit.userId);
+            setPhotoIds([]);
+        } else if (isSelfConfession) {
+            setContent('');
+            setSelectedUserId(reporter.uid); // Lock to self
+            setPhotoIds([]);
+        } else {
+            // Reset for new violation by manager
+            setContent('');
+            setSelectedUserId('');
+            setPhotoIds([]);
+        }
     }
-  }, [open, violationToEdit]);
+  }, [open, violationToEdit, isSelfConfession, reporter]);
 
   const handleSave = () => {
     if (!content || !selectedUserId) {
@@ -86,14 +94,16 @@ function ViolationDialog({
       setIsCameraOpen(false);
   }
 
+  const dialogTitle = violationToEdit ? 'Chỉnh sửa Vi phạm' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Thêm Vi phạm mới');
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{violationToEdit ? 'Chỉnh sửa Vi phạm' : 'Thêm Vi phạm mới'}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>
-            Ghi nhận lại các vấn đề hoặc sai phạm của nhân viên.
+            {isSelfConfession ? 'Mô tả lại sai sót của bạn một cách trung thực.' : 'Ghi nhận lại các vấn đề hoặc sai phạm của nhân viên.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -101,7 +111,7 @@ function ViolationDialog({
             <Label htmlFor="user" className="text-right">
               Nhân viên
             </Label>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+             <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isSelfConfession}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Chọn nhân viên..." />
               </SelectTrigger>
@@ -161,7 +171,9 @@ export default function ViolationsPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
   const [filterUserId, setFilterUserId] = useState<string | null>(null);
@@ -233,6 +245,12 @@ export default function ViolationsPage() {
 
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
 
+  const openAddDialog = (isSelfConfession: boolean) => {
+    setViolationToEdit(null);
+    setIsSelfConfessMode(isSelfConfession);
+    setIsDialogOpen(true);
+  }
+
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -275,8 +293,11 @@ export default function ViolationsPage() {
                         ))}
                     </SelectContent>
                 </Select>
+                 <Button variant="secondary" onClick={() => openAddDialog(true)}>
+                    <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+                 </Button>
                 {canManage && (
-                  <Button onClick={() => { setViolationToEdit(null); setIsDialogOpen(true); }}>
+                  <Button onClick={() => openAddDialog(false)}>
                     <Plus className="mr-2 h-4 w-4" /> Thêm mới
                   </Button>
                 )}
@@ -297,15 +318,15 @@ export default function ViolationsPage() {
                             {violationsInMonth.map(v => (
                                 <div key={v.id} className="border rounded-lg p-4">
                                     <div className="flex justify-between items-start">
-                                        <div>
+                                        <div className="flex items-center gap-2">
                                             <p className="font-semibold">{v.userName}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN')}
-                                            </p>
+                                            {v.userId === v.reporterId && (
+                                                <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
+                                            )}
                                         </div>
                                         {canManage && (
                                             <div className="flex gap-1">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsDialogOpen(true); }}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                                 <AlertDialog>
@@ -325,6 +346,9 @@ export default function ViolationsPage() {
                                             </div>
                                         )}
                                     </div>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN')}
+                                    </p>
                                     <p className="mt-2 text-sm">{v.content}</p>
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
@@ -346,7 +370,7 @@ export default function ViolationsPage() {
         </Card>
       </div>
 
-      {user && canManage && (
+      {user && (
           <ViolationDialog 
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}
@@ -355,6 +379,7 @@ export default function ViolationsPage() {
             isProcessing={isProcessing}
             violationToEdit={violationToEdit}
             reporter={user}
+            isSelfConfession={isSelfConfessMode}
           />
       )}
         <Lightbox
