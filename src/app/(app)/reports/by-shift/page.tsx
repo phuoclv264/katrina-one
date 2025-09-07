@@ -74,7 +74,8 @@ function ReportView() {
         unsubscribeTasks();
         unsubscribeReports();
     };
-  }, [date, shiftKey, selectedReportId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, shiftKey]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
@@ -339,3 +340,5 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
+
+    

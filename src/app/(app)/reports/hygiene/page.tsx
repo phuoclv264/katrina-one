@@ -80,7 +80,8 @@ function HygieneReportView() {
         isMounted = false;
         unsubscribeTasks();
     }
-  }, [date, selectedReportId, toast, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, toast, router]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
@@ -341,3 +342,5 @@ export default function HygieneReportPage() {
         </Suspense>
     )
 }
+
+    

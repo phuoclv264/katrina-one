@@ -74,19 +74,26 @@ function ManagerHygieneReportView() {
   useEffect(() => {
     if (!dateKey) return;
     setIsLoading(true);
+    let isMounted = true;
     dataStore.getHygieneReportForDate(dateKey, 'bartender_hygiene').then(fetchedReports => {
-        setReports(fetchedReports);
-        if (fetchedReports.length > 0) {
-            setSelectedReportId(fetchedReports[0].id);
-        } else {
-            setSelectedReportId(null);
+        if(isMounted) {
+            setReports(fetchedReports);
+            if (fetchedReports.length > 0) {
+                setSelectedReportId(fetchedReports[0].id);
+            } else {
+                setSelectedReportId(null);
+            }
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }).catch(error => {
         console.error("Error fetching hygiene report for manager:", error);
-        toast({ title: "Lỗi", description: "Không thể tải báo cáo.", variant: "destructive" });
-        setIsLoading(false);
+        if(isMounted) {
+            toast({ title: "Lỗi", description: "Không thể tải báo cáo.", variant: "destructive" });
+            setIsLoading(false);
+        }
     });
+
+    return () => { isMounted = false; };
   }, [dateKey, toast]);
 
 
@@ -338,3 +345,5 @@ export default function ManagerHygieneReportPage() {
         </Suspense>
     )
 }
+
+    
