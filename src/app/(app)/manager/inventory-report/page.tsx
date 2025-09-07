@@ -252,9 +252,9 @@ function ManagerInventoryReportView() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {reportToView.suggestions && reportToView.suggestions.ordersBySupplier.length > 0 ? (
+                    {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 ? (
                         <div className="space-y-4">
-                            <p className="text-sm font-semibold text-primary">{reportToView.suggestions.summary}</p>
+                             <p className="text-sm font-semibold text-primary">{reportToView.suggestions.summary}</p>
                              <Accordion type="multiple" defaultValue={reportToView.suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
                                 {reportToView.suggestions.ordersBySupplier.map((orderBySupplier) => (
                                     <AccordionItem value={orderBySupplier.supplier} key={orderBySupplier.supplier} className="border-b-0">
