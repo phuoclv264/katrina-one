@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,9 @@ import type { UserRole } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { dataStore } from '@/lib/data-store';
+import type { AppSettings } from '@/lib/types';
+
 
 export default function AuthPage() {
   const { user, login, register, loading } = useAuth();
@@ -32,6 +36,13 @@ export default function AuthPage() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribeToAppSettings(setAppSettings);
+    return () => unsubscribe();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +60,17 @@ export default function AuthPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!appSettings?.isRegistrationEnabled) {
+      toast({
+        title: 'Tính năng đăng ký đã tắt',
+        description: 'Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+      return;
+    }
+
      if (!registerEmail || !registerPassword || !registerName || !registerRole) {
       toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.', variant: 'destructive' });
       return;

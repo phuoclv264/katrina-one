@@ -21,7 +21,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -52,6 +52,25 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+    subscribeToAppSettings(callback: (settings: AppSettings) => void): () => void {
+        const docRef = doc(db, 'app-data', 'settings');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data() as AppSettings);
+            } else {
+                // If settings don't exist, create them with registration enabled by default
+                const defaultSettings: AppSettings = { isRegistrationEnabled: true };
+                await setDoc(docRef, defaultSettings);
+                callback(defaultSettings);
+            }
+        });
+        return unsubscribe;
+    },
+
+    async updateAppSettings(newSettings: Partial<AppSettings>): Promise<void> {
+        const docRef = doc(db, 'app-data', 'settings');
+        await updateDoc(docRef, newSettings);
+    },
 
   async logErrorToServer(error: AppError) {
     try {

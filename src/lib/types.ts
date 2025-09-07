@@ -17,6 +17,10 @@ export type ManagedUser = {
   notes?: string;
 };
 
+export type AppSettings = {
+  isRegistrationEnabled: boolean;
+};
+
 export type Task = {
   id: string;
   text: string;

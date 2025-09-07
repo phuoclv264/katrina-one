@@ -1,11 +1,12 @@
 
+
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
-import type { ManagedUser, UserRole } from '@/lib/types';
+import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,7 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users2, Trash2, Edit, Loader2 } from 'lucide-react';
+import { Users2, Trash2, Edit, Loader2, Settings } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUser, onSave: (data: Partial<ManagedUser>) => void, onOpenChange: (open: boolean) => void, open: boolean }) {
     const [displayName, setDisplayName] = useState(user.displayName);
@@ -87,6 +89,7 @@ export default function UsersPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [users, setUsers] = useState<ManagedUser[]>([]);
+    const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     
@@ -98,13 +101,21 @@ export default function UsersPage() {
             if (!user || user.role !== 'Chủ nhà hàng') {
                 router.replace('/');
             } else {
-                const unsubscribe = dataStore.subscribeToUsers((userList) => {
+                const unsubUsers = dataStore.subscribeToUsers((userList) => {
                     setUsers(userList);
-                    setIsLoading(false);
+                    if(appSettings) setIsLoading(false);
                 });
-                return () => unsubscribe();
+                const unsubSettings = dataStore.subscribeToAppSettings((settings) => {
+                    setAppSettings(settings);
+                    if(users.length > 0 || !isLoading) setIsLoading(false);
+                });
+                return () => {
+                    unsubUsers();
+                    unsubSettings();
+                };
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authLoading, router]);
     
     const handleEditClick = (userToEdit: ManagedUser) => {
@@ -144,6 +155,15 @@ export default function UsersPage() {
             setIsProcessing(false);
         }
     };
+
+    const handleRegistrationToggle = async (isEnabled: boolean) => {
+        setAppSettings(prev => ({...prev!, isRegistrationEnabled: isEnabled})); // Optimistic update
+        await dataStore.updateAppSettings({ isRegistrationEnabled: isEnabled });
+        toast({
+            title: `Đã ${isEnabled ? 'bật' : 'tắt'} tính năng đăng ký`,
+            description: `Người dùng mới ${isEnabled ? 'có thể' : 'không thể'} tạo tài khoản.`,
+        })
+    }
     
     if(isLoading || authLoading) {
         return (
@@ -177,6 +197,27 @@ export default function UsersPage() {
                     Xem, chỉnh sửa và quản lý tất cả các tài khoản người dùng trong hệ thống.
                 </p>
             </header>
+
+            <Card className="mb-8">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Settings /> Cài đặt hệ thống</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                        <div>
+                            <Label htmlFor="registration-switch" className="font-semibold">Cho phép đăng ký tài khoản mới</Label>
+                            <p className="text-sm text-muted-foreground">
+                                Khi tắt, người dùng mới sẽ không thể tự tạo tài khoản.
+                            </p>
+                        </div>
+                        <Switch
+                            id="registration-switch"
+                            checked={appSettings?.isRegistrationEnabled}
+                            onCheckedChange={handleRegistrationToggle}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>
