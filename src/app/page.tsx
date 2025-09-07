@@ -65,7 +65,6 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Explicitly check for false, allow registration if settings are not loaded yet or enabled.
     if (appSettings?.isRegistrationEnabled === false) {
       toast({
         title: 'Tính năng đăng ký đã tắt',
@@ -97,7 +96,7 @@ export default function AuthPage() {
   }
 
   const isProcessing = loading || isProcessingAuth;
-  const isRegisterDisabled = isProcessing || isLoadingSettings || appSettings?.isRegistrationEnabled === false;
+  const isRegisterDisabled = isProcessing || isLoadingSettings;
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
@@ -230,7 +229,7 @@ export default function AuthPage() {
                   {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isLoadingSettings ? 'Đang tải...' : 'Đăng ký'}
                 </Button>
-                 {appSettings?.isRegistrationEnabled === false && (
+                 {appSettings?.isRegistrationEnabled === false && !isLoadingSettings && (
                     <p className="text-xs text-center text-destructive pt-2">
                         Tính năng đăng ký đã bị tắt. Vui lòng liên hệ quản lý.
                     </p>
