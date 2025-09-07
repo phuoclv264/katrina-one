@@ -14,6 +14,7 @@ import { z } from 'genkit';
 const InventoryItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  category: z.string(),
   supplier: z.string(),
   unit: z.string(),
   minStock: z.number(),
@@ -47,9 +48,9 @@ IMPORTANT RULES:
 1.  You MUST return the **entire list** of items, including the ones that were not changed.
 2.  You MUST NOT add or remove any items from the list. The number of items in the output array must be exactly the same as in the input array.
 3.  You MUST preserve the original 'id' of every item. Do not change, add, or remove 'id' fields.
-4.  Only modify the fields ('name', 'supplier', 'unit', 'minStock', 'orderSuggestion') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
-5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with "TOPPING" in their name and add 2 to their existing 'minStock'.
-6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for keywords in the 'name' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
+4.  Only modify the fields ('name', 'category', 'supplier', 'unit', 'minStock', 'orderSuggestion') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
+5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with 'category: "TOPPING"' and add 2 to their existing 'minStock'.
+6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
 
 User's Instruction: "{{{instruction}}}"
 

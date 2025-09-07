@@ -71,7 +71,7 @@ export default function InventoryPage() {
       const grouped: { [key: string]: InventoryItem[] } = {};
 
       inventoryList.forEach(item => {
-          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+          const category = item.category || 'CHƯA PHÂN LOẠI';
           if (!grouped[category]) {
               grouped[category] = [];
               categoryOrder.push(category);
@@ -455,7 +455,7 @@ export default function InventoryPage() {
                                                     <div className="col-span-1">
                                                         <p className="font-semibold flex items-center gap-2">
                                                             {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                            {item.name.split(' - ')[1] || item.name}
+                                                            {item.name}
                                                         </p>
                                                         <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
                                                     </div>
@@ -540,10 +540,9 @@ export default function InventoryPage() {
                                                 <TableBody>
                                                     {orderBySupplier.itemsToOrder.map((orderItem) => {
                                                         const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
-                                                        const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
                                                         return (
                                                             <TableRow key={orderItem.itemId}>
-                                                                <TableCell className="font-normal text-sm p-2">{displayName}</TableCell>
+                                                                <TableCell className="font-normal text-sm p-2">{fullItem?.name || 'Không rõ'}</TableCell>
                                                                 <TableCell className="text-right font-semibold text-sm p-2">{orderItem.quantityToOrder}</TableCell>
                                                             </TableRow>
                                                         );

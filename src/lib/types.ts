@@ -102,6 +102,7 @@ export type ShiftReport = {
 export type InventoryItem = {
     id: string;
     name: string;
+    category: string;
     supplier: string;
     unit: string;
     minStock: number;

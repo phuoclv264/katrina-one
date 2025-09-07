@@ -19,7 +19,8 @@ const GenerateInventoryListInputSchema = z.object({
 export type GenerateInventoryListInput = z.infer<typeof GenerateInventoryListInputSchema>;
 
 const ParsedInventoryItemSchema = z.object({
-    name: z.string().describe('The full name of the inventory item.'),
+    name: z.string().describe('The name of the inventory item.'),
+    category: z.string().describe('The category or group of the item (e.g., "TRÁI CÂY", "TOPPING", "SIRO").'),
     supplier: z.string().describe('The name of the supplier for this item.'),
     unit: z.string().describe('The unit of measurement for the item (e.g., "kg", "box", "lon", "cây").'),
     minStock: z.number().describe('The minimum required stock level for this item.'),
@@ -42,7 +43,8 @@ const prompt = ai.definePrompt({
     prompt: `You are an expert data entry assistant. Your task is to analyze the provided input (either text or an image) and extract a list of inventory items.
 
 The input contains a list of products for a coffee shop. You must extract the following fields for each item:
-- name: The full name of the product.
+- name: The name of the product.
+- category: The group or type of the product. Infer this from the context if not explicitly stated. Examples: SIRO, TRÁI CÂY, TOPPING, CCDC.
 - supplier: The name of the supplier for this item.
 - unit: The unit of measurement (e.g., kg, gram, hộp, gói, lon, cây, etc.).
 - minStock: The minimum stock quantity required.

@@ -101,7 +101,7 @@ function ManagerInventoryReportView() {
       const grouped: { [key: string]: InventoryItem[] } = {};
 
       inventoryList.forEach(item => {
-          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+          const category = item.category || 'CHƯA PHÂN LOẠI';
           if (!grouped[category]) {
               grouped[category] = [];
               categoryOrder.push(category);
@@ -284,7 +284,7 @@ function ManagerInventoryReportView() {
                                                 <div key={item.id} className={`rounded-lg border p-3 ${getStatusColorClass(status)}`}>
                                                     <div className="flex items-center gap-2 font-semibold">
                                                         {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                        <p>{item.name.split(' - ')[1] || item.name}</p>
+                                                        <p>{item.name}</p>
                                                     </div>
                                                     <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                                                         <div className="text-muted-foreground">Đơn vị: <span className="font-medium text-foreground">{item.unit}</span></div>
@@ -331,7 +331,7 @@ function ManagerInventoryReportView() {
                                                                 <div className="flex flex-col gap-2">
                                                                     <div className="flex items-center gap-2">
                                                                         {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                                        {item.name.split(' - ')[1] || item.name}
+                                                                        {item.name}
                                                                     </div>
                                                                     {item.requiresPhoto && photos.length > 0 && (
                                                                         <div className="flex gap-2 flex-wrap pl-6">
@@ -394,10 +394,9 @@ function ManagerInventoryReportView() {
                                                 <TableBody>
                                                     {orderBySupplier.itemsToOrder.map((orderItem) => {
                                                         const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
-                                                        const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
                                                         return (
                                                             <TableRow key={orderItem.itemId}>
-                                                                <TableCell className="font-normal text-sm p-2">{displayName}</TableCell>
+                                                                <TableCell className="font-normal text-sm p-2">{fullItem?.name || 'Không rõ'}</TableCell>
                                                                 <TableCell className="text-right font-semibold text-sm p-2">{orderItem.quantityToOrder}</TableCell>
                                                             </TableRow>
                                                         );

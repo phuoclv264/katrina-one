@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -495,6 +495,8 @@ export default function InventoryManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [isSorting, setIsSorting] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<{ oldName: string; newName: string } | null>(null);
+
 
   useEffect(() => {
     if (!authLoading) {
@@ -506,29 +508,35 @@ export default function InventoryManagementPage() {
 
   useEffect(() => {
     if (!user) return;
+    let inventorySubscribed = false;
+    let suppliersSubscribed = false;
+
+    const checkLoadingDone = () => {
+        if (inventorySubscribed && suppliersSubscribed) {
+            setIsLoading(false);
+        }
+    }
+
     const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => {
         setSuppliers(supplierList);
+        suppliersSubscribed = true;
+        checkLoadingDone();
     });
-    return () => unsubSuppliers();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
     const unsubInventory = dataStore.subscribeToInventoryList((items) => {
         const sanitizedItems = items.map(item => ({
           ...item,
           supplier: item.supplier ?? 'Chưa xác định',
+          category: item.category ?? 'CHƯA PHÂN LOẠI',
         }));
         setInventoryList(sanitizedItems);
+        inventorySubscribed = true;
+        checkLoadingDone();
     });
-    return () => unsubInventory();
+    return () => {
+        unsubSuppliers();
+        unsubInventory();
+    };
   }, [user]);
-
-  useEffect(() => {
-    if (inventoryList !== null && suppliers !== null) {
-      setIsLoading(false);
-    }
-  }, [inventoryList, suppliers]);
 
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -537,7 +545,7 @@ export default function InventoryManagementPage() {
       const grouped: { [key: string]: InventoryItem[] } = {};
 
       inventoryList.forEach(item => {
-          const category = item.name.includes(' - ') ? item.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
+          const category = item.category || 'CHƯA PHÂN LOẠI';
           if (!grouped[category]) {
               grouped[category] = [];
               categoryOrder.push(category);
@@ -598,10 +606,8 @@ export default function InventoryManagementPage() {
     // Check if the move is within the same category
     const itemToMove = newList[indexToMove];
     const itemToSwap = newList[newIndex];
-    const categoryOfItemToMove = itemToMove.name.includes(' - ') ? itemToMove.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
-    const categoryOfItemToSwap = itemToSwap.name.includes(' - ') ? itemToSwap.name.split(' - ')[0].trim().toUpperCase() : 'CHƯA PHÂN LOẠI';
-
-    if (categoryOfItemToMove === categoryOfItemToSwap) {
+    
+    if (itemToMove.category === itemToSwap.category) {
         [newList[indexToMove], newList[newIndex]] = [newList[newIndex], newList[indexToMove]];
         // Update the state with the new list
         setInventoryList(newList);
@@ -615,7 +621,8 @@ export default function InventoryManagementPage() {
     if (!inventoryList) return;
     const newItem: InventoryItem = {
       id: `item-${Date.now()}`,
-      name: 'CHƯA PHÂN LOẠI - Mặt hàng mới',
+      name: 'Mặt hàng mới',
+      category: 'CHƯA PHÂN LOẠI',
       supplier: 'Chưa xác định',
       unit: 'cái',
       minStock: 1,
@@ -673,7 +680,37 @@ export default function InventoryManagementPage() {
 
       const newFlatList = newCategoryOrder.flatMap(category => category.items);
       setInventoryList(newFlatList);
+      setOpenCategories([]);
   };
+
+  const handleRenameCategory = () => {
+    if (!editingCategory || !inventoryList || !editingCategory.newName.trim()) {
+        setEditingCategory(null);
+        return;
+    }
+
+    const { oldName, newName } = editingCategory;
+    const newTrimmedName = newName.trim().toUpperCase();
+
+    // Check if new category name already exists
+    const categoryExists = categorizedList.some(
+        c => c.category.toUpperCase() === newTrimmedName && c.category.toUpperCase() !== oldName.toUpperCase()
+    );
+
+    if (categoryExists) {
+        toast({ title: "Lỗi", description: `Nhóm sản phẩm "${newTrimmedName}" đã tồn tại.`, variant: "destructive" });
+        return;
+    }
+
+    const newList = inventoryList.map(item => 
+        item.category === oldName ? { ...item, category: newTrimmedName } : item
+    );
+
+    handleUpdateAndSave(newList);
+    setEditingCategory(null);
+    setOpenCategories(prev => [...prev.filter(c => c !== oldName), newTrimmedName]);
+  };
+
 
    const handleToggleAll = () => {
     if (!categorizedList) return;
@@ -799,9 +836,21 @@ export default function InventoryManagementPage() {
                 <AccordionItem value={category} key={category} className="border rounded-lg">
                     <div className="flex items-center p-2">
                         <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
-                            {category}
+                            {editingCategory?.oldName === category ? (
+                                <Input
+                                    value={editingCategory.newName}
+                                    onChange={(e) => setEditingCategory({ ...editingCategory, newName: e.target.value })}
+                                    onKeyDown={e => e.key === 'Enter' && handleRenameCategory()}
+                                    onBlur={handleRenameCategory}
+                                    autoFocus
+                                    className="text-lg font-semibold h-9"
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                            ) : (
+                                category
+                            )}
                         </AccordionTrigger>
-                         {isSorting && (
+                         {isSorting ? (
                             <div className="flex items-center gap-1 pl-4">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
                                     <ArrowUp className="h-4 w-4" />
@@ -810,6 +859,10 @@ export default function InventoryManagementPage() {
                                     <ArrowDown className="h-4 w-4" />
                                 </Button>
                             </div>
+                         ) : (
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingCategory({ oldName: category, newName: category })}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
                          )}
                     </div>
                     <AccordionContent className="p-4 border-t">
