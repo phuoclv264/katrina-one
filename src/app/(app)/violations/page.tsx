@@ -247,15 +247,17 @@ export default function ViolationsPage() {
             
             // Optimistic UI update
             setViolations(prevViolations => 
-                prevViolations.map(v => 
-                    v.id === violationId
-                        ? { 
+                prevViolations.map(v => {
+                    if (v.id === violationId) {
+                         const existingPhotos = v.penaltyPhotos || [];
+                        return {
                             ...v, 
-                            penaltyPhotos: [...(v.penaltyPhotos || []), ...newPhotoUrls],
+                            penaltyPhotos: [...existingPhotos, ...newPhotoUrls],
                             penaltySubmittedAt: new Date().toISOString() 
-                          } 
-                        : v
-                )
+                        };
+                    }
+                    return v;
+                })
             );
 
             toast({ title: 'Thành công', description: 'Đã cập nhật bằng chứng nộp phạt.' });
@@ -476,3 +478,5 @@ export default function ViolationsPage() {
     </>
   );
 }
+
+    
