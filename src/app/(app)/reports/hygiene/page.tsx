@@ -93,16 +93,18 @@ function HygieneReportView() {
         return "Nhiệm vụ không xác định";
     };
 
-    const photos = [];
+    const photos: { src: string, description: string }[] = [];
     for (const taskId in report.completedTasks) {
         const taskText = findTaskText(taskId);
         const completions = report.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
-            for (const photoUrl of completion.photos) {
-                photos.push({
-                    src: photoUrl,
-                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                });
+            if (completion.photos) {
+              for (const photoUrl of completion.photos) {
+                  photos.push({
+                      src: photoUrl,
+                      description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                  });
+              }
             }
         }
     }
@@ -267,7 +269,7 @@ function HygieneReportView() {
                                                 <span>Thực hiện lúc: {completion.timestamp}</span>
                                             </div>
                                         </div>
-                                        {completion.photos.length > 0 ? (
+                                        {completion.photos && completion.photos.length > 0 ? (
                                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                             {completion.photos.map((photo, pIndex) => (
                                                 <button
