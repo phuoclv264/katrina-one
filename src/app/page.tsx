@@ -35,12 +35,16 @@ export default function AuthPage() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isProcessingAuth, setIsProcessingAuth] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
 
   useEffect(() => {
-    const unsubscribe = dataStore.subscribeToAppSettings(setAppSettings);
+    const unsubscribe = dataStore.subscribeToAppSettings((settings) => {
+        setAppSettings(settings);
+        setIsLoadingSettings(false);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -50,18 +54,19 @@ export default function AuthPage() {
       toast({ title: 'Lỗi', description: 'Vui lòng nhập email và mật khẩu.', variant: 'destructive' });
       return;
     }
-    setIsLoggingIn(true);
+    setIsProcessingAuth(true);
     const success = await login(loginEmail, loginPassword);
     if (!success) {
-      setIsLoggingIn(false);
+      setIsProcessingAuth(false);
     }
-    // On success, isLoggingIn remains true while the redirect happens.
+    // On success, isProcessingAuth remains true while the redirect happens.
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!appSettings?.isRegistrationEnabled) {
+    // Explicitly check for false, allow registration if settings are not loaded yet or enabled.
+    if (appSettings?.isRegistrationEnabled === false) {
       toast({
         title: 'Tính năng đăng ký đã tắt',
         description: 'Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.',
@@ -75,10 +80,10 @@ export default function AuthPage() {
       toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.', variant: 'destructive' });
       return;
     }
-    setIsLoggingIn(true);
+    setIsProcessingAuth(true);
     const success = await register(registerEmail, registerPassword, registerName, registerRole);
     if (!success) {
-        setIsLoggingIn(false);
+        setIsProcessingAuth(false);
     }
   };
   
@@ -91,7 +96,8 @@ export default function AuthPage() {
     )
   }
 
-  const isProcessing = loading || isLoggingIn;
+  const isProcessing = loading || isProcessingAuth;
+  const isRegisterDisabled = isProcessing || isLoadingSettings || appSettings?.isRegistrationEnabled === false;
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
@@ -220,10 +226,15 @@ export default function AuthPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button type="submit" className="w-full" disabled={isProcessing}>
+                <Button type="submit" className="w-full" disabled={isRegisterDisabled}>
                   {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Đăng ký
+                  {isLoadingSettings ? 'Đang tải...' : 'Đăng ký'}
                 </Button>
+                 {appSettings?.isRegistrationEnabled === false && (
+                    <p className="text-xs text-center text-destructive pt-2">
+                        Tính năng đăng ký đã bị tắt. Vui lòng liên hệ quản lý.
+                    </p>
+                 )}
               </form>
             </CardContent>
           </Card>
