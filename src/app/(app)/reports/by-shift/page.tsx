@@ -44,46 +44,37 @@ function ReportView() {
         router.replace('/shifts');
         return;
     }
-    
-    if (authLoading || !user || !date || !shiftKey) {
-      setIsLoading(false);
-      return;
-    };
-
-    let unsubscribeTasks: (() => void) | null = null;
-    let unsubscribeReports: (() => void) | null = null;
-
-    try {
-        unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
-            setTasksByShift(tasks);
-        });
-
-        unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
-            setReports(fetchedReports);
-            if (fetchedReports.length > 0 && !selectedReportId) {
-                setSelectedReportId(fetchedReports[0].id);
-            } else if (fetchedReports.length === 0) {
-                setSelectedReportId(null);
-            }
-            setIsLoading(false);
-        });
-    } catch (error) {
-        console.error("Error subscribing to data:", error);
-        toast({
-            title: "Lỗi tải dữ liệu",
-            description: "Không thể tải dữ liệu báo cáo. Đang chuyển hướng bạn về trang chính.",
-            variant: "destructive",
-        });
-        router.replace('/reports');
+  }, [authLoading, user, router]);
+  
+  useEffect(() => {
+    if (!date || !shiftKey) {
+        setIsLoading(false);
+        return;
     }
 
+    let isMounted = true;
+    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
+      if (isMounted) setTasksByShift(tasks);
+    });
+
+    const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
+      if (isMounted) {
+        setReports(fetchedReports);
+        if (fetchedReports.length > 0 && !selectedReportId) {
+            setSelectedReportId(fetchedReports[0].id);
+        } else if (fetchedReports.length === 0) {
+            setSelectedReportId(null);
+        }
+        setIsLoading(false);
+      }
+    });
 
     return () => {
-        if(unsubscribeTasks) unsubscribeTasks();
-        if(unsubscribeReports) unsubscribeReports();
+        isMounted = false;
+        unsubscribeTasks();
+        unsubscribeReports();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, shiftKey, user, authLoading]);
+  }, [date, shiftKey, selectedReportId]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;

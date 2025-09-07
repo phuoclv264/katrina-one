@@ -44,19 +44,21 @@ function ComprehensiveReportView() {
         router.replace('/shifts');
         return;
     }
+  }, [authLoading, user, router]);
+
+  useEffect(() => {
+    if (!date) {
+        setIsLoading(false);
+        return;
+    }
     
-    if (authLoading || !user || !date) {
-      setIsLoading(false);
-      return;
-    };
+    let isMounted = true;
+    const unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((tasks) => {
+        if(isMounted) setTaskSections(tasks);
+    });
 
-    let unsubscribeTasks: (() => void) | null = null;
-    try {
-        unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((tasks) => {
-            setTaskSections(tasks);
-        });
-
-        dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
+    dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
+        if(isMounted) {
             setReports(fetchedReports);
             if (fetchedReports.length > 0 && !selectedReportId) {
                 setSelectedReportId(fetchedReports[0].id);
@@ -64,23 +66,22 @@ function ComprehensiveReportView() {
                 setSelectedReportId(null);
             }
             setIsLoading(false);
-        });
-    } catch (error) {
+        }
+    }).catch(error => {
         console.error("Error loading comprehensive report data:", error);
         toast({
             title: "Lỗi tải dữ liệu",
             description: "Không thể tải báo cáo. Đang chuyển hướng bạn về trang chính.",
             variant: "destructive",
         });
-        router.replace('/reports');
-    }
+        if(isMounted) router.replace('/reports');
+    });
 
     return () => {
-        if(unsubscribeTasks) unsubscribeTasks();
+        isMounted = false;
+        unsubscribeTasks();
     }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, user, authLoading]);
+  }, [date, selectedReportId, toast, router]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;

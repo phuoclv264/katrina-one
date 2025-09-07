@@ -52,6 +52,7 @@ function ManagerInventoryReportView() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    if (!user) return;
     let isMounted = true;
     const unsubInventoryList = dataStore.subscribeToInventoryList((items) => {
         if(isMounted) setInventoryList(items);
@@ -70,7 +71,7 @@ function ManagerInventoryReportView() {
         unsubInventoryList();
         unsubReports();
     };
-  }, [selectedReport]);
+  }, [user, selectedReport]);
   
   const reportToView = selectedReport;
   
