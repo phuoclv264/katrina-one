@@ -60,9 +60,17 @@ export const dataStore = {
             } else {
                 // If settings don't exist, create them with registration enabled by default
                 const defaultSettings: AppSettings = { isRegistrationEnabled: true };
-                await setDoc(docRef, defaultSettings);
-                callback(defaultSettings);
+                try {
+                    await setDoc(docRef, defaultSettings);
+                    callback(defaultSettings);
+                } catch(e) {
+                    console.error("Permission denied to create default app settings.", e);
+                    callback(defaultSettings); // callback with default if creation fails
+                }
             }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read app settings: ${error.code}`);
+            callback({ isRegistrationEnabled: false }); // Default to false on error
         });
         return unsubscribe;
     },
@@ -99,6 +107,9 @@ export const dataStore = {
         } as AppError);
       });
       callback(errors);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read error log: ${error.code}`);
+        callback([]); // Return empty array on permission error
     });
 
     return unsubscribe;
@@ -116,6 +127,9 @@ export const dataStore = {
         } as ManagedUser);
       });
       callback(users);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read users list: ${error.code}`);
+        callback([]);
     });
     return unsubscribe;
   },
@@ -176,9 +190,17 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data() as TasksByShift);
       } else {
-        await setDoc(docRef, initialTasksByShift);
-        callback(initialTasksByShift);
+        try {
+            await setDoc(docRef, initialTasksByShift);
+            callback(initialTasksByShift);
+        } catch (e) {
+            console.error("Permission denied to create default tasks.", e);
+            callback(initialTasksByShift);
+        }
       }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read server tasks: ${error.code}`);
+        callback(initialTasksByShift);
     });
     return unsubscribe;
   },
@@ -194,9 +216,17 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data().tasks as TaskSection[]);
       } else {
-        await setDoc(docRef, { tasks: initialBartenderTasks });
-        callback(initialBartenderTasks);
+        try {
+            await setDoc(docRef, { tasks: initialBartenderTasks });
+            callback(initialBartenderTasks);
+        } catch(e) {
+            console.error("Permission denied to create default bartender tasks.", e);
+            callback(initialBartenderTasks);
+        }
       }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read bartender tasks: ${error.code}`);
+        callback(initialBartenderTasks);
     });
     return unsubscribe;
   },
@@ -212,9 +242,17 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data().tasks as ComprehensiveTaskSection[]);
       } else {
-        await setDoc(docRef, { tasks: initialComprehensiveTasks });
-        callback(initialComprehensiveTasks);
+        try {
+            await setDoc(docRef, { tasks: initialComprehensiveTasks });
+            callback(initialComprehensiveTasks);
+        } catch(e) {
+            console.error("Permission denied to create default comprehensive tasks.", e);
+            callback(initialComprehensiveTasks);
+        }
       }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read comprehensive tasks: ${error.code}`);
+        callback(initialComprehensiveTasks);
     });
     return unsubscribe;
   },
@@ -230,9 +268,17 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data().items as InventoryItem[]);
       } else {
-        await setDoc(docRef, { items: initialInventoryList });
-        callback(initialInventoryList);
+        try {
+            await setDoc(docRef, { items: initialInventoryList });
+            callback(initialInventoryList);
+        } catch(e) {
+            console.error("Permission denied to create default inventory list.", e);
+            callback(initialInventoryList);
+        }
       }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read inventory list: ${error.code}`);
+        callback(initialInventoryList);
     });
     return unsubscribe;
   },
@@ -248,9 +294,17 @@ export const dataStore = {
         if(docSnap.exists()) {
             callback(docSnap.data().list as string[]);
         } else {
-            await setDoc(docRef, { list: initialSuppliers });
-            callback(initialSuppliers);
+            try {
+                await setDoc(docRef, { list: initialSuppliers });
+                callback(initialSuppliers);
+            } catch(e) {
+                console.error("Permission denied to create default suppliers list.", e);
+                callback(initialSuppliers);
+            }
         }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read suppliers list: ${error.code}`);
+        callback(initialSuppliers);
     });
     return unsubscribe;
   },
@@ -261,9 +315,6 @@ export const dataStore = {
   },
   
   async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport, latestReport: InventoryReport | null }> {
-    if (typeof window === 'undefined') {
-      throw new Error("Cannot get report from server-side.");
-    }
     const date = getTodaysDateKey();
     const reportId = `inventory-report-${userId}-${date}`;
     
@@ -625,6 +676,11 @@ export const dataStore = {
         const otherReports = combinedReports.filter(r => !('shiftKey' in r));
         combinedReports = [...shiftReports, ...otherReports];
         processResults();
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read shift reports: ${error.code}`);
+        const otherReports = combinedReports.filter(r => !('shiftKey' in r));
+        combinedReports = [...otherReports];
+        processResults();
     });
 
     const unsubscribeInventory = onSnapshot(inventoryQ, (querySnapshot) => {
@@ -640,6 +696,11 @@ export const dataStore = {
         
         const otherReports = combinedReports.filter(r => 'shiftKey' in r);
         combinedReports = [...inventoryReports, ...otherReports];
+        processResults();
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read inventory reports: ${error.code}`);
+        const otherReports = combinedReports.filter(r => 'shiftKey' in r);
+        combinedReports = [...otherReports];
         processResults();
     });
 
@@ -677,31 +738,36 @@ export const dataStore = {
        });
        callback(reports);
     }, (error) => {
-      console.error("Error fetching reports for shift: ", error);
+      console.error(`[Firestore Read Error] Could not read reports for shift ${shiftKey}: ${error.code}`);
       callback([]);
     });
  },
 
   async getInventoryReportForDate(date: string): Promise<InventoryReport[]> {
-    const reportsCollection = collection(db, 'inventory-reports');
-    const q = query(reportsCollection, where('date', '==', date), where('status', '==', 'submitted'));
-    const querySnapshot = await getDocs(q);
-    const reports: InventoryReport[] = [];
-    querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        reports.push({
-            ...data,
-            id: doc.id,
-            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
-        } as InventoryReport);
-    });
-    reports.sort((a, b) => {
-      const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-      const timeB = new Date(b.submittedAt as string).getTime();
-      return timeB - timeA;
-    });
-    return reports;
+    try {
+        const reportsCollection = collection(db, 'inventory-reports');
+        const q = query(reportsCollection, where('date', '==', date), where('status', '==', 'submitted'));
+        const querySnapshot = await getDocs(q);
+        const reports: InventoryReport[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            reports.push({
+                ...data,
+                id: doc.id,
+                submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+            } as InventoryReport);
+        });
+        reports.sort((a, b) => {
+          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+          const timeB = new Date(b.submittedAt as string).getTime();
+          return timeB - timeA;
+        });
+        return reports;
+    } catch (error: any) {
+        console.warn(`[Firestore Read Error] Could not read inventory reports for date ${date}: ${error.code}`);
+        return [];
+    }
   },
 
   subscribeToAllInventoryReports(callback: (reports: InventoryReport[]) => void): () => void {
@@ -721,31 +787,36 @@ export const dataStore = {
         });
         callback(reports);
     }, (error) => {
-        console.error("Error fetching all inventory reports:", error);
+        console.error(`[Firestore Read Error] Could not read all inventory reports: ${error.code}`);
         callback([]);
     });
   },
 
   async getHygieneReportForDate(date: string, shiftKey: string): Promise<ShiftReport[]> {
-    const reportsCollection = collection(db, 'reports');
-    const q = query(reportsCollection, where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted'));
-    const querySnapshot = await getDocs(q);
-    const reports: ShiftReport[] = [];
-    querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        reports.push({
-            ...data,
-            id: doc.id,
-            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
-        } as ShiftReport);
-    });
-    reports.sort((a, b) => {
-      const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-      const timeB = new Date(b.submittedAt as string).getTime();
-      return timeB - timeA;
-    });
-    return reports;
+    try {
+        const reportsCollection = collection(db, 'reports');
+        const q = query(reportsCollection, where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted'));
+        const querySnapshot = await getDocs(q);
+        const reports: ShiftReport[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            reports.push({
+                ...data,
+                id: doc.id,
+                submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+            } as ShiftReport);
+        });
+        reports.sort((a, b) => {
+          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
+          const timeB = new Date(b.submittedAt as string).getTime();
+          return timeB - timeA;
+        });
+        return reports;
+    } catch (error: any) {
+        console.warn(`[Firestore Read Error] Could not read hygiene reports for date ${date}: ${error.code}`);
+        return [];
+    }
   },
 
   subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
@@ -764,6 +835,9 @@ export const dataStore = {
         } as Violation);
       });
       callback(violations);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
+        callback([]);
     });
 
     return unsubscribe;
