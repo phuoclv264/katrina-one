@@ -30,48 +30,41 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
     }
     setOpenMobile(false);
   }
-
-  const sharedMenu = [
-     { href: '/violations', label: 'Ghi nhận Vi phạm', icon: ShieldX },
-  ];
-
-  const staffMenu = [
-    { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
-    ...sharedMenu
-  ];
-  
-  const bartenderMenu = [
-    { href: '/bartender', label: 'Danh mục Báo cáo', icon: Coffee },
-    { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList },
-    { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive },
-    ...sharedMenu
-  ];
-
-  const managerMenu = [
-    { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
-    { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
-    { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
-    { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
-     ...sharedMenu
-  ];
-  
-  const ownerMenu = [
-    { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-    { href: '/users', label: 'QL Người dùng', icon: Users2 },
-    { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
-    { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
-    { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
-    { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
-    ...sharedMenu,
-    { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
-  ]
   
   const getMenuItems = () => {
+      const canManageViolations = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+      const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
+
+      const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
+
       switch(user?.role) {
-          case 'Phục vụ': return staffMenu;
-          case 'Pha chế': return bartenderMenu;
-          case 'Quản lý': return managerMenu;
-          case 'Chủ nhà hàng': return ownerMenu;
+          case 'Phục vụ': return [
+            { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
+            commonViolationMenu
+          ];
+          case 'Pha chế': return [
+            { href: '/bartender', label: 'Danh mục Báo cáo', icon: Coffee },
+            { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList },
+            { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive },
+            commonViolationMenu
+          ];
+          case 'Quản lý': return [
+            { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
+            { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
+            { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
+            { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
+            commonViolationMenu
+          ];
+          case 'Chủ nhà hàng': return [
+            { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
+            { href: '/users', label: 'QL Người dùng', icon: Users2 },
+            { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
+            { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
+            { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
+            { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
+            commonViolationMenu,
+            { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
+          ];
           default: return [];
       }
   }
