@@ -777,7 +777,7 @@ export const dataStore = {
     await deleteDoc(violationRef);
   },
   
-  async submitPenaltyProof(violationId: string, photoId: string): Promise<void> {
+  async submitPenaltyProof(violationId: string, photoId: string): Promise<string> {
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) {
         throw new Error("Local penalty photo not found.");
@@ -794,5 +794,6 @@ export const dataStore = {
     });
 
     await photoStore.deletePhoto(photoId);
+    return downloadURL;
   },
 };

@@ -242,7 +242,17 @@ export default function ViolationsPage() {
         toast({ title: 'Đang xử lý...', description: 'Bằng chứng nộp phạt đang được tải lên.' });
 
         try {
-            await dataStore.submitPenaltyProof(activeViolationForPenalty.id, photoIds[0]);
+            const downloadURL = await dataStore.submitPenaltyProof(activeViolationForPenalty.id, photoIds[0]);
+            
+            // Optimistic UI update
+            setViolations(prevViolations => 
+                prevViolations.map(v => 
+                    v.id === activeViolationForPenalty.id 
+                        ? { ...v, penaltyPhotoUrl: downloadURL, penaltySubmittedAt: new Date().toISOString() } 
+                        : v
+                )
+            );
+
             toast({ title: 'Thành công', description: 'Đã cập nhật bằng chứng nộp phạt.' });
         } catch (error) {
             console.error("Failed to submit penalty proof:", error);
@@ -343,7 +353,7 @@ export default function ViolationsPage() {
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => (
-                                <div key={v.id} className="border rounded-lg p-4">
+                                <div key={v.id} className="border rounded-lg p-4 relative">
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2">
                                             <p className="font-semibold">{v.userName}</p>
@@ -406,6 +416,11 @@ export default function ViolationsPage() {
                                             )
                                         )}
                                     </div>
+                                    {isProcessing && activeViolationForPenalty?.id === v.id && (
+                                        <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </AccordionContent>
