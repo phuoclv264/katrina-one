@@ -11,11 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle, Camera, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle, Calendar as CalendarIcon, Star, Camera } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 
@@ -30,8 +33,14 @@ function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const searchParams = useSearchParams();
-  const date = searchParams.get('date');
+  
+  const getTodaysDateKey = () => {
+    const now = new Date();
+    return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  };
+
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const dateKey = date ? format(date, 'yyyy-MM-dd') : getTodaysDateKey();
 
   const [reports, setReports] = useState<InventoryReport[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -46,39 +55,37 @@ function InventoryReportView() {
       router.replace('/shifts');
       return;
     }
+  }, [user, authLoading, router]);
 
-    if (authLoading || !user || !date) {
-      setIsLoading(false);
-      return;
-    }
-    
-    let unsubscribeInventoryList: (() => void) | null = null;
-    try {
-        unsubscribeInventoryList = dataStore.subscribeToInventoryList((items) => {
-            setInventoryList(items);
-        });
+  useEffect(() => {
+     let isMounted = true;
+     const unsubscribeInventoryList = dataStore.subscribeToInventoryList((items) => {
+         if (isMounted) setInventoryList(items);
+     });
+     return () => { isMounted = false; unsubscribeInventoryList() };
+  }, [])
 
-        dataStore.getInventoryReportForDate(date).then(fetchedReports => {
-            setReports(fetchedReports);
-            if (fetchedReports.length > 0 && !selectedReportId) {
-                setSelectedReportId(fetchedReports[0].id);
-            }
-            setIsLoading(false);
-        });
-    } catch (error) {
+  useEffect(() => {
+    if (!dateKey) return;
+    setIsLoading(true);
+    dataStore.getInventoryReportForDate(dateKey).then(fetchedReports => {
+        setReports(fetchedReports);
+        if (fetchedReports.length > 0) {
+            setSelectedReportId(fetchedReports[0].id);
+        } else {
+            setSelectedReportId(null);
+        }
+        setIsLoading(false);
+    }).catch(error => {
         console.error("Error loading inventory report data:", error);
         toast({
             title: "Lỗi tải dữ liệu",
-            description: "Không thể tải báo cáo tồn kho. Đang chuyển hướng bạn về trang chính.",
+            description: "Không thể tải báo cáo tồn kho.",
             variant: "destructive",
         });
-        router.replace('/reports');
-    }
-
-    return () => {
-        if(unsubscribeInventoryList) unsubscribeInventoryList();
-    }
-  }, [date, selectedReportId, user, authLoading, router, toast]);
+        setIsLoading(false);
+    });
+  }, [dateKey, toast]);
   
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
@@ -137,21 +144,6 @@ function InventoryReportView() {
     );
   }
 
-  if (!date || reports.length === 0) {
-    return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-            <h1 className="text-2xl font-bold">Không tìm thấy báo cáo.</h1>
-            <p className="text-muted-foreground">Không có báo cáo kiểm kê nào được nộp vào ngày đã chọn.</p>
-             <Button asChild variant="link" className="mt-4 -ml-4">
-                <Link href="/reports">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại tất cả báo cáo
-                </Link>
-            </Button>
-        </div>
-    );
-  }
-  
   return (
     <>
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -165,43 +157,62 @@ function InventoryReportView() {
           <div className="flex flex-col md:flex-row gap-4 justify-between md:items-start">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>
-              <p className="text-muted-foreground">Ngày {new Date(date).toLocaleDateString('vi-VN')}</p>
             </div>
-            <Card className="w-full md:w-auto md:min-w-[250px]">
-                <CardHeader className="p-3">
-                     <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chọn nhân viên</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 pt-0">
-                    <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Chọn một nhân viên..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {reports.map(r => (
-                                <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </CardContent>
-            </Card>
+             <Popover>
+                <PopoverTrigger asChild>
+                <Button
+                    variant={"outline"}
+                    className={cn(
+                    "w-full md:w-[280px] justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                    )}
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP", { timeZone: 'Asia/Ho_Chi_Minh' } as any) : <span>Chọn ngày</span>}
+                </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                    disabled={(d) => d > new Date()}
+                />
+                </PopoverContent>
+            </Popover>
           </div>
       </header>
 
-       {!report ? (
-        <div className="text-center py-16 text-muted-foreground">
-            <p>Vui lòng chọn một nhân viên để xem báo cáo.</p>
-        </div>
-    ) : (
+      {reports.length === 0 ? (
+        <Card>
+            <CardHeader><CardTitle>Không có báo cáo</CardTitle></CardHeader>
+            <CardContent><p className="text-muted-foreground">Không có báo cáo kiểm kê nào được nộp vào ngày đã chọn.</p></CardContent>
+        </Card>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
             <Card>
                 <CardHeader>
                     <CardTitle>Chi tiết Tồn kho</CardTitle>
                     <CardDescription>
-                        Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                        <div className="flex items-center gap-4">
+                            <span>Báo cáo ngày {date ? format(date, "dd/MM/yyyy") : ''}</span>
+                            <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
+                                <SelectTrigger className="w-full md:w-[200px]">
+                                    <SelectValue placeholder="Chọn nhân viên..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {reports.map(r => (
+                                        <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                       </div>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                 {report ? (
                     <Accordion type="multiple" defaultValue={categorizedList.map(c => c.category)} className="w-full space-y-4">
                          {categorizedList.map(({ category, items }) => (
                             <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
@@ -230,7 +241,7 @@ function InventoryReportView() {
                                                             <TableCell className="font-medium align-top">
                                                                 <div className="flex flex-col gap-2">
                                                                     <div className="flex items-center gap-2">
-                                                                        {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0"/>}
+                                                                        {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                                                         {item.name.split(' - ')[1] || item.name}
                                                                     </div>
                                                                     {item.requiresPhoto && photos.length > 0 && (
@@ -263,6 +274,9 @@ function InventoryReportView() {
                             </AccordionItem>
                         ))}
                     </Accordion>
+                 ) : (
+                    <p className="text-muted-foreground text-center py-4">Vui lòng chọn một nhân viên để xem báo cáo.</p>
+                 )}
                 </CardContent>
             </Card>
         </div>
@@ -272,7 +286,7 @@ function InventoryReportView() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {report.suggestions && report.suggestions.ordersBySupplier.length > 0 ? (
+                    {report && report.suggestions && report.suggestions.ordersBySupplier.length > 0 ? (
                         <div className="space-y-4">
                             <p className="text-sm font-semibold text-primary">{report.suggestions.summary}</p>
                             <Accordion type="multiple" defaultValue={report.suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
@@ -301,7 +315,7 @@ function InventoryReportView() {
                                 ))}
                             </Accordion>
                         </div>
-                    ) : report.suggestions ? (
+                    ) : report && report.suggestions ? (
                          <div className="flex items-center justify-center text-center text-sm text-muted-foreground py-4 gap-2">
                             <CheckCircle className="text-green-500 h-4 w-4"/>
                             <p>{report.suggestions.summary || 'Tất cả hàng hoá đã đủ.'}</p>
@@ -330,10 +344,8 @@ function InventoryReportView() {
 
 export default function InventoryReportPage() {
     return (
-        <Suspense fallback={<div>Đang tải...</div>}>
+        <Suspense fallback={<Skeleton className="w-full h-screen" />}>
             <InventoryReportView />
         </Suspense>
     )
 }
-
-    

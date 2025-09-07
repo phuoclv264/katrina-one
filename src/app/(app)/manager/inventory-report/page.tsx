@@ -36,10 +36,8 @@ function ManagerInventoryReportView() {
   
   const getTodaysDateKey = () => {
     const now = new Date();
-    const year = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric' });
-    const month = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', month: '2-digit' });
-    const day = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit' });
-    return `${year}-${month}-${day}`;
+    // Use 'en-CA' format to get YYYY-MM-DD
+    return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
   };
 
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -167,7 +165,7 @@ function ManagerInventoryReportView() {
                     )}
                 >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Chọn ngày</span>}
+                    {date ? format(date, "PPP", { timeZone: 'Asia/Ho_Chi_Minh' } as any) : <span>Chọn ngày</span>}
                 </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -176,6 +174,7 @@ function ManagerInventoryReportView() {
                     selected={date}
                     onSelect={setDate}
                     initialFocus
+                    disabled={(d) => d > new Date()}
                 />
                 </PopoverContent>
             </Popover>
@@ -356,5 +355,3 @@ export default function ManagerInventoryReportPage() {
         </Suspense>
     )
 }
-
-    
