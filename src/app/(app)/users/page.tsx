@@ -101,13 +101,24 @@ export default function UsersPage() {
             if (!user || user.role !== 'Chủ nhà hàng') {
                 router.replace('/');
             } else {
+                let userSubscribed = false;
+                let settingsSubscribed = false;
+
+                const checkLoadingDone = () => {
+                    if (userSubscribed && settingsSubscribed) {
+                        setIsLoading(false);
+                    }
+                }
+
                 const unsubUsers = dataStore.subscribeToUsers((userList) => {
                     setUsers(userList);
-                    if(appSettings) setIsLoading(false);
+                    userSubscribed = true;
+                    checkLoadingDone();
                 });
                 const unsubSettings = dataStore.subscribeToAppSettings((settings) => {
                     setAppSettings(settings);
-                    if(users.length > 0 || !isLoading) setIsLoading(false);
+                    settingsSubscribed = true;
+                    checkLoadingDone();
                 });
                 return () => {
                     unsubUsers();
@@ -115,7 +126,6 @@ export default function UsersPage() {
                 };
             }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authLoading, router]);
     
     const handleEditClick = (userToEdit: ManagedUser) => {
