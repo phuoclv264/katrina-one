@@ -18,6 +18,7 @@ import {
   getDocs,
   addDoc,
   deleteDoc,
+  limit,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation } from './types';
@@ -240,28 +241,31 @@ export const dataStore = {
     await setDoc(docRef, { list: newSuppliers });
   },
   
-  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<InventoryReport> {
+  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport, latestReport: InventoryReport | null }> {
     if (typeof window === 'undefined') {
       throw new Error("Cannot get report from server-side.");
     }
     const date = getTodaysDateKey();
     const reportId = `inventory-report-${userId}-${date}`;
     
-    const firestoreRef = doc(db, 'inventory-reports', reportId);
+    // Always fetch the latest report from the server to use as a base
+    const reportsCollection = collection(db, 'inventory-reports');
+    const q = query(reportsCollection, orderBy('submittedAt', 'desc'), limit(1));
+    const serverSnapshot = await getDocs(q);
 
-    const serverDoc = await getDoc(firestoreRef);
-    if (serverDoc.exists()) {
-        const data = serverDoc.data();
-        const report = {
-            ...data,
-            id: serverDoc.id,
-            date,
-            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString(),
+    let latestReport: InventoryReport | null = null;
+    let initialStockLevels = {};
+
+    if (!serverSnapshot.empty) {
+        const latestDoc = serverSnapshot.docs[0];
+        const data = latestDoc.data();
+        latestReport = {
+             ...data,
+            id: latestDoc.id,
+            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
         } as InventoryReport;
-        // Overwrite local storage with the latest from server
-        localStorage.setItem(reportId, JSON.stringify(report));
-        return report;
+        initialStockLevels = latestReport.stockLevels; // Use latest stock levels as base
     }
 
     const newReport: InventoryReport = {
@@ -270,12 +274,13 @@ export const dataStore = {
         staffName,
         date,
         status: 'ongoing',
-        stockLevels: {},
+        stockLevels: initialStockLevels, // Start with stock levels from the latest report
         suggestions: null,
         lastUpdated: new Date().toISOString(),
     };
-    await this.saveLocalInventoryReport(newReport);
-    return newReport;
+    
+    // We don't save to local storage immediately, let the component decide when to save changes
+    return { report: newReport, latestReport };
   },
 
   async saveLocalInventoryReport(report: InventoryReport): Promise<void> {

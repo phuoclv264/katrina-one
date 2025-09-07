@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -20,6 +20,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { format } from 'date-fns';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -36,6 +37,7 @@ export default function InventoryPage() {
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [report, setReport] = useState<InventoryReport | null>(null);
+  const [latestReportSource, setLatestReportSource] = useState<InventoryReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -109,17 +111,14 @@ export default function InventoryPage() {
 
     const loadReport = async () => {
       setIsLoading(true);
-      // Always fetch the latest version of the report
-      const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
+      const { report: todayReport, latestReport } = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
       setReport(todayReport);
+      setLatestReportSource(latestReport);
       await fetchLocalPhotos(todayReport);
       
-      const localReportString = localStorage.getItem(todayReport.id);
-      if (localReportString) {
-          const localReport = JSON.parse(localReportString);
-          if (localReport && Object.keys(localReport.stockLevels).length > 0) {
-              setHasUnsubmittedChanges(true);
-          }
+      // Check for local changes, not tied to a specific report status anymore
+      if (Object.keys(todayReport.stockLevels).length > 0) {
+          setHasUnsubmittedChanges(true);
       }
       
       if (todayReport.suggestions) {
@@ -286,6 +285,7 @@ export default function InventoryPage() {
             const finalReport = { ...currentReport, status: 'submitted' as const, submittedAt: new Date().toISOString() };
             dataStore.saveInventoryReport(finalReport);
             setHasUnsubmittedChanges(false);
+            setLatestReportSource(finalReport); // Update latest source info on submit
             return finalReport;
         });
 
@@ -405,12 +405,12 @@ export default function InventoryPage() {
             </div>
           </div>
       </header>
-       {isSubmitted && report.submittedAt && (
-            <Alert className="mb-8 border-green-500 text-green-700 bg-green-50">
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>Báo cáo đã được gửi</AlertTitle>
+       {latestReportSource && latestReportSource.submittedAt && (
+            <Alert className="mb-8 border-blue-500 text-blue-800 bg-blue-50 dark:text-blue-200 dark:bg-blue-900/30">
+                <RefreshCw className="h-4 w-4" />
+                <AlertTitle>Dữ liệu được cập nhật</AlertTitle>
                 <AlertDescription>
-                    Bạn đã gửi báo cáo này lúc {new Date(report.submittedAt as string).toLocaleTimeString('vi-VN')}. Bạn có thể gửi lại để cập nhật và nhận đề xuất mới.
+                    Bạn đang làm việc dựa trên báo cáo mới nhất được nộp bởi <b>{latestReportSource.staffName}</b> lúc {format(new Date(latestReportSource.submittedAt as string), "HH:mm, dd/MM/yyyy")}.
                 </AlertDescription>
             </Alert>
         )}
