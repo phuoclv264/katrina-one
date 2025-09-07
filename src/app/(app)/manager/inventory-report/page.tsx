@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, Copy } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, Copy, ChevronsDownUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
@@ -30,6 +30,7 @@ function ManagerInventoryReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const suggestionsCardRef = useRef<HTMLDivElement>(null);
   
   const [allReports, setAllReports] = useState<InventoryReport[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -40,6 +41,8 @@ function ManagerInventoryReportView() {
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<InventoryReport | null>(null);
+
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -89,6 +92,14 @@ function ManagerInventoryReportView() {
       return categoryOrder.map(category => ({ category, items: grouped[category] }));
 
   }, [inventoryList]);
+  
+  // Set accordion to open all by default
+  useEffect(() => {
+      if (categorizedList.length > 0) {
+          setOpenCategories(categorizedList.map(c => c.category));
+      }
+  }, [categorizedList]);
+
 
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
     const stockValue = reportToView?.stockLevels[itemId]?.stock;
@@ -151,6 +162,19 @@ function ManagerInventoryReportView() {
     });
   };
 
+  const handleToggleAll = () => {
+    if (openCategories.length === categorizedList.length) {
+      setOpenCategories([]);
+    } else {
+      setOpenCategories(categorizedList.map(c => c.category));
+    }
+  };
+
+  const scrollToSuggestions = () => {
+      suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -170,9 +194,11 @@ function ManagerInventoryReportView() {
     );
   }
 
+  const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
+
   return (
     <>
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
+    <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
        <header className="mb-8">
           <Button asChild variant="ghost" className="-ml-4 mb-4">
               <Link href="/manager">
@@ -206,14 +232,22 @@ function ManagerInventoryReportView() {
                                 <span className="flex items-center gap-1.5"><Clock className="h-4 w-4"/> {format(new Date(reportToView.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span>
                             </CardDescription>
                         </div>
-                         <Button variant="outline" onClick={() => setIsHistoryOpen(true)}>
-                            <History className="mr-2 h-4 w-4"/>
-                            Xem lịch sử kiểm kê
-                        </Button>
+                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <Button variant="outline" onClick={() => setIsHistoryOpen(true)} className="w-full">
+                                <History className="mr-2 h-4 w-4"/>
+                                Xem lịch sử
+                            </Button>
+                            {categorizedList.length > 0 && (
+                                <Button variant="outline" onClick={handleToggleAll} size="sm" className="w-full">
+                                    <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                                    {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Accordion type="multiple" defaultValue={categorizedList.map(c => c.category)} className="w-full space-y-4">
+                    <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="w-full space-y-4">
                          {categorizedList.map(({ category, items }) => (
                             <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
                                 <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
@@ -277,7 +311,7 @@ function ManagerInventoryReportView() {
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-1 space-y-8 sticky top-4">
+        <div className="lg:col-span-1 space-y-8 sticky top-4" ref={suggestionsCardRef}>
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
@@ -340,6 +374,16 @@ function ManagerInventoryReportView() {
         </div>
       </div>
     )}
+    </div>
+    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+      <Button 
+        className="rounded-full shadow-lg h-12 px-4" 
+        onClick={scrollToSuggestions} 
+        aria-label="Xem đề xuất đặt hàng"
+      >
+        <ShoppingCart className="mr-2 h-5 w-5" />
+        <span className="hidden sm:inline">Xem đề xuất</span>
+      </Button>
     </div>
      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
         <DialogContent className="max-w-xl">
