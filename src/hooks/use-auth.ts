@@ -119,7 +119,7 @@ export const useAuth = () => {
     setLoading(true);
     try {
         await signOut(auth);
-        router.push('/');
+        // router.push('/'); // Removed this line. Redirection is now handled by onAuthStateChanged.
         toast({ title: 'Đã đăng xuất.' });
     } catch (error: any) {
          console.error(error);
@@ -129,9 +129,9 @@ export const useAuth = () => {
             description: 'Không thể đăng xuất. Vui lòng thử lại.',
         });
     } finally {
-        setLoading(false);
+        // setLoading(false); // setLoading(false) will be called by onAuthStateChanged
     }
-  }, [router, toast]);
+  }, [toast]);
   
   return { 
       user, 
