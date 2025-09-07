@@ -59,7 +59,7 @@ function InventoryReportView() {
      const unsubReports = dataStore.subscribeToAllInventoryReports((reports) => {
         if(isMounted) {
             setAllReports(reports);
-            if (reports.length > 0) {
+            if (reports.length > 0 && !selectedReport) {
               // Set the default selected report to the latest one
               setSelectedReport(reports[0]);
             }
@@ -68,7 +68,7 @@ function InventoryReportView() {
     });
 
      return () => { isMounted = false; unsubInventoryList(); unsubReports(); };
-  }, [])
+  }, [selectedReport])
   
   const reportToView = selectedReport;
   

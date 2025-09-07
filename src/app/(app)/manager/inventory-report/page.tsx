@@ -40,6 +40,7 @@ function ManagerInventoryReportView() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<InventoryReport | null>(null);
 
 
   useEffect(() => {
@@ -56,6 +57,9 @@ function ManagerInventoryReportView() {
     const unsubReports = dataStore.subscribeToAllInventoryReports((reports) => {
         if(isMounted) {
             setAllReports(reports);
+             if (reports.length > 0 && !selectedReport) {
+                setSelectedReport(reports[0]);
+            }
             setIsLoading(false);
         }
     });
@@ -64,11 +68,9 @@ function ManagerInventoryReportView() {
         unsubInventoryList();
         unsubReports();
     };
-  }, []);
+  }, [selectedReport]);
   
-  const latestReport = useMemo(() => {
-    return allReports.length > 0 ? allReports[0] : null;
-  }, [allReports]);
+  const reportToView = selectedReport;
   
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -90,7 +92,7 @@ function ManagerInventoryReportView() {
   }, [inventoryList]);
 
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-    const stockValue = latestReport?.stockLevels[itemId]?.stock;
+    const stockValue = reportToView?.stockLevels[itemId]?.stock;
     if (stockValue === undefined || stockValue === null || typeof stockValue !== 'number') {
       return 'ok';
     }
@@ -155,7 +157,7 @@ function ManagerInventoryReportView() {
           </div>
       </header>
 
-       {!latestReport ? (
+       {!reportToView ? (
          <Card>
             <CardHeader><CardTitle>Chưa có báo cáo nào</CardTitle></CardHeader>
             <CardContent><p className="text-muted-foreground">Hệ thống chưa ghi nhận báo cáo kiểm kê tồn kho nào được nộp.</p></CardContent>
@@ -167,10 +169,10 @@ function ManagerInventoryReportView() {
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                         <div>
-                            <CardTitle>Báo cáo mới nhất</CardTitle>
+                            <CardTitle>Báo cáo chi tiết</CardTitle>
                             <CardDescription className="mt-2 flex items-center gap-4 text-sm">
-                                <span className="flex items-center gap-1.5"><User className="h-4 w-4"/> {latestReport.staffName}</span>
-                                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4"/> {format(new Date(latestReport.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span>
+                                <span className="flex items-center gap-1.5"><User className="h-4 w-4"/> {reportToView.staffName}</span>
+                                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4"/> {format(new Date(reportToView.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span>
                             </CardDescription>
                         </div>
                          <Button variant="outline" onClick={() => setIsHistoryOpen(true)}>
@@ -200,7 +202,7 @@ function ManagerInventoryReportView() {
                                             <TableBody>
                                                 {items.map(item => {
                                                     const status = getItemStatus(item.id, item.minStock);
-                                                    const record = latestReport.stockLevels[item.id];
+                                                    const record = reportToView.stockLevels[item.id];
                                                     const stockValue = record?.stock ?? 'N/A';
                                                     const photos = record?.photos ?? [];
                                                     return (
@@ -250,11 +252,11 @@ function ManagerInventoryReportView() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {latestReport.suggestions && latestReport.suggestions.ordersBySupplier.length > 0 ? (
+                    {reportToView.suggestions && reportToView.suggestions.ordersBySupplier.length > 0 ? (
                         <div className="space-y-4">
-                            <p className="text-sm font-semibold text-primary">{latestReport.suggestions.summary}</p>
-                             <Accordion type="multiple" defaultValue={latestReport.suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
-                                {latestReport.suggestions.ordersBySupplier.map((orderBySupplier) => (
+                            <p className="text-sm font-semibold text-primary">{reportToView.suggestions.summary}</p>
+                             <Accordion type="multiple" defaultValue={reportToView.suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
+                                {reportToView.suggestions.ordersBySupplier.map((orderBySupplier) => (
                                     <AccordionItem value={orderBySupplier.supplier} key={orderBySupplier.supplier} className="border-b-0">
                                         <AccordionTrigger className="text-base font-medium hover:no-underline p-2 bg-muted rounded-md">
                                             {orderBySupplier.supplier}
@@ -281,10 +283,10 @@ function ManagerInventoryReportView() {
                         </div>
                     ) : (
                          <div className="flex items-center justify-center text-center text-sm text-muted-foreground py-4 gap-2">
-                            {latestReport.suggestions ? (
+                            {reportToView.suggestions ? (
                                 <>
                                  <CheckCircle className="text-green-500 h-4 w-4"/>
-                                 <p>{latestReport.suggestions.summary || 'Tất cả hàng hoá đã đủ.'}</p>
+                                 <p>{reportToView.suggestions.summary || 'Tất cả hàng hoá đã đủ.'}</p>
                                 </>
                             ) : (
                                 <>
@@ -323,10 +325,15 @@ function ManagerInventoryReportView() {
                                                 Lúc {format(new Date(report.submittedAt as string), "HH:mm")}
                                             </p>
                                         </div>
-                                         <Button asChild variant="secondary" size="sm">
-                                            <Link href={`/reports/inventory?date=${report.date}&id=${report.id}`}>
-                                                Xem
-                                            </Link>
+                                         <Button 
+                                            variant={report.id === selectedReport?.id ? 'default' : 'secondary'} 
+                                            size="sm"
+                                            onClick={() => {
+                                                setSelectedReport(report);
+                                                setIsHistoryOpen(false);
+                                            }}
+                                        >
+                                            Xem
                                         </Button>
                                     </li>
                                 ))}
