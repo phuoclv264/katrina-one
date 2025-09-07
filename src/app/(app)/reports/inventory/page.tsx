@@ -216,7 +216,43 @@ function InventoryReportView() {
                                     {category}
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
-                                    <div className="overflow-x-auto">
+                                     {/* Mobile View: Cards */}
+                                     <div className="md:hidden space-y-3">
+                                        {items.map(item => {
+                                            const status = getItemStatus(item.id, item.minStock);
+                                            const record = reportToView.stockLevels[item.id];
+                                            const stockValue = record?.stock ?? 'N/A';
+                                            const photos = record?.photos ?? [];
+                                            return (
+                                                <div key={item.id} className={`rounded-lg border p-3 ${getStatusColorClass(status)}`}>
+                                                    <div className="flex items-center gap-2 font-semibold">
+                                                        {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                        <p>{item.name.split(' - ')[1] || item.name}</p>
+                                                    </div>
+                                                    <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                                        <div className="text-muted-foreground">Đơn vị: <span className="font-medium text-foreground">{item.unit}</span></div>
+                                                        <div className="text-muted-foreground">Tối thiểu: <span className="font-medium text-foreground">{item.minStock}</span></div>
+                                                        <div className="text-muted-foreground">Thực tế: <span className="font-bold text-lg text-primary">{stockValue}</span></div>
+                                                    </div>
+                                                    {item.requiresPhoto && photos.length > 0 && (
+                                                        <div className="mt-2 flex gap-2 flex-wrap">
+                                                            {photos.map((photo, index) => (
+                                                                <button
+                                                                    key={index}
+                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
+                                                                    className="relative w-16 h-16 rounded-md overflow-hidden"
+                                                                >
+                                                                    <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                     </div>
+                                    {/* Desktop View: Table */}
+                                    <div className="overflow-x-auto hidden md:block">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
