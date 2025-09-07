@@ -283,7 +283,14 @@ export const dataStore = {
     const docRef = doc(db, 'app-data', 'inventoryList');
      const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        callback(docSnap.data().items as InventoryItem[]);
+        const items = docSnap.data().items as InventoryItem[];
+        // Data sanitization step to ensure data consistency
+        const sanitizedItems = items.map(item => ({
+          ...item,
+          supplier: item.supplier ?? 'Chưa xác định',
+          category: item.category ?? 'CHƯA PHÂN LOẠI',
+        }));
+        callback(sanitizedItems);
       } else {
         try {
             await setDoc(docRef, { items: initialInventoryList });
