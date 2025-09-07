@@ -109,7 +109,8 @@ export default function InventoryPage() {
 
     const loadReport = async () => {
       setIsLoading(true);
-      const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
+      // Always fetch the latest version of the report
+      const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên', true);
       setReport(todayReport);
       await fetchLocalPhotos(todayReport);
       
@@ -151,12 +152,15 @@ export default function InventoryPage() {
   };
   
     const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeItemId || !report) return;
+        if (!activeItemId || !report || photoIds.length === 0) return;
+        
+        const newPhotoId = photoIds[0]; // We only care about the latest photo
 
         const newReport = { ...report, stockLevels: { ...report.stockLevels } };
         const record = newReport.stockLevels[activeItemId] || { stock: '' };
         
-        record.photoIds = [...(record.photoIds || []), ...photoIds];
+        // Replace old photoId with the new one
+        record.photoIds = [newPhotoId]; 
         newReport.stockLevels[activeItemId] = record;
 
         setReport(newReport);
@@ -441,7 +445,7 @@ export default function InventoryPage() {
                                             const status = getItemStatus(item.id, item.minStock);
                                             const record = report.stockLevels[item.id];
                                             const stockValue = record?.stock ?? '';
-                                            const photoIds = record?.photoIds ?? [];
+                                            const latestPhotoId = record?.photoIds?.[record.photoIds.length - 1];
                                             return (
                                                 <div key={item.id} className={`rounded-lg border p-4 ${getStatusColorClass(status)}`}>
                                                     <div className="flex justify-between items-start gap-4">
@@ -465,33 +469,29 @@ export default function InventoryPage() {
                                                     </div>
                                                      {item.requiresPhoto && (
                                                         <div className="mt-2">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => { setActiveItemId(item.id); setIsCameraOpen(true); }}
-                                                                disabled={isProcessing}
-                                                            >
-                                                                <Camera className="mr-2 h-4 w-4" />
-                                                                Chụp ảnh
-                                                            </Button>
-                                                            <div className="mt-2 grid grid-cols-5 gap-2">
-                                                                {photoIds.map(photoId => {
-                                                                    const url = localPhotoUrls.get(photoId);
-                                                                    if (!url) return null;
-                                                                    return (
-                                                                        <div key={photoId} className="relative aspect-square rounded-md overflow-hidden">
-                                                                            <Image src={url} alt="Inventory photo" fill className="object-cover" />
-                                                                            <Button
-                                                                                variant="destructive"
-                                                                                size="icon"
-                                                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                                                onClick={() => handleDeletePhoto(item.id, photoId, true)}
-                                                                            >
-                                                                                <X className="h-3 w-3" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    );
-                                                                })}
+                                                            <div className="flex gap-2 items-center">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => { setActiveItemId(item.id); setIsCameraOpen(true); }}
+                                                                    disabled={isProcessing}
+                                                                >
+                                                                    <Camera className="mr-2 h-4 w-4" />
+                                                                    Chụp ảnh
+                                                                </Button>
+                                                                {latestPhotoId && localPhotoUrls.get(latestPhotoId) && (
+                                                                    <div className="relative aspect-square rounded-md overflow-hidden w-16 h-16">
+                                                                        <Image src={localPhotoUrls.get(latestPhotoId)!} alt="Inventory photo" fill className="object-cover" />
+                                                                        <Button
+                                                                            variant="destructive"
+                                                                            size="icon"
+                                                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                                            onClick={() => handleDeletePhoto(item.id, latestPhotoId, true)}
+                                                                        >
+                                                                            <X className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     )}
@@ -591,6 +591,7 @@ export default function InventoryPage() {
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
+        singlePhotoMode={true}
       />
     </div>
     </TooltipProvider>

@@ -21,9 +21,10 @@ type CameraDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (photoIds: string[]) => void | Promise<void>;
+  singlePhotoMode?: boolean;
 };
 
-export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialogProps) {
+export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMode = false }: CameraDialogProps) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -139,7 +140,14 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
                 try {
                     await photoStore.addPhoto(photoId, blob);
                     const objectUrl = URL.createObjectURL(blob);
-                    setCapturedPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+                    
+                    if (singlePhotoMode) {
+                        // In single photo mode, replace existing photo
+                        capturedPhotos.forEach(p => URL.revokeObjectURL(p.url)); // Clean up old URL
+                        setCapturedPhotos([{ id: photoId, url: objectUrl }]);
+                    } else {
+                        setCapturedPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+                    }
                 } catch(error) {
                     console.error("Failed to save photo to IndexedDB", error);
                     toast({
@@ -187,7 +195,10 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
         <DialogHeader>
           <DialogTitle>Chụp ảnh bằng chứng</DialogTitle>
           <DialogDescription>
-            Chụp một hoặc nhiều ảnh về công việc đã hoàn thành. Nhấn "Xong" khi hoàn tất.
+            {singlePhotoMode 
+                ? 'Chụp ảnh bằng chứng cho hạng mục này. Ảnh mới sẽ thay thế ảnh cũ.'
+                : 'Chụp một hoặc nhiều ảnh về công việc đã hoàn thành. Nhấn "Xong" khi hoàn tất.'
+            }
           </DialogDescription>
         </DialogHeader>
 
