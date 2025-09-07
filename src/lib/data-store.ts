@@ -75,6 +75,23 @@ export const dataStore = {
         return unsubscribe;
     },
 
+    async getAppSettings(): Promise<AppSettings> {
+        try {
+            const docRef = doc(db, 'app-data', 'settings');
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                return docSnap.data() as AppSettings;
+            } else {
+                // Return default settings if document doesn't exist
+                return { isRegistrationEnabled: true };
+            }
+        } catch (error) {
+            console.error("Error fetching app settings on demand:", error);
+            // On error, default to disabled for safety
+            return { isRegistrationEnabled: false };
+        }
+    },
+
     async updateAppSettings(newSettings: Partial<AppSettings>): Promise<void> {
         const docRef = doc(db, 'app-data', 'settings');
         await updateDoc(docRef, newSettings);

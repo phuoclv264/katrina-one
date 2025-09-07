@@ -36,18 +36,7 @@ export default function AuthPage() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   
   const [isProcessingAuth, setIsProcessingAuth] = useState(false);
-  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
-  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
-
-
-  useEffect(() => {
-    const unsubscribe = dataStore.subscribeToAppSettings((settings) => {
-        setAppSettings(settings);
-        setIsLoadingSettings(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
@@ -65,23 +54,36 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (appSettings?.isRegistrationEnabled === false) {
-      toast({
-        title: 'Tính năng đăng ký đã tắt',
-        description: 'Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.',
-        variant: 'destructive',
-        duration: 5000,
-      });
-      return;
-    }
-
      if (!registerEmail || !registerPassword || !registerName || !registerRole) {
       toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.', variant: 'destructive' });
       return;
     }
     setIsProcessingAuth(true);
-    const success = await register(registerEmail, registerPassword, registerName, registerRole);
-    if (!success) {
+
+    try {
+        const settings = await dataStore.getAppSettings();
+        if (settings.isRegistrationEnabled === false) {
+          toast({
+            title: 'Tính năng đăng ký đã tắt',
+            description: 'Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.',
+            variant: 'destructive',
+            duration: 5000,
+          });
+          setIsProcessingAuth(false);
+          return;
+        }
+
+        const success = await register(registerEmail, registerPassword, registerName, registerRole);
+        if (!success) {
+            setIsProcessingAuth(false);
+        }
+    } catch (error) {
+        console.error("Registration check failed", error);
+        toast({
+            title: 'Lỗi',
+            description: 'Không thể kiểm tra cài đặt đăng ký. Vui lòng thử lại.',
+            variant: 'destructive',
+        });
         setIsProcessingAuth(false);
     }
   };
@@ -96,7 +98,6 @@ export default function AuthPage() {
   }
 
   const isProcessing = loading || isProcessingAuth;
-  const isRegisterDisabled = isProcessing || isLoadingSettings;
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
@@ -225,15 +226,10 @@ export default function AuthPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button type="submit" className="w-full" disabled={isRegisterDisabled}>
+                <Button type="submit" className="w-full" disabled={isProcessing}>
                   {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isLoadingSettings ? 'Đang tải...' : 'Đăng ký'}
+                  Đăng ký
                 </Button>
-                 {appSettings?.isRegistrationEnabled === false && !isLoadingSettings && (
-                    <p className="text-xs text-center text-destructive pt-2">
-                        Tính năng đăng ký đã bị tắt. Vui lòng liên hệ quản lý.
-                    </p>
-                 )}
               </form>
             </CardContent>
           </Card>
