@@ -240,22 +240,15 @@ export const dataStore = {
     await setDoc(docRef, { list: newSuppliers });
   },
   
-  async getOrCreateInventoryReport(userId: string, staffName: string, forceFetch: boolean = false): Promise<InventoryReport> {
+  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<InventoryReport> {
     if (typeof window === 'undefined') {
-       throw new Error("Cannot get report from server-side.");
+      throw new Error("Cannot get report from server-side.");
     }
     const date = getTodaysDateKey();
     const reportId = `inventory-report-${userId}-${date}`;
     
     const firestoreRef = doc(db, 'inventory-reports', reportId);
 
-    if (!forceFetch) {
-        const localReportString = localStorage.getItem(reportId);
-        if(localReportString) {
-            return JSON.parse(localReportString);
-        }
-    }
-    
     const serverDoc = await getDoc(firestoreRef);
     if (serverDoc.exists()) {
         const data = serverDoc.data();
@@ -266,6 +259,7 @@ export const dataStore = {
             lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString(),
         } as InventoryReport;
+        // Overwrite local storage with the latest from server
         localStorage.setItem(reportId, JSON.stringify(report));
         return report;
     }

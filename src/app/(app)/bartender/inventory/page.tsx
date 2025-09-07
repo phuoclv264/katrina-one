@@ -110,7 +110,7 @@ export default function InventoryPage() {
     const loadReport = async () => {
       setIsLoading(true);
       // Always fetch the latest version of the report
-      const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên', true);
+      const todayReport = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
       setReport(todayReport);
       await fetchLocalPhotos(todayReport);
       
