@@ -233,21 +233,22 @@ export default function ViolationsPage() {
   };
   
     const handlePenaltySubmit = async (photoIds: string[]) => {
+        setIsPenaltyCameraOpen(false);
         if (!activeViolationForPenalty || photoIds.length === 0) {
-            setIsPenaltyCameraOpen(false);
             return;
         }
         
         setIsProcessing(true);
+        const violationId = activeViolationForPenalty.id;
         toast({ title: 'Đang xử lý...', description: 'Bằng chứng nộp phạt đang được tải lên.' });
 
         try {
-            const downloadURL = await dataStore.submitPenaltyProof(activeViolationForPenalty.id, photoIds[0]);
+            const downloadURL = await dataStore.submitPenaltyProof(violationId, photoIds[0]);
             
             // Optimistic UI update
             setViolations(prevViolations => 
                 prevViolations.map(v => 
-                    v.id === activeViolationForPenalty.id 
+                    v.id === violationId
                         ? { ...v, penaltyPhotoUrl: downloadURL, penaltySubmittedAt: new Date().toISOString() } 
                         : v
                 )
@@ -260,7 +261,6 @@ export default function ViolationsPage() {
         } finally {
             setIsProcessing(false);
             setActiveViolationForPenalty(null);
-            setIsPenaltyCameraOpen(false);
         }
     };
 

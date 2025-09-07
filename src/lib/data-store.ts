@@ -717,6 +717,7 @@ export const dataStore = {
           id: doc.id,
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate().toISOString(),
         } as Violation);
       });
       callback(violations);
@@ -726,7 +727,7 @@ export const dataStore = {
   },
 
   async addOrUpdateViolation(
-    violationData: Omit<Violation, 'id' | 'createdAt' | 'photos'> & { photosToUpload: string[] },
+    violationData: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
     id?: string
   ): Promise<void> {
     const { photosToUpload, ...data } = violationData;
@@ -770,8 +771,10 @@ export const dataStore = {
   },
   
   async deleteViolation(violationId: string, photoUrls: string[]): Promise<void> {
-    const deletePhotoPromises = photoUrls.map(url => this.deletePhotoFromStorage(url));
-    await Promise.all(deletePhotoPromises);
+    if (photoUrls && photoUrls.length > 0) {
+      const deletePhotoPromises = photoUrls.map(url => this.deletePhotoFromStorage(url));
+      await Promise.all(deletePhotoPromises);
+    }
     
     const violationRef = doc(db, 'violations', violationId);
     await deleteDoc(violationRef);

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, VideoOff, RefreshCw, Trash2, CheckCircle, X } from 'lucide-react';
+import { Camera, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -20,7 +20,7 @@ import { v4 as uuidv4 } from 'uuid';
 type CameraDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (photoIds: string[]) => void;
+  onSubmit: (photoIds: string[]) => void | Promise<void>;
 };
 
 export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialogProps) {
@@ -30,6 +30,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState<{ id: string; url: string }[]>([]);
 
   const stopCameraStream = useCallback(() => {
@@ -79,6 +80,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
   useEffect(() => {
     if (isOpen) {
       setCapturedPhotos([]);
+      setIsSubmitting(false); // Reset submitting state
       startCamera();
     } else {
       // Cleanup object URLs when dialog is closed
@@ -162,12 +164,19 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
     await photoStore.deletePhoto(photoId);
   };
   
-  const handleSubmit = () => {
-    onSubmit(capturedPhotos.map(p => p.id));
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+        await onSubmit(capturedPhotos.map(p => p.id));
+    } finally {
+        // The parent component is responsible for closing the dialog
+        // and the isOpen effect will reset the state.
+    }
   };
   
   const handleDialogClose = () => {
-    if (!isStarting) {
+    if (!isStarting && !isSubmitting) {
         onClose();
     }
   }
@@ -228,9 +237,13 @@ export default function CameraDialog({ isOpen, onClose, onSubmit }: CameraDialog
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleDialogClose}>Hủy</Button>
-          <Button onClick={handleSubmit} disabled={capturedPhotos.length === 0}>
-            <CheckCircle className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={handleDialogClose} disabled={isSubmitting}>Hủy</Button>
+          <Button onClick={handleSubmit} disabled={capturedPhotos.length === 0 || isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="mr-2 h-4 w-4" />
+            )}
             Xong ({capturedPhotos.length})
           </Button>
         </DialogFooter>
