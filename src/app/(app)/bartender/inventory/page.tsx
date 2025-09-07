@@ -341,7 +341,7 @@ export default function InventoryPage() {
                     .map(orderItem => {
                         const fullItem = inventoryList.find(i => i.id === orderItem.itemId);
                         const displayName = fullItem ? (fullItem.name.split(' - ')[1] || fullItem.name) : 'Không rõ';
-                        return `⬤ ${displayName} - ${orderItem.quantityToOrder}`;
+                        return `⬤ ${displayName} - SL: ${orderItem.quantityToOrder}`;
                     })
                     .join('\n');
                 return `${header}\n${items}`;
