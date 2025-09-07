@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -11,16 +11,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, Users, CheckCircle, AlertCircle, Calendar as CalendarIcon, Star, Camera } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -34,22 +31,14 @@ function ManagerInventoryReportView() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const getTodaysDateKey = () => {
-    const now = new Date();
-    // Use 'en-CA' format to get YYYY-MM-DD
-    return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-  };
-
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const dateKey = date ? format(date, 'yyyy-MM-dd') : getTodaysDateKey();
-
-  const [reports, setReports] = useState<InventoryReport[]>([]);
+  const [allReports, setAllReports] = useState<InventoryReport[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
 
   useEffect(() => {
@@ -60,33 +49,25 @@ function ManagerInventoryReportView() {
 
   useEffect(() => {
     let isMounted = true;
-    const unsubscribeInventoryList = dataStore.subscribeToInventoryList((items) => {
+    const unsubInventoryList = dataStore.subscribeToInventoryList((items) => {
         if(isMounted) setInventoryList(items);
     });
-     return () => { isMounted = false; unsubscribeInventoryList() };
+    const unsubReports = dataStore.subscribeToAllInventoryReports((reports) => {
+        if(isMounted) {
+            setAllReports(reports);
+            setIsLoading(false);
+        }
+    });
+     return () => { 
+        isMounted = false; 
+        unsubInventoryList();
+        unsubReports();
+    };
   }, []);
-
-  useEffect(() => {
-      if (!dateKey) return;
-      setIsLoading(true);
-      dataStore.getInventoryReportForDate(dateKey).then(fetchedReports => {
-          setReports(fetchedReports);
-          if (fetchedReports.length > 0) {
-              setSelectedReportId(fetchedReports[0].id);
-          } else {
-              setSelectedReportId(null);
-          }
-          setIsLoading(false);
-      }).catch(error => {
-          console.error("Error fetching inventory reports for manager:", error);
-          toast({ title: "Lỗi", description: "Không thể tải báo cáo.", variant: "destructive" });
-          setIsLoading(false);
-      });
-  }, [dateKey, toast]);
   
-  const report = useMemo(() => {
-    return reports.find(r => r.id === selectedReportId) || null;
-  }, [reports, selectedReportId]);
+  const latestReport = useMemo(() => {
+    return allReports.length > 0 ? allReports[0] : null;
+  }, [allReports]);
   
   const categorizedList = useMemo((): CategorizedList => {
       if (!inventoryList) return [];
@@ -108,7 +89,7 @@ function ManagerInventoryReportView() {
   }, [inventoryList]);
 
   const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-    const stockValue = report?.stockLevels[itemId]?.stock;
+    const stockValue = latestReport?.stockLevels[itemId]?.stock;
     if (stockValue === undefined || stockValue === null || typeof stockValue !== 'number') {
       return 'ok';
     }
@@ -125,17 +106,31 @@ function ManagerInventoryReportView() {
     }
   };
 
-  if (authLoading || !inventoryList) {
+  const groupedHistory = useMemo(() => {
+    return allReports.reduce((acc, report) => {
+        const date = format(new Date(report.submittedAt as string), "dd/MM/yyyy");
+        if(!acc[date]) {
+            acc[date] = [];
+        }
+        acc[date].push(report);
+        return acc;
+    }, {} as {[key: string]: InventoryReport[]})
+  }, [allReports]);
+
+  if (isLoading || authLoading) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
         <header className="mb-8">
             <Skeleton className="h-8 w-48 mb-4" />
             <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-5 w-1/2 mt-2" />
         </header>
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-64 w-full" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div className="lg:col-span-2 space-y-4">
+                <Skeleton className="h-96 w-full" />
+            </div>
+            <div className="lg:col-span-1 space-y-4">
+                 <Skeleton className="h-64 w-full" />
+            </div>
         </div>
       </div>
     );
@@ -154,71 +149,36 @@ function ManagerInventoryReportView() {
           <div className="flex flex-col md:flex-row gap-4 justify-between md:items-start">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-headline">Xem Báo cáo Tồn kho</h1>
+              <p className="text-muted-foreground">Luôn hiển thị báo cáo mới nhất được nộp.</p>
             </div>
-            <Popover>
-                <PopoverTrigger asChild>
-                <Button
-                    variant={"outline"}
-                    className={cn(
-                    "w-full md:w-[280px] justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                    )}
-                >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP", { timeZone: 'Asia/Ho_Chi_Minh' } as any) : <span>Chọn ngày</span>}
-                </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    disabled={(d) => d > new Date()}
-                />
-                </PopoverContent>
-            </Popover>
           </div>
       </header>
 
-       {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="h-96 w-full" />
-            </div>
-            <div className="lg:col-span-1 space-y-4">
-                 <Skeleton className="h-64 w-full" />
-            </div>
-        </div>
-      ) : reports.length === 0 ? (
+       {!latestReport ? (
          <Card>
-            <CardHeader><CardTitle>Không có báo cáo</CardTitle></CardHeader>
-            <CardContent><p className="text-muted-foreground">Không có báo cáo tồn kho nào được nộp vào ngày đã chọn.</p></CardContent>
+            <CardHeader><CardTitle>Chưa có báo cáo nào</CardTitle></CardHeader>
+            <CardContent><p className="text-muted-foreground">Hệ thống chưa ghi nhận báo cáo kiểm kê tồn kho nào được nộp.</p></CardContent>
         </Card>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Chi tiết Tồn kho</CardTitle>
-                    <CardDescription>
-                       <div className="flex items-center gap-4">
-                            <span>Báo cáo ngày {date ? format(date, "dd/MM/yyyy") : ''}</span>
-                            <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
-                                <SelectTrigger className="w-full md:w-[200px]">
-                                    <SelectValue placeholder="Chọn nhân viên..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {reports.map(r => (
-                                        <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                       </div>
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div>
+                            <CardTitle>Báo cáo mới nhất</CardTitle>
+                            <CardDescription className="mt-2 flex items-center gap-4 text-sm">
+                                <span className="flex items-center gap-1.5"><User className="h-4 w-4"/> {latestReport.staffName}</span>
+                                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4"/> {format(new Date(latestReport.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span>
+                            </CardDescription>
+                        </div>
+                         <Button variant="outline" onClick={() => setIsHistoryOpen(true)}>
+                            <History className="mr-2 h-4 w-4"/>
+                            Xem lịch sử kiểm kê
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                {report ? (
                     <Accordion type="multiple" defaultValue={categorizedList.map(c => c.category)} className="w-full space-y-4">
                          {categorizedList.map(({ category, items }) => (
                             <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
@@ -239,7 +199,7 @@ function ManagerInventoryReportView() {
                                             <TableBody>
                                                 {items.map(item => {
                                                     const status = getItemStatus(item.id, item.minStock);
-                                                    const record = report.stockLevels[item.id];
+                                                    const record = latestReport.stockLevels[item.id];
                                                     const stockValue = record?.stock ?? 'N/A';
                                                     const photos = record?.photos ?? [];
                                                     return (
@@ -280,9 +240,6 @@ function ManagerInventoryReportView() {
                             </AccordionItem>
                         ))}
                     </Accordion>
-                    ) : (
-                         <p className="text-muted-foreground text-center py-4">Vui lòng chọn một nhân viên để xem báo cáo.</p>
-                    )}
                 </CardContent>
             </Card>
         </div>
@@ -292,11 +249,11 @@ function ManagerInventoryReportView() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {report && report.suggestions && report.suggestions.ordersBySupplier.length > 0 ? (
+                    {latestReport.suggestions && latestReport.suggestions.ordersBySupplier.length > 0 ? (
                         <div className="space-y-4">
-                            <p className="text-sm font-semibold text-primary">{report.suggestions.summary}</p>
-                             <Accordion type="multiple" defaultValue={report.suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
-                                {report.suggestions.ordersBySupplier.map((orderBySupplier) => (
+                            <p className="text-sm font-semibold text-primary">{latestReport.suggestions.summary}</p>
+                             <Accordion type="multiple" defaultValue={latestReport.suggestions.ordersBySupplier.map(s => s.supplier)} className="w-full space-y-2">
+                                {latestReport.suggestions.ordersBySupplier.map((orderBySupplier) => (
                                     <AccordionItem value={orderBySupplier.supplier} key={orderBySupplier.supplier} className="border-b-0">
                                         <AccordionTrigger className="text-base font-medium hover:no-underline p-2 bg-muted rounded-md">
                                             {orderBySupplier.supplier}
@@ -321,15 +278,19 @@ function ManagerInventoryReportView() {
                                 ))}
                             </Accordion>
                         </div>
-                    ) : report && report.suggestions ? (
-                         <div className="flex items-center justify-center text-center text-sm text-muted-foreground py-4 gap-2">
-                            <CheckCircle className="text-green-500 h-4 w-4"/>
-                            <p>{report.suggestions.summary || 'Tất cả hàng hoá đã đủ.'}</p>
-                        </div>
                     ) : (
                          <div className="flex items-center justify-center text-center text-sm text-muted-foreground py-4 gap-2">
-                           <AlertCircle className="text-yellow-500 h-4 w-4" />
-                           <p>Không có đề xuất nào được tạo hoặc chưa chọn báo cáo.</p>
+                            {latestReport.suggestions ? (
+                                <>
+                                 <CheckCircle className="text-green-500 h-4 w-4"/>
+                                 <p>{latestReport.suggestions.summary || 'Tất cả hàng hoá đã đủ.'}</p>
+                                </>
+                            ) : (
+                                <>
+                                 <AlertCircle className="text-yellow-500 h-4 w-4" />
+                                 <p>Không có đề xuất nào được tạo.</p>
+                                </>
+                            )}
                         </div>
                     )}
                 </CardContent>
@@ -338,6 +299,44 @@ function ManagerInventoryReportView() {
       </div>
     )}
     </div>
+     <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <DialogContent className="max-w-xl">
+            <DialogHeader>
+                <DialogTitle>Lịch sử Kiểm kê Tồn kho</DialogTitle>
+                <DialogDescription>
+                    Danh sách các báo cáo đã được nộp, sắp xếp theo ngày gần nhất.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6">
+                <Accordion type="multiple" defaultValue={Object.keys(groupedHistory)} className="w-full space-y-4">
+                    {Object.entries(groupedHistory).map(([date, reports]) => (
+                        <AccordionItem value={date} key={date}>
+                            <AccordionTrigger className="text-base font-semibold">Ngày {date}</AccordionTrigger>
+                            <AccordionContent>
+                                <ul className="space-y-3">
+                                {reports.map(report => (
+                                    <li key={report.id} className="flex justify-between items-center p-3 border rounded-md">
+                                        <div>
+                                            <p className="font-medium">{report.staffName}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Lúc {format(new Date(report.submittedAt as string), "HH:mm")}
+                                            </p>
+                                        </div>
+                                         <Button asChild variant="secondary" size="sm">
+                                            <Link href={`/reports/inventory?date=${report.date}&id=${report.id}`}>
+                                                Xem
+                                            </Link>
+                                        </Button>
+                                    </li>
+                                ))}
+                                </ul>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            </div>
+        </DialogContent>
+    </Dialog>
     <Lightbox
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}

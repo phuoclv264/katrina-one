@@ -683,6 +683,28 @@ export const dataStore = {
     return reports;
   },
 
+  subscribeToAllInventoryReports(callback: (reports: InventoryReport[]) => void): () => void {
+    const reportsCollection = collection(db, 'inventory-reports');
+    const q = query(reportsCollection, where('status', '==', 'submitted'), orderBy('submittedAt', 'desc'));
+    
+    return onSnapshot(q, (querySnapshot) => {
+        const reports: InventoryReport[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            reports.push({
+                ...data,
+                id: doc.id,
+                submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+                lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+            } as InventoryReport);
+        });
+        callback(reports);
+    }, (error) => {
+        console.error("Error fetching all inventory reports:", error);
+        callback([]);
+    });
+  },
+
   async getHygieneReportForDate(date: string, shiftKey: string): Promise<ShiftReport[]> {
     const reportsCollection = collection(db, 'reports');
     const q = query(reportsCollection, where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted'));
