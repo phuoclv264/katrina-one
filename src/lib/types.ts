@@ -173,6 +173,6 @@ export type Violation = {
   photos: string[];
   createdAt: string | Timestamp;
   lastModified?: string | Timestamp;
-  penaltyPhotoUrl?: string;
+  penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
 };

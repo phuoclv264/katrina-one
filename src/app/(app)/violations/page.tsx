@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye } from 'lucide-react';
+import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2 } from 'lucide-react';
 import type { ManagedUser, Violation } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
@@ -222,7 +222,7 @@ export default function ViolationsPage() {
   const handleDeleteViolation = async (violation: Violation) => {
     setIsProcessing(true);
     try {
-        await dataStore.deleteViolation(violation.id, violation.photos);
+        await dataStore.deleteViolation(violation.id, [...(violation.photos || []), ...(violation.penaltyPhotos || [])] );
         toast({ title: 'Đã xóa', description: 'Đã xóa ghi nhận vi phạm.' });
     } catch (error) {
         console.error("Failed to delete violation:", error);
@@ -243,13 +243,17 @@ export default function ViolationsPage() {
         toast({ title: 'Đang xử lý...', description: 'Bằng chứng nộp phạt đang được tải lên.' });
 
         try {
-            const downloadURL = await dataStore.submitPenaltyProof(violationId, photoIds[0]);
+            const newPhotoUrls = await dataStore.submitPenaltyProof(violationId, photoIds);
             
             // Optimistic UI update
             setViolations(prevViolations => 
                 prevViolations.map(v => 
                     v.id === violationId
-                        ? { ...v, penaltyPhotoUrl: downloadURL, penaltySubmittedAt: new Date().toISOString() } 
+                        ? { 
+                            ...v, 
+                            penaltyPhotos: [...(v.penaltyPhotos || []), ...newPhotoUrls],
+                            penaltySubmittedAt: new Date().toISOString() 
+                          } 
                         : v
                 )
             );
@@ -281,6 +285,7 @@ export default function ViolationsPage() {
   }, [filteredViolations]);
 
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+  const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
   const openAddDialog = (isSelfConfession: boolean) => {
     setViolationToEdit(null);
@@ -288,7 +293,7 @@ export default function ViolationsPage() {
     setIsDialogOpen(true);
   }
 
-  if (isLoading || authLoading) {
+  if (isLoading || authLoading || !user) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
         <Skeleton className="h-10 w-1/2 mb-2" />
@@ -303,7 +308,7 @@ export default function ViolationsPage() {
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
         <header className="mb-8">
           <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
-            <ShieldX /> Ghi nhận Vi phạm
+            <ShieldX /> {pageTitle}
           </h1>
           <p className="text-muted-foreground mt-2">
             Theo dõi và quản lý các vấn đề liên quan đến nhân viên.
@@ -352,7 +357,10 @@ export default function ViolationsPage() {
                     <AccordionItem key={month} value={month}>
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
-                            {violationsInMonth.map(v => (
+                            {violationsInMonth.map(v => {
+                                const canSubmitPenalty = canManage || v.userId === user.uid;
+
+                                return (
                                 <div key={v.id} className="border rounded-lg p-4 relative">
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2">
@@ -397,19 +405,27 @@ export default function ViolationsPage() {
                                         </div>
                                     )}
                                      <div className="mt-4 pt-4 border-t">
-                                        {v.penaltyPhotoUrl ? (
-                                            <div className="flex items-center justify-between">
+                                        {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
+                                            <div className="flex items-center justify-between flex-wrap gap-2">
                                                 <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                     <CheckCircle className="h-4 w-4" />
                                                     <span>Đã nộp phạt lúc {new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN')}</span>
                                                 </div>
-                                                <Button size="sm" variant="secondary" onClick={() => { setLightboxSlides([{ src: v.penaltyPhotoUrl! }]); setLightboxOpen(true); }}>
-                                                    <Eye className="mr-2 h-4 w-4" />
-                                                    Xem bằng chứng
-                                                </Button>
+                                                <div className="flex gap-2">
+                                                    <Button size="sm" variant="secondary" onClick={() => { setLightboxSlides(v.penaltyPhotos!.map(p => ({ src: p }))); setLightboxOpen(true); }}>
+                                                        <Eye className="mr-2 h-4 w-4" />
+                                                        Xem ({v.penaltyPhotos.length})
+                                                    </Button>
+                                                    {canSubmitPenalty && (
+                                                        <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                            <FilePlus2 className="mr-2 h-4 w-4" />
+                                                            Bổ sung
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ) : (
-                                            canManage && (
+                                            canSubmitPenalty && (
                                                 <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
                                                     Nộp phạt
                                                 </Button>
@@ -422,7 +438,8 @@ export default function ViolationsPage() {
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                )
+                            })}
                         </AccordionContent>
                     </AccordionItem>
                 ))}
