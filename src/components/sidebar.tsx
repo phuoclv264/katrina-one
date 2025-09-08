@@ -134,8 +134,8 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarContent className="flex-1">
         <SidebarMenu>
           {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href} onClick={() => handleNavigation(item.href)} className="group-data-[collapsible=icon]:justify-center">
-              <Link href={item.href} passHref>
+            <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
+              <Link href={item.href} passHref onClick={() => handleNavigation(item.href)}>
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.href}
