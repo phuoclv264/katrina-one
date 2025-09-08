@@ -270,7 +270,7 @@ export default function ReportsPage() {
                                 <TableRow 
                                   key={`${date}-${key}`} 
                                   onClick={() => router.push(getReportLink(date, key))}
-                                  className="cursor-pointer"
+                                  className="cursor-pointer select-none"
                                 >
                                   <TableCell className="font-semibold capitalize">{reportName}</TableCell>
                                   <TableCell>
