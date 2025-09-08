@@ -121,6 +121,16 @@ function ReportView() {
                     combinedIssues.push(`${report.staffName}: ${report.issues}`);
                 }
             });
+
+             // Sort completions for each task chronologically
+            for (const taskId in combinedTasks) {
+                combinedTasks[taskId].sort((a, b) => {
+                    const timeA = a.timestamp.replace(':', '');
+                    const timeB = b.timestamp.replace(':', '');
+                    return timeA.localeCompare(timeB);
+                });
+            }
+
              return {
                 id: 'summary',
                 staffName: 'Tổng hợp',
@@ -330,7 +340,7 @@ function ReportView() {
                                             </div>
                                              {selectedReportId === 'summary' && (
                                                 <Badge variant="secondary" className="font-normal">
-                                                   Thực hiện bởi: {(completion as any).staffName}
+                                                   {(completion as any).staffName}
                                                 </Badge>
                                             )}
                                         </div>
