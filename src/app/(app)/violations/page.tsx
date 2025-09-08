@@ -448,7 +448,7 @@ export default function ViolationsPage() {
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
                                 const canSubmitPenalty = canManage || v.users.some(vu => vu.id === user.uid);
-                                const userNames = v.users.map(u => u.name).join(', ');
+                                const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
 
                                 return (
                                 <div key={v.id} className="border rounded-lg p-4 relative">
@@ -456,7 +456,7 @@ export default function ViolationsPage() {
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
                                             <Badge>{v.category || 'Khác'}</Badge>
-                                            {v.users.length === 1 && v.users[0].id === v.reporterId && (
+                                            {v.users && v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
                                         </div>
