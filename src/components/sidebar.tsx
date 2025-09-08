@@ -24,7 +24,7 @@ export function AppSidebar() {
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
 
-  const handleNavigation = () => {
+  const handleLinkClick = () => {
     setOpenMobile(false);
   }
   
@@ -97,12 +97,12 @@ export function AppSidebar() {
       <SidebarHeader className="flex flex-col gap-2 p-2">
          <div className="p-2 flex items-center justify-center gap-2">
             <div className="w-full group-data-[collapsible=icon]:hidden">
-                <Link href={homeLink} onClick={handleNavigation} className="flex justify-center">
+                <Link href={homeLink} onClick={handleLinkClick} className="flex justify-center">
                   <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-32" />
                 </Link>
             </div>
              <div className="w-full hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-                 <Link href={homeLink} onClick={handleNavigation} className="flex justify-center">
+                 <Link href={homeLink} onClick={handleLinkClick} className="flex justify-center">
                     <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-10" />
                  </Link>
             </div>
@@ -132,17 +132,18 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
-              <Link href={item.href} onClick={handleNavigation}>
-                <SidebarMenuButton
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href}
+                tooltip={item.label}
+              >
+                <Link href={item.href} onClick={handleLinkClick}>
                   <div className="flex items-center gap-2">
                     <item.icon />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </div>
-                </SidebarMenuButton>
-              </Link>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
