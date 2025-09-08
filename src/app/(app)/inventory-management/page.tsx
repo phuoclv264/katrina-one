@@ -592,19 +592,16 @@ export default function InventoryManagementPage() {
   const handleMoveItem = (indexToMove: number, direction: 'up' | 'down') => {
     if (!inventoryList) return;
 
-    // Create a mutable copy of the list
     const newList = [...inventoryList];
 
     const newIndex = direction === 'up' ? indexToMove - 1 : indexToMove + 1;
     if (newIndex < 0 || newIndex >= newList.length) return;
-
-    // Check if the move is within the same category
+    
     const itemToMove = newList[indexToMove];
     const itemToSwap = newList[newIndex];
     
     if (itemToMove.category === itemToSwap.category) {
         [newList[indexToMove], newList[newIndex]] = [newList[newIndex], newList[indexToMove]];
-        // Update the state with the new list
         setInventoryList(newList);
     } else {
         toast({ title: "Thông báo", description: "Chỉ có thể sắp xếp các mục trong cùng một chủng loại."});
