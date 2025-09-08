@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -280,6 +279,10 @@ export default function ViolationsPage() {
     }
   };
 
+  const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
+    await dataStore.updateViolationCategories(newCategories);
+  };
+
   const handleDeleteViolation = async (violation: Violation) => {
     setIsProcessing(true);
     try {
@@ -393,7 +396,7 @@ export default function ViolationsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
                     <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Lọc theo nhân viên..."/>
@@ -409,7 +412,7 @@ export default function ViolationsPage() {
                         categories={categories}
                         value={filterCategory || ''}
                         onChange={(val) => setFilterCategory(val || null)}
-                        onCategoriesChange={dataStore.updateViolationCategories}
+                        onCategoriesChange={handleCategoriesChange}
                         canManage={user.role === 'Chủ nhà hàng'}
                         placeholder="Lọc theo loại vi phạm..."
                     />
@@ -544,7 +547,7 @@ export default function ViolationsPage() {
             reporter={user}
             isSelfConfessMode={isSelfConfessMode}
             categories={categories}
-            onCategoriesChange={dataStore.updateViolationCategories}
+            onCategoriesChange={handleCategoriesChange}
             canManageCategories={user.role === 'Chủ nhà hàng'}
           />
       )}
