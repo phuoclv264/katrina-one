@@ -27,13 +27,31 @@ type GroupedReports = {
   };
 };
 
-function DailySummaryGenerator({ date, reports, taskDefinitions }: { date: string, reports: ReportType[], taskDefinitions: any }) {
+function DailySummaryGenerator({
+  date,
+  reports,
+  taskDefinitions,
+  cachedSummary,
+  onSummaryGenerated,
+}: {
+  date: string,
+  reports: ReportType[],
+  taskDefinitions: any,
+  cachedSummary?: string,
+  onSummaryGenerated: (summary: string) => void,
+}) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [summary, setSummary] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const { toast } = useToast();
 
     const handleGenerate = async () => {
+        if (cachedSummary) {
+            setSummary(cachedSummary);
+            setIsDialogOpen(true);
+            return;
+        }
+
         setIsGenerating(true);
         setSummary('');
         try {
@@ -43,6 +61,7 @@ function DailySummaryGenerator({ date, reports, taskDefinitions }: { date: strin
                 taskDefinitions
             });
             setSummary(result.summary);
+            onSummaryGenerated(result.summary); // Cache the new summary
             setIsDialogOpen(true);
         } catch (error) {
             console.error("Failed to generate summary:", error);
@@ -93,6 +112,8 @@ export default function ReportsPage() {
   const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [cachedSummaries, setCachedSummaries] = useState<Record<string, string>>({});
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -150,7 +171,7 @@ export default function ReportsPage() {
         case 'bartender_hygiene':
             return `/reports/hygiene?date=${date}`;
         case 'inventory':
-            return `/reports/inventory?date=${date}`;
+            return `/reports/inventory`;
         case 'manager_comprehensive':
             return `/reports/comprehensive?date=${date}`;
         default:
@@ -252,6 +273,10 @@ export default function ReportsPage() {
                                 date={date} 
                                 reports={reportsForDate}
                                 taskDefinitions={taskDefinitions}
+                                cachedSummary={cachedSummaries[date]}
+                                onSummaryGenerated={(summary) => {
+                                  setCachedSummaries(prev => ({...prev, [date]: summary}))
+                                }}
                             />
                         </div>
                         <Table>
