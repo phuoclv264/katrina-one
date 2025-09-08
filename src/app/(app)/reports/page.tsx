@@ -284,13 +284,20 @@ export default function ReportsPage() {
                             <TableRow>
                               <TableHead>Tên báo cáo</TableHead>
                               <TableHead>Nhân viên đã nộp</TableHead>
+                              <TableHead className="text-right">Thời gian nộp</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
                               const reportName = getReportName(key);
                               const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
-                              
+                              const latestSubmission = reportGroup.reduce((latest, current) => {
+                                  if (!latest.submittedAt) return current;
+                                  if (!current.submittedAt) return latest;
+                                  return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
+                              });
+                              const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
                               return (
                                 <TableRow 
                                   key={`${date}-${key}`} 
@@ -300,6 +307,9 @@ export default function ReportsPage() {
                                   <TableCell className="font-semibold capitalize">{reportName}</TableCell>
                                   <TableCell>
                                     <p className="text-sm text-muted-foreground">{staffNames}</p>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <p className="text-sm text-muted-foreground">{submissionTime}</p>
                                   </TableCell>
                                 </TableRow>
                               );
