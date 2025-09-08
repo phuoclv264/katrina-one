@@ -1,6 +1,6 @@
 
 
-import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers } from './types';
+import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
 
 export const staff: Staff[] = [
   { pin: '0001', name: 'Phước' },
@@ -239,3 +239,10 @@ export const suppliers: Suppliers = [
     "Tạp hóa",
 ];
 
+export const initialViolationCategories: ViolationCategory[] = [
+    "Đi trễ",
+    "Nói tục",
+    "Đùa giỡn lớn tiếng",
+    "Pha chế sai công thức",
+    "Khác"
+];

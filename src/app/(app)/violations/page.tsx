@@ -17,13 +17,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2 } from 'lucide-react';
-import type { ManagedUser, Violation } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
+import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 
 
 function ViolationDialog({
@@ -35,6 +36,9 @@ function ViolationDialog({
   violationToEdit,
   reporter,
   isSelfConfession = false,
+  categories,
+  onCategoriesChange,
+  canManageCategories,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -44,9 +48,13 @@ function ViolationDialog({
   violationToEdit: Violation | null;
   reporter: ManagedUser;
   isSelfConfession?: boolean;
+  categories: ViolationCategory[];
+  onCategoriesChange: (newCategories: ViolationCategory[]) => void;
+  canManageCategories: boolean;
 }) {
   const [content, setContent] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
   
@@ -55,23 +63,26 @@ function ViolationDialog({
         if (violationToEdit) {
             setContent(violationToEdit.content);
             setSelectedUserId(violationToEdit.userId);
+            setSelectedCategory(violationToEdit.category);
             setPhotoIds([]);
         } else if (isSelfConfession) {
             setContent('');
             setSelectedUserId(reporter.uid); // Lock to self
+            setSelectedCategory('');
             setPhotoIds([]);
         } else {
             // Reset for new violation by manager
             setContent('');
             setSelectedUserId('');
+            setSelectedCategory('');
             setPhotoIds([]);
         }
     }
   }, [open, violationToEdit, isSelfConfession, reporter]);
 
   const handleSave = () => {
-    if (!content || !selectedUserId) {
-      alert('Vui lòng điền đầy đủ nội dung và chọn nhân viên.');
+    if (!content || !selectedUserId || !selectedCategory) {
+      alert('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
 
@@ -80,6 +91,7 @@ function ViolationDialog({
     
     const data = {
         content: content,
+        category: selectedCategory,
         userId: selectedUserId,
         userName: selectedUser.displayName,
         reporterId: reporter.uid,
@@ -122,6 +134,21 @@ function ViolationDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="category" className="text-right">
+              Loại vi phạm
+            </Label>
+            <div className="col-span-3">
+              <ViolationCategoryCombobox
+                categories={categories}
+                value={selectedCategory}
+                onChange={setSelectedCategory}
+                onCategoriesChange={onCategoriesChange}
+                canManage={canManageCategories}
+                placeholder="Chọn loại vi phạm..."
+              />
+            </div>
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="content" className="text-right mt-2">
@@ -170,6 +197,7 @@ export default function ViolationsPage() {
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [categories, setCategories] = useState<ViolationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -178,6 +206,7 @@ export default function ViolationsPage() {
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
   const [filterUserId, setFilterUserId] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
@@ -213,14 +242,16 @@ export default function ViolationsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const unsubViolations = dataStore.subscribeToViolations((data) => {
-        setViolations(data);
+    const unsubViolations = dataStore.subscribeToViolations((data) => setViolations(data));
+    const unsubUsers = dataStore.subscribeToUsers((data) => setUsers(data));
+    const unsubCategories = dataStore.subscribeToViolationCategories((data) => {
+        setCategories(data);
         setIsLoading(false);
     });
-    const unsubUsers = dataStore.subscribeToUsers((data) => setUsers(data));
     return () => {
         unsubViolations();
         unsubUsers();
+        unsubCategories();
     };
   }, [user]);
 
@@ -292,9 +323,15 @@ export default function ViolationsPage() {
     };
 
   const filteredViolations = useMemo(() => {
-      if (!filterUserId) return violations;
-      return violations.filter(v => v.userId === filterUserId);
-  }, [violations, filterUserId]);
+      let result = violations;
+      if (filterUserId) {
+        result = result.filter(v => v.userId === filterUserId);
+      }
+      if(filterCategory) {
+          result = result.filter(v => v.category === filterCategory);
+      }
+      return result;
+  }, [violations, filterUserId, filterCategory]);
 
   const groupedViolations = useMemo(() => {
       return filteredViolations.reduce((acc, violation) => {
@@ -346,9 +383,9 @@ export default function ViolationsPage() {
                 Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
               </CardDescription>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Lọc theo nhân viên..."/>
                     </SelectTrigger>
                     <SelectContent>
@@ -358,6 +395,14 @@ export default function ViolationsPage() {
                         ))}
                     </SelectContent>
                 </Select>
+                <ViolationCategoryCombobox
+                    categories={categories}
+                    value={filterCategory || ''}
+                    onChange={(val) => setFilterCategory(val || null)}
+                    onCategoriesChange={dataStore.updateViolationCategories}
+                    canManage={user.role === 'Chủ nhà hàng'}
+                    placeholder="Lọc theo loại..."
+                />
                  <Button variant="secondary" onClick={() => openAddDialog(true)}>
                     <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
                  </Button>
@@ -372,7 +417,7 @@ export default function ViolationsPage() {
             {Object.keys(groupedViolations).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
                     <FilterX className="h-12 w-12"/>
-                    <p>Không tìm thấy vi phạm nào.</p>
+                    <p>Không tìm thấy vi phạm nào khớp với bộ lọc.</p>
                 </div>
             ) : (
                 <Accordion type="multiple" defaultValue={Object.keys(groupedViolations)} className="space-y-4">
@@ -386,8 +431,9 @@ export default function ViolationsPage() {
                                 return (
                                 <div key={v.id} className="border rounded-lg p-4 relative">
                                     <div className="flex justify-between items-start">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{v.userName}</p>
+                                            <Badge>{v.category || 'Khác'}</Badge>
                                             {v.userId === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
@@ -432,7 +478,7 @@ export default function ViolationsPage() {
                                             <div className="flex items-center justify-between flex-wrap gap-2">
                                                 <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                     <CheckCircle className="h-4 w-4" />
-                                                    <span>Đã nộp phạt lúc {new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN')}</span>
+                                                    <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN') : 'Không rõ'}</span>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <Button size="sm" variant="secondary" onClick={() => { setLightboxSlides(v.penaltyPhotos!.map(p => ({ src: p }))); setLightboxOpen(true); }}>
@@ -482,6 +528,9 @@ export default function ViolationsPage() {
             violationToEdit={violationToEdit}
             reporter={user}
             isSelfConfession={isSelfConfessMode}
+            categories={categories}
+            onCategoriesChange={dataStore.updateViolationCategories}
+            canManageCategories={user.role === 'Chủ nhà hàng'}
           />
       )}
       

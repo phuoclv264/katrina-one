@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, storage } from './firebase';
@@ -20,8 +21,8 @@ import {
   limit,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 
@@ -865,6 +866,32 @@ export const dataStore = {
     });
 
     return unsubscribe;
+  },
+
+  subscribeToViolationCategories(callback: (categories: ViolationCategory[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'violationCategories');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+        if(docSnap.exists()) {
+            callback(docSnap.data().list as ViolationCategory[]);
+        } else {
+            try {
+                await setDoc(docRef, { list: initialViolationCategories });
+                callback(initialViolationCategories);
+            } catch(e) {
+                console.error("Permission denied to create default violation categories.", e);
+                callback(initialViolationCategories);
+            }
+        }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read violation categories: ${error.code}`);
+        callback(initialViolationCategories);
+    });
+    return unsubscribe;
+  },
+
+  async updateViolationCategories(newCategories: ViolationCategory[]) {
+    const docRef = doc(db, 'app-data', 'violationCategories');
+    await setDoc(docRef, { list: newCategories });
   },
 
   async addOrUpdateViolation(
