@@ -31,6 +31,8 @@ function DailySummaryGenerator({
   date,
   reports,
   taskDefinitions,
+  cachedSummary,
+  onSummaryGenerated,
 }: {
   date: string,
   reports: ReportType[],
@@ -49,6 +51,9 @@ function DailySummaryGenerator({
         }
 
         setIsGenerating(true);
+        if (!isDialogOpen) {
+          setIsDialogOpen(true);
+        }
         try {
             const result = await generateDailySummary({
                 date,
@@ -56,9 +61,6 @@ function DailySummaryGenerator({
                 taskDefinitions
             });
             onSummaryGenerated(date, result.summary);
-            if (!isDialogOpen) {
-              setIsDialogOpen(true);
-            }
         } catch (error) {
             console.error("Failed to generate summary:", error);
             toast({
