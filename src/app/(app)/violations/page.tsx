@@ -399,43 +399,45 @@ export default function ViolationsPage() {
         </header>
 
         <Card>
-          <CardHeader className="flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
+           <CardHeader>
               <CardTitle>Danh sách Vi phạm</CardTitle>
               <CardDescription>
                 Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
               </CardDescription>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Lọc theo nhân viên..."/>
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Tất cả nhân viên</SelectItem>
-                        {users.map(u => (
-                            <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <ViolationCategoryCombobox
-                    categories={categories}
-                    value={filterCategory || ''}
-                    onChange={(val) => setFilterCategory(val || null)}
-                    onCategoriesChange={dataStore.updateViolationCategories}
-                    canManage={user.role === 'Chủ nhà hàng'}
-                    placeholder="Lọc theo loại..."
-                />
-                 <Button variant="secondary" onClick={() => openAddDialog(true)}>
-                    <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
-                 </Button>
-                {canManage && (
-                  <Button onClick={() => openAddDialog(false)}>
-                    <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                  </Button>
-                )}
-            </div>
-          </CardHeader>
+            </CardHeader>
+            <CardContent>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                    <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Lọc theo nhân viên..."/>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Tất cả nhân viên</SelectItem>
+                            {users.map(u => (
+                                <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <ViolationCategoryCombobox
+                        categories={categories}
+                        value={filterCategory || ''}
+                        onChange={(val) => setFilterCategory(val || null)}
+                        onCategoriesChange={dataStore.updateViolationCategories}
+                        canManage={user.role === 'Chủ nhà hàng'}
+                        placeholder="Lọc theo loại vi phạm..."
+                    />
+                 </div>
+                 <div className="flex flex-col sm:flex-row gap-2">
+                     <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
+                        <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+                     </Button>
+                    {canManage && (
+                      <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
+                        <Plus className="mr-2 h-4 w-4" /> Thêm mới
+                      </Button>
+                    )}
+                 </div>
+          </CardContent>
           <CardContent>
             {Object.keys(groupedViolations).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
@@ -449,7 +451,7 @@ export default function ViolationsPage() {
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
-                                const canSubmitPenalty = canManage || v.users.some(vu => vu.id === user.uid);
+                                const canSubmitPenalty = canManage || (v.users && v.users.some(vu => vu.id === user.uid));
                                 const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
 
                                 return (
@@ -551,7 +553,7 @@ export default function ViolationsPage() {
             isProcessing={isProcessing}
             violationToEdit={violationToEdit}
             reporter={user}
-            isSelfConfession={isSelfConfessMode}
+            isSelfConfessMode={isSelfConfessMode}
             categories={categories}
             onCategoriesChange={dataStore.updateViolationCategories}
             canManageCategories={user.role === 'Chủ nhà hàng'}
