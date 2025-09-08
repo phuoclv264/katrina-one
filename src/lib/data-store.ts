@@ -361,44 +361,23 @@ export const dataStore = {
     await setDoc(docRef, { list: newSuppliers });
   },
   
-  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport, latestReport: InventoryReport | null }> {
+  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport }> {
     const date = getTodaysDateKey();
     const reportId = `inventory-report-${userId}-${date}`;
     
-    // Always fetch the latest report from the server to use as a base
-    const reportsCollection = collection(db, 'inventory-reports');
-    const q = query(reportsCollection, orderBy('submittedAt', 'desc'), limit(1));
-    const serverSnapshot = await getDocs(q);
-
-    let latestReport: InventoryReport | null = null;
-    let initialStockLevels = {};
-
-    if (!serverSnapshot.empty) {
-        const latestDoc = serverSnapshot.docs[0];
-        const data = latestDoc.data();
-        latestReport = {
-             ...data,
-            id: latestDoc.id,
-            submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
-            lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
-        } as InventoryReport;
-        initialStockLevels = latestReport.stockLevels; // Use latest stock levels as base
-    }
-
+    // Always start with a fresh, empty report
     const newReport: InventoryReport = {
         id: reportId,
         userId,
         staffName,
         date,
         status: 'ongoing',
-        // Perform a deep copy to prevent reference sharing issues
-        stockLevels: JSON.parse(JSON.stringify(initialStockLevels)),
+        stockLevels: {},
         suggestions: null,
         lastUpdated: new Date().toISOString(),
     };
     
-    // We don't save to local storage immediately, let the component decide when to save changes
-    return { report: newReport, latestReport };
+    return { report: newReport };
   },
 
   async saveLocalInventoryReport(report: InventoryReport): Promise<void> {
@@ -1003,3 +982,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    

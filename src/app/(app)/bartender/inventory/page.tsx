@@ -35,10 +35,10 @@ export default function InventoryPage() {
   const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+  const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [report, setReport] = useState<InventoryReport | null>(null);
-  const [latestReportSource, setLatestReportSource] = useState<InventoryReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -112,9 +112,8 @@ export default function InventoryPage() {
 
     const loadReport = async () => {
       setIsLoading(true);
-      const { report: todayReport, latestReport } = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
+      const { report: todayReport } = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
       setReport(todayReport);
-      setLatestReportSource(latestReport);
       await fetchLocalPhotos(todayReport);
       
       // Check for local changes, not tied to a specific report status anymore
@@ -271,6 +270,36 @@ export default function InventoryPage() {
 
   const handleSubmit = async () => {
     if (!report || !user) return;
+
+    // --- Validation for required photos ---
+    let firstMissingPhotoItemId: string | null = null;
+    for (const item of inventoryList) {
+        if (item.requiresPhoto) {
+            const record = report.stockLevels[item.id];
+            // Only validate if the user has entered stock for this item
+            if (record && record.stock !== undefined && String(record.stock).trim() !== '') {
+                const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
+                if (!hasLocalPhoto) {
+                    firstMissingPhotoItemId = item.id;
+                    break; 
+                }
+            }
+        }
+    }
+
+    if (firstMissingPhotoItemId) {
+        toast({
+            title: "Thiếu ảnh bằng chứng",
+            description: "Vui lòng chụp ảnh cho tất cả các mặt hàng có gắn sao (*) trước khi gửi báo cáo.",
+            variant: "destructive",
+        });
+        const element = itemRowRefs.current.get(firstMissingPhotoItemId);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element?.focus();
+        return;
+    }
+    // --- End Validation ---
+
     const startTime = Date.now();
     setIsSubmitting(true);
     toast({
@@ -286,7 +315,6 @@ export default function InventoryPage() {
             const finalReport = { ...currentReport, status: 'submitted' as const, submittedAt: new Date().toISOString() };
             dataStore.saveInventoryReport(finalReport);
             setHasUnsubmittedChanges(false);
-            setLatestReportSource(finalReport); // Update latest source info on submit
             return finalReport;
         });
 
@@ -405,16 +433,7 @@ export default function InventoryPage() {
             </div>
           </div>
       </header>
-       {latestReportSource && latestReportSource.submittedAt && (
-            <Alert className="mb-8 border-blue-500 text-blue-800 bg-blue-50 dark:text-blue-200 dark:bg-blue-900/30">
-                <RefreshCw className="h-4 w-4" />
-                <AlertTitle>Dữ liệu được cập nhật</AlertTitle>
-                <AlertDescription>
-                    Bạn đang làm việc dựa trên báo cáo mới nhất được nộp bởi <b>{latestReportSource.staffName}</b> lúc {format(new Date(latestReportSource.submittedAt as string), "HH:mm, dd/MM/yyyy")}.
-                </AlertDescription>
-            </Alert>
-        )}
-
+      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
             <Card>
@@ -449,7 +468,9 @@ export default function InventoryPage() {
                                             return (
                                                 <div 
                                                     key={item.id} 
-                                                    className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer`}
+                                                    ref={(el) => itemRowRefs.current.set(item.id, el)}
+                                                    tabIndex={-1}
+                                                    className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
                                                     onClick={() => inputRefs.current.get(item.id)?.focus()}
                                                 >
                                                     <div className="col-span-1">
@@ -597,5 +618,7 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
+
+    
 
     
