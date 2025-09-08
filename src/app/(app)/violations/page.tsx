@@ -239,39 +239,18 @@ export default function ViolationsPage() {
 
   useEffect(() => {
     if (!user) return;
-    let mounted = true;
-    let userSubscribed = false, violationSubscribed = false, categorySubscribed = false;
-
-    const checkLoadingDone = () => {
-      if (userSubscribed && violationSubscribed && categorySubscribed && mounted) {
-        setIsLoading(false);
-      }
-    }
-
-    const unsubViolations = dataStore.subscribeToViolations((data) => {
-      if(mounted) {
-        setViolations(data);
-        violationSubscribed = true;
-        checkLoadingDone();
-      }
-    });
-    const unsubUsers = dataStore.subscribeToUsers((data) => {
-      if(mounted) {
-        setUsers(data);
-        userSubscribed = true;
-        checkLoadingDone();
-      }
-    });
-    const unsubCategories = dataStore.subscribeToViolationCategories((data) => {
-      if(mounted) {
-        setCategories(data);
-        categorySubscribed = true;
-        checkLoadingDone();
-      }
-    });
-
+    const unsubViolations = dataStore.subscribeToViolations(setViolations);
+    const unsubUsers = dataStore.subscribeToUsers(setUsers);
+    const unsubCategories = dataStore.subscribeToViolationCategories(setCategories);
+    
+    // A simple way to wait for all subscriptions to load initial data
+    Promise.all([
+        new Promise(resolve => onSnapshot(collection(db, 'violations'), () => resolve(true), { onlyOnce: true })),
+        new Promise(resolve => onSnapshot(collection(db, 'users'), () => resolve(true), { onlyOnce: true })),
+        new Promise(resolve => onSnapshot(doc(db, 'app-data', 'violationCategories'), () => resolve(true), { onlyOnce: true })),
+    ]).then(() => setIsLoading(false));
+        
     return () => {
-        mounted = false;
         unsubViolations();
         unsubUsers();
         unsubCategories();
@@ -406,9 +385,9 @@ export default function ViolationsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
                     <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Lọc theo nhân viên..."/>
                         </SelectTrigger>
                         <SelectContent>
@@ -426,16 +405,18 @@ export default function ViolationsPage() {
                         canManage={user.role === 'Chủ nhà hàng'}
                         placeholder="Lọc theo loại vi phạm..."
                     />
-                 </div>
-                 <div className="flex flex-col sm:flex-row gap-2">
-                     <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
-                        <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
-                     </Button>
-                    {canManage && (
-                      <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
-                        <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                      </Button>
-                    )}
+                    <div className="col-start-1 sm:col-start-4 sm:col-span-1">
+                        {!canManage && (
+                        <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full">
+                            <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+                        </Button>
+                        )}
+                        {canManage && (
+                        <Button onClick={() => openAddDialog(false)} className="w-full">
+                            <Plus className="mr-2 h-4 w-4" /> Thêm mới
+                        </Button>
+                        )}
+                    </div>
                  </div>
           </CardContent>
           <CardContent>
@@ -456,7 +437,7 @@ export default function ViolationsPage() {
 
                                 return (
                                 <div key={v.id} className="border rounded-lg p-4 relative">
-                                    <div className="flex justify-between items-start">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
                                             <Badge>{v.category || 'Khác'}</Badge>
@@ -501,7 +482,7 @@ export default function ViolationsPage() {
                                     )}
                                      <div className="mt-4 pt-4 border-t">
                                         {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
-                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
                                                 <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                     <CheckCircle className="h-4 w-4" />
                                                     <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN') : 'Không rõ'}</span>
