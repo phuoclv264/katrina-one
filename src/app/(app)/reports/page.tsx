@@ -31,14 +31,10 @@ function DailySummaryGenerator({
   date,
   reports,
   taskDefinitions,
-  cachedSummary,
-  onSummaryGenerated,
 }: {
   date: string,
   reports: ReportType[],
   taskDefinitions: any,
-  cachedSummary?: string,
-  onSummaryGenerated: (summary: string) => void,
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [summary, setSummary] = useState('');
@@ -46,14 +42,13 @@ function DailySummaryGenerator({
     const { toast } = useToast();
 
     const handleGenerate = async () => {
-        if (cachedSummary) {
-            setSummary(cachedSummary);
+        // If a summary already exists for this session, just show it.
+        if (summary) {
             setIsDialogOpen(true);
             return;
         }
 
         setIsGenerating(true);
-        setSummary('');
         try {
             const result = await generateDailySummary({
                 date,
@@ -61,7 +56,6 @@ function DailySummaryGenerator({
                 taskDefinitions
             });
             setSummary(result.summary);
-            onSummaryGenerated(result.summary); // Cache the new summary
             setIsDialogOpen(true);
         } catch (error) {
             console.error("Failed to generate summary:", error);
@@ -112,7 +106,6 @@ export default function ReportsPage() {
   const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [cachedSummaries, setCachedSummaries] = useState<Record<string, string>>({});
 
 
   useEffect(() => {
@@ -273,10 +266,6 @@ export default function ReportsPage() {
                                 date={date} 
                                 reports={reportsForDate}
                                 taskDefinitions={taskDefinitions}
-                                cachedSummary={cachedSummaries[date]}
-                                onSummaryGenerated={(summary) => {
-                                  setCachedSummaries(prev => ({...prev, [date]: summary}))
-                                }}
                             />
                         </div>
                         <Table>
