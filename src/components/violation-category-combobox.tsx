@@ -29,6 +29,7 @@ type ViolationCategoryComboboxProps = {
     canManage: boolean;
     disabled?: boolean;
     placeholder?: string;
+    className?: string;
 }
 
 export function ViolationCategoryCombobox({ 
@@ -39,6 +40,7 @@ export function ViolationCategoryCombobox({
     canManage,
     disabled,
     placeholder = "Chọn loại vi phạm...",
+    className
 }: ViolationCategoryComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState(value || "")
@@ -81,7 +83,7 @@ export function ViolationCategoryCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("w-full justify-between", className)}
           disabled={disabled}
         >
           <span className="truncate flex-1 text-left font-normal">{displayValue}</span>
@@ -107,6 +109,19 @@ export function ViolationCategoryCombobox({
                 )}
             </CommandEmpty>
             <CommandGroup>
+                <CommandItem
+                    key="all"
+                    value=""
+                    onSelect={() => handleSelect('')}
+                >
+                     <Check
+                        className={cn(
+                        "mr-2 h-4 w-4",
+                        !value ? "opacity-100" : "opacity-0"
+                        )}
+                    />
+                    Tất cả loại vi phạm
+                </CommandItem>
               {categories.map((category) => (
                 <CommandItem
                   key={category}
