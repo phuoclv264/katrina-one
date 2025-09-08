@@ -12,12 +12,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2 } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -25,6 +24,7 @@ import "yet-another-react-lightbox/styles.css";
 import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
+import { UserMultiSelect } from '@/components/user-multi-select';
 
 
 function ViolationDialog({
@@ -53,7 +53,7 @@ function ViolationDialog({
   canManageCategories: boolean;
 }) {
   const [content, setContent] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
@@ -62,38 +62,36 @@ function ViolationDialog({
     if (open) {
         if (violationToEdit) {
             setContent(violationToEdit.content);
-            setSelectedUserId(violationToEdit.userId);
+            const initialUsers = users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid));
+            setSelectedUsers(initialUsers);
             setSelectedCategory(violationToEdit.category);
             setPhotoIds([]);
         } else if (isSelfConfession) {
+            const self = users.find(u => u.uid === reporter.uid);
             setContent('');
-            setSelectedUserId(reporter.uid); // Lock to self
+            setSelectedUsers(self ? [self] : []);
             setSelectedCategory('');
             setPhotoIds([]);
         } else {
             // Reset for new violation by manager
             setContent('');
-            setSelectedUserId('');
+            setSelectedUsers([]);
             setSelectedCategory('');
             setPhotoIds([]);
         }
     }
-  }, [open, violationToEdit, isSelfConfession, reporter]);
+  }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
   const handleSave = () => {
-    if (!content || !selectedUserId || !selectedCategory) {
+    if (!content || selectedUsers.length === 0 || !selectedCategory) {
       alert('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
-
-    const selectedUser = users.find(u => u.uid === selectedUserId);
-    if (!selectedUser) return;
     
     const data = {
         content: content,
         category: selectedCategory,
-        userId: selectedUserId,
-        userName: selectedUser.displayName,
+        users: selectedUsers.map(u => ({ id: u.uid, name: u.displayName })),
         reporterId: reporter.uid,
         reporterName: reporter.displayName,
         photosToUpload: photoIds,
@@ -120,20 +118,17 @@ function ViolationDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="user" className="text-right">
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="user" className="text-right pt-2">
               Nhân viên
             </Label>
-             <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isSelfConfession}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Chọn nhân viên..." />
-              </SelectTrigger>
-              <SelectContent>
-                {users.filter(u => u.role !== 'Chủ nhà hàng').map(u => (
-                  <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+             <UserMultiSelect
+                users={users}
+                selectedUsers={selectedUsers}
+                onChange={setSelectedUsers}
+                disabled={isSelfConfession}
+                className="col-span-3"
+            />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="category" className="text-right">
@@ -351,7 +346,7 @@ export default function ViolationsPage() {
   const filteredViolations = useMemo(() => {
       let result = violations;
       if (filterUserId) {
-        result = result.filter(v => v.userId === filterUserId);
+        result = result.filter(v => v.users.some(vu => vu.id === filterUserId));
       }
       if(filterCategory) {
           result = result.filter(v => v.category === filterCategory);
@@ -452,15 +447,16 @@ export default function ViolationsPage() {
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
-                                const canSubmitPenalty = canManage || v.userId === user.uid;
+                                const canSubmitPenalty = canManage || v.users.some(vu => vu.id === user.uid);
+                                const userNames = v.users.map(u => u.name).join(', ');
 
                                 return (
                                 <div key={v.id} className="border rounded-lg p-4 relative">
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="font-semibold">{v.userName}</p>
+                                            <p className="font-semibold">{userNames}</p>
                                             <Badge>{v.category || 'Khác'}</Badge>
-                                            {v.userId === v.reporterId && (
+                                            {v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
                                         </div>

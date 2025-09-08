@@ -170,12 +170,16 @@ export type AppError = {
 // --- Violation Logging Types ---
 export type ViolationCategory = string;
 
+export type ViolationUser = {
+  id: string;
+  name: string;
+}
+
 export type Violation = {
   id: string;
   content: string;
   category: ViolationCategory;
-  userId: string; // User who committed the violation
-  userName: string;
+  users: ViolationUser[]; // User who committed the violation
   reporterId: string; // User who reported the violation
   reporterName: string;
   photos: string[];
