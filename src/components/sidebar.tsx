@@ -137,7 +137,7 @@ export function AppSidebar() {
                 isActive={pathname === item.href}
                 tooltip={item.label}
               >
-                <Link href={item.href} onClick={handleLinkClick}>
+                <Link href={item.href}>
                   <div className="flex items-center gap-2">
                     <item.icon />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
