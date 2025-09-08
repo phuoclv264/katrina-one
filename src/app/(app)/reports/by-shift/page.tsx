@@ -122,12 +122,12 @@ function ReportView() {
                 }
             });
 
-             // Sort completions for each task chronologically
+             // Sort completions for each task chronologically (newest first)
             for (const taskId in combinedTasks) {
                 combinedTasks[taskId].sort((a, b) => {
                     const timeA = a.timestamp.replace(':', '');
                     const timeB = b.timestamp.replace(':', '');
-                    return timeA.localeCompare(timeB);
+                    return timeB.localeCompare(timeA); // Sort descending
                 });
             }
 
