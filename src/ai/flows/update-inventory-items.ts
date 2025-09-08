@@ -51,6 +51,7 @@ IMPORTANT RULES:
 4.  Only modify the fields ('name', 'category', 'supplier', 'unit', 'minStock', 'orderSuggestion') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
 5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with 'category: "TOPPING"' and add 2 to their existing 'minStock'.
 6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
+7.  If the user provides a block of text where each line represents an item, you must treat this as a batch update instruction. The format is likely 'CATEGORY-NAME-SUPPLIER-UNIT-MINSTOCK-ORDERSUGGESTION'. For each line, find the corresponding item in the JSON list by its 'name' and update ALL of its fields to match the information in that line.
 
 User's Instruction: "{{{instruction}}}"
 
@@ -72,3 +73,4 @@ const updateInventoryItemsFlow = ai.defineFlow(
         return output!;
     }
 );
+
