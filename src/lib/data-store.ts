@@ -21,7 +21,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -52,6 +52,29 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+    async getDailySummary(date: string): Promise<DailySummary | null> {
+        const docRef = doc(db, 'summaries', date);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return {
+                ...data,
+                id: docSnap.id,
+                generatedAt: (data.generatedAt as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
+            } as DailySummary;
+        }
+        return null;
+    },
+
+    async saveDailySummary(date: string, summary: string): Promise<void> {
+        const docRef = doc(db, 'summaries', date);
+        const data: Omit<DailySummary, 'id'> = {
+            summary,
+            generatedAt: serverTimestamp(),
+        };
+        await setDoc(docRef, data);
+    },
+
     subscribeToAppSettings(callback: (settings: AppSettings) => void): () => void {
         const docRef = doc(db, 'app-data', 'settings');
         const unsubscribe = onSnapshot(docRef, async (docSnap) => {

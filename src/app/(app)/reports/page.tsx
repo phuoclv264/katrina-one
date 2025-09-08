@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -10,12 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, CheckCircle, Users, Wand2, Loader2, RefreshCw } from 'lucide-react';
-import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem } from '@/lib/types';
+import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
 
 
@@ -31,21 +32,25 @@ function DailySummaryGenerator({
   date,
   reports,
   taskDefinitions,
-  cachedSummary,
-  onSummaryGenerated,
 }: {
   date: string,
   reports: ReportType[],
   taskDefinitions: any,
-  cachedSummary: string,
-  onSummaryGenerated: (date: string, summary: string) => void,
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [summaryData, setSummaryData] = useState<DailySummary | null>(null);
     const { toast } = useToast();
 
+    const fetchAndSetSummary = async () => {
+        setIsGenerating(true);
+        const existingSummary = await dataStore.getDailySummary(date);
+        setSummaryData(existingSummary);
+        setIsGenerating(false);
+    }
+    
     const handleGenerate = async (forceRegenerate = false) => {
-        if (cachedSummary && !forceRegenerate) {
+        if (summaryData && !forceRegenerate) {
             setIsDialogOpen(true);
             return;
         }
@@ -60,7 +65,10 @@ function DailySummaryGenerator({
                 reports,
                 taskDefinitions
             });
-            onSummaryGenerated(date, result.summary);
+            await dataStore.saveDailySummary(date, result.summary);
+            // After saving, fetch it again to get the server timestamp
+            const newSummary = await dataStore.getDailySummary(date);
+            setSummaryData(newSummary);
         } catch (error) {
             console.error("Failed to generate summary:", error);
             toast({
@@ -73,9 +81,16 @@ function DailySummaryGenerator({
         }
     }
 
+    const handleClick = async () => {
+        setIsDialogOpen(true);
+        if (!summaryData) {
+            await fetchAndSetSummary();
+        }
+    }
+
     return (
         <>
-            <Button onClick={() => handleGenerate(false)} variant="outline" size="sm">
+            <Button onClick={handleClick} variant="outline" size="sm">
                 <Wand2 className="mr-2 h-4 w-4" />
                 Tóm tắt bằng AI
             </Button>
@@ -83,25 +98,34 @@ function DailySummaryGenerator({
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Tóm tắt báo cáo ngày {new Date(date).toLocaleDateString('vi-VN')}</DialogTitle>
-                        <DialogDescription>
-                            AI đã phân tích tất cả các báo cáo đã nộp trong ngày.
-                        </DialogDescription>
+                        {summaryData?.generatedAt && (
+                            <DialogDescription>
+                                AI tạo lúc: {new Date(summaryData.generatedAt as string).toLocaleString('vi-VN')}
+                            </DialogDescription>
+                        )}
                     </DialogHeader>
                     <div className="prose prose-sm dark:prose-invert max-h-[70vh] overflow-y-auto rounded-md border p-4">
-                        {isGenerating && !cachedSummary ? (
+                        {isGenerating ? (
                              <div className="flex items-center justify-center gap-2 text-muted-foreground">
                                 <Loader2 className="h-5 w-5 animate-spin" />
                                 <span>AI đang phân tích, vui lòng đợi...</span>
                              </div>
+                        ) : summaryData ? (
+                            <ReactMarkdown>{summaryData.summary}</ReactMarkdown>
                         ) : (
-                            <ReactMarkdown>{cachedSummary}</ReactMarkdown>
+                           <div className="text-center py-8">
+                                <p className="text-muted-foreground mb-4">Chưa có bản tóm tắt nào cho ngày này.</p>
+                                <Button onClick={() => handleGenerate(true)}>Tạo ngay</Button>
+                           </div>
                         )}
                     </div>
                     <DialogFooter>
-                        <Button variant="secondary" onClick={() => handleGenerate(true)} disabled={isGenerating}>
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4" />}
-                            Tạo lại
-                        </Button>
+                        {summaryData && (
+                            <Button variant="secondary" onClick={() => handleGenerate(true)} disabled={isGenerating}>
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4" />}
+                                Tạo lại
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -119,7 +143,6 @@ export default function ReportsPage() {
   const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [cachedSummaries, setCachedSummaries] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -227,10 +250,6 @@ export default function ReportsPage() {
       inventoryItems: inventoryList,
   }), [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList]);
 
-  const handleSummaryGenerated = (date: string, summary: string) => {
-    setCachedSummaries(prev => ({ ...prev, [date]: summary }));
-  };
-
   if(isLoading || authLoading || user?.role !== 'Chủ nhà hàng') {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -283,8 +302,6 @@ export default function ReportsPage() {
                                 date={date} 
                                 reports={reportsForDate}
                                 taskDefinitions={taskDefinitions}
-                                cachedSummary={cachedSummaries[date] || ''}
-                                onSummaryGenerated={handleSummaryGenerated}
                             />
                         </div>
                         <Table>

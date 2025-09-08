@@ -188,3 +188,10 @@ export type Violation = {
   penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
 };
+
+// --- Summary Types ---
+export type DailySummary = {
+    id?: string; // date YYYY-MM-DD
+    summary: string;
+    generatedAt: string | Timestamp;
+}
