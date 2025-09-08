@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -496,6 +496,7 @@ export default function InventoryManagementPage() {
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [isSorting, setIsSorting] = useState(false);
   const [editingCategory, setEditingCategory] = useState<{ oldName: string; newName: string } | null>(null);
+  const hasInitializedOpenState = useRef(false);
 
 
   useEffect(() => {
@@ -552,12 +553,12 @@ export default function InventoryManagementPage() {
 
   }, [inventoryList]);
 
-  // Set accordion to open all by default
+  // Set accordion to open all by default, only on first load
   useEffect(() => {
-      if (categorizedList.length > 0 && openCategories.length === 0) {
+      if (categorizedList.length > 0 && !hasInitializedOpenState.current) {
           setOpenCategories(categorizedList.map(c => c.category));
+          hasInitializedOpenState.current = true;
       }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorizedList]);
 
   const handleUpdateAndSave = useCallback((newList: InventoryItem[]) => {
