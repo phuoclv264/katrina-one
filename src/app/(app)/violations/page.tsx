@@ -62,7 +62,9 @@ function ViolationDialog({
     if (open) {
         if (violationToEdit) {
             setContent(violationToEdit.content);
-            const initialUsers = users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid));
+            const initialUsers = (violationToEdit.users && Array.isArray(violationToEdit.users)) 
+              ? users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid))
+              : [];
             setSelectedUsers(initialUsers);
             setSelectedCategory(violationToEdit.category);
             setPhotoIds([]);
