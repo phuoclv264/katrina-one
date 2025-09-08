@@ -122,31 +122,6 @@ const SidebarProvider = React.forwardRef<
     // This makes it easier to style the sidebar with Tailwind classes.
     const state = open ? "expanded" : "collapsed"
     
-    // This effect handles the back button behavior on mobile.
-    React.useEffect(() => {
-        if (!isMobile) return
-
-        const handlePopState = (event: PopStateEvent) => {
-            if (openMobile) {
-                setOpenMobile(false)
-            }
-        }
-
-        if (openMobile) {
-            window.history.pushState({ sidebarOpen: true }, "")
-            window.addEventListener("popstate", handlePopState)
-        } else {
-             if (window.history.state?.sidebarOpen) {
-                window.history.back()
-            }
-        }
-        
-        return () => {
-            window.removeEventListener("popstate", handlePopState)
-        }
-
-    }, [isMobile, openMobile, setOpenMobile])
-
     const contextValue = React.useMemo<SidebarContext>(
       () => ({
         state,
