@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, storage } from './firebase';
@@ -368,7 +367,8 @@ export const dataStore = {
         staffName,
         date,
         status: 'ongoing',
-        stockLevels: initialStockLevels, // Start with stock levels from the latest report
+        // Perform a deep copy to prevent reference sharing issues
+        stockLevels: JSON.parse(JSON.stringify(initialStockLevels)),
         suggestions: null,
         lastUpdated: new Date().toISOString(),
     };
@@ -757,7 +757,7 @@ export const dataStore = {
        });
        reports.sort((a, b) => {
          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-         const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+         const timeB = new Date(b.submittedAt as string).getTime();
          return timeA - timeB;
        });
        callback(reports);
@@ -953,3 +953,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    
