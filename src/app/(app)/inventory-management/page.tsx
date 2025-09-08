@@ -675,7 +675,6 @@ export default function InventoryManagementPage() {
 
       const newFlatList = newCategoryOrder.flatMap(category => category.items);
       setInventoryList(newFlatList);
-      setOpenCategories([]);
   };
 
   const handleRenameCategory = () => {
