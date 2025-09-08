@@ -108,7 +108,7 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
-    if (!user || inventoryList.length === 0) return;
+    if (!user) return;
 
     const loadReport = async () => {
       setIsLoading(true);
@@ -127,7 +127,7 @@ export default function InventoryPage() {
     };
 
     loadReport();
-  }, [user, inventoryList, fetchLocalPhotos]);
+  }, [user, fetchLocalPhotos]);
   
   const handleLocalSave = useCallback(async (updatedReport: InventoryReport) => {
       await dataStore.saveLocalInventoryReport(updatedReport);
@@ -234,33 +234,39 @@ export default function InventoryPage() {
 
   const handleSubmit = async () => {
     if (!report || !user) return;
-
-    // --- Validation for required photos ---
-    let firstMissingPhotoItemId: string | null = null;
+    
+    // --- Validation for required fields and photos ---
     for (const item of inventoryList) {
         if (item.requiresPhoto) {
             const record = report.stockLevels[item.id];
-            // Only validate if the user has entered stock for this item
-            if (record && record.stock !== undefined && String(record.stock).trim() !== '') {
-                const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
-                if (!hasLocalPhoto) {
-                    firstMissingPhotoItemId = item.id;
-                    break; 
-                }
+            const stockValue = record?.stock;
+            const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
+            
+            if (!hasStockValue) {
+                 toast({
+                    title: "Thiếu thông tin tồn kho",
+                    description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
+                    variant: "destructive",
+                });
+                const element = itemRowRefs.current.get(item.id);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element?.focus();
+                return;
+            }
+
+            const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
+            if (!hasLocalPhoto) {
+                 toast({
+                    title: "Thiếu ảnh bằng chứng",
+                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
+                    variant: "destructive",
+                });
+                const element = itemRowRefs.current.get(item.id);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element?.focus();
+                return;
             }
         }
-    }
-
-    if (firstMissingPhotoItemId) {
-        toast({
-            title: "Thiếu ảnh bằng chứng",
-            description: "Vui lòng chụp ảnh cho tất cả các mặt hàng có gắn sao (*) đã được nhập số lượng.",
-            variant: "destructive",
-        });
-        const element = itemRowRefs.current.get(firstMissingPhotoItemId);
-        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element?.focus();
-        return;
     }
     // --- End Validation ---
 
