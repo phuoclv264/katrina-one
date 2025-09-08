@@ -112,17 +112,16 @@ export default function InventoryPage() {
 
     const loadReport = async () => {
       setIsLoading(true);
-      const { report: todayReport } = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
-      setReport(todayReport);
-      await fetchLocalPhotos(todayReport);
+      const { report: loadedReport, isLocal } = await dataStore.getOrCreateInventoryReport(user.uid, user.displayName || 'Nhân viên');
+      setReport(loadedReport);
+      await fetchLocalPhotos(loadedReport);
       
-      // Check for local changes, not tied to a specific report status anymore
-      if (Object.keys(todayReport.stockLevels).length > 0) {
+      if (isLocal) {
           setHasUnsubmittedChanges(true);
       }
       
-      if (todayReport.suggestions) {
-        setSuggestions(todayReport.suggestions);
+      if (loadedReport.suggestions) {
+        setSuggestions(loadedReport.suggestions);
       }
       setIsLoading(false);
     };
@@ -190,7 +189,7 @@ export default function InventoryPage() {
     };
 
   const handleGenerateSuggestions = async () => {
-      if(!report || !user) return;
+      if(!report || !user) return null;
       setIsGenerating(true);
       
       try {
@@ -200,61 +199,25 @@ export default function InventoryPage() {
         });
 
         const itemsWithCurrentStock = inventoryList
-            .map(item => {
-                const stockRecord = report.stockLevels[item.id];
-                return { item, stockRecord };
-            })
-            .filter(({ item, stockRecord }) => {
-                // Item must be checked
-                if (!stockRecord || stockRecord.stock === undefined || String(stockRecord.stock).trim() === '') {
-                    return false;
-                }
-                // If photo is required, it must be present
-                if (item.requiresPhoto) {
-                    const hasPhotos = (stockRecord.photoIds?.length || 0) > 0 || (stockRecord.photos?.length || 0) > 0;
-                    if (!hasPhotos) return false;
-                }
-                return true;
-            })
-            .map(({ item, stockRecord }) => ({
-                ...item,
-                currentStock: stockRecord,
-            }));
+            .map(item => ({ item, stockRecord: report.stockLevels[item.id] }))
+            .filter(({ stockRecord }) => stockRecord && (stockRecord.stock !== undefined && String(stockRecord.stock).trim() !== ''))
+            .map(({ item, stockRecord }) => ({ ...item, currentStock: stockRecord! }));
 
         if (itemsWithCurrentStock.length === 0) {
-            toast({
-                title: "Chưa có dữ liệu",
-                description: "Vui lòng nhập số lượng tồn kho (và ảnh nếu cần) trước khi nhận đề xuất.",
-                variant: "default"
-            });
             const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê hợp lệ.', ordersBySupplier: [] };
             setSuggestions(noItemsSuggestion);
-            const updatedReport = { ...report, suggestions: noItemsSuggestion };
-            setReport(updatedReport);
-            await dataStore.saveLocalInventoryReport(updatedReport);
-            return;
+            return noItemsSuggestion;
         }
         
-        const result = await generateInventoryOrderSuggestion({
-            items: itemsWithCurrentStock
-        });
+        const result = await generateInventoryOrderSuggestion({ items: itemsWithCurrentStock });
         
         setSuggestions(result);
         
-        const updatedReport = { ...report, suggestions: result };
-        setReport(updatedReport);
-        await dataStore.saveLocalInventoryReport(updatedReport);
-
-
-        toast({
-            title: "Đã có đề xuất đặt hàng!",
-            description: "Danh sách các mặt hàng cần đặt đã được tạo."
-        });
-
         setTimeout(() => {
             suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 300);
 
+        return result;
 
       } catch (error) {
           console.error("Error generating suggestions:", error);
@@ -263,6 +226,7 @@ export default function InventoryPage() {
               description: "Không thể tạo đề xuất đặt hàng. Vui lòng thử lại.",
               variant: "destructive"
           });
+          return null;
       } finally {
           setIsGenerating(false);
       }
@@ -290,7 +254,7 @@ export default function InventoryPage() {
     if (firstMissingPhotoItemId) {
         toast({
             title: "Thiếu ảnh bằng chứng",
-            description: "Vui lòng chụp ảnh cho tất cả các mặt hàng có gắn sao (*) trước khi gửi báo cáo.",
+            description: "Vui lòng chụp ảnh cho tất cả các mặt hàng có gắn sao (*) đã được nhập số lượng.",
             variant: "destructive",
         });
         const element = itemRowRefs.current.get(firstMissingPhotoItemId);
@@ -308,15 +272,18 @@ export default function InventoryPage() {
     });
 
     try {
-        await handleGenerateSuggestions();
+        const generatedSuggestions = await handleGenerateSuggestions();
         
-        setReport(currentReport => {
-            if (!currentReport) return null;
-            const finalReport = { ...currentReport, status: 'submitted' as const, submittedAt: new Date().toISOString() };
-            dataStore.saveInventoryReport(finalReport);
-            setHasUnsubmittedChanges(false);
-            return finalReport;
-        });
+        const finalReport = { 
+            ...report, 
+            suggestions: generatedSuggestions,
+            status: 'submitted' as const, 
+            submittedAt: new Date().toISOString() 
+        };
+        
+        await dataStore.saveInventoryReport(finalReport);
+        setReport(finalReport);
+        setHasUnsubmittedChanges(false);
 
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
@@ -618,7 +585,3 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
-
-    
-
-    

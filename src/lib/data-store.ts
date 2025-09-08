@@ -361,11 +361,18 @@ export const dataStore = {
     await setDoc(docRef, { list: newSuppliers });
   },
   
-  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport }> {
+  async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport, isLocal: boolean }> {
+    if (typeof window === 'undefined') {
+       throw new Error("Cannot get report from server-side.");
+    }
     const date = getTodaysDateKey();
     const reportId = `inventory-report-${userId}-${date}`;
     
-    // Always start with a fresh, empty report
+    const localReportString = localStorage.getItem(reportId);
+    if (localReportString) {
+        return { report: JSON.parse(localReportString), isLocal: true };
+    }
+    
     const newReport: InventoryReport = {
         id: reportId,
         userId,
@@ -377,7 +384,7 @@ export const dataStore = {
         lastUpdated: new Date().toISOString(),
     };
     
-    return { report: newReport };
+    return { report: newReport, isLocal: false };
   },
 
   async saveLocalInventoryReport(report: InventoryReport): Promise<void> {
@@ -389,8 +396,6 @@ export const dataStore = {
 
   async saveInventoryReport(report: InventoryReport): Promise<void> {
     if (typeof window === 'undefined') return;
-
-    await this.saveLocalInventoryReport(report);
     
     const reportToSubmit = JSON.parse(JSON.stringify(report));
 
@@ -448,6 +453,9 @@ export const dataStore = {
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
     await photoStore.deletePhotos(Array.from(photoIdsToUpload));
+     if (typeof window !== 'undefined') {
+       localStorage.removeItem(report.id);
+    }
   },
 
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{report: ShiftReport, status: 'synced' | 'local-newer' | 'server-newer' | 'error' }> {
@@ -982,5 +990,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
