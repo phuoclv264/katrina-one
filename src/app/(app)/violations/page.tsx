@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
@@ -46,7 +46,7 @@ function ViolationDialog({
   users: ManagedUser[];
   isProcessing: boolean;
   violationToEdit: Violation | null;
-  reporter: ManagedUser;
+  reporter: AuthUser;
   isSelfConfession?: boolean;
   categories: ViolationCategory[];
   onCategoriesChange: (newCategories: ViolationCategory[]) => void;

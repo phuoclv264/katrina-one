@@ -32,7 +32,7 @@ type ViolationCategoryComboboxProps = {
 }
 
 export function ViolationCategoryCombobox({ 
-    categories, 
+    categories = [], // Ensure categories is always an array
     value, 
     onChange, 
     onCategoriesChange,
