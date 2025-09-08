@@ -69,7 +69,7 @@ const SidebarProvider = React.forwardRef<
     ref
   ) => {
     const isMobile = useIsMobile()
-    const [openMobile, setOpenMobile] = React.useState(false)
+    const [openMobile, _setOpenMobile] = React.useState(false)
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
@@ -89,6 +89,11 @@ const SidebarProvider = React.forwardRef<
       },
       [setOpenProp, open]
     )
+
+    const setOpenMobile = React.useCallback((value: boolean) => {
+        _setOpenMobile(value)
+    }, [])
+
 
     // Helper to toggle the sidebar.
     const toggleSidebar = React.useCallback(() => {
@@ -117,6 +122,30 @@ const SidebarProvider = React.forwardRef<
     // This makes it easier to style the sidebar with Tailwind classes.
     const state = open ? "expanded" : "collapsed"
     
+    // This effect handles the back button behavior on mobile.
+    React.useEffect(() => {
+        if (!isMobile) return
+
+        const handlePopState = (event: PopStateEvent) => {
+            if (openMobile) {
+                setOpenMobile(false)
+            }
+        }
+
+        if (openMobile) {
+            window.history.pushState({ sidebarOpen: true }, "")
+            window.addEventListener("popstate", handlePopState)
+        } else {
+             if (window.history.state?.sidebarOpen) {
+                window.history.back()
+            }
+        }
+        
+        return () => {
+            window.removeEventListener("popstate", handlePopState)
+        }
+
+    }, [isMobile, openMobile, setOpenMobile])
 
     const contextValue = React.useMemo<SidebarContext>(
       () => ({
