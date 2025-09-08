@@ -458,6 +458,33 @@ export const dataStore = {
     }
   },
 
+  async deleteInventoryReport(reportId: string): Promise<void> {
+    const reportRef = doc(db, 'inventory-reports', reportId);
+    const reportSnap = await getDoc(reportRef);
+
+    if (!reportSnap.exists()) {
+      console.warn(`Inventory report with ID ${reportId} not found.`);
+      return;
+    }
+
+    const reportData = reportSnap.data() as InventoryReport;
+
+    // Delete associated photos from Firebase Storage
+    if (reportData.stockLevels) {
+      for (const itemId in reportData.stockLevels) {
+        const record = reportData.stockLevels[itemId];
+        if (record.photos && record.photos.length > 0) {
+          for (const photoUrl of record.photos) {
+            await this.deletePhotoFromStorage(photoUrl);
+          }
+        }
+      }
+    }
+
+    // Delete the report document from Firestore
+    await deleteDoc(reportRef);
+  },
+
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{report: ShiftReport, status: 'synced' | 'local-newer' | 'server-newer' | 'error' }> {
     if (typeof window === 'undefined') {
        throw new Error("Cannot get report from server-side.");

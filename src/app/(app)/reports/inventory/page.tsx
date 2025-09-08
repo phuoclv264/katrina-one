@@ -12,12 +12,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
 
 
@@ -31,13 +32,13 @@ type CategorizedList = {
 function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
   
   const [allReports, setAllReports] = useState<InventoryReport[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -81,9 +82,15 @@ function InventoryReportView() {
      const unsubReports = dataStore.subscribeToAllInventoryReports((reports) => {
         if(isMounted) {
             setAllReports(reports);
-            if (reports.length > 0 && !selectedReport) {
-              // Set the default selected report to the latest one
-              setSelectedReport(reports[0]);
+            if (reports.length > 0) {
+                 // If the currently selected report is deleted, select the newest one.
+                if (selectedReport && !reports.some(r => r.id === selectedReport.id)) {
+                    setSelectedReport(reports[0]);
+                } else if (!selectedReport) {
+                    setSelectedReport(reports[0]);
+                }
+            } else {
+                setSelectedReport(null);
             }
             setIsLoading(false);
         }
@@ -192,6 +199,26 @@ function InventoryReportView() {
    const scrollToSuggestions = () => {
       suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
+  
+    const handleDeleteReport = async (reportId: string) => {
+        setIsProcessing(true);
+        try {
+            await dataStore.deleteInventoryReport(reportId);
+            toast({
+                title: 'Thành công',
+                description: 'Đã xóa báo cáo kiểm kê.'
+            });
+        } catch(error) {
+            console.error("Error deleting inventory report:", error);
+            toast({
+                title: 'Lỗi',
+                description: 'Không thể xóa báo cáo. Vui lòng thử lại.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
   if (isLoading || authLoading) {
     return (
@@ -200,9 +227,13 @@ function InventoryReportView() {
             <Skeleton className="h-8 w-48 mb-4" />
             <Skeleton className="h-10 w-3/4" />
         </header>
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-64 w-full" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div className="lg:col-span-2 space-y-4">
+                <Skeleton className="h-96 w-full" />
+            </div>
+            <div className="lg:col-span-1 space-y-4">
+                 <Skeleton className="h-64 w-full" />
+            </div>
         </div>
       </div>
     );
@@ -441,7 +472,8 @@ function InventoryReportView() {
                     Danh sách các báo cáo đã được nộp, sắp xếp theo ngày gần nhất.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6">
+            <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 relative">
+                 {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center z-10"><Loader2 className="h-8 w-8 animate-spin"/></div>}
                 <Accordion type="multiple" defaultValue={Object.keys(groupedHistory)} className="w-full space-y-4">
                     {Object.entries(groupedHistory).map(([date, reports]) => (
                         <AccordionItem value={date} key={date}>
@@ -456,16 +488,37 @@ function InventoryReportView() {
                                                 Lúc {format(new Date(report.submittedAt as string), "HH:mm")}
                                             </p>
                                         </div>
-                                         <Button 
-                                            variant={report.id === selectedReport?.id ? 'default' : 'secondary'} 
-                                            size="sm"
-                                            onClick={() => {
-                                                setSelectedReport(report);
-                                                setIsHistoryOpen(false);
-                                            }}
-                                        >
-                                            Xem
-                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                            <Button 
+                                                variant={report.id === selectedReport?.id ? 'default' : 'secondary'} 
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSelectedReport(report);
+                                                    setIsHistoryOpen(false);
+                                                }}
+                                            >
+                                                Xem
+                                            </Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
+                                                        <Trash2 className="h-4 w-4"/>
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteReport(report.id)}>Xóa vĩnh viễn</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
                                     </li>
                                 ))}
                                 </ul>
