@@ -25,6 +25,8 @@ import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import { UserMultiSelect } from '@/components/user-multi-select';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 function ViolationDialog({
@@ -221,8 +223,14 @@ export default function ViolationsPage() {
     };
 
     if (lightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
+      window.history.pushState({ sidebarOpen: true }, '');
       window.addEventListener('popstate', handlePopState);
+    } else {
+      // If the sidebar was closed by other means (e.g. clicking the overlay)
+      // and the history state we pushed is still present, we go back.
+      if (window.history.state?.sidebarOpen) {
+        window.history.back();
+      }
     }
 
     return () => {
