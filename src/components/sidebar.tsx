@@ -19,15 +19,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 
-export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
+export function AppSidebar() {
   const { user, logout, loading } = useAuth();
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
 
-  const handleNavigation = (href: string) => {
-    if (pathname !== href) {
-        onNavigate();
-    }
+  const handleNavigation = () => {
     setOpenMobile(false);
   }
   
@@ -100,12 +97,12 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
       <SidebarHeader className="flex flex-col gap-2 p-2">
          <div className="p-2 flex items-center justify-center gap-2">
             <div className="w-full group-data-[collapsible=icon]:hidden">
-                <Link href={homeLink} onClick={() => handleNavigation(homeLink)} className="flex justify-center">
+                <Link href={homeLink} onClick={handleNavigation} className="flex justify-center">
                   <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-32" />
                 </Link>
             </div>
              <div className="w-full hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-                 <Link href={homeLink} onClick={() => handleNavigation(homeLink)} className="flex justify-center">
+                 <Link href={homeLink} onClick={handleNavigation} className="flex justify-center">
                     <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-10" />
                  </Link>
             </div>
@@ -135,9 +132,10 @@ export function AppSidebar({ onNavigate }: { onNavigate: () => void }) {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
-              <Link href={item.href} passHref onClick={() => handleNavigation(item.href)}>
+              <Link href={item.href} passHref legacyBehavior>
                 <SidebarMenuButton
-                  asChild
+                  as="a"
+                  onClick={handleNavigation}
                   isActive={pathname === item.href}
                   tooltip={item.label}
                 >

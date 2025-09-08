@@ -1,8 +1,7 @@
 
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { Suspense } from 'react';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
 import { MobileHeader } from '@/components/mobile-header';
@@ -16,21 +15,12 @@ export default function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isNavigating, setIsNavigating] = useState(false);
-  const pathname = usePathname();
-
-  // Reset navigation state when the path changes (i.e., navigation is complete)
-  useEffect(() => {
-    setIsNavigating(false);
-  }, [pathname]);
-
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <AppSidebar onNavigate={() => setIsNavigating(true)} />
+        <AppSidebar />
       </Sidebar>
       <SidebarInset>
-         {isNavigating && <PageTransitionIndicator />}
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
           <div className="md:hidden">
               <SidebarTrigger>
@@ -44,7 +34,9 @@ export default function AppLayout({
              <MobileHeader />
            </Suspense>
         </header>
-        {children}
+        <Suspense fallback={<PageTransitionIndicator />}>
+            {children}
+        </Suspense>
       </SidebarInset>
     </SidebarProvider>
   )
