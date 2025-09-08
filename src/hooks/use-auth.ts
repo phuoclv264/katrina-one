@@ -116,10 +116,9 @@ export const useAuth = () => {
   }, [toast]);
 
   const logout = useCallback(async () => {
-    setLoading(true);
     try {
         await signOut(auth);
-        // router.push('/'); // Removed this line. Redirection is now handled by onAuthStateChanged.
+        router.replace('/');
         toast({ title: 'Đã đăng xuất.' });
     } catch (error: any) {
          console.error(error);
@@ -128,10 +127,8 @@ export const useAuth = () => {
             title: 'Lỗi',
             description: 'Không thể đăng xuất. Vui lòng thử lại.',
         });
-    } finally {
-        // setLoading(false); // setLoading(false) will be called by onAuthStateChanged
     }
-  }, [toast]);
+  }, [toast, router]);
   
   return { 
       user, 
