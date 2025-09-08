@@ -132,9 +132,8 @@ export function AppSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
-              <Link href={item.href}>
+              <Link href={item.href} onClick={handleNavigation}>
                 <SidebarMenuButton
-                  onClick={handleNavigation}
                   isActive={pathname === item.href}
                   tooltip={item.label}
                 >
