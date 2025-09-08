@@ -971,7 +971,7 @@ export default function InventoryManagementPage() {
                                             </TableCell>
                                              <TableCell className="text-center w-[100px]">
                                                 <Switch
-                                                    checked={item.requiresPhoto}
+                                                    checked={!!item.requiresPhoto}
                                                     onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
                                                     disabled={isSorting}
                                                 />
