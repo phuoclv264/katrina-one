@@ -949,7 +949,7 @@ export default function InventoryManagementPage() {
                                             <TableCell>
                                                <div className="flex items-center gap-2">
                                                  {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                 <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="border-none p-0 h-auto focus-visible:ring-0" />
+                                                 <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" />
                                                </div>
                                             </TableCell>
                                             <TableCell>

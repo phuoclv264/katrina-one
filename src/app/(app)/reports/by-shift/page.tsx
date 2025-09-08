@@ -80,9 +80,10 @@ function ReportView() {
     const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
       if (isMounted) {
         setReports(fetchedReports);
-        if (fetchedReports.length > 0 && !selectedReportId) {
-            setSelectedReportId(fetchedReports[0].id);
-        } else if (fetchedReports.length === 0) {
+        // Default to summary view if reports are available
+        if (fetchedReports.length > 0) {
+            setSelectedReportId('summary');
+        } else {
             setSelectedReportId(null);
         }
         setIsLoading(false);
@@ -97,16 +98,47 @@ function ReportView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, shiftKey]);
 
-  const report = useMemo(() => {
-    return reports.find(r => r.id === selectedReportId) || null;
-  }, [reports, selectedReportId]);
+    const reportToView = useMemo(() => {
+        if (!selectedReportId) return null;
+        if (selectedReportId === 'summary') {
+            const combinedTasks: { [taskId: string]: CompletionRecord[] } = {};
+            let combinedIssues: string[] = [];
+
+            reports.forEach(report => {
+                // Combine tasks
+                for (const taskId in report.completedTasks) {
+                    if (!combinedTasks[taskId]) {
+                        combinedTasks[taskId] = [];
+                    }
+                    const tasksWithStaffName = report.completedTasks[taskId].map(comp => ({
+                        ...comp,
+                        staffName: report.staffName // Inject staffName into each completion
+                    }));
+                    combinedTasks[taskId].push(...tasksWithStaffName);
+                }
+                 // Combine issues
+                if (report.issues) {
+                    combinedIssues.push(`${report.staffName}: ${report.issues}`);
+                }
+            });
+             return {
+                id: 'summary',
+                staffName: 'Tổng hợp',
+                shiftKey: shiftKey as string,
+                date: date as string,
+                completedTasks: combinedTasks,
+                issues: combinedIssues.length > 0 ? combinedIssues.join('\n\n') : null,
+            } as unknown as ShiftReport;
+        }
+        return reports.find(r => r.id === selectedReportId) || null;
+    }, [reports, selectedReportId, shiftKey, date]);
   
   const shift = useMemo(() => {
     return tasksByShift && shiftKey ? tasksByShift[shiftKey] : null;
   }, [tasksByShift, shiftKey]);
   
   const allPagePhotos = useMemo(() => {
-    if (!shift || !report) return [];
+    if (!shift || !reportToView) return [];
 
     const findTaskText = (taskId: string): string => {
         for (const section of shift.sections) {
@@ -117,22 +149,23 @@ function ReportView() {
     };
 
     const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
+    for (const taskId in reportToView.completedTasks) {
         const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
+        const completions = reportToView.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
             if (completion.photos) {
               for (const photoUrl of completion.photos) {
+                  const staffCredit = (completion as any).staffName ? `Thực hiện bởi: ${(completion as any).staffName}\n` : '';
                   photos.push({
                       src: photoUrl,
-                      description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                      description: `${taskText}\n${staffCredit}Lúc: ${completion.timestamp}`
                   });
               }
             }
         }
     }
     return photos;
-  }, [shift, report]);
+  }, [shift, reportToView]);
 
   const openLightbox = (photoUrl: string) => {
     const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
@@ -220,14 +253,15 @@ function ReportView() {
             </div>
             <Card className="w-full md:w-auto md:min-w-[250px]">
                 <CardHeader className="p-3">
-                     <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chọn nhân viên</CardTitle>
+                     <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chế độ xem</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                     <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
                         <SelectTrigger>
-                            <SelectValue placeholder="Chọn một nhân viên..." />
+                            <SelectValue placeholder="Chọn chế độ xem..." />
                         </SelectTrigger>
                         <SelectContent>
+                             <SelectItem value="summary">Tổng hợp</SelectItem>
                             {reports.map(r => (
                                 <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
                             ))}
@@ -238,9 +272,9 @@ function ReportView() {
         </div>
       </header>
 
-    {!report ? (
+    {!reportToView ? (
         <div className="text-center py-16 text-muted-foreground">
-            <p>Vui lòng chọn một nhân viên để xem báo cáo.</p>
+            <p>Vui lòng chọn một chế độ xem.</p>
         </div>
     ) : (
       <div className="space-y-8">
@@ -248,7 +282,10 @@ function ReportView() {
             <CardHeader>
               <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
                <CardDescription>
-                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                {selectedReportId === 'summary' 
+                    ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
+                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN')}.`
+                }
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -264,7 +301,7 @@ function ReportView() {
                     <AccordionContent className="border-t p-4">
                       <div className="space-y-4 pt-2">
                         {section.tasks.map((task) => {
-                          const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+                          const completions = (reportToView.completedTasks[task.id] || []) as CompletionRecord[];
                           const isCompleted = completions.length > 0;
                           
                           return (
@@ -286,11 +323,16 @@ function ReportView() {
                                     <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
                                     {completions.map((completion, cIndex) => (
                                     <div key={cIndex} className="rounded-md border bg-card p-3">
-                                        <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                 <Clock className="h-4 w-4 flex-shrink-0" />
                                                 <span>Thực hiện lúc: {completion.timestamp}</span>
                                             </div>
+                                             {selectedReportId === 'summary' && (
+                                                <Badge variant="secondary" className="font-normal">
+                                                   Thực hiện bởi: {(completion as any).staffName}
+                                                </Badge>
+                                            )}
                                         </div>
                                         {completion.photos && completion.photos.length > 0 ? (
                                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
@@ -322,13 +364,13 @@ function ReportView() {
             </CardContent>
           </Card>
           
-          {report.issues && (
+          {reportToView.issues && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200">"{report.issues}"</p>
+                 <div className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200 whitespace-pre-wrap">{reportToView.issues}</div>
               </CardContent>
             </Card>
           )}
