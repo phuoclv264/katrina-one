@@ -867,7 +867,7 @@ export const dataStore = {
 
     return unsubscribe;
   },
-
+  
   subscribeToViolationCategories(callback: (categories: ViolationCategory[]) => void): () => void {
     const docRef = doc(db, 'app-data', 'violationCategories');
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {

@@ -242,13 +242,39 @@ export default function ViolationsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const unsubViolations = dataStore.subscribeToViolations((data) => setViolations(data));
-    const unsubUsers = dataStore.subscribeToUsers((data) => setUsers(data));
-    const unsubCategories = dataStore.subscribeToViolationCategories((data) => {
-        setCategories(data);
+    let mounted = true;
+    let userSubscribed = false, violationSubscribed = false, categorySubscribed = false;
+
+    const checkLoadingDone = () => {
+      if (userSubscribed && violationSubscribed && categorySubscribed && mounted) {
         setIsLoading(false);
+      }
+    }
+
+    const unsubViolations = dataStore.subscribeToViolations((data) => {
+      if(mounted) {
+        setViolations(data);
+        violationSubscribed = true;
+        checkLoadingDone();
+      }
     });
+    const unsubUsers = dataStore.subscribeToUsers((data) => {
+      if(mounted) {
+        setUsers(data);
+        userSubscribed = true;
+        checkLoadingDone();
+      }
+    });
+    const unsubCategories = dataStore.subscribeToViolationCategories((data) => {
+      if(mounted) {
+        setCategories(data);
+        categorySubscribed = true;
+        checkLoadingDone();
+      }
+    });
+
     return () => {
+        mounted = false;
         unsubViolations();
         unsubUsers();
         unsubCategories();
