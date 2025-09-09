@@ -8,12 +8,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, parse } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift } from '@/lib/types';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight } from 'lucide-react';
+import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './_components/availability-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function SchedulePage() {
     const { user, loading: authLoading } = useAuth();
@@ -83,6 +100,28 @@ export default function SchedulePage() {
 
         setIsAvailabilityDialogOpen(false);
     };
+
+    const handlePassShift = async (shiftId: string) => {
+        if (!user || !schedule) return;
+        try {
+            await dataStore.requestPassShift(weekId, schedule.shifts, shiftId, {userId: user.uid, userName: user.displayName});
+            toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
+        } catch (error) {
+            console.error("Failed to pass shift:", error);
+            toast({ title: 'Lỗi', description: 'Không thể gửi yêu cầu pass ca.', variant: 'destructive' });
+        }
+    }
+
+    const handleTakeShift = async (shiftId: string, request: PassRequest) => {
+        if (!user || !schedule) return;
+        try {
+            await dataStore.acceptPassShift(weekId, schedule.shifts, shiftId, request, {userId: user.uid, userName: user.displayName});
+            toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
+        } catch (error: any) {
+            console.error("Failed to take shift:", error);
+            toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+        }
+    }
     
     const userAvailability = useMemo(() => {
         if (!user || !schedule) return new Map<string, TimeSlot[]>();
@@ -97,12 +136,13 @@ export default function SchedulePage() {
         if (!user || !schedule || schedule.status !== 'published') return new Map<string, AssignedShift[]>();
         const map = new Map<string, AssignedShift[]>();
         schedule.shifts
-            .filter(s => s.assignedUsers.some(au => au.userId === user.uid))
             .forEach(shift => {
-                if (!map.has(shift.date)) {
-                    map.set(shift.date, []);
+                 if (shift.assignedUsers.some(au => au.userId === user.uid)) {
+                    if (!map.has(shift.date)) {
+                        map.set(shift.date, []);
+                    }
+                    map.get(shift.date)!.push(shift);
                 }
-                map.get(shift.date)!.push(shift);
             });
         return map;
     }, [user, schedule]);
@@ -125,8 +165,8 @@ export default function SchedulePage() {
         )
     }
     
-    const isNextWeek = startOfWeek(currentDate, {weekStartsOn: 1}) > startOfWeek(new Date(), { weekStartsOn: 1});
-
+    const startOfThisWeek = startOfWeek(new Date(), {weekStartsOn: 1});
+    const canRegisterAvailability = isBefore(startOfThisWeek, weekInterval.start);
 
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -160,8 +200,8 @@ export default function SchedulePage() {
                              <CardTitle className="text-blue-800 dark:text-blue-300 text-lg">
                                 {schedule?.status === 'draft' && 'Lịch tuần này đang được soạn thảo.'}
                                 {schedule?.status === 'proposed' && 'Lịch đã được đề xuất và đang chờ duyệt.'}
-                                {!schedule && isNextWeek && 'Chưa có lịch cho tuần này. Vui lòng đăng ký giờ rảnh.'}
-                                {!schedule && !isNextWeek && 'Chưa có lịch cho tuần này.'}
+                                {!schedule && canRegisterAvailability && 'Chưa có lịch cho tuần này. Vui lòng đăng ký giờ rảnh.'}
+                                {!schedule && !canRegisterAvailability && 'Chưa có lịch cho tuần này.'}
                             </CardTitle>
                             <CardDescription className="text-blue-700 dark:text-blue-400/80">
                                 Lịch làm việc sẽ hiển thị ở đây sau khi được Chủ nhà hàng công bố.
@@ -186,16 +226,50 @@ export default function SchedulePage() {
                             <div className="flex-grow p-2 space-y-2">
                                 {schedule?.status === 'published' && shiftsForDay.length > 0 && (
                                     <div className="space-y-1">
-                                        {shiftsForDay.map(shift => (
-                                             <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md">
-                                                <p className="font-bold text-sm">{shift.label}</p>
-                                                <p className="text-xs opacity-90">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
-                                            </div>
-                                        ))}
+                                        {shiftsForDay.map(shift => {
+                                            const passRequest = shift.passRequests?.find(p => p.status === 'pending');
+                                            return (
+                                                <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group">
+                                                    <p className="font-bold">{shift.label}</p>
+                                                    <p className="text-xs opacity-90">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent>
+                                                            <DropdownMenuItem>
+                                                                <MessageSquareWarning className="mr-2 h-4 w-4 text-yellow-500"/> Xin đi trễ
+                                                            </DropdownMenuItem>
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!!passRequest}>
+                                                                        <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                    </DropdownMenuItem>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => handlePassShift(shift.id)}>Xác nhận</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 )}
                                 
-                                {isNextWeek && (
+                                {canRegisterAvailability && (
                                      <Card className="bg-muted/50 hover:bg-muted/80 transition-colors">
                                         <CardHeader className="p-3">
                                             <CardTitle className="text-sm font-medium">Giờ rảnh đã đăng ký</CardTitle>
@@ -216,6 +290,22 @@ export default function SchedulePage() {
                                         </CardContent>
                                     </Card>
                                 )}
+                                
+                                {schedule?.shifts.filter(s => s.date === dateKey && s.passRequests?.some(p => p.status === 'pending' && p.requestingUserId !== user?.uid)).map(shift => (
+                                    <div key={`pass-${shift.id}`} className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs">
+                                        <p className="font-semibold text-amber-800 dark:text-amber-200">
+                                            {shift.passRequests?.find(p => p.status==='pending')?.requestingUser?.name} muốn pass ca {shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})
+                                        </p>
+                                        <div className="flex gap-2 mt-2">
+                                            <Button size="xs" className="h-6" onClick={() => handleTakeShift(shift.id, shift.passRequests!.find(p => p.status === 'pending')!)}>
+                                                <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
+                                            </Button>
+                                            <Button size="xs" variant="ghost" className="h-6">
+                                                <X className="mr-1 h-3 w-3"/> Bỏ qua
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )

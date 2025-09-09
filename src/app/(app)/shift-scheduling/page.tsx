@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -44,6 +45,7 @@ import AddShiftDialog from './_components/add-shift-dialog';
 import ShiftAssignmentPopover from './_components/shift-assignment-popover';
 import ShiftTemplatesDialog from './_components/shift-templates-dialog';
 import TotalHoursTracker from './_components/total-hours-tracker';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
 export default function ShiftSchedulingPage() {
@@ -146,6 +148,19 @@ export default function ShiftSchedulingPage() {
         const updatedShifts = schedule.shifts.filter(shift => shift.id !== shiftId);
         await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
         toast({ title: 'Đã xóa', description: 'Đã xóa ca làm việc khỏi lịch.'});
+    }
+
+    const handleUpdateStatus = async (newStatus: Schedule['status']) => {
+        setIsSubmitting(true);
+        try {
+            await dataStore.updateSchedule(weekId, { status: newStatus });
+            toast({ title: 'Thành công!', description: `Đã cập nhật trạng thái lịch thành: ${newStatus}` });
+        } catch (error) {
+            console.error("Failed to update schedule status:", error);
+            toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái lịch.', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
      const shiftsByDay = useMemo(() => {
@@ -255,16 +270,24 @@ export default function ShiftSchedulingPage() {
                             )}
                             <div className="flex-1" />
                             {schedule?.status === 'draft' && user?.role === 'Quản lý' && (
-                               <Button><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
+                               <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
                             )}
                              {schedule?.status === 'proposed' && user?.role === 'Chủ nhà hàng' && (
                                <div className="flex gap-2">
-                                  <Button variant="secondary"><FileSignature className="mr-2 h-4 w-4"/> Chỉnh sửa lại</Button>
-                                  <Button><CheckCircle className="mr-2 h-4 w-4"/> Duyệt và Công bố</Button>
+                                  <Button variant="secondary" onClick={() => handleUpdateStatus('draft')} disabled={isSubmitting}><FileSignature className="mr-2 h-4 w-4"/> Chỉnh sửa lại</Button>
+                                  <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting}><CheckCircle className="mr-2 h-4 w-4"/> Duyệt và Công bố</Button>
                                </div>
                             )}
                              {schedule?.status === 'published' && user?.role === 'Chủ nhà hàng' && (
-                                <Button variant="outline"><Eye className="mr-2 h-4 w-4"/> Xem Lịch sử & Thống kê</Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                         <Button variant="secondary" disabled={isSubmitting}><FileSignature className="mr-2 h-4 w-4"/> Hủy công bố & Chỉnh sửa</Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Hủy công bố lịch?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ thu hồi lịch đã công bố và cho phép bạn chỉnh sửa lại. Nhân viên sẽ không thấy lịch này nữa cho đến khi bạn công bố lại.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
                         </CardFooter>
                     </Card>
