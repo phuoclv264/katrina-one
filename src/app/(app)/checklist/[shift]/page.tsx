@@ -692,7 +692,6 @@ export default function ChecklistPage() {
                                               </AlertDialog>
                                           </div>
                                       </div>
-                                      {completion.photos && completion.photos.length > 0 && (
                                       <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                         {(completion.photos || []).map((photoUrl, pIndex) => (
                                           <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
@@ -734,7 +733,6 @@ export default function ChecklistPage() {
                                           );
                                         })}
                                       </div>
-                                      )}
                                       {completion.opinion && (
                                             <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
                                       )}
@@ -762,7 +760,7 @@ export default function ChecklistPage() {
       </div>
     </div>
     
-    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md-right-6">
+    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
       <div className="relative">
         <Button
             size="lg"
@@ -852,6 +850,7 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
+
 
 
 
