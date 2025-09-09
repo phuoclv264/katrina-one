@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TaskSection } from '@/lib/types';
@@ -21,6 +21,7 @@ import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 
 function HygieneReportView() {
   const { user, loading: authLoading } = useAuth();
@@ -34,6 +35,7 @@ function HygieneReportView() {
   const [taskSections, setTaskSections] = useState<TaskSection[] | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -79,7 +81,9 @@ function HygieneReportView() {
     dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
         if(isMounted) {
             setReports(fetchedReports);
-            if (fetchedReports.length > 0 && !selectedReportId) {
+             if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId)) {
+                setSelectedReportId(fetchedReports.length > 0 ? fetchedReports[0].id : null);
+            } else if (!selectedReportId && fetchedReports.length > 0) {
                 setSelectedReportId(fetchedReports[0].id);
             } else if (fetchedReports.length === 0) {
                 setSelectedReportId(null);
@@ -162,6 +166,27 @@ function HygieneReportView() {
     }
   }
 
+  const handleDeleteReport = async () => {
+    if (!report) return;
+    setIsProcessing(true);
+    try {
+        await dataStore.deleteShiftReport(report.id);
+        toast({
+            title: "Đã xóa báo cáo",
+            description: `Báo cáo của ${report.staffName} đã được xóa thành công.`,
+        });
+    } catch(error) {
+        console.error("Error deleting report:", error);
+        toast({
+            title: "Lỗi",
+            description: "Không thể xóa báo cáo. Vui lòng thử lại.",
+            variant: "destructive"
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+  }
+
   if (isLoading || authLoading) {
     return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
@@ -225,16 +250,42 @@ function HygieneReportView() {
                      <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chọn nhân viên</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                    <Select onValueChange={setSelectedReportId} value={selectedReportId || ''}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Chọn một nhân viên..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {reports.map(r => (
-                                <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                   <div className="flex items-center gap-2">
+                        <Select onValueChange={setSelectedReportId} value={selectedReportId || ''} disabled={isProcessing}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Chọn một nhân viên..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {reports.map(r => (
+                                    <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                         {selectedReportId && (
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="icon" disabled={isProcessing}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle className="flex items-center gap-2">
+                                            <AlertCircle className="text-destructive"/>
+                                            Xác nhận xóa báo cáo?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{report?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteReport}>Xóa vĩnh viễn</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>

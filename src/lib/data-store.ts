@@ -66,19 +66,7 @@ export const dataStore = {
         );
         const shiftReportsSnapshot = await getDocs(shiftReportsQuery);
         for (const reportDoc of shiftReportsSnapshot.docs) {
-            const reportData = reportDoc.data() as ShiftReport;
-            if (reportData.completedTasks) {
-                for (const taskId in reportData.completedTasks) {
-                    for (const completion of reportData.completedTasks[taskId]) {
-                        if (completion.photos) {
-                            for (const photoUrl of completion.photos) {
-                                await this.deletePhotoFromStorage(photoUrl);
-                            }
-                        }
-                    }
-                }
-            }
-            await deleteDoc(doc(db, "reports", reportDoc.id));
+            await this.deleteShiftReport(reportDoc.id);
             deletedCount++;
         }
 
@@ -89,18 +77,7 @@ export const dataStore = {
         );
         const inventoryReportsSnapshot = await getDocs(inventoryReportsQuery);
         for (const reportDoc of inventoryReportsSnapshot.docs) {
-            const reportData = reportDoc.data() as InventoryReport;
-            if (reportData.stockLevels) {
-                for (const itemId in reportData.stockLevels) {
-                    const record = reportData.stockLevels[itemId];
-                    if (record.photos) {
-                        for (const photoUrl of record.photos) {
-                            await this.deletePhotoFromStorage(photoUrl);
-                        }
-                    }
-                }
-            }
-            await deleteDoc(doc(db, "inventory-reports", reportDoc.id));
+            await this.deleteInventoryReport(reportDoc.id);
             deletedCount++;
         }
         
@@ -671,6 +648,36 @@ export const dataStore = {
             console.error("Error deleting photo from Firebase Storage:", error);
         }
     }
+  },
+  
+  async deleteShiftReport(reportId: string): Promise<void> {
+    const reportRef = doc(db, 'reports', reportId);
+    const reportSnap = await getDoc(reportRef);
+
+    if (!reportSnap.exists()) {
+      console.warn(`Shift report with ID ${reportId} not found.`);
+      return;
+    }
+
+    const reportData = reportSnap.data() as ShiftReport;
+
+    // Delete associated photos
+    if (reportData.completedTasks) {
+      const deletePromises: Promise<void>[] = [];
+      for (const taskId in reportData.completedTasks) {
+        for (const completion of reportData.completedTasks[taskId]) {
+          if (completion.photos) {
+            for (const photoUrl of completion.photos) {
+              deletePromises.push(this.deletePhotoFromStorage(photoUrl));
+            }
+          }
+        }
+      }
+      await Promise.all(deletePromises);
+    }
+
+    // Delete the report document
+    await deleteDoc(reportRef);
   },
 
   async submitReport(report: ShiftReport): Promise<void> {
