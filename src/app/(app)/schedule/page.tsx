@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -112,10 +113,13 @@ export default function SchedulePage() {
         }
     }
 
-    const handleTakeShift = async (shiftId: string, request: PassRequest) => {
+    const handleTakeShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
+        const passRequest = shift.passRequests?.find(p => p.status === 'pending');
+        if (!passRequest) return;
+
         try {
-            await dataStore.acceptPassShift(weekId, schedule.shifts, shiftId, request, {userId: user.uid, userName: user.displayName});
+            await dataStore.acceptPassShift(weekId, shift.id, passRequest.requestingUser.userId, {userId: user.uid, userName: user.displayName});
             toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
@@ -166,7 +170,7 @@ export default function SchedulePage() {
     }
     
     const startOfThisWeek = startOfWeek(new Date(), {weekStartsOn: 1});
-    const canRegisterAvailability = isBefore(startOfThisWeek, weekInterval.start);
+    const canRegisterAvailability = isBefore(startOfThisWeek, weekInterval.start) || isSameDay(startOfThisWeek, weekInterval.start);
 
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -239,7 +243,7 @@ export default function SchedulePage() {
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent>
-                                                            <DropdownMenuItem>
+                                                            <DropdownMenuItem disabled>
                                                                 <MessageSquareWarning className="mr-2 h-4 w-4 text-yellow-500"/> Xin đi trễ
                                                             </DropdownMenuItem>
                                                             <AlertDialog>
@@ -291,21 +295,26 @@ export default function SchedulePage() {
                                     </Card>
                                 )}
                                 
-                                {schedule?.shifts.filter(s => s.date === dateKey && s.passRequests?.some(p => p.status === 'pending' && p.requestingUserId !== user?.uid)).map(shift => (
-                                    <div key={`pass-${shift.id}`} className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs">
-                                        <p className="font-semibold text-amber-800 dark:text-amber-200">
-                                            {shift.passRequests?.find(p => p.status==='pending')?.requestingUser?.name} muốn pass ca {shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})
-                                        </p>
-                                        <div className="flex gap-2 mt-2">
-                                            <Button size="xs" className="h-6" onClick={() => handleTakeShift(shift.id, shift.passRequests!.find(p => p.status === 'pending')!)}>
-                                                <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
-                                            </Button>
-                                            <Button size="xs" variant="ghost" className="h-6">
-                                                <X className="mr-1 h-3 w-3"/> Bỏ qua
-                                            </Button>
+                                {schedule?.shifts.filter(s => s.date === dateKey && s.passRequests?.some(p => p.status === 'pending' && !s.assignedUsers.some(au => au.userId === user?.uid))).map(shift => {
+                                    const passRequest = shift.passRequests?.find(p => p.status === 'pending');
+                                    if (!passRequest) return null;
+                                    
+                                    return (
+                                        <div key={`pass-${shift.id}`} className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs">
+                                            <p className="font-semibold text-amber-800 dark:text-amber-200">
+                                                {passRequest.requestingUser.name} muốn pass ca {shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})
+                                            </p>
+                                            <div className="flex gap-2 mt-2">
+                                                <Button size="xs" className="h-6" onClick={() => handleTakeShift(shift)}>
+                                                    <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
+                                                </Button>
+                                                <Button size="xs" variant="ghost" className="h-6">
+                                                    <X className="mr-1 h-3 w-3"/> Bỏ qua
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </div>
                     )

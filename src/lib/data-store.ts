@@ -20,9 +20,10 @@ import {
   deleteDoc,
   limit,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, PassRequest, ShiftTemplate } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -73,23 +74,133 @@ export const dataStore = {
         const docRef = doc(db, 'schedules', weekId);
         await setDoc(docRef, data, { merge: true });
     },
-
-    async getOrCreateSchedule(weekId: string): Promise<Schedule> {
-        const docRef = doc(db, 'schedules', weekId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data() as Schedule;
-        } else {
-            const newSchedule: Schedule = {
-                weekId,
-                status: 'draft',
-                availability: [],
-                shifts: [],
-            };
-            await setDoc(docRef, newSchedule);
-            return newSchedule;
-        }
+    
+    subscribeToShiftTemplates(callback: (templates: ShiftTemplate[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'shiftTemplates');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().templates as ShiftTemplate[]);
+            } else {
+                try {
+                    await setDoc(docRef, { templates: [] });
+                    callback([]);
+                } catch(e) {
+                    console.error("Permission denied to create default shift templates.", e);
+                    callback([]);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read shift templates: ${error.code}`);
+            callback([]);
+        });
+        return unsubscribe;
     },
+    
+    async updateShiftTemplates(templates: ShiftTemplate[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'shiftTemplates');
+        await setDoc(docRef, { templates });
+    },
+    
+    async requestPassShift(weekId: string, shifts: AssignedShift[], shiftId: string, requestingUser: { userId: string, userName: string }): Promise<void> {
+        const updatedShifts = shifts.map(s => {
+            if (s.id === shiftId) {
+                const newRequest: PassRequest = {
+                    requestingUser: { userId: requestingUser.userId, userName: requestingUser.userName },
+                    status: 'pending',
+                    timestamp: Timestamp.now(),
+                };
+                return {
+                    ...s,
+                    passRequests: [...(s.passRequests || []), newRequest],
+                };
+            }
+            return s;
+        });
+        await this.updateSchedule(weekId, { shifts: updatedShifts });
+    },
+
+    async acceptPassShift(
+        weekId: string,
+        shiftId: string,
+        requestingUserId: string,
+        acceptingUser: { userId: string, userName: string }
+    ): Promise<void> {
+        const scheduleRef = doc(db, "schedules", weekId);
+
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) {
+                throw new Error("Không tìm thấy lịch làm việc.");
+            }
+
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const shifts = scheduleData.shifts;
+            
+            const shiftToUpdate = shifts.find(s => s.id === shiftId);
+            if (!shiftToUpdate) {
+                throw new Error("Không tìm thấy ca làm việc này.");
+            }
+
+            // --- Check for scheduling conflicts ---
+            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`);
+            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`);
+
+            const hasConflict = shifts.some(existingShift => {
+                // Skip the current shift and shifts on other days
+                if (existingShift.id === shiftId || existingShift.date !== shiftToUpdate.date) {
+                    return false;
+                }
+                
+                // Check if the accepting user is already assigned to this existing shift
+                const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId);
+                if (!isUserAssigned) {
+                    return false;
+                }
+
+                // Check for time overlap
+                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`);
+                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`);
+                
+                // Overlap condition: (StartA < EndB) and (EndA > StartB)
+                return shiftStartTime < existingEndTime && shiftEndTime > existingStartTime;
+            });
+
+            if (hasConflict) {
+                throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
+            }
+            // --- End conflict check ---
+
+            const updatedShifts = shifts.map(s => {
+                if (s.id === shiftId) {
+                    const passRequestIndex = (s.passRequests || []).findIndex(p => p.requestingUser.userId === requestingUserId && p.status === 'pending');
+                    if (passRequestIndex === -1) {
+                         throw new Error("Yêu cầu pass ca này không còn hợp lệ hoặc đã được người khác nhận.");
+                    }
+
+                    const updatedPassRequests = [...(s.passRequests || [])];
+                    updatedPassRequests[passRequestIndex] = {
+                        ...updatedPassRequests[passRequestIndex],
+                        status: 'taken',
+                        takenBy: acceptingUser,
+                    };
+
+                    // Replace the requesting user with the accepting user
+                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== requestingUserId);
+                    newAssignedUsers.push(acceptingUser);
+
+                    return {
+                        ...s,
+                        assignedUsers: newAssignedUsers,
+                        passRequests: updatedPassRequests
+                    };
+                }
+                return s;
+            });
+
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+        });
+    },
+
     // --- End Schedule ---
     async cleanupOldReports(daysToKeep: number): Promise<number> {
         const cutoffDate = new Date();
