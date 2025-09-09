@@ -195,3 +195,53 @@ export type DailySummary = {
     summary: string;
     generatedAt: string | Timestamp;
 }
+
+// --- Schedule Types ---
+export type TimeSlot = {
+  start: string; // "HH:mm"
+  end: string;
+};
+
+export type ShiftTemplate = {
+  id: string;
+  label: string;
+  role: UserRole | 'Bất kỳ';
+  timeSlot: TimeSlot;
+};
+
+export type Availability = {
+  userId: string;
+  userName: string;
+  date: string; // YYYY-MM-DD
+  availableSlots: TimeSlot[];
+};
+
+export type AssignedUser = {
+  userId: string;
+  userName: string;
+};
+
+export type PassRequest = {
+  requestingUser: AssignedUser;
+  status: 'pending' | 'taken';
+  takenBy?: AssignedUser;
+  timestamp: string | Timestamp;
+};
+
+export type AssignedShift = {
+  id: string; // Unique ID for this specific shift instance in the schedule
+  templateId: string;
+  date: string; // YYYY-MM-DD
+  label: string;
+  role: UserRole | 'Bất kỳ';
+  timeSlot: TimeSlot;
+  assignedUsers: AssignedUser[];
+  passRequests?: PassRequest[];
+};
+
+export type Schedule = {
+  weekId: string; // e.g., "2024-W28"
+  status: 'draft' | 'proposed' | 'published';
+  availability: Availability[];
+  shifts: AssignedShift[];
+};

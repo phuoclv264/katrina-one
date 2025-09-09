@@ -26,6 +26,8 @@ const pathToTitleMap: { [key: string]: string } = {
     '/comprehensive-checklist': 'QL Kiểm tra Toàn diện',
     '/inventory-management': 'QL Hàng tồn kho',
     '/violations': 'Ghi nhận Vi phạm',
+    '/schedule': 'Lịch làm việc',
+    '/shift-scheduling': 'Xếp lịch & Phê duyệt',
 };
 
 export function MobileHeader() {

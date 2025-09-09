@@ -1,7 +1,7 @@
 
-import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
+import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
 
-export const staff: Staff[] = [
+export const staff: { pin: string, name: string }[] = [
   { pin: '0001', name: 'Phước' },
   { pin: '0002', name: 'Thảo' },
 ];
@@ -246,5 +246,9 @@ export const initialViolationCategories: ViolationCategory[] = [
     "Khác"
 ];
 
-
-    
+export const defaultTimeSlots: TimeSlot[] = [
+    { start: '06:00', end: '12:00' },
+    { start: '12:00', end: '18:00' },
+    { start: '18:00', end: '23:00' },
+    { start: '06:00', end: '23:00' },
+];
