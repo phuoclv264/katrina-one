@@ -522,206 +522,197 @@ export default function ComprehensiveReportPage() {
                  {getSyncBadge()}
             </div>
         </div>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
             <div>
                  <h1 className="text-2xl md:text-3xl font-bold font-headline">Phiếu kiểm tra toàn diện</h1>
                  <p className="text-muted-foreground">Thực hiện và ghi nhận các công việc kiểm tra trong ngày.</p>
             </div>
-        </div>
-      </header>
-
-      <div className="space-y-8">
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <CardTitle>Danh sách kiểm tra</CardTitle>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
+             <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
                 <ChevronsDownUp className="mr-2 h-4 w-4"/>
                 {areAllSectionsOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
             </Button>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
-              {tasks.map((section) => (
-                <AccordionItem value={section.title} key={section.title} className="rounded-lg border-[3px] bg-card border-primary/50">
-                  <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
-                     <div className="flex items-center">
-                        <Building className="mr-3 h-5 w-5 text-primary" />
-                        {section.title}
-                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="border-t p-4">
-                    <div className="space-y-4 pt-2">
-                      {section.tasks.map((task) => {
-                        const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-                        const isTaskCompleted = completions.length > 0;
-                        const isExpanded = expandedTaskIds.has(task.id);
+        </div>
+      </header>
 
-                        return (
-                           <div key={task.id} className={`rounded-md border p-4 transition-colors ${isTaskCompleted ? 'bg-accent/20' : ''}`}>
-                            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                              <p className="font-semibold flex-1">
-                                {task.text}
-                              </p>
-                              <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                                {task.type === 'photo' && (
-                                  <Button 
-                                    size="sm" 
-                                    className="w-full active:scale-95 transition-transform"
-                                    onClick={() => handlePhotoTaskAction(task.id)}
-                                    disabled={isReadonly}
-                                  >
-                                      <Camera className="mr-2 h-4 w-4"/>
-                                      Chụp ảnh
-                                  </Button>
-                                )}
-                                {task.type === 'boolean' && (
-                                    <>
-                                        <Button
-                                            size="sm"
-                                            variant={"outline"}
-                                            className="w-full"
-                                            onClick={() => handleBooleanTaskAction(task.id, true)}
-                                            disabled={isReadonly}
-                                        >
-                                            <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={"outline"}
-                                            className="w-full"
-                                            onClick={() => handleBooleanTaskAction(task.id, false)}
-                                            disabled={isReadonly}
-                                        >
-                                            <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
-                                        </Button>
-                                    </>
-                                )}
-                                {task.type === 'opinion' && (
+      <div className="space-y-4">
+        <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
+            {tasks.map((section) => (
+            <AccordionItem value={section.title} key={section.title} className="rounded-lg border-[3px] bg-card border-primary/50">
+                <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
+                    <div className="flex items-center">
+                    <Building className="mr-3 h-5 w-5 text-primary" />
+                    {section.title}
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="border-t p-4">
+                <div className="space-y-4 pt-2">
+                    {section.tasks.map((task) => {
+                    const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+                    const isTaskCompleted = completions.length > 0;
+                    const isExpanded = expandedTaskIds.has(task.id);
+
+                    return (
+                        <div key={task.id} className={`rounded-md border p-4 transition-colors ${isTaskCompleted ? 'bg-accent/20' : ''}`}>
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                            <p className="font-semibold flex-1">
+                            {task.text}
+                            </p>
+                            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                            {task.type === 'photo' && (
+                                <Button 
+                                size="sm" 
+                                className="w-full active:scale-95 transition-transform"
+                                onClick={() => handlePhotoTaskAction(task.id)}
+                                disabled={isReadonly}
+                                >
+                                    <Camera className="mr-2 h-4 w-4"/>
+                                    Chụp ảnh
+                                </Button>
+                            )}
+                            {task.type === 'boolean' && (
+                                <>
                                     <Button
                                         size="sm"
+                                        variant={"outline"}
                                         className="w-full"
-                                        onClick={() => handleOpinionTaskAction(task.id, task.text)}
+                                        onClick={() => handleBooleanTaskAction(task.id, true)}
                                         disabled={isReadonly}
                                     >
-                                        <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
+                                        <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
                                     </Button>
-                                )}
-                              </div>
+                                    <Button
+                                        size="sm"
+                                        variant={"outline"}
+                                        className="w-full"
+                                        onClick={() => handleBooleanTaskAction(task.id, false)}
+                                        disabled={isReadonly}
+                                    >
+                                        <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
+                                    </Button>
+                                </>
+                            )}
+                            {task.type === 'opinion' && (
+                                <Button
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => handleOpinionTaskAction(task.id, task.text)}
+                                    disabled={isReadonly}
+                                >
+                                    <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
+                                </Button>
+                            )}
                             </div>
-                            
-                            {isTaskCompleted && (
-                                <div className="mt-4 space-y-3">
-                                  {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                      return (
-                                      <div key={cIndex} className="rounded-md border bg-card p-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="h-4 w-4 flex-shrink-0" />
-                                            <span>Kiểm tra lúc: {completion.timestamp}</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            {completion.value !== undefined && (
-                                              <Badge variant={completion.value ? "default" : "destructive"}>
-                                                {completion.value ? "Đảm bảo" : "Không đảm bảo"}
-                                              </Badge>
-                                            )}
-                                            {!isReadonly && task.type === 'photo' && (
-                                                <Button size="icon" variant="ghost" className="text-primary h-7 w-7" onClick={() => handlePhotoTaskAction(task.id, cIndex)}>
-                                                  <FilePlus2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {!isReadonly && (
-                                              <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                  <Button size="icon" variant="ghost" className="text-destructive h-7 w-7">
-                                                    <Trash2 className="h-4 w-4" />
-                                                  </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                  <AlertDialogHeader>
-                                                    <AlertDialogTitle>Bạn có chắc không?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                      Hành động này sẽ xóa lần kiểm tra này.
-                                                    </AlertDialogDescription>
-                                                  </AlertDialogHeader>
-                                                  <AlertDialogFooter>
-                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
-                                                  </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                              </AlertDialog>
-                                            )}
-                                          </div>
+                        </div>
+                        
+                        {isTaskCompleted && (
+                            <div className="mt-4 space-y-3">
+                                {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
+                                    return (
+                                    <div key={cIndex} className="rounded-md border bg-card p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Clock className="h-4 w-4 flex-shrink-0" />
+                                        <span>Kiểm tra lúc: {completion.timestamp}</span>
                                         </div>
-                                        
-                                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                            {(completion.photos || []).map((photoUrl, pIndex) => (
-                                                <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                        <div className="flex items-center gap-1">
+                                        {completion.value !== undefined && (
+                                            <Badge variant={completion.value ? "default" : "destructive"}>
+                                            {completion.value ? "Đảm bảo" : "Không đảm bảo"}
+                                            </Badge>
+                                        )}
+                                        {!isReadonly && task.type === 'photo' && (
+                                            <Button size="icon" variant="ghost" className="text-primary h-7 w-7" onClick={() => handlePhotoTaskAction(task.id, cIndex)}>
+                                                <FilePlus2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {!isReadonly && (
+                                            <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button size="icon" variant="ghost" className="text-destructive h-7 w-7">
+                                                <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Bạn có chắc không?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Hành động này sẽ xóa lần kiểm tra này.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                        {(completion.photos || []).map((photoUrl, pIndex) => (
+                                            <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
+                                                <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
+                                                    <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {(completion.photoIds || []).map((photoId, pIndex) => {
+                                            const photoUrl = localPhotoUrls.get(photoId);
+                                            if (!photoUrl) return null;
+                                            return (
+                                                <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
                                                     <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
                                                         <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
                                                     </button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
+                                                                <UploadCloud className="h-3 w-3" />
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Ảnh chưa được gửi</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                    {!isReadonly && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="icon"
+                                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId, true); }}
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                            <span className="sr-only">Xóa ảnh</span>
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                            ))}
-                                            {(completion.photoIds || []).map((photoId, pIndex) => {
-                                                const photoUrl = localPhotoUrls.get(photoId);
-                                                if (!photoUrl) return null;
-                                                return (
-                                                    <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                        <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                                            <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                                        </button>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
-                                                                    <UploadCloud className="h-3 w-3" />
-                                                                </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Ảnh chưa được gửi</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                        {!isReadonly && (
-                                                            <Button
-                                                                variant="destructive"
-                                                                size="icon"
-                                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId, true); }}
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                                <span className="sr-only">Xóa ảnh</span>
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                            );
+                                        })}
+                                    </div>
 
-                                        {completion.opinion && (
-                                            <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
-                                        )}
-                                      </div>
+                                    {completion.opinion && (
+                                        <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
                                     )}
-                                    )}
-                                    {completions.length > 1 && (
-                                      <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
-                                        {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1} lần)`}
-                                        {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
-                                      </Button>
-                                    )}
-                                </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </CardContent>
-        </Card>
+                                    </div>
+                                )}
+                                )}
+                                {completions.length > 1 && (
+                                    <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
+                                    {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1} lần)`}
+                                    {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                        </div>
+                    )
+                    })}
+                </div>
+                </AccordionContent>
+            </AccordionItem>
+            ))}
+        </Accordion>
       </div>
     </div>
     
@@ -815,6 +806,3 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
-
-
-
