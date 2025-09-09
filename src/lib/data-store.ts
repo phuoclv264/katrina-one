@@ -19,6 +19,7 @@ import {
   addDoc,
   deleteDoc,
   limit,
+  writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary } from './types';
@@ -52,6 +53,60 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+    async cleanupOldReports(daysToKeep: number): Promise<number> {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+        const cutoffTimestamp = Timestamp.fromDate(cutoffDate);
+        let deletedCount = 0;
+
+        // Query and delete old shift reports
+        const shiftReportsQuery = query(
+            collection(db, "reports"),
+            where("submittedAt", "<", cutoffTimestamp)
+        );
+        const shiftReportsSnapshot = await getDocs(shiftReportsQuery);
+        for (const reportDoc of shiftReportsSnapshot.docs) {
+            const reportData = reportDoc.data() as ShiftReport;
+            if (reportData.completedTasks) {
+                for (const taskId in reportData.completedTasks) {
+                    for (const completion of reportData.completedTasks[taskId]) {
+                        if (completion.photos) {
+                            for (const photoUrl of completion.photos) {
+                                await this.deletePhotoFromStorage(photoUrl);
+                            }
+                        }
+                    }
+                }
+            }
+            await deleteDoc(doc(db, "reports", reportDoc.id));
+            deletedCount++;
+        }
+
+        // Query and delete old inventory reports
+        const inventoryReportsQuery = query(
+            collection(db, "inventory-reports"),
+            where("submittedAt", "<", cutoffTimestamp)
+        );
+        const inventoryReportsSnapshot = await getDocs(inventoryReportsQuery);
+        for (const reportDoc of inventoryReportsSnapshot.docs) {
+            const reportData = reportDoc.data() as InventoryReport;
+            if (reportData.stockLevels) {
+                for (const itemId in reportData.stockLevels) {
+                    const record = reportData.stockLevels[itemId];
+                    if (record.photos) {
+                        for (const photoUrl of record.photos) {
+                            await this.deletePhotoFromStorage(photoUrl);
+                        }
+                    }
+                }
+            }
+            await deleteDoc(doc(db, "inventory-reports", reportDoc.id));
+            deletedCount++;
+        }
+        
+        return deletedCount;
+    },
+
     async getDailySummary(date: string): Promise<DailySummary | null> {
         const docRef = doc(db, 'summaries', date);
         const docSnap = await getDoc(docRef);

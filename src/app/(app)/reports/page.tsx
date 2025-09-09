@@ -10,14 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, Users, Wand2, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowRight, CheckCircle, Users, Wand2, Loader2, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 
 type ReportType = ShiftReport | InventoryReport;
@@ -27,6 +30,96 @@ type GroupedReports = {
     [key: string]: ReportType[]; // key can be shiftKey or report type like 'inventory'
   };
 };
+
+function CleanupDialog() {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [daysToKeep, setDaysToKeep] = useState(30);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const { toast } = useToast();
+
+    const handleCleanup = async () => {
+        setIsProcessing(true);
+        try {
+            const deletedCount = await dataStore.cleanupOldReports(daysToKeep);
+            toast({
+                title: "Dọn dẹp hoàn tất!",
+                description: `Đã xóa thành công ${deletedCount} báo cáo cũ.`,
+            });
+        } catch (error) {
+            console.error("Failed to cleanup reports:", error);
+            toast({
+                title: "Lỗi",
+                description: "Không thể dọn dẹp báo cáo. Vui lòng thử lại.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsProcessing(false);
+            setIsOpen(false);
+            setIsConfirmOpen(false);
+        }
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                 <Button variant="outline" size="sm">
+                    <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                    Dọn dẹp Báo cáo
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Dọn dẹp báo cáo cũ</DialogTitle>
+                    <DialogDescription>
+                        Hành động này sẽ xóa vĩnh viễn các báo cáo (bao gồm cả hình ảnh) để giải phóng dung lượng.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                     <Label htmlFor="days">Giữ lại báo cáo trong (ngày)</Label>
+                     <Input
+                        id="days"
+                        type="number"
+                        value={daysToKeep}
+                        onChange={(e) => setDaysToKeep(parseInt(e.target.value, 10) || 0)}
+                        placeholder="Ví dụ: 30"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                        Tất cả các báo cáo cũ hơn {daysToKeep} ngày sẽ bị xóa.
+                    </p>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Hủy</Button>
+                    </DialogClose>
+                    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={isProcessing}>
+                                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Xóa các báo cáo cũ
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="flex items-center gap-2">
+                                    <ShieldAlert className="text-destructive"/>
+                                    Bạn có hoàn toàn chắc chắn không?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Hành động này không thể được hoàn tác. Tất cả các báo cáo cũ hơn <span className="font-bold">{daysToKeep}</span> ngày sẽ bị <span className="font-bold text-destructive">xóa vĩnh viễn</span> khỏi hệ thống.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleCleanup}>Tôi hiểu, hãy xóa</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function DailySummaryGenerator({
   date,
@@ -44,6 +137,7 @@ function DailySummaryGenerator({
 
     const fetchAndSetSummary = async () => {
         setIsGenerating(true);
+        setSummaryData(null); // Clear old summary before fetching
         const existingSummary = await dataStore.getDailySummary(date);
         setSummaryData(existingSummary);
         setIsGenerating(false);
@@ -83,9 +177,7 @@ function DailySummaryGenerator({
 
     const handleClick = async () => {
         setIsDialogOpen(true);
-        if (!summaryData) {
-            await fetchAndSetSummary();
-        }
+        await fetchAndSetSummary();
     }
 
     return (
@@ -279,11 +371,14 @@ export default function ReportsPage() {
       </header>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Báo cáo gần đây</CardTitle>
-          <CardDescription>
-            Hiển thị {allReports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày và ca.
-          </CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <CardTitle>Báo cáo gần đây</CardTitle>
+            <CardDescription>
+              Hiển thị {allReports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày.
+            </CardDescription>
+          </div>
+          <CleanupDialog />
         </CardHeader>
         <CardContent>
           {sortedDates.length > 0 ? (
