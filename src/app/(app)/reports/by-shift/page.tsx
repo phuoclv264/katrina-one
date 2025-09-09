@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TasksByShift } from '@/lib/types';
@@ -398,20 +398,37 @@ function ReportView() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        {completion.photos && completion.photos.length > 0 ? (
-                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                            {completion.photos.map((photo, pIndex) => (
-                                                <button
-                                                  onClick={() => openLightbox(photo)}
-                                                  key={photo.slice(0, 50) + pIndex}
-                                                  className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
-                                                >
-                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                                </button>
-                                            ))}
-                                            </div>
-                                        ): (
-                                            <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                        
+                                        {task.type === 'photo' && (
+                                            completion.photos && completion.photos.length > 0 ? (
+                                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                                {completion.photos.map((photo, pIndex) => (
+                                                    <button
+                                                      onClick={() => openLightbox(photo)}
+                                                      key={photo.slice(0, 50) + pIndex}
+                                                      className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
+                                                    >
+                                                      <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                                    </button>
+                                                ))}
+                                                </div>
+                                            ): (
+                                                <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                            )
+                                        )}
+
+                                        {task.type === 'boolean' && completion.value !== undefined && (
+                                            <Badge variant={completion.value ? 'default' : 'destructive'}>
+                                                {completion.value ? 'Đảm bảo' : 'Không đảm bảo'}
+                                            </Badge>
+                                        )}
+                                        
+                                        {task.type === 'opinion' && (
+                                            completion.opinion ? (
+                                                <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground italic">Đã ghi nhận, không có ý kiến chi tiết.</p>
+                                            )
                                         )}
                                     </div>
                                     ))}
