@@ -157,7 +157,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
                     });
                 }
             }
-        }, 'image/jpeg', 0.9); // 90% quality
+        }, 'image/jpeg', 1); // 100% quality
     }
   };
 
