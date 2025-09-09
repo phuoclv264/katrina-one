@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -6,7 +5,7 @@ import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -80,11 +79,13 @@ function AiAssistant({
                 setIsGenerating(false);
                 return;
             }
-            if (!targetSection) {
-                toast({ title: "Lỗi", description: "Vui lòng chọn khu vực để thêm công việc.", variant: "destructive" });
-                setIsGenerating(false);
-                return;
-            }
+             const defaultSection = sections.length > 0 ? sections[0].title : '';
+             if (!defaultSection) {
+                 toast({ title: "Lỗi", description: "Không có khu vực nào để thêm công việc vào.", variant: "destructive" });
+                 setIsGenerating(false);
+                 return;
+             }
+            setTargetSection(defaultSection);
 
             toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian."});
 
@@ -107,7 +108,7 @@ function AiAssistant({
     
     const handleConfirmAdd = () => {
         onAddTasks(addPreviewTasks, targetSection);
-        toast({ title: "Hoàn tất!", description: `Đã thêm ${addPreviewTasks.length} công việc mới vào khu vực "${targetSection}".`});
+        toast({ title: "Hoàn tất!", description: `Đã thêm ${addPreviewTasks.length} công việc mới.`});
         resetAddState();
         setShowAddPreview(false);
         setAddPreviewTasks([]);
@@ -191,28 +192,16 @@ function AiAssistant({
                             </TabsList>
                             <TabsContent value="text" className="mt-4 space-y-4">
                                 <Textarea
-                                    placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng."
+                                    placeholder="Dán danh sách các công việc vào đây. AI sẽ tự động thêm vào khu vực đầu tiên trong danh sách của bạn."
                                     rows={4}
                                     value={textInput}
                                     onChange={(e) => setTextInput(e.target.value)}
                                     disabled={isGenerating}
                                 />
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn khu vực để thêm vào..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {sections.map(section => (
-                                                <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim() || !targetSection} className="w-full sm:w-auto">
-                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Tạo từ văn bản
-                                    </Button>
-                                </div>
+                                <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="w-full sm:w-auto">
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Tạo từ văn bản
+                                </Button>
                             </TabsContent>
                             <TabsContent value="image" className="mt-4 space-y-4">
                                 <Input
@@ -222,22 +211,10 @@ function AiAssistant({
                                     onChange={handleFileChange}
                                     disabled={isGenerating}
                                 />
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn khu vực để thêm vào..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {sections.map(section => (
-                                                <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput || !targetSection} className="w-full sm:w-auto">
-                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Tạo từ ảnh
-                                    </Button>
-                                </div>
+                                <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput} className="w-full sm:w-auto">
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Tạo từ ảnh
+                                </Button>
                             </TabsContent>
                         </Tabs>
                     </TabsContent>
@@ -545,6 +522,26 @@ export default function BartenderTasksPage() {
     }
   };
 
+    const handleExport = () => {
+        if (!sections) return;
+        const textToCopy = sections.map(section => 
+            `# ${section.title}\n` + 
+            section.tasks.map(task => `- ${task.text}`).join('\n')
+        ).join('\n\n');
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: "Đã sao chép!",
+                description: "Danh sách công việc đã được sao chép vào bộ nhớ tạm.",
+            });
+        }).catch(err => {
+            toast({
+                title: "Lỗi",
+                description: "Không thể sao chép.",
+                variant: "destructive",
+            });
+        });
+    };
 
   if (isLoading || authLoading) {
     return (
@@ -582,6 +579,10 @@ export default function BartenderTasksPage() {
                 <CardDescription>Các thay đổi về nội dung sẽ được lưu tự động.</CardDescription>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
+                 <Button variant="outline" size="sm" onClick={handleExport} className="w-full sm:w-auto">
+                    <Download className="mr-2 h-4 w-4"/>
+                    Xuất dữ liệu
+                </Button>
                  {isSorting ? (
                     <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                         <Check className="mr-2 h-4 w-4"/>

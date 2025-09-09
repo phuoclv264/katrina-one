@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -6,7 +5,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/ty
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -40,8 +39,8 @@ function AiAssistant({
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('add');
 
-    const [targetShift, setTargetShift] = useState('');
-    const [targetSection, setTargetSection] = useState('');
+    const [targetShift, setTargetShift] = useState('sang');
+    const [targetSection, setTargetSection] = useState('Trong ca');
     const [sortInstruction, setSortInstruction] = useState('');
 
 
@@ -84,11 +83,6 @@ function AiAssistant({
                 setIsGenerating(false);
                 return;
             }
-            if (!targetShift || !targetSection) {
-                toast({ title: "Lỗi", description: "Vui lòng chọn ca và mục để thêm công việc.", variant: "destructive" });
-                setIsGenerating(false);
-                return;
-            }
 
             toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian." });
 
@@ -110,6 +104,7 @@ function AiAssistant({
     };
     
     const handleConfirmAdd = () => {
+        // AI will determine the shift and section from the text, but we need a fallback
         onAddTasks(addPreviewTasks, targetShift, targetSection);
         toast({ title: "Hoàn tất!", description: `Đã thêm ${addPreviewTasks.length} công việc mới.` });
         resetAddState();
@@ -195,38 +190,16 @@ function AiAssistant({
                             </TabsList>
                             <TabsContent value="text" className="mt-4 space-y-4">
                                 <Textarea
-                                    placeholder="Dán danh sách các công việc vào đây, mỗi công việc trên một dòng. Có thể ghi chú (quan trọng) để AI nhận diện."
+                                    placeholder="Dán danh sách công việc vào đây. Ví dụ: 'Ca Sáng - Đầu ca: Lau bàn'. Nếu không chỉ định, AI sẽ thêm vào mục mặc định."
                                     rows={4}
                                     value={textInput}
                                     onChange={(e) => setTextInput(e.target.value)}
                                     disabled={isGenerating}
                                 />
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn ca..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="sang">Ca Sáng</SelectItem>
-                                            <SelectItem value="trua">Ca Trưa</SelectItem>
-                                            <SelectItem value="toi">Ca Tối</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn mục..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Đầu ca">Đầu ca</SelectItem>
-                                            <SelectItem value="Trong ca">Trong ca</SelectItem>
-                                            <SelectItem value="Cuối ca">Cuối ca</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim() || !targetShift || !targetSection} className="w-full sm:w-auto">
-                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Tạo
-                                    </Button>
-                                </div>
+                                <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="w-full sm:w-auto">
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Tạo
+                                </Button>
                             </TabsContent>
                             <TabsContent value="image" className="mt-4 space-y-4">
                                 <Input
@@ -236,32 +209,10 @@ function AiAssistant({
                                     onChange={handleFileChange}
                                     disabled={isGenerating}
                                 />
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn ca..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="sang">Ca Sáng</SelectItem>
-                                            <SelectItem value="trua">Ca Trưa</SelectItem>
-                                            <SelectItem value="toi">Ca Tối</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Chọn mục..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Đầu ca">Đầu ca</SelectItem>
-                                            <SelectItem value="Trong ca">Trong ca</SelectItem>
-                                            <SelectItem value="Cuối ca">Cuối ca</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput || !targetShift || !targetSection} className="w-full sm:w-auto">
-                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Tạo
-                                    </Button>
-                                </div>
+                                <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput} className="w-full sm:w-auto">
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                    Tạo
+                                </Button>
                             </TabsContent>
                         </Tabs>
                     </TabsContent>
@@ -310,7 +261,7 @@ function AiAssistant({
                  <AlertDialogHeader>
                     <AlertDialogTitle>Xem trước các công việc sẽ được thêm</AlertDialogTitle>
                     <AlertDialogDescription>
-                        AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào mục <span className="font-bold">"{targetSection}"</span> của <span className="font-bold">Ca {tasksByShift?.[targetShift]?.name}</span>.
+                        AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng. Công việc không có ca/mục sẽ được thêm vào mục mặc định.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                  <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
@@ -443,6 +394,8 @@ export default function TaskListsPage() {
       }));
 
       const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+      // This is a simplified logic. A more robust solution would parse the task text
+      // to determine the correct shift and section. For now, it adds to a default.
       const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
 
       if (section) {
@@ -597,6 +550,29 @@ export default function TaskListsPage() {
     }
   }
 
+    const handleExport = (shiftKey: string) => {
+        if (!tasksByShift || !tasksByShift[shiftKey]) return;
+        const shift = tasksByShift[shiftKey];
+        const textToCopy = `# ${shift.name}\n\n` + 
+            shift.sections.map(section => 
+                `## ${section.title}\n` + 
+                section.tasks.map(task => `- ${task.isCritical ? '(quan trọng) ' : ''}${task.text}`).join('\n')
+            ).join('\n\n');
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: "Đã sao chép!",
+                description: `Danh sách công việc của ${shift.name} đã được sao chép.`,
+            });
+        }).catch(err => {
+            toast({
+                title: "Lỗi",
+                description: "Không thể sao chép.",
+                variant: "destructive",
+            });
+        });
+    };
+
   if(isLoading || authLoading) {
     return (
         <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
@@ -652,6 +628,10 @@ export default function TaskListsPage() {
                     <CardDescription>Danh sách này sẽ được hiển thị cho nhân viên vào đầu mỗi ca.</CardDescription>
                 </div>
                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={() => handleExport(shiftKey)} className="w-full sm:w-auto">
+                        <Download className="mr-2 h-4 w-4"/>
+                        Xuất dữ liệu
+                    </Button>
                     {isSorting ? (
                         <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
                             <Check className="mr-2 h-4 w-4"/>
