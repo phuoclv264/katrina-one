@@ -504,6 +504,7 @@ export default function TaskListsPage() {
       if (newTasksInputState[shiftKey]?.[sectionTitle]) {
          newTasksInputState[shiftKey][sectionTitle].text = '';
          newTasksInputState[shiftKey][sectionTitle].isCritical = false;
+         newTasksInputState[shiftKey][sectionTitle].type = 'photo';
       }
       return newTasksInputState;
     });
@@ -801,4 +802,3 @@ export default function TaskListsPage() {
     </div>
   );
 }
-

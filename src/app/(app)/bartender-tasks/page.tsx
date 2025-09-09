@@ -453,6 +453,7 @@ export default function BartenderTasksPage() {
 
     handleUpdateAndSave(newSectionsState);
     setNewTaskText('');
+    setNewTaskType('photo');
   };
 
   const handleDeleteTask = (sectionTitle: string, taskId: string) => {
@@ -728,4 +729,3 @@ export default function BartenderTasksPage() {
     </div>
   );
 }
-
