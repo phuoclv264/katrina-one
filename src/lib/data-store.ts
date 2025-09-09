@@ -27,6 +27,8 @@ import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, Inventor
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear } from 'date-fns';
+
 
 const getTodaysDateKey = () => {
     const now = new Date();
@@ -68,6 +70,25 @@ export const dataStore = {
             callback(null);
         });
         return unsubscribe;
+    },
+
+    async getSchedulesForMonth(date: Date): Promise<Schedule[]> {
+        const monthStart = startOfMonth(date);
+        const monthEnd = endOfMonth(date);
+
+        const weeks = eachWeekOfInterval({
+            start: monthStart,
+            end: monthEnd,
+        }, { weekStartsOn: 1 });
+
+        const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+
+        const schedulePromises = weekIds.map(weekId => getDoc(doc(db, 'schedules', weekId)));
+        const scheduleDocs = await Promise.all(schedulePromises);
+
+        return scheduleDocs
+            .filter(docSnap => docSnap.exists())
+            .map(docSnap => docSnap.data() as Schedule);
     },
 
     async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {

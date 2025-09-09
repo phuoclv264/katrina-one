@@ -23,6 +23,7 @@ import { eachDayOfInterval, format, startOfMonth, endOfMonth, getMonth, getYear,
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 
 function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: ManagedUser[]}) {
