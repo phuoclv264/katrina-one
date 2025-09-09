@@ -49,6 +49,8 @@ import ShiftTemplatesDialog from './_components/shift-templates-dialog';
 import TotalHoursTracker from './_components/total-hours-tracker';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import HistoryAndReportsDialog from './_components/history-reports-dialog';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 export default function ShiftSchedulingPage() {
@@ -204,6 +206,7 @@ export default function ShiftSchedulingPage() {
     }
 
     return (
+        <TooltipProvider>
         <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
                  <h1 className="text-3xl font-bold font-headline">Xếp lịch & Phê duyệt</h1>
@@ -236,6 +239,8 @@ export default function ShiftSchedulingPage() {
                                {daysOfWeek.map(day => {
                                     const dateKey = format(day, 'yyyy-MM-dd');
                                     const dayShifts = shiftsByDay[dateKey] || [];
+                                    const availableUsersForDay = availabilityByDay[dateKey] || [];
+                                    const uniqueAvailableUsers = Array.from(new Map(availableUsersForDay.map(avail => [avail.userId, avail])).values());
                                     
                                     return (
                                         <div key={dateKey} className="border-b border-r min-h-[200px] flex flex-col bg-muted/20">
@@ -243,6 +248,30 @@ export default function ShiftSchedulingPage() {
                                                 <span className="font-bold">{format(day, 'dd')}</span>
                                                 <span className="text-sm text-muted-foreground">{format(day, 'eee', {locale: vi})}</span>
                                             </div>
+                                            
+                                            {/* Available Users */}
+                                            <div className="px-2 pt-2">
+                                                <div className="flex flex-wrap -space-x-2">
+                                                    {uniqueAvailableUsers.map(avail => {
+                                                        const user = allUsers.find(u => u.uid === avail.userId);
+                                                        return (
+                                                        <Tooltip key={avail.userId}>
+                                                            <TooltipTrigger asChild>
+                                                                <Avatar className="h-7 w-7 border-2 border-background">
+                                                                    <AvatarFallback className="text-xs">{user?.displayName?.charAt(0)}</AvatarFallback>
+                                                                </Avatar>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>{user?.displayName}</p>
+                                                                <ul className="text-xs text-muted-foreground">
+                                                                    {avail.availableSlots.map((slot, i) => <li key={i}>{slot.start} - {slot.end}</li>)}
+                                                                </ul>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    )})}
+                                                </div>
+                                            </div>
+
                                             <div className="flex-grow p-2 space-y-2">
                                                 {dayShifts.map(shift => (
                                                     <ShiftAssignmentPopover
@@ -256,6 +285,7 @@ export default function ShiftSchedulingPage() {
                                                     />
                                                 ))}
                                             </div>
+
                                             {(schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng') && (
                                                 <Button variant="ghost" size="sm" className="m-2 mt-auto" onClick={() => handleAddShiftClick(day)}>
                                                     <Plus className="mr-2 h-4 w-4"/> Thêm ca
@@ -329,5 +359,7 @@ export default function ShiftSchedulingPage() {
                 </>
             )}
         </div>
+        </TooltipProvider>
     )
 }
+
