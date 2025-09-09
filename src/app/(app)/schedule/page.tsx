@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './_components/availability-dialog';
 import {
@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Badge } from '@/components/ui/badge';
 
 export default function SchedulePage() {
     const { user, loading: authLoading } = useAuth();
@@ -297,13 +298,15 @@ export default function SchedulePage() {
                                 
                                 {schedule?.shifts.filter(s => s.date === dateKey && s.passRequests?.some(p => p.status === 'pending' && !s.assignedUsers.some(au => au.userId === user?.uid))).map(shift => {
                                     const passRequest = shift.passRequests?.find(p => p.status === 'pending');
-                                    if (!passRequest) return null;
+                                    if (!passRequest || user?.role !== shift.role) return null;
                                     
                                     return (
                                         <div key={`pass-${shift.id}`} className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs">
-                                            <p className="font-semibold text-amber-800 dark:text-amber-200">
-                                                {passRequest.requestingUser.name} muốn pass ca {shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})
+                                            <p className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                                                 <Badge variant="outline" className="text-amber-700 border-amber-400">{shift.role}</Badge>
+                                                {passRequest.requestingUser.userName} muốn pass ca
                                             </p>
+                                            <p className="text-muted-foreground text-xs mt-1">{shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})</p>
                                             <div className="flex gap-2 mt-2">
                                                 <Button size="xs" className="h-6" onClick={() => handleTakeShift(shift)}>
                                                     <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca

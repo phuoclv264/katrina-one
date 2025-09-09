@@ -18,7 +18,8 @@ import {
     FileSignature,
     Eye,
     Settings,
-    MoreVertical
+    MoreVertical,
+    BookOpen
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -46,6 +47,7 @@ import ShiftAssignmentPopover from './_components/shift-assignment-popover';
 import ShiftTemplatesDialog from './_components/shift-templates-dialog';
 import TotalHoursTracker from './_components/total-hours-tracker';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import HistoryAndReportsDialog from './_components/history-reports-dialog';
 
 
 export default function ShiftSchedulingPage() {
@@ -63,6 +65,7 @@ export default function ShiftSchedulingPage() {
 
     const [isAddShiftDialogOpen, setIsAddShiftDialogOpen] = useState(false);
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
+    const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
     const [selectedDateForShift, setSelectedDateForShift] = useState<Date | null>(null);
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
@@ -192,7 +195,7 @@ export default function ShiftSchedulingPage() {
 
     if (isLoading || authLoading) {
         return (
-            <div className="container mx-auto p-4 sm:p-6 md:p-8">
+            <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
                 <Skeleton className="h-12 w-1/2 mb-4" />
                 <Skeleton className="h-[60vh] w-full" />
             </div>
@@ -263,11 +266,18 @@ export default function ShiftSchedulingPage() {
                             </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                             {user?.role === 'Chủ nhà hàng' && (
-                                <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
-                                    <Settings className="mr-2 h-4 w-4"/> Quản lý Mẫu ca
-                                </Button>
-                            )}
+                            <div className="flex gap-2">
+                                {user?.role === 'Chủ nhà hàng' && (
+                                    <>
+                                        <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
+                                            <Settings className="mr-2 h-4 w-4"/> Quản lý Mẫu ca
+                                        </Button>
+                                         <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
+                                            <BookOpen className="mr-2 h-4 w-4"/> Lịch sử & Thống kê
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
                             <div className="flex-1" />
                             {schedule?.status === 'draft' && user?.role === 'Quản lý' && (
                                <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
@@ -305,10 +315,17 @@ export default function ShiftSchedulingPage() {
                 date={selectedDateForShift}
             />
             {user?.role === 'Chủ nhà hàng' && (
-                 <ShiftTemplatesDialog
-                    isOpen={isTemplatesDialogOpen}
-                    onClose={() => setIsTemplatesDialogOpen(false)}
-                />
+                <>
+                    <ShiftTemplatesDialog
+                        isOpen={isTemplatesDialogOpen}
+                        onClose={() => setIsTemplatesDialogOpen(false)}
+                    />
+                    <HistoryAndReportsDialog
+                        isOpen={isHistoryDialogOpen}
+                        onClose={() => setIsHistoryDialogOpen(false)}
+                        allUsers={allUsers}
+                    />
+                </>
             )}
         </div>
     )
