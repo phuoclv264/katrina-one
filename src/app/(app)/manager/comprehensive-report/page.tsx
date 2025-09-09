@@ -721,14 +721,20 @@ export default function ComprehensiveReportPage() {
               ))}
             </Accordion>
           </CardContent>
-            <CardFooter>
-                <Button className="w-full" size="lg" onClick={() => setIsSubmissionNotesOpen(true)} disabled={isReadonly || syncStatus === 'server-newer'}>
-                    <Send className="mr-2 h-4 w-4"/>
-                    {report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
-                </Button>
-            </CardFooter>
         </Card>
       </div>
+    </div>
+    
+    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+       <Button
+          size="lg"
+          className="rounded-full shadow-lg h-16 w-16"
+          onClick={() => setIsSubmissionNotesOpen(true)}
+          disabled={isReadonly || syncStatus === 'server-newer'}
+          aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
+      >
+          <Send className="h-6 w-6" />
+      </Button>
     </div>
     
     <CameraDialog 
@@ -801,4 +807,5 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
+
 
