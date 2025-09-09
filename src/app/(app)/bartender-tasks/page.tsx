@@ -6,7 +6,7 @@ import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -282,9 +282,10 @@ function AiAssistant({
                  <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
                    <ul className="space-y-2">
                         {addPreviewTasks.map((task, index) => (
-                            <li key={index} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
+                            <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
                                 <Plus className="h-4 w-4 text-green-500"/>
-                                <span>{task.text}</span>
+                                <span className="flex-1">{task.text}</span>
+                                <Badge variant="outline">{task.type}</Badge>
                             </li>
                         ))}
                    </ul>
@@ -320,10 +321,8 @@ function AiAssistant({
                        <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
                        <ul className="space-y-2 text-sm">
                            {sortPreview.newOrder.map((task, index) => {
-                                // Find original index for diffing
                                 const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
                                 const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
-                                // This isn't a perfect diff if items are reordered AND text is changed, but it's a good heuristic.
                                 return (
                                    <li key={index} className="p-2 rounded-md bg-green-100/50">
                                        {index + 1}. {renderDiff(oldTaskText, task)}
@@ -352,9 +351,10 @@ export default function BartenderTasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
 
-  const [newText, setNewText] = useState('');
+  const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskType, setNewTaskType] = useState<Task['type']>('photo');
 
-  const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string } | null>(null);
+  const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string; newType: Task['type'] } | null>(null);
   const [openItems, setOpenItems] = useState<string[]>([]);
 
 
@@ -401,7 +401,7 @@ export default function BartenderTasksPage() {
     const newTasksToAdd: Task[] = tasks.map(task => ({
       id: `bt-task-${Date.now()}-${Math.random()}`,
       text: task.text,
-      type: 'photo',
+      type: task.type,
     }));
 
     const newSectionsState = JSON.parse(JSON.stringify(sections));
@@ -422,11 +422,8 @@ export default function BartenderTasksPage() {
       const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
 
       if (section) {
-          // Create a map of text -> task object to preserve IDs and other properties
           const taskMap = new Map(section.tasks.map((t: Task) => [t.text, t]));
           const sortedTasks: Task[] = sortedTasksText.map(text => taskMap.get(text)).filter((t): t is Task => !!t);
-
-          // Check if any tasks were lost during mapping
           if (sortedTasks.length === section.tasks.length) {
               section.tasks = sortedTasks;
               handleUpdateAndSave(newSectionsState);
@@ -437,15 +434,15 @@ export default function BartenderTasksPage() {
   };
 
   const handleAddTask = (sectionTitle: string) => {
-    if (!sections || newText.trim() === '') {
+    if (!sections || newTaskText.trim() === '') {
         toast({ title: "Lỗi", description: "Vui lòng điền nội dung công việc.", variant: "destructive" });
         return;
     };
 
     const newTaskToAdd: Task = {
       id: `bt-task-${Date.now()}`,
-      text: newText.trim(),
-      type: 'photo', // All bartender tasks are photo type
+      text: newTaskText.trim(),
+      type: newTaskType,
     };
 
     const newSectionsState = JSON.parse(JSON.stringify(sections));
@@ -455,7 +452,7 @@ export default function BartenderTasksPage() {
     }
 
     handleUpdateAndSave(newSectionsState);
-    setNewText('');
+    setNewTaskText('');
   };
 
   const handleDeleteTask = (sectionTitle: string, taskId: string) => {
@@ -468,18 +465,20 @@ export default function BartenderTasksPage() {
     handleUpdateAndSave(newSectionsState);
   };
 
-   const handleUpdateTask = (sectionTitle: string, taskId: string) => {
+   const handleUpdateTask = () => {
     if (!sections || !editingTask || editingTask.newText.trim() === '') {
         setEditingTask(null);
         return;
     }
 
+    const { sectionTitle, taskId, newText, newType } = editingTask;
     const newSectionsState = JSON.parse(JSON.stringify(sections));
     const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
     if (section) {
         const task = section.tasks.find((t: Task) => t.id === taskId);
         if (task) {
-            task.text = editingTask.newText.trim();
+            task.text = newText.trim();
+            task.type = newType;
         }
     }
     handleUpdateAndSave(newSectionsState);
@@ -515,6 +514,15 @@ export default function BartenderTasksPage() {
         case 'Vệ sinh thiết bị': return <Wind className="h-5 w-5 text-purple-500"/>;
         default: return null;
     }
+  }
+
+  const getTaskTypeIcon = (type: Task['type']) => {
+      switch(type) {
+          case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
+          case 'boolean': return <CheckSquare className="h-4 w-4 text-sky-500 shrink-0" />;
+          case 'opinion': return <MessageSquare className="h-4 w-4 text-orange-500 shrink-0" />;
+          default: return null;
+      }
   }
 
   const handleToggleAll = () => {
@@ -620,19 +628,39 @@ export default function BartenderTasksPage() {
                       {section.tasks.map((task, taskIndex) => (
                         <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
                             {editingTask?.taskId === task.id ? (
-                                <Input
-                                    value={editingTask.newText}
-                                    onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleUpdateTask(section.title, task.id);
-                                        if (e.key === 'Escape') setEditingTask(null);
-                                    }}
-                                    onBlur={() => handleUpdateTask(section.title, task.id)}
-                                    autoFocus
-                                    className="text-sm h-8 flex-1"
-                                />
+                                <div className="flex-1 flex flex-col sm:flex-row gap-2 items-center">
+                                    <Input
+                                        value={editingTask.newText}
+                                        onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
+                                        autoFocus
+                                        className="text-sm h-9 flex-1"
+                                    />
+                                    <Select 
+                                        value={editingTask.newType} 
+                                        onValueChange={(value) => {
+                                            if (editingTask) {
+                                                setEditingTask({...editingTask, newType: value as Task['type']});
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="photo">Hình ảnh</SelectItem>
+                                            <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
+                                            <SelectItem value="opinion">Ý kiến</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={handleUpdateTask}>
+                                        <Check className="h-4 w-4 text-green-500" />
+                                    </Button>
+                                </div>
                             ) : (
-                               <p className="flex-1 text-sm">{task.text}</p>
+                               <p className="flex-1 text-sm flex items-center gap-2">
+                                  {getTaskTypeIcon(task.type)}
+                                  {task.text}
+                               </p>
                             )}
 
                           <div className="flex items-center gap-0">
@@ -647,7 +675,7 @@ export default function BartenderTasksPage() {
                                 </>
                              ) : (
                                 <>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
                                     <AlertDialog>
@@ -670,14 +698,26 @@ export default function BartenderTasksPage() {
                         <p className="text-sm text-muted-foreground text-center py-4">Chưa có hạng mục nào trong khu vực này.</p>
                       )}
                     </div>
-                     <div className="mt-4 flex flex-col sm:flex-row gap-2 pt-4 border-t">
+                     <div className="mt-4 pt-4 border-t flex flex-col gap-2">
                         <Input
                             placeholder="Nội dung công việc mới..."
-                            value={newText}
-                            onChange={(e) => setNewText(e.target.value)}
+                            value={newTaskText}
+                            onChange={(e) => setNewTaskText(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAddTask(section.title)}
                         />
-                        <Button onClick={() => handleAddTask(section.title)} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/> Thêm</Button>
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                            <Select value={newTaskType} onValueChange={(value) => setNewTaskType(value as Task['type'])}>
+                                <SelectTrigger className="w-full sm:w-auto">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="photo">Hình ảnh</SelectItem>
+                                    <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
+                                    <SelectItem value="opinion">Ý kiến</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button onClick={() => handleAddTask(section.title)} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/> Thêm</Button>
+                        </div>
                     </div>
                 </AccordionContent>
               </AccordionItem>

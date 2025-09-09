@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/ty
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -316,9 +316,10 @@ function AiAssistant({
                  <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
                    <ul className="space-y-2">
                         {addPreviewTasks.map((task, index) => (
-                            <li key={index} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
+                            <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
                                 {task.isCritical ? <Star className="h-4 w-4 text-yellow-500"/> : <Plus className="h-4 w-4 text-green-500"/>}
-                                <span>{task.text}</span>
+                                <span className="flex-1">{task.text}</span>
+                                <Badge variant="outline">{task.type}</Badge>
                             </li>
                         ))}
                    </ul>
@@ -354,7 +355,6 @@ function AiAssistant({
                        <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
                        <ul className="space-y-2 text-sm">
                            {sortPreview.newOrder.map((task, index) => {
-                                // Find original index for diffing
                                 const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
                                 const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
                                 return (
@@ -383,8 +383,8 @@ export default function TaskListsPage() {
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
-  const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean } } }>({});
-  const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; newText: string } | null>(null);
+  const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean; type: Task['type'] } } }>({});
+  const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; newText: string; newType: Task['type'] } | null>(null);
 
 
   const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
@@ -397,10 +397,9 @@ export default function TaskListsPage() {
         const unsubscribe = dataStore.subscribeToTasks((tasks) => {
           setTasksByShift(tasks);
           setIsLoading(false);
-          // Initialize accordion state
           const initialOpenState: { [shiftKey: string]: string[] } = {};
           for (const shiftKey in tasks) {
-            if (!openSections[shiftKey]) { // Only initialize if not already set
+            if (!openSections[shiftKey]) { 
               initialOpenState[shiftKey] = tasks[shiftKey].sections.map(s => s.title);
             }
           }
@@ -411,11 +410,11 @@ export default function TaskListsPage() {
         return () => unsubscribe();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
   const handleUpdateAndSave = (newTasks: TasksByShift, showToast: boolean = true) => {
-    setTasksByShift(newTasks); // Optimistic update
+    setTasksByShift(newTasks); 
     dataStore.updateTasks(newTasks).then(() => {
         if(showToast) {
             toast({
@@ -440,7 +439,7 @@ export default function TaskListsPage() {
           id: `task-${Date.now()}-${Math.random()}`,
           text: task.text,
           isCritical: task.isCritical,
-          type: 'photo',
+          type: task.type,
       }));
 
       const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
@@ -449,7 +448,6 @@ export default function TaskListsPage() {
       if (section) {
           section.tasks.push(...newTasksToAdd);
           handleUpdateAndSave(newTasksState);
-          // Ensure the accordion is open
           if (!(openSections[shiftKey] || []).includes(sectionTitle)) {
               setOpenSections(prev => {
                   const newOpen = { ...prev };
@@ -490,7 +488,7 @@ export default function TaskListsPage() {
       id: `task-${Date.now()}`,
       text: taskDetails.text.trim(),
       isCritical: taskDetails.isCritical,
-      type: 'photo',
+      type: taskDetails.type,
     };
 
     const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
@@ -503,25 +501,28 @@ export default function TaskListsPage() {
 
     setNewTask(current => {
       const newTasksInputState = JSON.parse(JSON.stringify(current));
-      if (newTasksInputState[shiftKey]) {
-        delete newTasksInputState[shiftKey][sectionTitle];
+      if (newTasksInputState[shiftKey]?.[sectionTitle]) {
+         newTasksInputState[shiftKey][sectionTitle].text = '';
+         newTasksInputState[shiftKey][sectionTitle].isCritical = false;
       }
       return newTasksInputState;
     });
   };
 
-  const handleUpdateTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
+  const handleUpdateTask = () => {
     if (!tasksByShift || !editingTask || editingTask.newText.trim() === '') {
         setEditingTask(null);
         return;
     }
 
+    const { shiftKey, sectionTitle, taskId, newText, newType } = editingTask;
     const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
-    const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+    const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
     if (section) {
         const task = section.tasks.find((t: Task) => t.id === taskId);
         if (task) {
-            task.text = editingTask.newText.trim();
+            task.text = newText.trim();
+            task.type = newType;
         }
     }
     handleUpdateAndSave(newTasksState);
@@ -565,11 +566,11 @@ export default function TaskListsPage() {
       handleUpdateAndSave(newTasksState, false);
   }
 
-  const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical', value: string | boolean) => {
+  const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical' | 'type', value: string | boolean | Task['type']) => {
     setNewTask(current => {
       const newState = JSON.parse(JSON.stringify(current));
       if (!newState[shiftKey]) newState[shiftKey] = {};
-      if (!newState[shiftKey][sectionTitle]) newState[shiftKey][sectionTitle] = { text: '', isCritical: false };
+      if (!newState[shiftKey][sectionTitle]) newState[shiftKey][sectionTitle] = { text: '', isCritical: false, type: 'photo' };
       (newState[shiftKey][sectionTitle] as any)[field] = value;
       return newState;
     });
@@ -612,6 +613,15 @@ export default function TaskListsPage() {
 
   if(!tasksByShift){
     return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
+  }
+
+  const getTaskTypeIcon = (type: Task['type']) => {
+      switch(type) {
+          case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
+          case 'boolean': return <CheckSquare className="h-4 w-4 text-sky-500 shrink-0" />;
+          case 'opinion': return <MessageSquare className="h-4 w-4 text-orange-500 shrink-0" />;
+          default: return null;
+      }
   }
 
   return (
@@ -677,20 +687,38 @@ export default function TaskListsPage() {
                               <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
                                 
                                 {editingTask?.taskId === task.id ? (
-                                    <Input
-                                        value={editingTask.newText}
-                                        onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleUpdateTask(shiftKey, section.title, task.id);
-                                            if (e.key === 'Escape') setEditingTask(null);
-                                        }}
-                                        onBlur={() => handleUpdateTask(shiftKey, section.title, task.id)}
-                                        autoFocus
-                                        className="text-sm h-8 flex-1"
-                                    />
+                                    <div className="flex-1 flex flex-col sm:flex-row gap-2 items-center">
+                                      <Input
+                                          value={editingTask.newText}
+                                          onChange={(e) => setEditingTask({...editingTask, newText: e.target.value})}
+                                          autoFocus
+                                          className="text-sm h-9 flex-1"
+                                      />
+                                      <Select 
+                                          value={editingTask.newType} 
+                                          onValueChange={(value) => {
+                                              if (editingTask) {
+                                                  setEditingTask({...editingTask, newType: value as Task['type']});
+                                              }
+                                          }}
+                                      >
+                                          <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                                              <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                              <SelectItem value="photo">Hình ảnh</SelectItem>
+                                              <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
+                                              <SelectItem value="opinion">Ý kiến</SelectItem>
+                                          </SelectContent>
+                                      </Select>
+                                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={handleUpdateTask}>
+                                        <Check className="h-4 w-4 text-green-500" />
+                                      </Button>
+                                    </div>
                                 ) : (
                                    <p className="flex-1 text-sm flex items-center gap-2">
                                      {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                     {getTaskTypeIcon(task.type)}
                                      {task.text}
                                    </p>
                                 )}
@@ -709,7 +737,7 @@ export default function TaskListsPage() {
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
                                             <Star className={`h-4 w-4 ${task.isCritical ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text })}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
@@ -732,6 +760,21 @@ export default function TaskListsPage() {
                                   onKeyDown={e => e.key === 'Enter' && handleAddTask(shiftKey, section.title)}
                                 />
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                  <div className="flex items-center space-x-2">
+                                    <Select 
+                                      value={newTask[shiftKey]?.[section.title]?.type || 'photo'} 
+                                      onValueChange={(value) => handleNewTaskChange(shiftKey, section.title, 'type', value as Task['type'])}
+                                    >
+                                      <SelectTrigger className="h-9 w-auto">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="photo">Hình ảnh</SelectItem>
+                                        <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
+                                        <SelectItem value="opinion">Ý kiến</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                     <div className="flex items-center space-x-2">
                                     <Checkbox
                                         id={`isCritical-${shiftKey}-${section.title}`}
@@ -758,3 +801,4 @@ export default function TaskListsPage() {
     </div>
   );
 }
+
