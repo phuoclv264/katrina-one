@@ -22,7 +22,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -309,7 +309,15 @@ export const dataStore = {
     const docRef = doc(db, 'app-data', 'bartenderTasks');
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        callback(docSnap.data().tasks as TaskSection[]);
+        const sections = docSnap.data().tasks as TaskSection[];
+        const sanitizedSections = sections.map(section => ({
+            ...section,
+            tasks: section.tasks.map((task: Task) => ({
+                ...task,
+                type: task.type || 'photo'
+            }))
+        }));
+        callback(sanitizedSections);
       } else {
         try {
             await setDoc(docRef, { tasks: initialBartenderTasks });
