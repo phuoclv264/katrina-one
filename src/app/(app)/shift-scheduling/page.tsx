@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -181,7 +182,7 @@ export default function ShiftSchedulingPage() {
     
     const availabilityByDay = useMemo(() => {
         const grouped: { [key: string]: Availability[] } = {};
-         if (schedule) {
+         if (schedule && schedule.availability) {
             for (const avail of schedule.availability) {
                 if (!grouped[avail.date]) {
                     grouped[avail.date] = [];
