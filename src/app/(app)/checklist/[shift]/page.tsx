@@ -620,11 +620,11 @@ export default function ChecklistPage() {
                                 </Button>
                             )}
                             {task.type === 'boolean' && (
-                                <div className="flex w-full gap-2">
+                                <div className="flex flex-col sm:flex-row w-full gap-2">
                                     <Button
                                         size="sm"
                                         variant={"outline"}
-                                        className="flex-1"
+                                        className="w-full"
                                         onClick={() => handleBooleanTaskAction(task.id, true)}
                                         disabled={isDisabledForNew}
                                     >
@@ -633,7 +633,7 @@ export default function ChecklistPage() {
                                     <Button
                                         size="sm"
                                         variant={"outline"}
-                                        className="flex-1"
+                                        className="w-full"
                                         onClick={() => handleBooleanTaskAction(task.id, false)}
                                         disabled={isDisabledForNew}
                                     >
