@@ -22,7 +22,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -53,6 +53,44 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+     // --- Schedule ---
+    subscribeToSchedule(weekId: string, callback: (schedule: Schedule | null) => void): () => void {
+        const docRef = doc(db, 'schedules', weekId);
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data() as Schedule);
+            } else {
+                callback(null);
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read schedule for ${weekId}: ${error.code}`);
+            callback(null);
+        });
+        return unsubscribe;
+    },
+
+    async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
+        const docRef = doc(db, 'schedules', weekId);
+        await setDoc(docRef, data, { merge: true });
+    },
+
+    async getOrCreateSchedule(weekId: string): Promise<Schedule> {
+        const docRef = doc(db, 'schedules', weekId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as Schedule;
+        } else {
+            const newSchedule: Schedule = {
+                weekId,
+                status: 'draft',
+                availability: [],
+                shifts: [],
+            };
+            await setDoc(docRef, newSchedule);
+            return newSchedule;
+        }
+    },
+    // --- End Schedule ---
     async cleanupOldReports(daysToKeep: number): Promise<number> {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);

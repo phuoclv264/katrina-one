@@ -49,6 +49,7 @@ export function AppSidebar() {
           case 'Quản lý': return [
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
             commonScheduleMenu,
+            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
             { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
             { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
             { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
@@ -56,7 +57,7 @@ export function AppSidebar() {
           ];
           case 'Chủ nhà hàng': return [
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
+            { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
             { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
