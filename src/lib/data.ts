@@ -1,5 +1,4 @@
 
-
 import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
 
 export const staff: Staff[] = [
@@ -247,3 +246,5 @@ export const initialViolationCategories: ViolationCategory[] = [
     "Khác"
 ];
 
+
+    
