@@ -246,3 +246,4 @@ export const initialViolationCategories: ViolationCategory[] = [
     "Pha chế sai công thức",
     "Khác"
 ];
+
