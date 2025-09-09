@@ -232,14 +232,14 @@ export default function ShiftSchedulingPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-7 border-t border-l">
+                           <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 border-t border-l">
                                {daysOfWeek.map(day => {
                                     const dateKey = format(day, 'yyyy-MM-dd');
                                     const dayShifts = shiftsByDay[dateKey] || [];
                                     
                                     return (
-                                        <div key={dateKey} className="border-b border-r min-h-[200px] flex flex-col">
-                                            <div className={cn("p-2 border-b flex justify-between items-center", isSameDay(day, new Date()) && "bg-primary/10")}>
+                                        <div key={dateKey} className="border-b border-r min-h-[200px] flex flex-col bg-muted/20">
+                                            <div className={cn("p-2 border-b flex justify-between items-center bg-background", isSameDay(day, new Date()) && "bg-primary/10")}>
                                                 <span className="font-bold">{format(day, 'dd')}</span>
                                                 <span className="text-sm text-muted-foreground">{format(day, 'eee', {locale: vi})}</span>
                                             </div>
