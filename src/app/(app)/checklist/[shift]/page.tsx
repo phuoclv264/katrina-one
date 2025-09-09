@@ -620,11 +620,11 @@ export default function ChecklistPage() {
                                 </Button>
                             )}
                             {task.type === 'boolean' && (
-                                <>
+                                <div className="flex w-full gap-2">
                                     <Button
                                         size="sm"
                                         variant={"outline"}
-                                        className="w-full"
+                                        className="flex-1"
                                         onClick={() => handleBooleanTaskAction(task.id, true)}
                                         disabled={isDisabledForNew}
                                     >
@@ -633,13 +633,13 @@ export default function ChecklistPage() {
                                     <Button
                                         size="sm"
                                         variant={"outline"}
-                                        className="w-full"
+                                        className="flex-1"
                                         onClick={() => handleBooleanTaskAction(task.id, false)}
                                         disabled={isDisabledForNew}
                                     >
                                         <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
                                     </Button>
-                                </>
+                                </div>
                             )}
                             {task.type === 'opinion' && (
                                 <Button

@@ -570,11 +570,11 @@ export default function ComprehensiveReportPage() {
                                 </Button>
                             )}
                             {task.type === 'boolean' && (
-                                <>
+                                <div className="flex w-full gap-2">
                                     <Button
                                         size="sm"
                                         variant={"outline"}
-                                        className="w-full"
+                                        className="flex-1"
                                         onClick={() => handleBooleanTaskAction(task.id, true)}
                                         disabled={isReadonly}
                                     >
@@ -583,13 +583,13 @@ export default function ComprehensiveReportPage() {
                                     <Button
                                         size="sm"
                                         variant={"outline"}
-                                        className="w-full"
+                                        className="flex-1"
                                         onClick={() => handleBooleanTaskAction(task.id, false)}
                                         disabled={isReadonly}
                                     >
                                         <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
                                     </Button>
-                                </>
+                                </div>
                             )}
                             {task.type === 'opinion' && (
                                 <Button
