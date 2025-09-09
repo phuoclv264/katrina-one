@@ -25,11 +25,11 @@ export type Task = {
   id: string;
   text: string;
   isCritical?: boolean;
-  type: 'photo';
+  type: 'photo' | 'boolean' | 'opinion';
 };
 
 // Type for AI-parsed server tasks
-export type ParsedServerTask = Omit<Task, 'id' | 'type'> & {
+export type ParsedServerTask = Omit<Task, 'id'> & {
     text: string;
     isCritical: boolean;
 };

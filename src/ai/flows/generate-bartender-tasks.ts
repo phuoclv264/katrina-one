@@ -20,6 +20,7 @@ export type GenerateBartenderTasksInput = z.infer<typeof GenerateBartenderTasksI
 
 const ParsedTaskSchema = z.object({
     text: z.string().describe('The full description of the task.'),
+    type: z.enum(['photo', 'boolean', 'opinion']).describe("The type of reporting required for the task. It can be 'photo', 'boolean' (yes/no), or 'opinion' (text feedback)."),
 });
 
 const GenerateBartenderTasksOutputSchema = z.object({
@@ -40,6 +41,11 @@ const prompt = ai.definePrompt({
 
 The input contains a list of cleaning or operational tasks. You must extract the following field for each item:
 - text: The full description of the task.
+- type: The type of report needed. Map the input to one of three values: 'photo', 'boolean', or 'opinion'.
+    - If the task implies taking a picture, or is about visual confirmation (e.g. "ensure it is clean", "check if it's tidy"), use 'photo'.
+    - If the task is a simple yes/no question that doesn't need a photo (e.g., 'Turn off the lights?'), use 'boolean'.
+    - If the task asks for subjective feedback, use 'opinion'.
+    - If not specified, default to 'photo'.
 
 Analyze the following input and extract all tasks.
 

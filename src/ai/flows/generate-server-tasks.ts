@@ -21,6 +21,7 @@ export type GenerateServerTasksInput = z.infer<typeof GenerateServerTasksInputSc
 const ParsedTaskSchema = z.object({
     text: z.string().describe('The full description of the task.'),
     isCritical: z.boolean().describe('Whether the task is considered critical.'),
+    type: z.enum(['photo', 'boolean', 'opinion']).describe("The type of reporting required for the task. It can be 'photo', 'boolean' (yes/no), or 'opinion' (text feedback)."),
 });
 
 const GenerateServerTasksOutputSchema = z.object({
@@ -42,6 +43,11 @@ const prompt = ai.definePrompt({
 The input contains a list of tasks. You must extract the following fields for each item:
 - text: The full description of the task.
 - isCritical: A boolean indicating if the task is critical. Tasks marked with "quan trọng", "critical", or similar terms should be considered critical.
+- type: The type of report needed. Map the input to one of three values: 'photo', 'boolean', or 'opinion'.
+    - If the task implies taking a picture or visually verifying something, use 'photo'.
+    - If the task is a yes/no question or a check for a state (e.g., 'Is it clean?'), use 'boolean'.
+    - If the task asks for a subjective assessment or feedback (e.g., 'Evaluate staff attitude'), use 'opinion'.
+    - If not specified, default to 'photo'.
 
 Analyze the following input and extract all tasks.
 
