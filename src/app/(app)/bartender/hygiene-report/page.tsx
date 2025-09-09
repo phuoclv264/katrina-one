@@ -5,14 +5,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection } from '@/lib/types';
+import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, FilePlus2 } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, FilePlus2, ThumbsUp, ThumbsDown, FilePen } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
+import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +45,8 @@ export default function HygieneReportPage() {
   const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isOpinionOpen, setIsOpinionOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
     
   const [tasks, setTasks] = useState<TaskSection[] | null>(null);
@@ -198,17 +200,60 @@ export default function HygieneReportPage() {
       }
   }, [fetchLocalPhotos]);
 
-    const handleTaskAction = (taskId: string, completionIndex: number | null = null) => {
-        setActiveTaskId(taskId);
+    const handlePhotoTaskAction = (task: Task, completionIndex: number | null = null) => {
+        setActiveTask(task);
         setActiveCompletionIndex(completionIndex);
         setIsCameraOpen(true);
     };
-  
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeTaskId || !report) return;
+    
+    const handleBooleanTaskAction = async (taskId: string, value: boolean) => {
+        if (!report) return;
 
         const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+        let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        
+        const newCompletion: CompletionRecord = {
+            timestamp: formattedTime,
+            value: value,
+        };
+
+        taskCompletions.unshift(newCompletion);
+        newReport.completedTasks[taskId] = taskCompletions;
+        await updateLocalReport(newReport);
+    };
+
+    const handleOpinionTaskAction = (task: Task) => {
+        setActiveTask(task);
+        setIsOpinionOpen(true);
+    }
+  
+    const handleSaveOpinion = async (opinionText: string) => {
+        if (!report || !activeTask) return;
+
+        const newReport = JSON.parse(JSON.stringify(report));
+        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        
+        const newCompletion: CompletionRecord = {
+            timestamp: formattedTime,
+            opinion: opinionText.trim() || undefined,
+        };
+
+        taskCompletions.unshift(newCompletion);
+        newReport.completedTasks[activeTask.id] = taskCompletions;
+        await updateLocalReport(newReport);
+        
+        handleOpinionClose();
+    }
+
+    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+        if (!activeTask || !report) return;
+
+        const newReport = JSON.parse(JSON.stringify(report));
+        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
 
         if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
             const completionToUpdate = taskCompletions[activeCompletionIndex];
@@ -223,13 +268,11 @@ export default function HygieneReportPage() {
             });
         }
         
-        newReport.completedTasks[activeTaskId] = taskCompletions;
+        newReport.completedTasks[activeTask.id] = taskCompletions;
         await updateLocalReport(newReport);
         
-        setIsCameraOpen(false);
-        setActiveTaskId(null);
-        setActiveCompletionIndex(null);
-    }, [activeTaskId, activeCompletionIndex, report, updateLocalReport]);
+        handleCameraClose();
+    }, [activeTask, activeCompletionIndex, report, updateLocalReport]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
@@ -249,7 +292,10 @@ export default function HygieneReportPage() {
       }
 
       if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-          taskCompletions.splice(completionIndex, 1);
+           const taskDefinition = tasks?.flatMap(s => s.tasks).find(t => t.id === taskId);
+          if (taskDefinition?.type === 'photo') {
+              taskCompletions.splice(completionIndex, 1);
+          }
       }
       
       if (taskCompletions.length === 0) {
@@ -356,8 +402,13 @@ export default function HygieneReportPage() {
     
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
-    setActiveTaskId(null);
+    setActiveTask(null);
     setActiveCompletionIndex(null);
+  }, []);
+
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTask(null);
   }, []);
   
   const getSectionIcon = (title: string) => {
@@ -482,7 +533,7 @@ export default function HygieneReportPage() {
             <div>
               <CardTitle>Danh sách công việc</CardTitle>
               <CardDescription>
-                Nhấn "Đã hoàn thành" để ghi nhận công việc bằng hình ảnh.
+                Thực hiện các công việc và ghi nhận lại. Bạn có thể thực hiện một công việc nhiều lần.
               </CardDescription>
             </div>
              <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
@@ -513,15 +564,51 @@ export default function HygieneReportPage() {
                               <p className="font-semibold flex-1">
                                 {task.text}
                               </p>
-                              <Button 
-                                size="sm" 
-                                className="w-full md:w-auto active:scale-95 transition-transform"
-                                onClick={() => handleTaskAction(task.id)}
-                                disabled={isReadonly}
-                              >
-                                  <Camera className="mr-2 h-4 w-4"/>
-                                  Đã hoàn thành
-                              </Button>
+                              <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                                {task.type === 'photo' && (
+                                  <Button 
+                                    size="sm" 
+                                    className="w-full active:scale-95 transition-transform"
+                                    onClick={() => handlePhotoTaskAction(task)}
+                                    disabled={isReadonly}
+                                  >
+                                      <Camera className="mr-2 h-4 w-4"/>
+                                      Đã hoàn thành
+                                  </Button>
+                                )}
+                                {task.type === 'boolean' && (
+                                    <>
+                                        <Button
+                                            size="sm"
+                                            variant={"outline"}
+                                            className="w-full"
+                                            onClick={() => handleBooleanTaskAction(task.id, true)}
+                                            disabled={isReadonly}
+                                        >
+                                            <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={"outline"}
+                                            className="w-full"
+                                            onClick={() => handleBooleanTaskAction(task.id, false)}
+                                            disabled={isReadonly}
+                                        >
+                                            <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
+                                        </Button>
+                                    </>
+                                )}
+                                {task.type === 'opinion' && (
+                                    <Button
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => handleOpinionTaskAction(task)}
+                                        disabled={isReadonly}
+                                    >
+                                        <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
+                                    </Button>
+                                )}
+                              </div>
                             </div>
                             
                             {isTaskCompleted && (
@@ -535,8 +622,13 @@ export default function HygieneReportPage() {
                                             <span>Thực hiện lúc: {completion.timestamp}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            {!isReadonly && (
-                                                <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handleTaskAction(task.id, cIndex)}>
+                                            {completion.value !== undefined && (
+                                              <Badge variant={completion.value ? "default" : "destructive"}>
+                                                {completion.value ? "Đảm bảo" : "Không đảm bảo"}
+                                              </Badge>
+                                            )}
+                                            {!isReadonly && task.type === 'photo' && (
+                                                <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handlePhotoTaskAction(task, cIndex)}>
                                                   <FilePlus2 className="h-3 w-3" />
                                                 </Button>
                                             )}
@@ -605,6 +697,9 @@ export default function HygieneReportPage() {
                                           );
                                         })}
                                       </div>
+                                      {completion.opinion && (
+                                        <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
+                                      )}
                                 </div>
                                 )})}
                                 {completions.length > 1 && (
@@ -660,6 +755,13 @@ export default function HygieneReportPage() {
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
     />
+
+    <OpinionDialog
+        isOpen={isOpinionOpen}
+        onClose={handleOpinionClose}
+        onSubmit={handleSaveOpinion}
+        taskText={activeTask?.text || ''}
+    />
     
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
@@ -711,3 +813,5 @@ export default function HygieneReportPage() {
     </TooltipProvider>
   );
 }
+
+    
