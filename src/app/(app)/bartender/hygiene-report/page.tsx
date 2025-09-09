@@ -17,7 +17,7 @@ import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import ShiftNotesCard from '@/components/shift-notes-card';
+import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -43,6 +43,7 @@ export default function HygieneReportPage() {
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -334,18 +335,21 @@ export default function HygieneReportPage() {
       await updateLocalReport(newReport);
   }
   
-    const handleSubmitReport = async () => {
+    const handleSubmitReport = async (notes: string) => {
         if (!report) return;
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
+        setIsSubmissionNotesOpen(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
+        const finalReport = { ...report, issues: notes || null };
+
         try {
-            await dataStore.submitReport(report);
+            await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
             await fetchLocalPhotos(serverReport);
@@ -428,14 +432,6 @@ export default function HygieneReportPage() {
         default: return 'border-border';
     }
   }
-    
-  const handleSaveNotes = useCallback((newIssues: string) => {
-    if(!report) return;
-    if (newIssues !== (report.issues || '')) {
-      const newReport = { ...report, issues: newIssues || null };
-      updateLocalReport(newReport);
-    }
-  }, [report, updateLocalReport]);
 
   const toggleExpandTask = useCallback((taskId: string) => {
     setExpandedTaskIds(prev => {
@@ -720,33 +716,13 @@ export default function HygieneReportPage() {
               )}
             </Accordion>
           </CardContent>
+          <CardFooter>
+            <Button className="w-full" size="lg" onClick={() => setIsSubmissionNotesOpen(true)} disabled={isReadonly || syncStatus === 'server-newer'}>
+                <Send className="mr-2 h-4 w-4"/>
+                Gửi báo cáo
+            </Button>
+          </CardFooter>
         </Card>
-
-        <ShiftNotesCard
-          initialIssues={report.issues || ''}
-          onSave={handleSaveNotes}
-          disabled={isReadonly}
-        />
-      </div>
-    </div>
-
-    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
-      <div className="relative">
-        <Button 
-            size="icon"
-            className="rounded-full shadow-lg h-14 w-14 md:h-16 md:w-16" 
-            onClick={handleSubmitReport} 
-            disabled={isReadonly || syncStatus === 'server-newer'}
-            aria-label="Gửi báo cáo"
-        >
-            {isSubmitting ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6" />}
-        </Button>
-        {hasUnsubmittedChanges && (
-            <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
-            </div>
-        )}
       </div>
     </div>
 
@@ -763,6 +739,13 @@ export default function HygieneReportPage() {
         taskText={activeTask?.text || ''}
     />
     
+    <SubmissionNotesDialog
+        isOpen={isSubmissionNotesOpen}
+        onClose={() => setIsSubmissionNotesOpen(false)}
+        onSubmit={handleSubmitReport}
+        isSubmitting={isSubmitting}
+    />
+
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -775,7 +758,7 @@ export default function HygieneReportPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
