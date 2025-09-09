@@ -557,7 +557,7 @@ export default function ComprehensiveReportPage() {
                             <p className="font-semibold flex-1">
                             {task.text}
                             </p>
-                            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                            <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
                             {task.type === 'photo' && (
                                 <Button 
                                 size="sm" 
