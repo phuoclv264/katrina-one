@@ -67,7 +67,18 @@ export default function ScheduleView() {
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
     
-    const [openMobileDays, setOpenMobileDays] = useState<string[]>([]);
+    const weekInterval = useMemo(() => {
+        const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+        const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+        return { start, end };
+    }, [currentDate]);
+
+    const daysOfWeek = useMemo(() => eachDayOfInterval(weekInterval), [weekInterval]);
+
+    const [openMobileDays, setOpenMobileDays] = useState<string[]>(
+        () => daysOfWeek.map(day => format(day, 'yyyy-MM-dd'))
+    );
+
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
@@ -95,14 +106,6 @@ export default function ScheduleView() {
         };
 
     }, [user, weekId, canManage]);
-    
-    const weekInterval = useMemo(() => {
-        const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-        const end = endOfWeek(currentDate, { weekStartsOn: 1 });
-        return { start, end };
-    }, [currentDate]);
-
-    const daysOfWeek = useMemo(() => eachDayOfInterval(weekInterval), [weekInterval]);
     
     // Auto-populate shifts from templates
     useEffect(() => {
@@ -327,11 +330,23 @@ export default function ScheduleView() {
                                     {daysOfWeek.map(day => {
                                         const dateKey = format(day, 'yyyy-MM-dd');
                                         const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
+                                        const shiftsForDay = schedule?.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
                                         
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey}>
                                                 <AccordionTrigger className="font-semibold text-base p-4 bg-muted/50 rounded-md">
-                                                    {format(day, 'eeee, dd/MM', { locale: vi })}
+                                                     <div className="flex flex-col items-start text-left">
+                                                        <span>{format(day, 'eeee, dd/MM', { locale: vi })}</span>
+                                                         {openMobileDays.includes(dateKey) ? null : (
+                                                            <div className="mt-2 text-xs font-normal text-muted-foreground space-y-1">
+                                                                {shiftsForDay.length > 0 ? shiftsForDay.map(shift => (
+                                                                    <div key={shift.id}>
+                                                                        <span className="font-medium text-foreground">{shift.label}:</span> {shift.assignedUsers.map(u => u.userName).join(', ')}
+                                                                    </div>
+                                                                )) : <p>Chưa xếp lịch</p>}
+                                                            </div>
+                                                        )}
+                                                     </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent className="pt-2">
                                                     <div className="space-y-3 p-2">
