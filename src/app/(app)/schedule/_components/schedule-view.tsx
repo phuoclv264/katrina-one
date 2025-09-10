@@ -267,7 +267,10 @@ export default function ScheduleView() {
                                                             <div key={shift.id}>
                                                                 <span className="font-medium text-foreground">{shift.label}:</span> {shift.timeSlot.start} - {shift.timeSlot.end}
                                                             </div>
-                                                        )) : (passRequestsForDay.length === 0 && <p>Chưa có lịch</p>)}
+                                                        )) : (passRequestsForDay.length === 0 && !canRegisterAvailability && <p>Chưa có lịch</p>)}
+                                                        
+                                                        {availabilityForDay.length > 0 && <p className="text-blue-600 font-medium">Đã đăng ký: {availabilityForDay.length} khung giờ</p>}
+
                                                         {passRequestsForDay.length > 0 && <Badge variant="destructive">Có ca cần người</Badge>}
                                                     </div>
                                                 )}
