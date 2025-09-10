@@ -102,12 +102,14 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                             type="time"
                             value={slot.start}
                             onChange={(e) => handleSlotChange(index, 'start', e.target.value)}
+                            step="600"
                         />
                         <span>-</span>
                         <Input
                             type="time"
                             value={slot.end}
                             onChange={(e) => handleSlotChange(index, 'end', e.target.value)}
+                            step="600"
                         />
                         <Button variant="ghost" size="icon" onClick={() => removeSlot(index)}>
                             <Trash2 className="h-4 w-4" />
