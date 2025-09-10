@@ -21,6 +21,7 @@ import {
     FileSignature,
     Settings,
     BookOpen,
+    ChevronsDownUp,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -46,6 +47,7 @@ import HistoryAndReportsDialog from './history-reports-dialog';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 export default function ScheduleView() {
@@ -63,6 +65,8 @@ export default function ScheduleView() {
 
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+    
+    const [openMobileDays, setOpenMobileDays] = useState<string[]>([]);
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
@@ -98,6 +102,13 @@ export default function ScheduleView() {
     }, [currentDate]);
 
     const daysOfWeek = eachDayOfInterval(weekInterval);
+    
+    // Set accordion to open all days by default for mobile view
+    useEffect(() => {
+        if (isMobile) {
+            setOpenMobileDays(daysOfWeek.map(day => format(day, 'yyyy-MM-dd')));
+        }
+    }, [isMobile, daysOfWeek]);
     
     // Auto-populate shifts from templates
     useEffect(() => {
@@ -219,6 +230,14 @@ export default function ScheduleView() {
         return grouped;
     }, [schedule?.availability]);
 
+    const handleToggleAllMobileDays = () => {
+        if (openMobileDays.length === daysOfWeek.length) {
+            setOpenMobileDays([]);
+        } else {
+            setOpenMobileDays(daysOfWeek.map(day => format(day, 'yyyy-MM-dd')));
+        }
+    };
+
 
     if (isLoading) {
         return (
@@ -231,6 +250,7 @@ export default function ScheduleView() {
     
     const canEditSchedule = schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng';
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
+    const areAllMobileDaysOpen = openMobileDays.length === daysOfWeek.length;
 
     return (
         <TooltipProvider>
@@ -310,49 +330,59 @@ export default function ScheduleView() {
                                 </Table>
                             </div>
                              {/* Mobile View */}
-                             <div className="block md:hidden space-y-4">
-                                {daysOfWeek.map(day => {
-                                    const dateKey = format(day, 'yyyy-MM-dd');
-                                    const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
-                                    
-                                    return (
-                                        <Card key={dateKey}>
-                                            <CardHeader>
-                                                <CardTitle>{format(day, 'eeee, dd/MM', { locale: vi })}</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-3">
-                                                {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
-                                                    const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
-                                                    const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
+                             <div className="block md:hidden space-y-2">
+                                <div className="flex justify-end">
+                                    <Button variant="outline" size="sm" onClick={handleToggleAllMobileDays}>
+                                        <ChevronsDownUp className="mr-2 h-4 w-4" />
+                                        {areAllMobileDaysOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+                                    </Button>
+                                </div>
+                                <Accordion type="multiple" value={openMobileDays} onValueChange={setOpenMobileDays}>
+                                    {daysOfWeek.map(day => {
+                                        const dateKey = format(day, 'yyyy-MM-dd');
+                                        const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
+                                        
+                                        return (
+                                            <AccordionItem value={dateKey} key={dateKey}>
+                                                <AccordionTrigger className="font-semibold text-base p-4 bg-muted/50 rounded-md">
+                                                    {format(day, 'eeee, dd/MM', { locale: vi })}
+                                                </AccordionTrigger>
+                                                <AccordionContent className="pt-2">
+                                                    <div className="space-y-3 p-2">
+                                                        {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
+                                                            const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                            const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
-                                                    if (!shiftObject) return null;
+                                                            if (!shiftObject) return null;
 
-                                                    return (
-                                                        <div key={template.id} className="p-3 border rounded-md">
-                                                            <div className="flex justify-between items-start gap-2">
-                                                                <div>
-                                                                    <p className="font-semibold">{template.label}</p>
-                                                                    <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
-                                                                     <p className="text-xs text-muted-foreground">({template.role})</p>
+                                                            return (
+                                                                <div key={template.id} className="p-3 border rounded-md">
+                                                                    <div className="flex justify-between items-start gap-2">
+                                                                        <div>
+                                                                            <p className="font-semibold">{template.label}</p>
+                                                                            <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
+                                                                            <p className="text-xs text-muted-foreground">({template.role})</p>
+                                                                        </div>
+                                                                        <ShiftAssignmentPopover
+                                                                            shift={shiftObject}
+                                                                            availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
+                                                                            dailyAvailability={availabilityByDay[dateKey] || []}
+                                                                            onUpdateAssignment={handleUpdateShiftAssignment}
+                                                                            onDelete={handleDeleteShift}
+                                                                            canEdit={canEditSchedule}
+                                                                        />
+                                                                    </div>
                                                                 </div>
-                                                                <ShiftAssignmentPopover
-                                                                    shift={shiftObject}
-                                                                    availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
-                                                                    dailyAvailability={availabilityByDay[dateKey] || []}
-                                                                    onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                    onDelete={handleDeleteShift}
-                                                                    canEdit={canEditSchedule}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }) : (
-                                                    <p className="text-sm text-muted-foreground text-center py-4">Không có ca làm việc.</p>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                })}
+                                                            );
+                                                        }) : (
+                                                            <p className="text-sm text-muted-foreground text-center py-4">Không có ca làm việc.</p>
+                                                        )}
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        )
+                                    })}
+                                 </Accordion>
                              </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
