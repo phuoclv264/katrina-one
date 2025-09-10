@@ -122,29 +122,72 @@ export const dataStore = {
         await setDoc(docRef, { templates });
     },
     
-    async requestPassShift(weekId: string, shifts: AssignedShift[], shiftId: string, requestingUser: { userId: string, userName: string }): Promise<void> {
-        const updatedShifts = shifts.map(s => {
-            if (s.id === shiftId) {
-                const newRequest: PassRequest = {
-                    requestingUser: { userId: requestingUser.userId, userName: requestingUser.userName },
-                    status: 'pending',
-                    timestamp: Timestamp.now(),
-                };
-                return {
-                    ...s,
-                    passRequests: [...(s.passRequests || []), newRequest],
-                };
-            }
-            return s;
-        });
+    async requestPassShift(weekId: string, schedule: Schedule, shiftId: string, requestingUser: { userId: string, userName: string }): Promise<void> {
+        const shiftIndex = schedule.shifts.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) throw new Error("Shift not found");
+
+        const newRequest: PassRequest = {
+            requestingUser: { userId: requestingUser.userId, userName: requestingUser.userName },
+            status: 'pending',
+            timestamp: Timestamp.now(),
+            declinedBy: [],
+        };
+        
+        const updatedShifts = [...schedule.shifts];
+        const shiftToUpdate = { ...updatedShifts[shiftIndex] };
+        shiftToUpdate.passRequests = [...(shiftToUpdate.passRequests || []), newRequest];
+        updatedShifts[shiftIndex] = shiftToUpdate;
+
         await this.updateSchedule(weekId, { shifts: updatedShifts });
+    },
+    
+    async cancelPassShift(weekId: string, shiftId: string, requestingUserId: string): Promise<void> {
+         const scheduleRef = doc(db, "schedules", weekId);
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) throw new Error("Schedule not found");
+
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === shiftId) {
+                    const updatedRequests = (s.passRequests || []).filter(p => 
+                        !(p.requestingUser.userId === requestingUserId && p.status === 'pending')
+                    );
+                    return { ...s, passRequests: updatedRequests };
+                }
+                return s;
+            });
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+        });
+    },
+    
+    async declinePassShift(weekId: string, shiftId: string, requestingUserId: string, decliningUserId: string): Promise<void> {
+        const scheduleRef = doc(db, "schedules", weekId);
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) throw new Error("Schedule not found");
+
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === shiftId) {
+                    const updatedRequests = (s.passRequests || []).map(p => {
+                        if (p.requestingUser.userId === requestingUserId && p.status === 'pending') {
+                            const declinedBy = Array.from(new Set([...(p.declinedBy || []), decliningUserId]));
+                            return { ...p, declinedBy };
+                        }
+                        return p;
+                    });
+                    return { ...s, passRequests: updatedRequests };
+                }
+                return s;
+            });
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+        });
     },
 
     async acceptPassShift(
         weekId: string,
-        shiftId: string,
-        requestingUserId: string,
-        acceptingUser: { userId: string, userName: string }
+        shiftToTake: AssignedShift,
     ): Promise<void> {
         const scheduleRef = doc(db, "schedules", weekId);
 
@@ -157,32 +200,32 @@ export const dataStore = {
             const scheduleData = scheduleDoc.data() as Schedule;
             const shifts = scheduleData.shifts;
             
-            const shiftToUpdate = shifts.find(s => s.id === shiftId);
+            const passRequest = shiftToTake.passRequests?.find(p => p.status === 'pending');
+            if (!passRequest) throw new Error("Yêu cầu pass ca không còn hợp lệ.");
+            const requestingUser = passRequest.requestingUser;
+
+            // Find the shift in the current schedule data from the transaction
+            const shiftToUpdate = shifts.find(s => s.id === shiftToTake.id);
             if (!shiftToUpdate) {
                 throw new Error("Không tìm thấy ca làm việc này.");
             }
+
+            const acceptingUser = { userId: auth.currentUser!.uid, userName: auth.currentUser!.displayName! };
 
             // --- Check for scheduling conflicts ---
             const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`);
             const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`);
 
             const hasConflict = shifts.some(existingShift => {
-                // Skip the current shift and shifts on other days
-                if (existingShift.id === shiftId || existingShift.date !== shiftToUpdate.date) {
+                if (existingShift.id === shiftToUpdate.id || existingShift.date !== shiftToUpdate.date) {
                     return false;
                 }
-                
-                // Check if the accepting user is already assigned to this existing shift
                 const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId);
                 if (!isUserAssigned) {
                     return false;
                 }
-
-                // Check for time overlap
                 const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`);
                 const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`);
-                
-                // Overlap condition: (StartA < EndB) and (EndA > StartB)
                 return shiftStartTime < existingEndTime && shiftEndTime > existingStartTime;
             });
 
@@ -192,8 +235,8 @@ export const dataStore = {
             // --- End conflict check ---
 
             const updatedShifts = shifts.map(s => {
-                if (s.id === shiftId) {
-                    const passRequestIndex = (s.passRequests || []).findIndex(p => p.requestingUser.userId === requestingUserId && p.status === 'pending');
+                if (s.id === shiftToUpdate.id) {
+                    const passRequestIndex = (s.passRequests || []).findIndex(p => p.requestingUser.userId === requestingUser.userId && p.status === 'pending');
                     if (passRequestIndex === -1) {
                          throw new Error("Yêu cầu pass ca này không còn hợp lệ hoặc đã được người khác nhận.");
                     }
@@ -205,8 +248,7 @@ export const dataStore = {
                         takenBy: acceptingUser,
                     };
 
-                    // Replace the requesting user with the accepting user
-                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== requestingUserId);
+                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== requestingUser.userId);
                     newAssignedUsers.push(acceptingUser);
 
                     return {

@@ -227,6 +227,7 @@ export type PassRequest = {
   status: 'pending' | 'taken';
   takenBy?: AssignedUser;
   timestamp: string | Timestamp;
+  declinedBy?: string[]; // Array of user IDs who declined
 };
 
 export type AssignedShift = {
@@ -246,3 +247,8 @@ export type Schedule = {
   availability: Availability[];
   shifts: AssignedShift[];
 };
+
+export interface AuthUser extends User {
+  displayName: string;
+  role: UserRole;
+}

@@ -10,10 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole, ShiftTemplate } from '@/lib/types';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion } from 'lucide-react';
+import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole, ShiftTemplate, AuthUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
+import PassRequestsDialog from './pass-requests-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +33,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function ScheduleView() {
@@ -46,6 +46,7 @@ export default function ScheduleView() {
     const [isLoading, setIsLoading] = useState(true);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
+    const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
     const [selectedDateForAvailability, setSelectedDateForAvailability] = useState<Date | null>(null);
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
@@ -144,7 +145,7 @@ export default function ScheduleView() {
     const handlePassShift = async (shiftId: string) => {
         if (!user || !schedule) return;
         try {
-            await dataStore.requestPassShift(weekId, schedule.shifts, shiftId, {userId: user.uid, userName: user.displayName});
+            await dataStore.requestPassShift(weekId, schedule, shiftId, {userId: user.uid, userName: user.displayName});
             toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
         } catch (error) {
             console.error("Failed to pass shift:", error);
@@ -154,15 +155,33 @@ export default function ScheduleView() {
 
     const handleTakeShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
-        const passRequest = shift.passRequests?.find(p => p.status === 'pending');
-        if (!passRequest) return;
-
+        
         try {
-            await dataStore.acceptPassShift(weekId, shift.id, passRequest.requestingUser.userId, {userId: user.uid, userName: user.displayName});
+            await dataStore.acceptPassShift(weekId, shift);
             toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
             toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+        }
+    }
+
+    const handleDeclineShift = async (shift: AssignedShift, passRequest: PassRequest) => {
+        if (!user) return;
+        try {
+            await dataStore.declinePassShift(weekId, shift.id, passRequest.requestingUser.userId, user.uid);
+            toast({ title: 'Đã từ chối', description: 'Bạn sẽ không thấy lại yêu cầu này.'});
+        } catch (error: any) {
+            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive' });
+        }
+    }
+
+    const handleCancelPassRequest = async (shift: AssignedShift, passRequest: PassRequest) => {
+        if (!user) return;
+        try {
+            await dataStore.cancelPassShift(weekId, shift.id, passRequest.requestingUser.userId);
+             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
+        } catch (error: any) {
+             toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
         }
     }
     
@@ -185,7 +204,18 @@ export default function ScheduleView() {
     
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
-    if (authLoading || isLoading) {
+    const pendingRequestCount = useMemo(() => {
+        if (!schedule || !user) return 0;
+        return schedule.shifts.flatMap(s => s.passRequests || [])
+            .filter(p => {
+                 const shift = schedule.shifts.find(s => s.passRequests?.includes(p));
+                 const isDifferentRole = shift && user.role !== shift.role && shift.role !== 'Bất kỳ';
+                 const hasDeclined = (p.declinedBy || []).includes(user.uid);
+                 return p.status === 'pending' && p.requestingUser.userId !== user.uid && !isDifferentRole && !hasDeclined;
+            }).length;
+    }, [schedule, user]);
+
+    if (authLoading || isLoading || !user) {
         return (
             <div>
                 <Skeleton className="h-12 w-1/2 mb-4" />
@@ -200,7 +230,7 @@ export default function ScheduleView() {
 
     return (
         <div>
-            <div className="flex justify-center mb-8">
+            <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
@@ -216,6 +246,16 @@ export default function ScheduleView() {
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
+                </div>
+
+                <div className="relative">
+                    <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)}>
+                        <MailQuestion className="mr-2 h-4 w-4"/>
+                        Yêu cầu Pass ca
+                    </Button>
+                     {pendingRequestCount > 0 && (
+                        <Badge className="absolute -top-2 -right-2 px-2">{pendingRequestCount}</Badge>
+                    )}
                 </div>
             </div>
 
@@ -243,11 +283,10 @@ export default function ScheduleView() {
                     <TableHeader>
                         <TableRow>
                             <TableHead className="min-w-[120px]">Ngày</TableHead>
-                            {!isSchedulePublished ? (
-                                <TableHead>Thời gian rảnh</TableHead>
-                            ) : (
-                                <TableHead>Ca làm việc</TableHead>
-                            )}
+                            {isSchedulePublished
+                                ? <TableHead>Ca làm việc</TableHead>
+                                : <TableHead>Thời gian rảnh</TableHead>
+                            }
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -261,8 +300,6 @@ export default function ScheduleView() {
                             const shiftsForDay = schedule?.shifts.filter(s => 
                                 s.date === dateKey && s.assignedUsers.some(u => u.userId === user?.uid)
                             ).sort((a,b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
-                            const passRequestShift = schedule?.shifts.find(s => s.date === dateKey && s.passRequests?.some(p => p.status === 'pending' && user?.role === s.role && !s.assignedUsers.some(au => au.userId === user?.uid)));
-                            const passRequest = passRequestShift?.passRequests?.find(p => p.status === 'pending');
                                                         
                             return (
                                 <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
@@ -291,10 +328,10 @@ export default function ScheduleView() {
                                                 </Card>
                                             )
                                         ) : (
-                                            <div className="space-y-2">
+                                            <div className="space-y-2 max-w-xs">
                                                 {(shiftsForDay && shiftsForDay.length > 0) ? (
                                                     shiftsForDay.map(shift => (
-                                                        <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group w-full max-w-xs">
+                                                        <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group w-full">
                                                             <p className="font-bold">{shift.label}</p>
                                                             <p className="text-xs">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                             <DropdownMenu>
@@ -322,19 +359,6 @@ export default function ScheduleView() {
                                                 ) : (
                                                     <p className="text-sm text-muted-foreground italic">Không có ca</p>
                                                 )}
-                                                
-                                                {passRequestShift && passRequest && (
-                                                    <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs text-left max-w-xs">
-                                                        <p className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                                                            {passRequest.requestingUser.userName} muốn pass ca {passRequestShift.label}
-                                                        </p>
-                                                        <div className="flex gap-2 mt-2">
-                                                            <Button size="xs" className="h-6" onClick={() => handleTakeShift(passRequestShift)}>
-                                                                <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
                                     </TableCell>
@@ -352,6 +376,17 @@ export default function ScheduleView() {
                 onSave={handleSaveAvailability}
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
+            />
+
+            <PassRequestsDialog 
+                isOpen={isPassRequestsDialogOpen}
+                onClose={() => setIsPassRequestsDialogOpen(false)}
+                schedule={schedule}
+                currentUser={user}
+                allUsers={[]}
+                onAccept={handleTakeShift}
+                onDecline={handleDeclineShift}
+                onCancel={handleCancelPassRequest}
             />
         </div>
     );
