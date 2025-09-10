@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { db, storage, auth } from './firebase';
+import { db, auth, storage } from './firebase';
 import {
   collection,
   doc,
@@ -218,8 +219,10 @@ export const dataStore = {
                     if (passRequestToRevert.takenBy) {
                         updatedAssignedUsers = updatedAssignedUsers.filter(u => u.userId !== passRequestToRevert.takenBy!.userId);
                     }
-                    // Add the original user back
-                    updatedAssignedUsers.push(passRequestToRevert.requestingUser);
+                    // Add the original user back if they are not already in the list
+                    if (!updatedAssignedUsers.some(u => u.userId === passRequestToRevert.requestingUser.userId)) {
+                        updatedAssignedUsers.push(passRequestToRevert.requestingUser);
+                    }
 
                     return { 
                         ...s, 
@@ -1347,6 +1350,8 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    
 
     
 
