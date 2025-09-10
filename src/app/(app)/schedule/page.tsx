@@ -191,12 +191,12 @@ export default function SchedulePage() {
                         <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                         <div className="text-center">
+                         <div className="text-center w-40">
                             <span className="text-lg font-medium">
                                 {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
                             </span>
                              <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1 h-8" onClick={() => setCurrentDate(new Date())}>
-                                Tuần này
+                                {isCurrentWeek ? 'Tuần này' : 'Quay về tuần hiện tại'}
                             </Button>
                          </div>
                         <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
