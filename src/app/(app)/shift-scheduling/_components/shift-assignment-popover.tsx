@@ -102,7 +102,7 @@ export default function ShiftAssignmentDialog({
                                 "w-full justify-start h-auto p-3 text-left",
                                 !isAvailable && "opacity-50 line-through"
                             )}
-                            onClick={() => handleSelect(user.uid)}
+                            onClick={() => handleSelectUser(user.uid)}
                          >
                             <div className="flex items-center w-full">
                                <div className="flex-1">
@@ -135,4 +135,3 @@ export default function ShiftAssignmentDialog({
       </Dialog>
   );
 }
-
