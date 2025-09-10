@@ -219,7 +219,7 @@ export default function ScheduleView() {
                 </div>
             </div>
 
-            {schedule?.status !== 'published' && (
+            {!isSchedulePublished && (
                 <Card className="mb-6 bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700/50">
                     <CardHeader className="flex-row items-center gap-4">
                         <Info className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -239,30 +239,25 @@ export default function ScheduleView() {
             )}
             
             <div className="overflow-x-auto">
-                <Table className="min-w-[800px]">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[150px]">Ngày</TableHead>
-                            {!isSchedulePublished && <TableHead className="w-[200px]">Thời gian rảnh</TableHead>}
-                            {shiftTemplates.map(template => (
-                                <TableHead key={template.id} className="text-center">
-                                    <p>{template.label}</p>
-                                    <p className="text-xs font-normal text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
-                                </TableHead>
-                            ))}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {daysOfWeek.map(day => {
-                            const dateKey = format(day, 'yyyy-MM-dd');
-                            const availabilityForDay = userAvailability.get(dateKey) || [];
-                            return (
-                                <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
-                                    <TableCell className="font-semibold align-top">
-                                        <p>{format(day, 'dd/MM')}</p>
-                                        <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
-                                    </TableCell>
-                                    {!isSchedulePublished && (
+                 {!isSchedulePublished ? (
+                    // AVAILABILITY REGISTRATION VIEW
+                     <Table className="min-w-[500px]">
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[40%]">Ngày</TableHead>
+                                <TableHead className="w-[60%]">Thời gian rảnh</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {daysOfWeek.map(day => {
+                                const dateKey = format(day, 'yyyy-MM-dd');
+                                const availabilityForDay = userAvailability.get(dateKey) || [];
+                                return (
+                                    <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
+                                        <TableCell className="font-semibold align-top">
+                                            <p>{format(day, 'dd/MM')}</p>
+                                            <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
+                                        </TableCell>
                                         <TableCell className="align-top">
                                             {canRegisterAvailability && (
                                                 <Card className="bg-muted/30 hover:bg-muted/60 transition-colors w-full">
@@ -283,60 +278,87 @@ export default function ScheduleView() {
                                                 </Card>
                                             )}
                                         </TableCell>
-                                    )}
-                                    {shiftTemplates.map(template => {
-                                        const shift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.assignedUsers.some(u => u.userId === user?.uid));
-                                        
-                                        const passRequestShift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.passRequests?.some(p => p.status === 'pending' && user?.role === s.role && !s.assignedUsers.some(au => au.userId === user?.uid)));
-                                        const passRequest = passRequestShift?.passRequests?.find(p => p.status === 'pending');
+                                    </TableRow>
+                                )
+                            })}
+                        </TableBody>
+                     </Table>
+                ) : (
+                    // PUBLISHED SCHEDULE VIEW
+                    <Table className="min-w-[800px]">
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[150px]">Ngày</TableHead>
+                                {shiftTemplates.map(template => (
+                                    <TableHead key={template.id} className="text-center">
+                                        <p>{template.label}</p>
+                                        <p className="text-xs font-normal text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {daysOfWeek.map(day => {
+                                const dateKey = format(day, 'yyyy-MM-dd');
+                                return (
+                                    <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
+                                        <TableCell className="font-semibold align-top">
+                                            <p>{format(day, 'dd/MM')}</p>
+                                            <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
+                                        </TableCell>
+                                        {shiftTemplates.map(template => {
+                                            const shift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.assignedUsers.some(u => u.userId === user?.uid));
+                                            const passRequestShift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.passRequests?.some(p => p.status === 'pending' && user?.role === s.role && !s.assignedUsers.some(au => au.userId === user?.uid)));
+                                            const passRequest = passRequestShift?.passRequests?.find(p => p.status === 'pending');
 
-                                        return (
-                                            <TableCell key={template.id} className="align-top text-center">
-                                                {schedule?.status === 'published' && shift && (
-                                                     <div className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group w-full">
-                                                        <p className="font-bold">{shift.label}</p>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
-                                                                    <MoreVertical className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent>
-                                                                <AlertDialog>
-                                                                    <AlertDialogTrigger asChild>
-                                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!!shift.passRequests?.some(p => p.status === 'pending')}>
-                                                                            <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
-                                                                        </DropdownMenuItem>
-                                                                    </AlertDialogTrigger>
-                                                                    <AlertDialogContent>
-                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
-                                                                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift.id)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
-                                                                    </AlertDialogContent>
-                                                                </AlertDialog>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
-                                                )}
-                                                {schedule?.status === 'published' && passRequestShift && passRequest && (
-                                                     <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs text-left">
-                                                        <p className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                                                            {passRequest.requestingUser.userName} muốn pass
-                                                        </p>
-                                                        <div className="flex gap-2 mt-2">
-                                                            <Button size="xs" className="h-6" onClick={() => handleTakeShift(passRequestShift)}>
-                                                                <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
-                                                            </Button>
+                                            return (
+                                                <TableCell key={template.id} className="align-top text-center">
+                                                    {shift && (
+                                                        <div className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group w-full">
+                                                            <p className="font-bold">{shift.label}</p>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent>
+                                                                    <AlertDialog>
+                                                                        <AlertDialogTrigger asChild>
+                                                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!!shift.passRequests?.some(p => p.status === 'pending')}>
+                                                                                <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                            </DropdownMenuItem>
+                                                                        </AlertDialogTrigger>
+                                                                        <AlertDialogContent>
+                                                                            <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift.id)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                        </AlertDialogContent>
+                                                                    </AlertDialog>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </TableCell>
-                                        )
-                                    })}
-                                </TableRow>
-                            )
-                        })}
-                    </TableBody>
-                </Table>
+                                                    )}
+                                                    {passRequestShift && passRequest && (
+                                                        <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs text-left">
+                                                            <p className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                                                                {passRequest.requestingUser.userName} muốn pass
+                                                            </p>
+                                                            <div className="flex gap-2 mt-2">
+                                                                <Button size="xs" className="h-6" onClick={() => handleTakeShift(passRequestShift)}>
+                                                                    <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                            )
+                                        })}
+                                    </TableRow>
+                                )
+                            })}
+                        </TableBody>
+                    </Table>
+                )}
             </div>
 
 
