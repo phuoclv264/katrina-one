@@ -11,6 +11,7 @@ import {
     CardHeader,
     CardTitle,
     CardDescription,
+    CardFooter,
 } from '@/components/ui/card';
 import {
     ChevronLeft,
@@ -48,7 +49,6 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CardFooter } from '@/components/ui/card';
 
 
 export default function ScheduleView() {
@@ -102,14 +102,7 @@ export default function ScheduleView() {
         return { start, end };
     }, [currentDate]);
 
-    const daysOfWeek = eachDayOfInterval(weekInterval);
-    
-    // Set accordion to open all days by default for mobile view
-    useEffect(() => {
-        if (isMobile) {
-            setOpenMobileDays(daysOfWeek.map(day => format(day, 'yyyy-MM-dd')));
-        }
-    }, [isMobile, daysOfWeek]);
+    const daysOfWeek = useMemo(() => eachDayOfInterval(weekInterval), [weekInterval]);
     
     // Auto-populate shifts from templates
     useEffect(() => {
@@ -148,8 +141,7 @@ export default function ScheduleView() {
             });
             dataStore.updateSchedule(weekId, { shifts: updatedShifts });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [schedule?.status, shiftTemplates, weekId]);
+    }, [schedule?.status, shiftTemplates, weekId, currentDate]);
 
 
     const handleDateChange = (direction: 'next' | 'prev') => {
