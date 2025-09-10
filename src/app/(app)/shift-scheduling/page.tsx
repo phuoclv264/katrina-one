@@ -64,7 +64,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { isUserAvailable } from '@/lib/schedule-utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 export default function ShiftSchedulingPage() {
@@ -101,7 +100,10 @@ export default function ShiftSchedulingPage() {
         });
 
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
-        const unsubTemplates = dataStore.subscribeToShiftTemplates(setShiftTemplates);
+        const unsubTemplates = dataStore.subscribeToShiftTemplates((templates) => {
+            const sortedTemplates = templates.sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+            setShiftTemplates(sortedTemplates);
+        });
 
         return () => {
             unsubSchedule();

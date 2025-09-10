@@ -36,7 +36,8 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
   useEffect(() => {
     if (isOpen) {
       const unsub = dataStore.subscribeToShiftTemplates((data) => {
-        setTemplates(data);
+        const sortedData = data.sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+        setTemplates(sortedData);
         setIsLoading(false);
       });
       return () => unsub();
@@ -44,7 +45,7 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
   }, [isOpen]);
 
   const handleAddNew = () => {
-    const newTemplate = {
+    const newTemplate: ShiftTemplate = {
       id: `template_${Date.now()}`,
       label: 'Ca làm việc mới',
       role: 'Bất kỳ' as const,
@@ -53,7 +54,7 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
     };
     setIsEditing(newTemplate.id);
     setCurrentTemplate(newTemplate);
-    setTemplates(prev => [...prev, newTemplate]);
+    setTemplates(prev => [...prev, newTemplate].sort((a,b) => a.timeSlot.start.localeCompare(b.timeSlot.start)));
   };
   
   const handleSave = async () => {
