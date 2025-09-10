@@ -31,6 +31,7 @@ import {
     eachDayOfInterval,
     isSameDay,
     getDay,
+    isSameWeek,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -229,6 +230,7 @@ export default function ScheduleView() {
     }
     
     const canEditSchedule = schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng';
+    const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     return (
         <TooltipProvider>
@@ -245,7 +247,7 @@ export default function ScheduleView() {
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Tuần này</Button>
+                                <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" onClick={() => setCurrentDate(new Date())}>Tuần này</Button>
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
