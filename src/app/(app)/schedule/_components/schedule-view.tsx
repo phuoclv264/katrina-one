@@ -196,6 +196,7 @@ export default function ScheduleView() {
     
     const startOfThisWeek = startOfWeek(new Date(), {weekStartsOn: 1});
     const canRegisterAvailability = isBefore(startOfThisWeek, weekInterval.start) || isSameDay(startOfThisWeek, weekInterval.start);
+    const isSchedulePublished = schedule?.status === 'published';
 
     return (
         <div>
@@ -242,7 +243,7 @@ export default function ScheduleView() {
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[150px]">Ngày</TableHead>
-                            <TableHead className="w-[200px]">Thời gian rảnh</TableHead>
+                            {!isSchedulePublished && <TableHead className="w-[200px]">Thời gian rảnh</TableHead>}
                             {shiftTemplates.map(template => (
                                 <TableHead key={template.id} className="text-center">
                                     <p>{template.label}</p>
@@ -261,26 +262,28 @@ export default function ScheduleView() {
                                         <p>{format(day, 'dd/MM')}</p>
                                         <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
-                                    <TableCell className="align-top">
-                                        {canRegisterAvailability && (
-                                             <Card className="bg-muted/30 hover:bg-muted/60 transition-colors w-full">
-                                                <CardContent className="p-2">
-                                                    {availabilityForDay.length > 0 ? (
-                                                        <div className="space-y-1 text-xs">
-                                                            {availabilityForDay.map((slot, i) => (
-                                                                <div key={i} className="bg-background p-1.5 rounded text-center">{slot.start} - {slot.end}</div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <p className="text-xs text-center text-muted-foreground italic">Chưa đăng ký</p>
-                                                    )}
-                                                    <Button size="sm" variant="link" className="w-full mt-1 h-auto py-1" onClick={() => openAvailabilityDialog(day)}>
-                                                        {availabilityForDay.length > 0 ? 'Chỉnh sửa' : 'Đăng ký'}
-                                                    </Button>
-                                                </CardContent>
-                                            </Card>
-                                        )}
-                                    </TableCell>
+                                    {!isSchedulePublished && (
+                                        <TableCell className="align-top">
+                                            {canRegisterAvailability && (
+                                                <Card className="bg-muted/30 hover:bg-muted/60 transition-colors w-full">
+                                                    <CardContent className="p-2">
+                                                        {availabilityForDay.length > 0 ? (
+                                                            <div className="space-y-1 text-xs">
+                                                                {availabilityForDay.map((slot, i) => (
+                                                                    <div key={i} className="bg-background p-1.5 rounded text-center">{slot.start} - {slot.end}</div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs text-center text-muted-foreground italic">Chưa đăng ký</p>
+                                                        )}
+                                                        <Button size="sm" variant="link" className="w-full mt-1 h-auto py-1" onClick={() => openAvailabilityDialog(day)}>
+                                                            {availabilityForDay.length > 0 ? 'Chỉnh sửa' : 'Đăng ký'}
+                                                        </Button>
+                                                    </CardContent>
+                                                </Card>
+                                            )}
+                                        </TableCell>
+                                    )}
                                     {shiftTemplates.map(template => {
                                         const shift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.assignedUsers.some(u => u.userId === user?.uid));
                                         
