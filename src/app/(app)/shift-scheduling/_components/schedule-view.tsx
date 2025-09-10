@@ -248,19 +248,21 @@ export default function ScheduleView() {
     };
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
-        if(hasUnsavedChanges && !window.confirm("Bạn có các thay đổi chưa được lưu. Những thay đổi này sẽ bị mất nếu bạn tiếp tục. Bạn có chắc không?")) {
-            return;
+        if (!localSchedule) return;
+
+        // If trying to publish, ensure changes are saved first.
+        if (newStatus === 'published' && hasUnsavedChanges) {
+            if (!window.confirm("Bạn có thay đổi chưa lưu. Công bố sẽ lưu các thay đổi này và phát hành lịch. Bạn có muốn tiếp tục?")) {
+                return;
+            }
         }
 
         setIsSubmitting(true);
         try {
-            const dataToUpdate: Partial<Schedule> = { status: newStatus };
-            // When publishing directly, also save the current state of shifts
-            if (newStatus === 'published') {
-                dataToUpdate.shifts = localSchedule?.shifts;
-            }
+            const dataToUpdate = { ...localSchedule, status: newStatus };
             await dataStore.updateSchedule(weekId, dataToUpdate);
             toast({ title: 'Thành công!', description: `Đã cập nhật trạng thái lịch thành: ${newStatus}` });
+            setHasUnsavedChanges(false); // Changes are now saved
         } catch (error) {
             console.error("Failed to update schedule status:", error);
             toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái lịch.', variant: 'destructive' });
@@ -477,23 +479,31 @@ export default function ScheduleView() {
                                 {localSchedule?.status === 'draft' && user?.role === 'Quản lý' && (
                                    <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
                                 )}
-                                 {localSchedule?.status === 'draft' && user?.role === 'Chủ nhà hàng' && (
-                                    <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting || hasUnsavedChanges}><CheckCircle className="mr-2 h-4 w-4"/> Công bố trực tiếp</Button>
+                                
+                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published' && (
+                                    <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting}>
+                                        <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
+                                    </Button>
                                 )}
-                                 {localSchedule?.status === 'proposed' && user?.role === 'Chủ nhà hàng' && (
-                                   <div className="flex gap-2">
-                                      <Button variant="secondary" onClick={() => handleUpdateStatus('draft')} disabled={isSubmitting || hasUnsavedChanges}><FileSignature className="mr-2 h-4 w-4"/> Chỉnh sửa lại</Button>
-                                      <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting || hasUnsavedChanges}><CheckCircle className="mr-2 h-4 w-4"/> Duyệt và Công bố</Button>
-                                   </div>
-                                )}
-                                 {localSchedule?.status === 'published' && user?.role === 'Chủ nhà hàng' && (
+                                
+                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && (
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                             <Button variant="secondary" disabled={isSubmitting || hasUnsavedChanges}><FileSignature className="mr-2 h-4 w-4"/> Hủy công bố & Chỉnh sửa</Button>
+                                            <Button variant="secondary" disabled={isSubmitting}>
+                                                <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch
+                                            </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Hủy công bố lịch?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ thu hồi lịch đã công bố và cho phép bạn chỉnh sửa lại. Nhân viên sẽ không thấy lịch này nữa cho đến khi bạn công bố lại.</AlertDialogDescription></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
+                                            </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 )}
