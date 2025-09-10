@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole } from '@/lib/types';
@@ -162,6 +162,8 @@ export default function SchedulePage() {
     }, [currentDate]);
 
     const daysOfWeek = eachDayOfInterval(weekInterval);
+    
+    const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     if (authLoading || isLoading) {
         return (
@@ -189,9 +191,14 @@ export default function SchedulePage() {
                         <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <span className="text-lg font-medium w-48 text-center">
-                            {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
-                        </span>
+                         <div className="text-center">
+                            <span className="text-lg font-medium">
+                                {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
+                            </span>
+                             <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1 h-8" onClick={() => setCurrentDate(new Date())}>
+                                Tuần này
+                            </Button>
+                         </div>
                         <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                             <ChevronRight className="h-4 w-4" />
                         </Button>
