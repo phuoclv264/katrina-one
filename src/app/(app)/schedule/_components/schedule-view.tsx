@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole, ShiftTemplate } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import {
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function ScheduleView() {
     const { user, loading: authLoading } = useAuth();
@@ -41,6 +42,7 @@ export default function ScheduleView() {
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
+    const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
@@ -63,12 +65,32 @@ export default function ScheduleView() {
         }
 
         setIsLoading(true);
-        const unsubscribe = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
+        let scheduleSubscribed = false;
+        let templatesSubscribed = false;
+
+        const checkLoadingDone = () => {
+            if (scheduleSubscribed && templatesSubscribed) {
+                setIsLoading(false);
+            }
+        };
+
+        const unsubSchedule = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
             setSchedule(newSchedule);
-            setIsLoading(false);
+            scheduleSubscribed = true;
+            checkLoadingDone();
+        });
+        
+        const unsubTemplates = dataStore.subscribeToShiftTemplates((templates) => {
+            const sortedTemplates = templates.sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+            setShiftTemplates(sortedTemplates);
+            templatesSubscribed = true;
+            checkLoadingDone();
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubSchedule();
+            unsubTemplates();
+        };
     }, [user, authLoading, router, weekId]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
@@ -155,22 +177,6 @@ export default function ScheduleView() {
         return map;
     }, [user, schedule]);
 
-    const userShifts = useMemo(() => {
-        if (!user || !schedule || schedule.status !== 'published') return new Map<string, AssignedShift[]>();
-        const map = new Map<string, AssignedShift[]>();
-        schedule.shifts
-            .forEach(shift => {
-                 if (shift.assignedUsers.some(au => au.userId === user.uid)) {
-                    if (!map.has(shift.date)) {
-                        map.set(shift.date, []);
-                    }
-                    map.get(shift.date)!.push(shift);
-                }
-            });
-        return map;
-    }, [user, schedule]);
-
-
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -232,98 +238,102 @@ export default function ScheduleView() {
             )}
             
             <div className="overflow-x-auto">
-                <div className="grid grid-cols-7 border-t border-l min-w-[700px]">
-                    {daysOfWeek.map(day => (
-                        <div key={day.toString()} className={cn("p-2 border-b border-r text-center", isSameDay(day, new Date()) && "bg-primary/10")}>
-                            <span className="font-bold">{format(day, 'dd')}</span>
-                            <span className="text-sm text-muted-foreground ml-2">{format(day, 'eee', { locale: vi })}</span>
-                        </div>
-                    ))}
-                    {daysOfWeek.map(day => {
-                        const dateKey = format(day, 'yyyy-MM-dd');
-                        const availabilityForDay = userAvailability.get(dateKey) || [];
-                        const shiftsForDay = userShifts.get(dateKey) || [];
+                <Table className="min-w-[800px]">
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[150px]">Ngày</TableHead>
+                            <TableHead className="w-[200px]">Thời gian rảnh</TableHead>
+                            {shiftTemplates.map(template => (
+                                <TableHead key={template.id} className="text-center">
+                                    <p>{template.label}</p>
+                                    <p className="text-xs font-normal text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {daysOfWeek.map(day => {
+                            const dateKey = format(day, 'yyyy-MM-dd');
+                            const availabilityForDay = userAvailability.get(dateKey) || [];
+                            return (
+                                <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
+                                    <TableCell className="font-semibold align-top">
+                                        <p>{format(day, 'dd/MM')}</p>
+                                        <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
+                                    </TableCell>
+                                    <TableCell className="align-top">
+                                        {canRegisterAvailability && (
+                                             <Card className="bg-muted/30 hover:bg-muted/60 transition-colors w-full">
+                                                <CardContent className="p-2">
+                                                    {availabilityForDay.length > 0 ? (
+                                                        <div className="space-y-1 text-xs">
+                                                            {availabilityForDay.map((slot, i) => (
+                                                                <div key={i} className="bg-background p-1.5 rounded text-center">{slot.start} - {slot.end}</div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-center text-muted-foreground italic">Chưa đăng ký</p>
+                                                    )}
+                                                    <Button size="sm" variant="link" className="w-full mt-1 h-auto py-1" onClick={() => openAvailabilityDialog(day)}>
+                                                        {availabilityForDay.length > 0 ? 'Chỉnh sửa' : 'Đăng ký'}
+                                                    </Button>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                    </TableCell>
+                                    {shiftTemplates.map(template => {
+                                        const shift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.assignedUsers.some(u => u.userId === user?.uid));
+                                        
+                                        const passRequestShift = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id && s.passRequests?.some(p => p.status === 'pending' && user?.role === s.role && !s.assignedUsers.some(au => au.userId === user?.uid)));
+                                        const passRequest = passRequestShift?.passRequests?.find(p => p.status === 'pending');
 
-                        return (
-                            <div key={dateKey} className="border-b border-r min-h-48 flex flex-col p-2 space-y-2">
-                                {schedule?.status === 'published' && shiftsForDay.length > 0 && (
-                                    <div className="space-y-1">
-                                        {shiftsForDay.map(shift => {
-                                            return (
-                                                <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group">
-                                                    <p className="font-bold">{shift.label}</p>
-                                                    <p className="text-xs opacity-90">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
-                                                                <MoreVertical className="h-4 w-4" />
+                                        return (
+                                            <TableCell key={template.id} className="align-top text-center">
+                                                {schedule?.status === 'published' && shift && (
+                                                     <div className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group w-full">
+                                                        <p className="font-bold">{shift.label}</p>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
+                                                                    <MoreVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent>
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!!shift.passRequests?.some(p => p.status === 'pending')}>
+                                                                            <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                        </DropdownMenuItem>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift.id)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                )}
+                                                {schedule?.status === 'published' && passRequestShift && passRequest && (
+                                                     <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs text-left">
+                                                        <p className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                                                            {passRequest.requestingUser.userName} muốn pass
+                                                        </p>
+                                                        <div className="flex gap-2 mt-2">
+                                                            <Button size="xs" className="h-6" onClick={() => handleTakeShift(passRequestShift)}>
+                                                                <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
                                                             </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent>
-                                                            <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!!shift.passRequests?.some(p => p.status === 'pending')}>
-                                                                        <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
-                                                                    </DropdownMenuItem>
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
-                                                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift.id)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                )}
-                                
-                                {canRegisterAvailability && (
-                                    <Card className="bg-muted/50 hover:bg-muted/80 transition-colors flex-grow">
-                                        <CardHeader className="p-2">
-                                            <CardTitle className="text-sm font-medium">Giờ rảnh đã đăng ký</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-2 pt-0">
-                                            {availabilityForDay.length > 0 ? (
-                                                <div className="space-y-1 text-xs">
-                                                    {availabilityForDay.map((slot, i) => (
-                                                        <div key={i} className="bg-background p-1.5 rounded text-center">{slot.start} - {slot.end}</div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-center text-muted-foreground italic">Chưa đăng ký</p>
-                                            )}
-                                            <Button size="sm" variant="link" className="w-full mt-1 h-auto py-1" onClick={() => openAvailabilityDialog(day)}>
-                                                {availabilityForDay.length > 0 ? 'Chỉnh sửa' : 'Đăng ký'}
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                                
-                                {schedule?.shifts.filter(s => s.date === dateKey && s.passRequests?.some(p => p.status === 'pending' && !s.assignedUsers.some(au => au.userId === user?.uid))).map(shift => {
-                                    const passRequest = shift.passRequests?.find(p => p.status === 'pending');
-                                    if (!passRequest || user?.role !== shift.role) return null;
-                                    
-                                    return (
-                                        <div key={`pass-${shift.id}`} className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 rounded-md text-xs">
-                                            <p className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                                                <Badge variant="outline" className="text-amber-700 border-amber-400">{shift.role}</Badge>
-                                                {passRequest.requestingUser.userName} muốn pass ca
-                                            </p>
-                                            <p className="text-muted-foreground text-xs mt-1">{shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})</p>
-                                            <div className="flex gap-2 mt-2">
-                                                <Button size="xs" className="h-6" onClick={() => handleTakeShift(shift)}>
-                                                    <CheckCircle className="mr-1 h-3 w-3"/> Nhận ca
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )
-                    })}
-                </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                        )
+                                    })}
+                                </TableRow>
+                            )
+                        })}
+                    </TableBody>
+                </Table>
             </div>
 
 
