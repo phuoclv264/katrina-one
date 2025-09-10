@@ -22,7 +22,8 @@ import {
     BookOpen,
     UserCheck,
     ZoomIn,
-    ZoomOut
+    ZoomOut,
+    UserPlus
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -56,6 +57,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { isUserAvailable } from '@/lib/schedule-utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 export default function ShiftSchedulingPage() {
@@ -102,6 +104,14 @@ export default function ShiftSchedulingPage() {
 
     }, [user, authLoading, router, weekId, canManage]);
     
+    const weekInterval = useMemo(() => {
+        const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+        const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+        return { start, end };
+    }, [currentDate]);
+
+    const daysOfWeek = eachDayOfInterval(weekInterval);
+    
     // Auto-populate shifts from templates
     useEffect(() => {
         if (!schedule || schedule.status !== 'draft' || !shiftTemplates.length || !daysOfWeek.length) return;
@@ -112,17 +122,19 @@ export default function ShiftSchedulingPage() {
             const dateKey = format(day, 'yyyy-MM-dd');
 
             shiftTemplates.forEach(template => {
-                const doesShiftExist = schedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
-                if (template.applicableDays.includes(dayOfWeek) && !doesShiftExist) {
-                    shiftsToAdd.push({
-                        id: `shift_${dateKey}_${template.id}`,
-                        templateId: template.id,
-                        date: dateKey,
-                        label: template.label,
-                        role: template.role,
-                        timeSlot: template.timeSlot,
-                        assignedUsers: [],
-                    });
+                if ((template.applicableDays || []).includes(dayOfWeek)) {
+                    const doesShiftExist = schedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
+                    if (!doesShiftExist) {
+                        shiftsToAdd.push({
+                            id: `shift_${dateKey}_${template.id}`,
+                            templateId: template.id,
+                            date: dateKey,
+                            label: template.label,
+                            role: template.role,
+                            timeSlot: template.timeSlot,
+                            assignedUsers: [],
+                        });
+                    }
                 }
             });
         });
@@ -138,13 +150,7 @@ export default function ShiftSchedulingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [schedule?.status, shiftTemplates, weekId]); // Run only when templates or week changes
     
-    const weekInterval = useMemo(() => {
-        const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-        const end = endOfWeek(currentDate, { weekStartsOn: 1 });
-        return { start, end };
-    }, [currentDate]);
 
-    const daysOfWeek = eachDayOfInterval(weekInterval);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
@@ -164,6 +170,32 @@ export default function ShiftSchedulingPage() {
         await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
         toast({ title: 'Đã xóa', description: 'Đã xóa ca làm việc khỏi lịch.'});
     }
+    
+     const handleAddShift = async (date: Date, templateId: string) => {
+        if (!schedule) return;
+        const template = shiftTemplates.find(t => t.id === templateId);
+        if (!template) return;
+
+        const dateKey = format(date, 'yyyy-MM-dd');
+
+        const newShift: AssignedShift = {
+            id: `shift_${dateKey}_${template.id}`,
+            templateId: template.id,
+            date: dateKey,
+            label: template.label,
+            role: template.role,
+            timeSlot: template.timeSlot,
+            assignedUsers: [],
+        };
+        
+        const updatedShifts = [...schedule.shifts, newShift].sort((a, b) => {
+            if (a.date < b.date) return -1;
+            if (a.date > b.date) return 1;
+            return a.timeSlot.start.localeCompare(b.timeSlot.start);
+        });
+
+        await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
+    };
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
         setIsSubmitting(true);
@@ -233,7 +265,7 @@ export default function ShiftSchedulingPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <Table className="min-w-full border-collapse">
+                            <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[250px] sticky left-0 bg-background z-10">Ca làm việc</TableHead>
@@ -250,8 +282,8 @@ export default function ShiftSchedulingPage() {
                                     {shiftTemplates.map(template => {
                                         return (
                                         <TableRow key={template.id}>
-                                            <TableCell className="font-semibold sticky left-0 bg-background z-10">
-                                                    <p>{template.label}</p>
+                                            <TableCell className="font-semibold sticky left-0 bg-background z-10 align-top">
+                                                <p>{template.label}</p>
                                                 <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                 <p className="text-xs text-muted-foreground font-normal">({template.role})</p>
                                             </TableCell>
@@ -261,8 +293,8 @@ export default function ShiftSchedulingPage() {
                                                 
                                                 if (shiftForCell) {
                                                     return (
-                                                        <TableCell key={dateKey} className="p-2 align-top h-24">
-                                                                <ShiftAssignmentPopover
+                                                        <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
+                                                            <ShiftAssignmentPopover
                                                                 shift={shiftForCell}
                                                                 availableUsers={allUsers.filter(u => u.role === shiftForCell.role || shiftForCell.role === 'Bất kỳ')}
                                                                 dailyAvailability={availabilityByDay[dateKey] || []}
@@ -276,7 +308,6 @@ export default function ShiftSchedulingPage() {
 
                                                 return (
                                                     <TableCell key={dateKey} className="p-2 align-top text-center h-24">
-                                                        {/* This cell is empty if the template doesn't apply or shift isn't created */}
                                                     </TableCell>
                                                 )
                                             })}

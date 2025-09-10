@@ -101,9 +101,9 @@ export default function ShiftAssignmentPopover({
             </div>
              {canEdit ? (
                 <PopoverTrigger asChild>
-                    <Button variant="ghost" size="xs" className="w-full h-7 justify-start p-1 text-muted-foreground hover:text-foreground">
-                        <UserPlus className="mr-2 h-3 w-3" />
-                        {shift.assignedUsers.length > 0 ? 'Sửa' : 'Phân công'}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                        <UserPlus className="h-4 w-4" />
+                        <span className="sr-only">Phân công</span>
                     </Button>
                 </PopoverTrigger>
             ) : (
