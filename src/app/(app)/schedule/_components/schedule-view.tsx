@@ -89,7 +89,6 @@ export default function ScheduleView() {
     const handleSaveAvailability = async (date: Date, slots: TimeSlot[]) => {
         if (!user) return;
 
-        // Ensure schedule object exists before updating
         const currentSchedule = schedule ?? {
             weekId,
             status: 'draft',
@@ -117,6 +116,12 @@ export default function ScheduleView() {
         try {
             await dataStore.updateSchedule(weekId, { ...currentSchedule, availability: updatedAvailability });
             toast({ title: 'Thành công', description: 'Đã cập nhật thời gian rảnh của bạn.' });
+            
+            // Collapse the accordion item on mobile after successful save
+            if (isMobile) {
+                const dateKey = format(date, 'yyyy-MM-dd');
+                setOpenMobileDays(prev => prev.filter(d => d !== dateKey));
+            }
         } catch (error) {
             console.error("Failed to save availability:", error);
             toast({ title: 'Lỗi', description: 'Không thể lưu thời gian rảnh.', variant: 'destructive' });
@@ -440,3 +445,4 @@ export default function ScheduleView() {
         </div>
     );
 }
+
