@@ -158,7 +158,7 @@ function PassHistoryReport() {
             .sort((a, b) => {
                  const timeA = (a.passRequest.timestamp as any)?.toDate?.() || new Date(a.passRequest.timestamp as string);
                  const timeB = (b.passRequest.timestamp as any)?.toDate?.() || new Date(b.passRequest.timestamp as string);
-                 return timeB - timeA;
+                 return timeB.getTime() - timeA.getTime();
             });
     }, [allSchedules]);
 
@@ -278,3 +278,5 @@ export default function HistoryAndReportsDialog({
     </Dialog>
   );
 }
+
+    
