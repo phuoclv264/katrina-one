@@ -18,7 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
-import type { ManagedUser, Schedule, AssignedShift, PassRequest } from '@/lib/types';
+import type { ManagedUser, Schedule, AssignedShift, Notification } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { eachDayOfInterval, format, startOfMonth, endOfMonth, getMonth, getYear, isSameDay } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';

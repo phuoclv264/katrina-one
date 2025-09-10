@@ -210,24 +210,9 @@ export type ShiftTemplate = {
   applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
 };
 
-export type Availability = {
-  userId: string;
-  userName: string;
-  date: string; // YYYY-MM-DD
-  availableSlots: TimeSlot[];
-};
-
 export type AssignedUser = {
   userId: string;
   userName: string;
-};
-
-export type PassRequest = {
-  requestingUser: AssignedUser;
-  status: 'pending' | 'taken';
-  takenBy?: AssignedUser;
-  timestamp: string | Timestamp;
-  declinedBy?: string[]; // Array of user IDs who declined
 };
 
 export type AssignedShift = {
@@ -238,7 +223,6 @@ export type AssignedShift = {
   role: UserRole | 'Bất kỳ';
   timeSlot: TimeSlot;
   assignedUsers: AssignedUser[];
-  passRequests?: PassRequest[];
 };
 
 export type Schedule = {
@@ -247,6 +231,33 @@ export type Schedule = {
   availability: Availability[];
   shifts: AssignedShift[];
 };
+
+// --- Notification System Types ---
+
+export type NotificationStatus = 'pending' | 'resolved' | 'cancelled';
+export type NotificationType = 'pass_request';
+
+export type PassRequestPayload = {
+  weekId: string;
+  shiftId: string;
+  shiftLabel: string;
+  shiftDate: string;
+  shiftTimeSlot: TimeSlot;
+  shiftRole: UserRole | 'Bất kỳ';
+  requestingUser: AssignedUser;
+  takenBy?: AssignedUser; // The user who took over the shift
+  declinedBy?: string[]; // Array of user IDs who declined
+}
+
+export type Notification = {
+    id: string;
+    type: NotificationType;
+    status: NotificationStatus;
+    payload: PassRequestPayload;
+    createdAt: string | Timestamp;
+    resolvedAt?: string | Timestamp;
+};
+
 
 export interface AuthUser extends User {
   displayName: string;

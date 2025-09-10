@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AssignedShift, Availability, ManagedUser, Schedule } from '@/lib/types';
+import type { Notification, ManagedUser, Schedule, Availability } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { isUserAvailable } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,7 +21,7 @@ import { dataStore } from '@/lib/data-store';
 import { getISOWeek, parseISO } from 'date-fns';
 
 type AssignUserDialogProps = {
-  shift: AssignedShift;
+  notification: Notification;
   allUsers: ManagedUser[];
   onSave: (assignedUser: ManagedUser) => void;
   isOpen: boolean;
@@ -28,7 +29,7 @@ type AssignUserDialogProps = {
 };
 
 export default function AssignUserDialog({
-  shift,
+  notification,
   allUsers,
   onSave,
   isOpen,
@@ -38,18 +39,15 @@ export default function AssignUserDialog({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [dailyAvailability, setDailyAvailability] = useState<Availability[]>([]);
 
-  const weekId = useMemo(() => {
-      const date = parseISO(shift.date);
-      return `${date.getFullYear()}-W${getISOWeek(date)}`;
-  }, [shift.date]);
+  const { payload } = notification;
 
   useEffect(() => {
     if (isOpen) {
       setSelectedUserId(null); // Reset selection on open
       
-      const unsub = dataStore.subscribeToSchedule(weekId, (schedule) => {
+      const unsub = dataStore.subscribeToSchedule(payload.weekId, (schedule) => {
         if (schedule) {
-            setDailyAvailability(schedule.availability.filter(a => a.date === shift.date));
+            setDailyAvailability(schedule.availability.filter(a => a.date === payload.shiftDate));
         } else {
             setDailyAvailability([]);
         }
@@ -57,24 +55,23 @@ export default function AssignUserDialog({
 
       return () => unsub();
     }
-  }, [isOpen, weekId, shift.date]);
+  }, [isOpen, payload.weekId, payload.shiftDate]);
 
   const usersAvailableForShift = useMemo(() => {
-    const shiftRole = shift.role;
+    const shiftRole = payload.shiftRole;
     const roleFilteredUsers = allUsers.filter(user => 
-        (shiftRole === 'Bất kỳ' || user.role === shiftRole) &&
-        !shift.assignedUsers.some(au => au.userId === user.uid) // Exclude already assigned users
+        (shiftRole === 'Bất kỳ' || user.role === shiftRole)
     );
     
     return roleFilteredUsers.map(user => ({
         user,
-        isAvailable: isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)
+        isAvailable: isUserAvailable(user.uid, payload.shiftTimeSlot, dailyAvailability)
     })).sort((a, b) => {
         if (a.isAvailable && !b.isAvailable) return -1;
         if (!a.isAvailable && b.isAvailable) return 1;
         return a.user.displayName.localeCompare(b.user.displayName);
     });
-  }, [allUsers, shift.role, shift.timeSlot, shift.assignedUsers, dailyAvailability]);
+  }, [allUsers, payload.shiftRole, payload.shiftTimeSlot, dailyAvailability]);
 
 
   const handleSave = () => {
@@ -92,7 +89,7 @@ export default function AssignUserDialog({
             <DialogHeader>
                 <DialogTitle>Chỉ định nhân viên</DialogTitle>
                 <DialogDescription>
-                    Chọn một nhân viên để thay thế cho ca: <span className="font-semibold">{shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})</span>.
+                    Chọn một nhân viên để thay thế cho ca: <span className="font-semibold">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</span>.
                     Những người có lịch rảnh sẽ được ưu tiên hiển thị.
                 </DialogDescription>
             </DialogHeader>

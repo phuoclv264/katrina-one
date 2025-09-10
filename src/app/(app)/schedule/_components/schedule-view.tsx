@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -11,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, PassRequest, UserRole, ShiftTemplate, AuthUser } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -42,6 +43,7 @@ export default function ScheduleView() {
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -68,9 +70,10 @@ export default function ScheduleView() {
         setIsLoading(true);
         let scheduleSubscribed = false;
         let templatesSubscribed = false;
+        let notificationsSubscribed = false;
 
         const checkLoadingDone = () => {
-            if (scheduleSubscribed && templatesSubscribed) {
+            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed) {
                 setIsLoading(false);
             }
         };
@@ -87,10 +90,17 @@ export default function ScheduleView() {
             templatesSubscribed = true;
             checkLoadingDone();
         });
+        
+        const unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
+            setNotifications(notifs);
+            notificationsSubscribed = true;
+            checkLoadingDone();
+        });
 
         return () => {
             unsubSchedule();
             unsubTemplates();
+            unsubNotifications();
         };
     }, [user, authLoading, router, weekId]);
 
@@ -142,10 +152,10 @@ export default function ScheduleView() {
         setIsAvailabilityDialogOpen(false);
     };
 
-    const handlePassShift = async (shiftId: string) => {
+    const handlePassShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
         try {
-            await dataStore.requestPassShift(weekId, schedule, shiftId, {userId: user.uid, userName: user.displayName});
+            await dataStore.requestPassShift(weekId, shift);
             toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
         } catch (error) {
             console.error("Failed to pass shift:", error);
@@ -153,11 +163,11 @@ export default function ScheduleView() {
         }
     }
 
-    const handleTakeShift = async (shift: AssignedShift) => {
+    const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
         
         try {
-            await dataStore.acceptPassShift(weekId, shift);
+            await dataStore.acceptPassShift(notification);
             toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
@@ -165,20 +175,20 @@ export default function ScheduleView() {
         }
     }
 
-    const handleDeclineShift = async (shift: AssignedShift, passRequest: PassRequest) => {
+    const handleDeclineShift = async (notification: Notification) => {
         if (!user) return;
         try {
-            await dataStore.declinePassShift(weekId, shift.id, passRequest.requestingUser.userId, user.uid);
+            await dataStore.declinePassShift(notification.id, user.uid);
             toast({ title: 'Đã từ chối', description: 'Bạn sẽ không thấy lại yêu cầu này.'});
         } catch (error: any) {
             toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive' });
         }
     }
 
-    const handleCancelPassRequest = async (shift: AssignedShift, passRequest: PassRequest) => {
+    const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         try {
-            await dataStore.cancelPassShift(weekId, shift.id, passRequest.requestingUser.userId);
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
              toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
         } catch (error: any) {
              toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
@@ -205,15 +215,23 @@ export default function ScheduleView() {
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     const pendingRequestCount = useMemo(() => {
-        if (!schedule || !user) return 0;
-        return schedule.shifts.flatMap(s => s.passRequests || [])
-            .filter(p => {
-                 const shift = schedule.shifts.find(s => s.passRequests?.includes(p));
-                 const isDifferentRole = shift && user.role !== shift.role && shift.role !== 'Bất kỳ';
-                 const hasDeclined = (p.declinedBy || []).includes(user.uid);
-                 return p.status === 'pending' && p.requestingUser.userId !== user.uid && !isDifferentRole && !hasDeclined;
-            }).length;
-    }, [schedule, user]);
+        if (!user) return 0;
+        return notifications.filter(n => {
+            if (n.type !== 'pass_request' || n.status !== 'pending' || n.payload.requestingUser.userId === user.uid) return false;
+            
+            const payload = n.payload;
+            const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
+            const hasDeclined = (payload.declinedBy || []).includes(user.uid);
+            
+            // A full conflict check would require the schedule, this is a simplified view for the badge.
+            // A more robust check happens in the dialog.
+            return !isDifferentRole && !hasDeclined;
+        }).length;
+    }, [notifications, user]);
+    
+    const hasPendingRequest = (shiftId: string): boolean => {
+        return notifications.some(n => n.payload.shiftId === shiftId && n.status === 'pending');
+    }
 
     if (authLoading || isLoading || !user) {
         return (
@@ -343,13 +361,13 @@ export default function ScheduleView() {
                                                                 <DropdownMenuContent>
                                                                     <AlertDialog>
                                                                         <AlertDialogTrigger asChild>
-                                                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={!!shift.passRequests?.some(p => p.status === 'pending')}>
+                                                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
                                                                                 <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
                                                                             </DropdownMenuItem>
                                                                         </AlertDialogTrigger>
                                                                         <AlertDialogContent>
                                                                             <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
-                                                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift.id)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
                                                                         </AlertDialogContent>
                                                                     </AlertDialog>
                                                                 </DropdownMenuContent>
@@ -381,7 +399,8 @@ export default function ScheduleView() {
             <PassRequestsDialog 
                 isOpen={isPassRequestsDialogOpen}
                 onClose={() => setIsPassRequestsDialogOpen(false)}
-                schedule={schedule}
+                weekId={weekId}
+                notifications={notifications}
                 currentUser={user}
                 allUsers={[]}
                 onAccept={handleTakeShift}

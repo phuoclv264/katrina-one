@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bell, AlertTriangle, CheckCircle, UserCheck, Trash2, Undo, Loader2, MailQuestion } from 'lucide-react';
-import type { Schedule, ManagedUser, PassRequest, AssignedShift } from '@/lib/types';
+import type { Notification, ManagedUser, PassRequestPayload, AssignedShift } from '@/lib/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -21,13 +22,13 @@ export default function NotificationsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const [schedules, setSchedules] = useState<Schedule[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState<string | null>(null); // Use a unique ID for processing state
+    const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
     const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-    const [shiftToAssign, setShiftToAssign] = useState<{ shift: AssignedShift; weekId: string, passRequest: PassRequest } | null>(null);
+    const [notificationToAssign, setNotificationToAssign] = useState<Notification | null>(null);
 
     useEffect(() => {
         if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -37,46 +38,41 @@ export default function NotificationsPage() {
 
     useEffect(() => {
         if (!user) return;
-        const unsubSchedules = dataStore.subscribeToAllSchedules(setSchedules);
+        const unsubNotifications = dataStore.subscribeToAllNotifications(setNotifications);
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
         
         Promise.all([
-            new Promise(resolve => setTimeout(() => resolve(true), 500)) // Initial loading feel
+            new Promise(resolve => setTimeout(() => resolve(true), 500)) 
         ]).then(() => setIsLoading(false));
 
         return () => {
-            unsubSchedules();
+            unsubNotifications();
             unsubUsers();
         };
     }, [user]);
+    
+    const passRequestNotifications = useMemo(() => {
+        return notifications.filter(n => n.type === 'pass_request');
+    }, [notifications]);
 
     const { pendingRequests, completedRequests } = useMemo(() => {
-        const pending: { shift: AssignedShift; weekId: string, passRequest: PassRequest }[] = [];
-        const completed: { shift: AssignedShift; weekId: string, passRequest: PassRequest }[] = [];
-        
-        schedules.forEach(schedule => {
-            schedule.shifts.forEach(shift => {
-                shift.passRequests?.forEach(pr => {
-                    const requestData = { shift, weekId: schedule.weekId, passRequest: pr };
-                    if (pr.status === 'pending') {
-                        pending.push(requestData);
-                    } else if (pr.status === 'taken') {
-                        completed.push(requestData);
-                    }
-                });
-            });
+        const pending = passRequestNotifications.filter(n => n.status === 'pending');
+        const completed = passRequestNotifications.filter(n => n.status === 'resolved' || n.status === 'cancelled');
+
+        pending.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+        completed.sort((a,b) => {
+            const timeA = a.resolvedAt || a.createdAt;
+            const timeB = b.resolvedAt || b.createdAt;
+            return new Date(timeB as string).getTime() - new Date(timeA as string).getTime()
         });
         
-        pending.sort((a,b) => new Date(b.passRequest.timestamp as string).getTime() - new Date(a.passRequest.timestamp as string).getTime());
-        completed.sort((a,b) => new Date(b.passRequest.timestamp as string).getTime() - new Date(a.passRequest.timestamp as string).getTime());
-        
         return { pendingRequests: pending, completedRequests: completed };
-    }, [schedules]);
+    }, [passRequestNotifications]);
 
-    const handleCancelRequest = async (weekId: string, shiftId: string, requestingUserId: string) => {
-        setIsProcessing(`cancel-${shiftId}`);
+    const handleCancelRequest = async (notificationId: string) => {
+        setIsProcessing(`cancel-${notificationId}`);
         try {
-            await dataStore.cancelPassRequestByOwner(weekId, shiftId, requestingUserId);
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca.'});
         } catch (error) {
             console.error(error);
@@ -86,10 +82,10 @@ export default function NotificationsPage() {
         }
     };
     
-    const handleRevertRequest = async (weekId: string, shiftId: string, passRequest: PassRequest) => {
-        setIsProcessing(`revert-${shiftId}`);
+    const handleRevertRequest = async (notification: Notification) => {
+        setIsProcessing(`revert-${notification.id}`);
         try {
-            await dataStore.revertPassRequest(weekId, shiftId, passRequest);
+            await dataStore.revertPassRequest(notification);
             toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
         } catch (error) {
             console.error(error);
@@ -100,20 +96,19 @@ export default function NotificationsPage() {
     };
 
     const handleAssignUser = async (userToAssign: ManagedUser) => {
-        if (!shiftToAssign) return;
-        const { weekId, shift, passRequest } = shiftToAssign;
+        if (!notificationToAssign) return;
         
-        setIsProcessing(`assign-${shift.id}`);
+        setIsProcessing(`assign-${notificationToAssign.id}`);
         setIsAssignDialogOpen(false);
         try {
-            await dataStore.assignUserToShift(weekId, shift.id, { userId: userToAssign.uid, userName: userToAssign.displayName }, passRequest);
+            await dataStore.assignUserToShift(notificationToAssign, userToAssign);
             toast({ title: 'Thành công', description: `Đã chỉ định ${userToAssign.displayName} vào ca thành công.`});
         } catch (error) {
             console.error("Failed to assign user:", error);
             toast({ title: 'Lỗi', description: 'Không thể chỉ định nhân viên.', variant: 'destructive'});
         } finally {
              setIsProcessing(null);
-             setShiftToAssign(null);
+             setNotificationToAssign(null);
         }
     }
 
@@ -151,13 +146,15 @@ export default function NotificationsPage() {
                             {pendingRequests.length === 0 ? (
                                 <p className="text-center text-muted-foreground py-8">Không có yêu cầu nào đang chờ.</p>
                             ) : (
-                                pendingRequests.map(({ shift, weekId, passRequest }) => (
-                                    <div key={`${shift.id}-${passRequest.requestingUser.userId}`} className={`p-4 border rounded-lg ${isProcessing === `cancel-${shift.id}` || isProcessing === `assign-${shift.id}` ? 'opacity-50' : ''}`}>
-                                        <p className="font-semibold">{passRequest.requestingUser.userName} muốn pass ca</p>
-                                        <p className="text-sm text-muted-foreground">{shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end}) - {format(new Date(shift.date), "eeee, dd/MM/yyyy", { locale: vi })}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">Gửi lúc: {format(new Date(passRequest.timestamp as string), "HH:mm, dd/MM/yyyy")}</p>
+                                pendingRequests.map(notification => {
+                                    const payload = notification.payload;
+                                    return (
+                                     <div key={notification.id} className={`p-4 border rounded-lg ${isProcessing === `cancel-${notification.id}` || isProcessing === `assign-${notification.id}` ? 'opacity-50' : ''}`}>
+                                        <p className="font-semibold">{payload.requestingUser.userName} muốn pass ca</p>
+                                        <p className="text-sm text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start}-{payload.shiftTimeSlot.end}) - {format(new Date(payload.shiftDate), "eeee, dd/MM/yyyy", { locale: vi })}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Gửi lúc: {format(new Date(notification.createdAt as string), "HH:mm, dd/MM/yyyy")}</p>
                                         <div className="flex flex-wrap gap-2 mt-3">
-                                             <Button size="sm" variant="secondary" onClick={() => setShiftToAssign({ shift, weekId, passRequest })}>
+                                             <Button size="sm" variant="secondary" onClick={() => setNotificationToAssign(notification)}>
                                                 <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
                                             </Button>
                                             <AlertDialog>
@@ -170,18 +167,18 @@ export default function NotificationsPage() {
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Hành động này sẽ xóa yêu cầu của {passRequest.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.
+                                                            Hành động này sẽ hủy yêu cầu của {payload.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Không</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleCancelRequest(weekId, shift.id, passRequest.requestingUser.userId)}>Xác nhận Hủy</AlertDialogAction>
+                                                        <AlertDialogAction onClick={() => handleCancelRequest(notification.id)}>Xác nhận Hủy</AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
                                         </div>
                                     </div>
-                                ))
+                                )})
                             )}
                         </CardContent>
                     </Card>
@@ -190,53 +187,64 @@ export default function NotificationsPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><CheckCircle className="text-green-500"/> Lịch sử Pass ca</CardTitle>
-                            <CardDescription>Các yêu cầu đã có người nhận. Bạn có thể xem lại hoặc hoàn tác nếu cần.</CardDescription>
+                            <CardDescription>Các yêu cầu đã có người nhận hoặc đã bị hủy. Bạn có thể xem lại hoặc hoàn tác nếu cần.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                              {completedRequests.length === 0 ? (
                                 <p className="text-center text-muted-foreground py-8">Chưa có lịch sử pass ca nào.</p>
                             ) : (
-                                completedRequests.map(({ shift, weekId, passRequest }) => (
-                                     <div key={`${shift.id}-${passRequest.requestingUser.userId}`} className={`p-4 border rounded-lg ${isProcessing === `revert-${shift.id}` ? 'opacity-50' : ''}`}>
-                                        <p className="font-semibold">{shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end}) - {format(new Date(shift.date), "dd/MM/yyyy")}</p>
+                                completedRequests.map(notification => {
+                                    const payload = notification.payload;
+                                    const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
+                                    return (
+                                     <div key={notification.id} className={`p-4 border rounded-lg ${isProcessing === `revert-${notification.id}` ? 'opacity-50' : ''}`}>
+                                        <p className="font-semibold">{payload.shiftLabel} ({payload.shiftTimeSlot.start}-{payload.shiftTimeSlot.end}) - {format(new Date(payload.shiftDate), "dd/MM/yyyy")}</p>
                                         <p className="text-sm text-muted-foreground">
-                                            <span className="font-medium">{passRequest.requestingUser.userName}</span> đã pass cho <span className="font-medium">{passRequest.takenBy?.userName || 'Không rõ'}</span>
+                                           {notification.status === 'resolved' ? (
+                                             <>
+                                                <span className="font-medium">{payload.requestingUser.userName}</span> đã pass cho <span className="font-medium">{payload.takenBy?.userName || 'Không rõ'}</span>
+                                             </>
+                                           ) : (
+                                                `Yêu cầu của ${payload.requestingUser.userName} đã bị hủy`
+                                           )}
                                         </p>
-                                         <p className="text-xs text-muted-foreground mt-1">Thời gian: {format(new Date(passRequest.timestamp as string), "HH:mm, dd/MM/yyyy")}</p>
-                                        <div className="flex gap-2 mt-3">
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button size="sm" variant="outline">
-                                                        <Undo className="mr-2 h-4 w-4"/> Hoàn tác
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({passRequest.requestingUser.userName}) và xóa yêu cầu này khỏi lịch sử.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Không</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleRevertRequest(weekId, shift.id, passRequest)}>Xác nhận Hoàn tác</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
+                                         <p className="text-xs text-muted-foreground mt-1">Thời gian: {format(new Date(timeToShow), "HH:mm, dd/MM/yyyy")}</p>
+                                        {notification.status === 'resolved' && (
+                                            <div className="flex gap-2 mt-3">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button size="sm" variant="outline">
+                                                            <Undo className="mr-2 h-4 w-4"/> Hoàn tác
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Không</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleRevertRequest(notification)}>Xác nhận Hoàn tác</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        )}
                                     </div>
-                                ))
+                                )})
                             )}
                         </CardContent>
                     </Card>
                 </div>
             </div>
             
-            {shiftToAssign && (
+            {notificationToAssign && (
                  <AssignUserDialog
-                    isOpen={!!shiftToAssign}
-                    onClose={() => setShiftToAssign(null)}
-                    shift={shiftToAssign.shift}
+                    isOpen={!!notificationToAssign}
+                    onClose={() => setNotificationToAssign(null)}
+                    notification={notificationToAssign}
                     allUsers={allUsers}
                     onSave={handleAssignUser}
                 />
