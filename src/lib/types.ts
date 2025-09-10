@@ -207,6 +207,7 @@ export type ShiftTemplate = {
   label: string;
   role: UserRole | 'Bất kỳ';
   timeSlot: TimeSlot;
+  applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
 };
 
 export type Availability = {

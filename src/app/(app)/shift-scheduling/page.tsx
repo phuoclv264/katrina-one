@@ -32,7 +32,8 @@ import {
     format,
     eachDayOfInterval,
     isSameDay,
-    parse
+    parse,
+    getDay,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -70,10 +71,8 @@ export default function ShiftSchedulingPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [isAddShiftDialogOpen, setIsAddShiftDialogOpen] = useState(false);
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
-    const [selectedDateForShift, setSelectedDateForShift] = useState<Date | null>(null);
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
@@ -103,6 +102,42 @@ export default function ShiftSchedulingPage() {
 
     }, [user, authLoading, router, weekId, canManage]);
     
+    // Auto-populate shifts from templates
+    useEffect(() => {
+        if (!schedule || schedule.status !== 'draft' || !shiftTemplates.length || !daysOfWeek.length) return;
+
+        const shiftsToAdd: AssignedShift[] = [];
+        daysOfWeek.forEach(day => {
+            const dayOfWeek = getDay(day); // Sunday = 0, Monday = 1, etc.
+            const dateKey = format(day, 'yyyy-MM-dd');
+
+            shiftTemplates.forEach(template => {
+                const doesShiftExist = schedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
+                if (template.applicableDays.includes(dayOfWeek) && !doesShiftExist) {
+                    shiftsToAdd.push({
+                        id: `shift_${dateKey}_${template.id}`,
+                        templateId: template.id,
+                        date: dateKey,
+                        label: template.label,
+                        role: template.role,
+                        timeSlot: template.timeSlot,
+                        assignedUsers: [],
+                    });
+                }
+            });
+        });
+
+        if (shiftsToAdd.length > 0) {
+            const updatedShifts = [...schedule.shifts, ...shiftsToAdd].sort((a, b) => {
+                if (a.date < b.date) return -1;
+                if (a.date > b.date) return 1;
+                return a.timeSlot.start.localeCompare(b.timeSlot.start);
+            });
+            dataStore.updateSchedule(weekId, { shifts: updatedShifts });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [schedule?.status, shiftTemplates, weekId]); // Run only when templates or week changes
+    
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -114,48 +149,7 @@ export default function ShiftSchedulingPage() {
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
     };
-
-    const handleAddShiftClick = (day: Date) => {
-        setSelectedDateForShift(day);
-        setIsAddShiftDialogOpen(true);
-    };
     
-    const handleSaveShift = async (templateId: string, day: Date) => {
-        if (!schedule) return;
-
-        const date = format(day, 'yyyy-MM-dd');
-        const template = shiftTemplates.find(t => t.id === templateId);
-        if (!template) {
-            toast({ title: 'Lỗi', description: 'Không tìm thấy ca làm việc mẫu.', variant: 'destructive'});
-            return;
-        }
-        
-        // Check if a shift with the same template already exists on this day
-        const shiftExists = schedule.shifts.some(s => s.date === date && s.templateId === templateId);
-        if (shiftExists) {
-            toast({ title: 'Thông báo', description: `Ca "${template.label}" đã tồn tại trong ngày này.`, variant: 'default'});
-            return;
-        }
-
-        const newShift: AssignedShift = {
-            id: `shift_${Date.now()}`,
-            templateId: template.id,
-            date: date,
-            label: template.label,
-            role: template.role,
-            timeSlot: template.timeSlot,
-            assignedUsers: [],
-        };
-        
-        const updatedShifts = [...schedule.shifts, newShift].sort((a, b) => {
-            if (a.date < b.date) return -1;
-            if (a.date > b.date) return 1;
-            return a.timeSlot.start.localeCompare(b.timeSlot.start);
-        });
-        await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
-        toast({ title: 'Thành công', description: `Đã thêm ca "${template.label}" vào lịch.`});
-    };
-
     const handleUpdateShiftAssignment = async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
         if (!schedule) return;
         const updatedShifts = schedule.shifts.map(shift => 
@@ -183,19 +177,6 @@ export default function ShiftSchedulingPage() {
             setIsSubmitting(false);
         }
     }
-
-     const shiftsByDay = useMemo(() => {
-        const grouped: { [key: string]: AssignedShift[] } = {};
-        if (schedule) {
-            for (const shift of schedule.shifts) {
-                if (!grouped[shift.date]) {
-                    grouped[shift.date] = [];
-                }
-                grouped[shift.date].push(shift);
-            }
-        }
-        return grouped;
-    }, [schedule]);
     
     const availabilityByDay = useMemo(() => {
         const grouped: { [key: string]: Availability[] } = {};
@@ -208,7 +189,7 @@ export default function ShiftSchedulingPage() {
             }
         }
         return grouped;
-    }, [schedule]);
+    }, [schedule?.availability]);
 
 
     if (isLoading || authLoading) {
@@ -252,131 +233,57 @@ export default function ShiftSchedulingPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                           {/* Desktop Timeline View */}
-                            <div className="hidden md:block">
-                                <Table className="min-w-full border-collapse">
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[200px] sticky left-0 bg-background z-10">Ca làm việc</TableHead>
-                                            {daysOfWeek.map(day => (
-                                                <TableHead key={day.toString()} className="text-center">
-                                                    {format(day, 'eee', { locale: vi })}
-                                                    <br />
-                                                    {format(day, 'dd/MM')}
-                                                </TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {shiftTemplates.map(template => {
-                                            const shiftsForTemplateRow = schedule?.shifts.filter(s => s.templateId === template.id);
-                                            return (
-                                            <TableRow key={template.id}>
-                                                <TableCell className="font-semibold sticky left-0 bg-background z-10">
-                                                     <p>{template.label}</p>
-                                                    <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
-                                                    <p className="text-xs text-muted-foreground font-normal">({template.role})</p>
-                                                </TableCell>
-                                                {daysOfWeek.map(day => {
-                                                    const dateKey = format(day, 'yyyy-MM-dd');
-                                                    const shiftForCell = shiftsForTemplateRow?.find(s => s.date === dateKey);
-                                                    
-                                                    if (shiftForCell) {
-                                                        return (
-                                                            <TableCell key={dateKey} className="p-2 align-top h-24">
-                                                                 <ShiftAssignmentPopover
-                                                                    shift={shiftForCell}
-                                                                    availableUsers={allUsers.filter(u => u.role === shiftForCell.role || shiftForCell.role === 'Bất kỳ')}
-                                                                    dailyAvailability={availabilityByDay[dateKey] || []}
-                                                                    onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                    onDelete={handleDeleteShift}
-                                                                    canEdit={canEditSchedule}
-                                                                />
-                                                            </TableCell>
-                                                        )
-                                                    }
-
+                            <Table className="min-w-full border-collapse">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[250px] sticky left-0 bg-background z-10">Ca làm việc</TableHead>
+                                        {daysOfWeek.map(day => (
+                                            <TableHead key={day.toString()} className="text-center">
+                                                {format(day, 'eee', { locale: vi })}
+                                                <br />
+                                                {format(day, 'dd/MM')}
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {shiftTemplates.map(template => {
+                                        return (
+                                        <TableRow key={template.id}>
+                                            <TableCell className="font-semibold sticky left-0 bg-background z-10">
+                                                    <p>{template.label}</p>
+                                                <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
+                                                <p className="text-xs text-muted-foreground font-normal">({template.role})</p>
+                                            </TableCell>
+                                            {daysOfWeek.map(day => {
+                                                const dateKey = format(day, 'yyyy-MM-dd');
+                                                const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                
+                                                if (shiftForCell) {
                                                     return (
-                                                        <TableCell key={dateKey} className="p-2 align-top text-center h-24">
-                                                             {canEditSchedule && (
-                                                                <Button variant="ghost" className="h-full w-full" onClick={() => handleSaveShift(template.id, day)}>
-                                                                    <Plus className="h-4 w-4 text-muted-foreground" />
-                                                                </Button>
-                                                             )}
-                                                        </TableCell>
-                                                    )
-                                                })}
-                                            </TableRow>
-                                        )})}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                            
-                            {/* Mobile Agenda View */}
-                            <div className="md:hidden space-y-4">
-                                {daysOfWeek.map(day => {
-                                    const dateKey = format(day, 'yyyy-MM-dd');
-                                    const dayShifts = shiftsByDay[dateKey] || [];
-                                    const dayAvailabilities = availabilityByDay[dateKey] || [];
-
-                                    return (
-                                        <Card key={dateKey} className={cn(isSameDay(day, new Date()) && "border-primary")}>
-                                            <CardHeader className="p-3">
-                                                <CardTitle className="text-base flex justify-between items-center">
-                                                    <span>{format(day, 'cccc, dd/MM', { locale: vi })}</span>
-                                                    <div className="flex -space-x-2">
-                                                        {dayAvailabilities.map(avail => {
-                                                            const user = allUsers.find(u => u.uid === avail.userId);
-                                                            return user ? (
-                                                                <Tooltip key={avail.userId}>
-                                                                    <TooltipTrigger>
-                                                                         <Avatar className="h-6 w-6 border-2 border-background">
-                                                                            <AvatarFallback className="text-xs">{user.displayName.charAt(0)}</AvatarFallback>
-                                                                        </Avatar>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>{user.displayName} rảnh:</p>
-                                                                        <ul className="text-xs list-disc pl-4">
-                                                                            {avail.availableSlots.map((s, i) => <li key={i}>{s.start} - {s.end}</li>)}
-                                                                        </ul>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            ) : null
-                                                        })}
-                                                    </div>
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="p-3 pt-0 space-y-2">
-                                                {dayShifts.length > 0 ? dayShifts.map(shift => (
-                                                     <Card key={shift.id} className="p-3">
-                                                        <CardHeader className="p-0 mb-2">
-                                                            <CardTitle className="text-sm">{shift.label}</CardTitle>
-                                                            <CardDescription>{shift.timeSlot.start} - {shift.timeSlot.end} ({shift.role})</CardDescription>
-                                                        </CardHeader>
-                                                        <CardContent className="p-0">
-                                                            <ShiftAssignmentPopover
-                                                                shift={shift}
-                                                                availableUsers={allUsers.filter(u => u.role === shift.role || shift.role === 'Bất kỳ')}
+                                                        <TableCell key={dateKey} className="p-2 align-top h-24">
+                                                                <ShiftAssignmentPopover
+                                                                shift={shiftForCell}
+                                                                availableUsers={allUsers.filter(u => u.role === shiftForCell.role || shiftForCell.role === 'Bất kỳ')}
                                                                 dailyAvailability={availabilityByDay[dateKey] || []}
                                                                 onUpdateAssignment={handleUpdateShiftAssignment}
                                                                 onDelete={handleDeleteShift}
                                                                 canEdit={canEditSchedule}
                                                             />
-                                                        </CardContent>
-                                                    </Card>
-                                                )) : <p className="text-xs text-muted-foreground text-center py-2">Chưa có ca làm việc</p>}
-                                                
-                                                {canEditSchedule && (
-                                                    <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => handleAddShiftClick(day)}>
-                                                        <Plus className="mr-2 h-4 w-4"/> Thêm ca
-                                                    </Button>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                })}
-                            </div>
+                                                        </TableCell>
+                                                    )
+                                                }
 
+                                                return (
+                                                    <TableCell key={dateKey} className="p-2 align-top text-center h-24">
+                                                        {/* This cell is empty if the template doesn't apply or shift isn't created */}
+                                                    </TableCell>
+                                                )
+                                            })}
+                                        </TableRow>
+                                    )})}
+                                </TableBody>
+                            </Table>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
                             <div className="flex gap-2">
@@ -420,13 +327,6 @@ export default function ShiftSchedulingPage() {
                    <TotalHoursTracker schedule={schedule} allUsers={allUsers} />
                 </div>
             </div>
-             <AddShiftDialog
-                isOpen={isAddShiftDialogOpen}
-                onClose={() => setIsAddShiftDialogOpen(false)}
-                onSave={(templateId) => handleSaveShift(templateId, selectedDateForShift!)}
-                templates={shiftTemplates}
-                date={selectedDateForShift}
-            />
             {user?.role === 'Chủ nhà hàng' && (
                 <>
                     <ShiftTemplatesDialog
