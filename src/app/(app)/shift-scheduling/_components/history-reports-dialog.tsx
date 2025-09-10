@@ -17,13 +17,15 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
-import type { ManagedUser, Schedule } from '@/lib/types';
+import type { ManagedUser, Schedule, AssignedShift, PassRequest } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { eachDayOfInterval, format, startOfMonth, endOfMonth, getMonth, getYear, isSameDay } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ArrowRight } from 'lucide-react';
 
 
 function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: ManagedUser[]}) {
@@ -107,8 +109,77 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
     )
 }
 
-function WeeklyHistoryReport() {
-    return <p className="text-muted-foreground text-center py-8">Chức năng xem lại lịch sử tuần đang được phát triển.</p>
+function PassHistoryReport() {
+    const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        setIsLoading(true);
+        // This could be optimized if we expect a huge number of schedules.
+        // For now, fetching all seems acceptable for this feature.
+        const unsub = dataStore.subscribeToAllSchedules((schedules) => {
+            setAllSchedules(schedules);
+            setIsLoading(false);
+        });
+        return () => unsub();
+    }, []);
+
+    const completedPasses = useMemo(() => {
+        return allSchedules
+            .flatMap(schedule => 
+                schedule.shifts.map(shift => ({
+                    ...shift,
+                    weekId: schedule.weekId,
+                }))
+            )
+            .flatMap(shift => 
+                (shift.passRequests || [])
+                    .filter(pr => pr.status === 'taken' && pr.takenBy)
+                    .map(pr => ({
+                        shift,
+                        passRequest: pr,
+                    }))
+            )
+            .sort((a, b) => {
+                 const timeA = (a.passRequest.timestamp as any)?.toDate?.() || new Date(a.passRequest.timestamp as string);
+                 const timeB = (b.passRequest.timestamp as any)?.toDate?.() || new Date(b.passRequest.timestamp as string);
+                 return timeB - timeA;
+            });
+    }, [allSchedules]);
+
+    if (isLoading) {
+        return <Skeleton className="h-64 w-full" />;
+    }
+    
+    if (completedPasses.length === 0) {
+        return <p className="text-muted-foreground text-center py-8">Chưa có lịch sử pass ca nào.</p>
+    }
+
+    return (
+        <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Ca làm việc</TableHead>
+                        <TableHead>Người pass</TableHead>
+                        <TableHead>Người nhận</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {completedPasses.map(({ shift, passRequest }) => (
+                        <TableRow key={`${shift.id}-${passRequest.requestingUser.userId}`}>
+                            <TableCell>
+                                <p className="font-semibold">{shift.label}</p>
+                                <p className="text-xs text-muted-foreground">{format(new Date(shift.date), 'dd/MM/yyyy')} | {shift.timeSlot.start} - {shift.timeSlot.end}</p>
+                            </TableCell>
+                            <TableCell>{passRequest.requestingUser.userName}</TableCell>
+                            <TableCell>{passRequest.takenBy?.userName}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
 }
 
 
@@ -124,10 +195,10 @@ export default function HistoryAndReportsDialog({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && allUsers.length > 0) {
+    if (isOpen && allUsers.length > 0 && !selectedUserId) {
       setSelectedUserId(allUsers[0].uid);
     }
-  }, [isOpen, allUsers]);
+  }, [isOpen, allUsers, selectedUserId]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -141,7 +212,7 @@ export default function HistoryAndReportsDialog({
         <Tabs defaultValue="monthly">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="monthly">Thống kê tháng</TabsTrigger>
-                <TabsTrigger value="weekly" disabled>Lịch sử tuần</TabsTrigger>
+                <TabsTrigger value="pass-history">Lịch sử Pass ca</TabsTrigger>
             </TabsList>
             <TabsContent value="monthly" className="py-4 space-y-4">
                  <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
@@ -160,8 +231,8 @@ export default function HistoryAndReportsDialog({
                     <Skeleton className="h-96 w-full" />
                 )}
             </TabsContent>
-            <TabsContent value="weekly">
-                 <WeeklyHistoryReport />
+            <TabsContent value="pass-history" className="py-4">
+                 <PassHistoryReport />
             </TabsContent>
         </Tabs>
       </DialogContent>

@@ -72,6 +72,18 @@ export const dataStore = {
         return unsubscribe;
     },
 
+    subscribeToAllSchedules(callback: (schedules: Schedule[]) => void): () => void {
+        const q = query(collection(db, 'schedules'), orderBy('weekId', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const schedules = snapshot.docs.map(doc => doc.data() as Schedule);
+            callback(schedules);
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read all schedules: ${error.code}`);
+            callback([]);
+        });
+        return unsubscribe;
+    },
+
     async getSchedulesForMonth(date: Date): Promise<Schedule[]> {
         const monthStart = startOfMonth(date);
         const monthEnd = endOfMonth(date);
