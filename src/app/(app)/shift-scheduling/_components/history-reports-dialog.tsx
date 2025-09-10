@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -111,117 +112,6 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
     )
 }
 
-function PassHistoryReport() {
-    const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState<string | null>(null);
-    const { toast } = useToast();
-
-    useEffect(() => {
-        setIsLoading(true);
-        const unsub = dataStore.subscribeToAllSchedules((schedules) => {
-            setAllSchedules(schedules);
-            setIsLoading(false);
-        });
-        return () => unsub();
-    }, []);
-    
-    const handleRevertPass = async (weekId: string, shiftId: string, passRequest: PassRequest) => {
-        setIsProcessing(`${weekId}-${shiftId}-${passRequest.requestingUser.userId}`);
-        try {
-            await dataStore.revertPassRequest(weekId, shiftId, passRequest);
-            toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca.'});
-        } catch (error) {
-            console.error("Failed to revert pass request:", error);
-            toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
-        } finally {
-            setIsProcessing(null);
-        }
-    }
-
-    const completedPasses = useMemo(() => {
-        return allSchedules
-            .flatMap(schedule => 
-                schedule.shifts.map(shift => ({
-                    ...shift,
-                    weekId: schedule.weekId,
-                }))
-            )
-            .flatMap(shift => 
-                (shift.passRequests || [])
-                    .filter(pr => pr.status === 'taken' && pr.takenBy)
-                    .map(pr => ({
-                        shift,
-                        passRequest: pr,
-                    }))
-            )
-            .sort((a, b) => {
-                 const timeA = (a.passRequest.timestamp as any)?.toDate?.() || new Date(a.passRequest.timestamp as string);
-                 const timeB = (b.passRequest.timestamp as any)?.toDate?.() || new Date(b.passRequest.timestamp as string);
-                 return timeB.getTime() - timeA.getTime();
-            });
-    }, [allSchedules]);
-
-    if (isLoading) {
-        return <Skeleton className="h-64 w-full" />;
-    }
-    
-    if (completedPasses.length === 0) {
-        return <p className="text-muted-foreground text-center py-8">Chưa có lịch sử pass ca nào.</p>
-    }
-
-    return (
-        <div className="max-h-[60vh] overflow-y-auto">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Ca làm việc</TableHead>
-                        <TableHead>Người pass</TableHead>
-                        <TableHead>Người nhận</TableHead>
-                        <TableHead className="text-right">Hành động</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {completedPasses.map(({ shift, passRequest }) => (
-                        <TableRow key={`${shift.id}-${passRequest.requestingUser.userId}`} className={isProcessing === `${shift.weekId}-${shift.id}-${passRequest.requestingUser.userId}` ? 'opacity-50' : ''}>
-                            <TableCell>
-                                <p className="font-semibold">{shift.label}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(shift.date), 'dd/MM/yyyy')} | {shift.timeSlot.start} - {shift.timeSlot.end}</p>
-                            </TableCell>
-                            <TableCell>{passRequest.requestingUser.userName}</TableCell>
-                            <TableCell>{passRequest.takenBy?.userName}</TableCell>
-                            <TableCell className="text-right">
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" disabled={!!isProcessing}>
-                                            <Trash2 className="h-4 w-4 text-destructive"/>
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Hoàn tác yêu cầu Pass ca?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Hành động này sẽ xóa yêu cầu và gán ca làm việc trở lại cho nhân viên ban đầu ({passRequest.requestingUser.userName}).
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleRevertPass(shift.weekId, shift.id, passRequest)}>
-                                                Xác nhận hoàn tác
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
-    );
-}
-
-
 export default function HistoryAndReportsDialog({
   isOpen,
   onClose,
@@ -248,35 +138,24 @@ export default function HistoryAndReportsDialog({
             Xem lại các lịch đã công bố và thống kê giờ làm của nhân viên.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="monthly">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="monthly">Thống kê tháng</TabsTrigger>
-                <TabsTrigger value="pass-history">Lịch sử Pass ca</TabsTrigger>
-            </TabsList>
-            <TabsContent value="monthly" className="py-4 space-y-4">
-                 <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Chọn một nhân viên..."/>
-                    </SelectTrigger>
-                    <SelectContent>
-                        {allUsers.map(user => (
-                            <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                {selectedUserId ? (
-                    <MonthlyUserReport userId={selectedUserId} allUsers={allUsers} />
-                ) : (
-                    <Skeleton className="h-96 w-full" />
-                )}
-            </TabsContent>
-            <TabsContent value="pass-history" className="py-4">
-                 <PassHistoryReport />
-            </TabsContent>
-        </Tabs>
+        <div className="py-4 space-y-4">
+            <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
+            <SelectTrigger>
+                <SelectValue placeholder="Chọn một nhân viên..."/>
+            </SelectTrigger>
+            <SelectContent>
+                {allUsers.map(user => (
+                    <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
+                ))}
+            </SelectContent>
+            </Select>
+            {selectedUserId ? (
+                <MonthlyUserReport userId={selectedUserId} allUsers={allUsers} />
+            ) : (
+                <Skeleton className="h-96 w-full" />
+            )}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-    

@@ -172,6 +172,10 @@ export const dataStore = {
             transaction.update(scheduleRef, { shifts: updatedShifts });
         });
     },
+
+    async cancelPassRequestByOwner(weekId: string, shiftId: string, requestingUserId: string): Promise<void> {
+        return this.cancelPassShift(weekId, shiftId, requestingUserId);
+    },
     
     async declinePassShift(weekId: string, shiftId: string, requestingUserId: string, decliningUserId: string): Promise<void> {
         const scheduleRef = doc(db, "schedules", weekId);
@@ -209,8 +213,9 @@ export const dataStore = {
                 if (s.id === shiftId) {
                     // Filter out the reverted pass request
                     const updatedRequests = (s.passRequests || []).filter(p => 
-                        p.requestingUser.userId !== passRequestToRevert.requestingUser.userId || 
-                        p.status !== 'taken'
+                        !(p.requestingUser.userId === passRequestToRevert.requestingUser.userId && 
+                          p.status === 'taken' &&
+                          p.takenBy?.userId === passRequestToRevert.takenBy?.userId)
                     );
 
                     // Revert assigned users
@@ -241,6 +246,7 @@ export const dataStore = {
         shiftToTake: AssignedShift,
     ): Promise<void> {
         const scheduleRef = doc(db, "schedules", weekId);
+        const acceptingUser = { userId: auth.currentUser!.uid, userName: auth.currentUser!.displayName! };
 
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
@@ -255,13 +261,10 @@ export const dataStore = {
             if (!passRequest) throw new Error("Yêu cầu pass ca không còn hợp lệ.");
             const requestingUser = passRequest.requestingUser;
 
-            // Find the shift in the current schedule data from the transaction
             const shiftToUpdate = shifts.find(s => s.id === shiftToTake.id);
             if (!shiftToUpdate) {
                 throw new Error("Không tìm thấy ca làm việc này.");
             }
-
-            const acceptingUser = { userId: auth.currentUser!.uid, userName: auth.currentUser!.displayName! };
 
             // --- Check for scheduling conflicts ---
             const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`);
@@ -300,8 +303,10 @@ export const dataStore = {
                     };
 
                     const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== requestingUser.userId);
-                    newAssignedUsers.push(acceptingUser);
-
+                    if (!newAssignedUsers.some(u => u.userId === acceptingUser.userId)) {
+                        newAssignedUsers.push(acceptingUser);
+                    }
+                    
                     return {
                         ...s,
                         assignedUsers: newAssignedUsers,
@@ -311,6 +316,43 @@ export const dataStore = {
                 return s;
             });
 
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+        });
+    },
+
+    async assignUserToShift(weekId: string, shiftId: string, assignedUser: {userId: string, userName: string}, passRequest: PassRequest): Promise<void> {
+        const scheduleRef = doc(db, "schedules", weekId);
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === shiftId) {
+                     // 1. Update the pass request status
+                     const updatedRequests = (s.passRequests || []).map(p => {
+                        if(p.requestingUser.userId === passRequest.requestingUser.userId && p.status === 'pending') {
+                            return {
+                                ...p,
+                                status: 'taken' as const,
+                                takenBy: assignedUser
+                            };
+                        }
+                        return p;
+                    });
+                    
+                    // 2. Update the assigned users
+                    const newAssignedUsers = s.assignedUsers
+                        .filter(u => u.userId !== passRequest.requestingUser.userId); // Remove original user
+                    
+                    if (!newAssignedUsers.some(u => u.userId === assignedUser.userId)) {
+                        newAssignedUsers.push(assignedUser); // Add the new user
+                    }
+                    
+                    return { ...s, passRequests: updatedRequests, assignedUsers: newAssignedUsers };
+                }
+                return s;
+            });
             transaction.update(scheduleRef, { shifts: updatedShifts });
         });
     },
@@ -1350,9 +1392,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
-
-    
-
-    

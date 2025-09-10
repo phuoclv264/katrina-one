@@ -478,9 +478,6 @@ export default function ScheduleView() {
                                         <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
                                             <Settings className="mr-2 h-4 w-4"/> Mẫu ca
                                         </Button>
-                                         <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
-                                            <History className="mr-2 h-4 w-4"/> Lịch sử
-                                        </Button>
                                     </>
                                 )}
                             </div>
