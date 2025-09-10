@@ -81,10 +81,11 @@ export default function ScheduleView() {
             date: format(date, 'yyyy-MM-dd'),
             availableSlots: slots,
         };
-
-        const existingIndex = schedule.availability.findIndex(a => a.userId === user.uid && a.date === newAvailability.date);
         
-        const updatedAvailability = [...schedule.availability];
+        const availabilityList = schedule.availability || [];
+        const existingIndex = availabilityList.findIndex(a => a.userId === user.uid && a.date === newAvailability.date);
+        
+        const updatedAvailability = [...availabilityList];
         if (existingIndex > -1) {
             updatedAvailability[existingIndex] = newAvailability;
         } else {
