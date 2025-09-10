@@ -11,7 +11,6 @@ import {
     CardHeader,
     CardTitle,
     CardDescription,
-    CardFooter,
 } from '@/components/ui/card';
 import {
     ChevronLeft,
@@ -22,6 +21,7 @@ import {
     Settings,
     BookOpen,
     ChevronsDownUp,
+    Plus,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -48,6 +48,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { CardFooter } from '@/components/ui/card';
 
 
 export default function ScheduleView() {
@@ -112,11 +113,13 @@ export default function ScheduleView() {
     
     // Auto-populate shifts from templates
     useEffect(() => {
-        if (!schedule || schedule.status !== 'draft' || !shiftTemplates.length || !daysOfWeek.length) return;
+        if (!schedule || schedule.status !== 'draft' || !shiftTemplates.length) return;
 
         const shiftsToAdd: AssignedShift[] = [];
-        daysOfWeek.forEach(day => {
-            const dayOfWeek = getDay(day); // Sunday = 0, Monday = 1, etc.
+        const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
+        
+        daysInWeek.forEach(day => {
+            const dayOfWeek = getDay(day);
             const dateKey = format(day, 'yyyy-MM-dd');
 
             shiftTemplates.forEach(template => {
@@ -147,7 +150,6 @@ export default function ScheduleView() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [schedule?.status, shiftTemplates, weekId]);
-    
 
 
     const handleDateChange = (direction: 'next' | 'prev') => {
@@ -196,13 +198,6 @@ export default function ScheduleView() {
             assignedUsers: [],
         };
     };
-
-    const handleDeleteShift = async (shiftId: string) => {
-         if (!schedule) return;
-        const updatedShifts = schedule.shifts.filter(shift => shift.id !== shiftId);
-        await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
-        toast({ title: 'Đã xóa', description: 'Đã xóa ca làm việc khỏi lịch.'});
-    }
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
         setIsSubmitting(true);
@@ -318,7 +313,6 @@ export default function ScheduleView() {
                                                                 availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
                                                                 dailyAvailability={availabilityByDay[dateKey] || []}
                                                                 onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                onDelete={handleDeleteShift}
                                                                 canEdit={canEditSchedule}
                                                             />
                                                         </TableCell>
@@ -368,7 +362,6 @@ export default function ScheduleView() {
                                                                             availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
                                                                             dailyAvailability={availabilityByDay[dateKey] || []}
                                                                             onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                            onDelete={handleDeleteShift}
                                                                             canEdit={canEditSchedule}
                                                                         />
                                                                     </div>
