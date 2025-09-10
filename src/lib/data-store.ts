@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { db, storage } from './firebase';
+import { db, storage, auth } from './firebase';
 import {
   collection,
   doc,
@@ -22,7 +21,6 @@ import {
   writeBatch,
   runTransaction,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, PassRequest, ShiftTemplate } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
@@ -1348,3 +1346,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    
