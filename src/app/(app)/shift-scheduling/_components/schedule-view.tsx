@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
-import ShiftAssignmentPopover from './shift-assignment-popover';
+import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursTracker from './total-hours-tracker';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -50,6 +50,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import isEqual from 'lodash.isequal';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function ScheduleView() {
@@ -68,6 +69,9 @@ export default function ScheduleView() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
+    const [activeShift, setActiveShift] = useState<AssignedShift | null>(null);
 
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -244,6 +248,11 @@ export default function ScheduleView() {
             assignedUsers: [],
         };
     };
+    
+    const handleOpenAssignmentDialog = (shift: AssignedShift) => {
+        setActiveShift(shift);
+        setIsAssignmentDialogOpen(true);
+    };
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
         if (!localSchedule) return;
@@ -365,13 +374,20 @@ export default function ScheduleView() {
 
                                                     return (
                                                         <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
-                                                            <ShiftAssignmentPopover
-                                                                shift={shiftObject}
-                                                                availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
-                                                                dailyAvailability={availabilityByDay[dateKey] || []}
-                                                                onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                canEdit={canEditSchedule}
-                                                            />
+                                                             <Button 
+                                                                variant="ghost" 
+                                                                className="h-full w-full flex flex-col items-center justify-center p-1"
+                                                                onClick={() => handleOpenAssignmentDialog(shiftObject)}
+                                                                disabled={!canEditSchedule}
+                                                            >
+                                                                <div className="flex-grow space-y-1 py-1">
+                                                                {shiftObject.assignedUsers.map(user => (
+                                                                    <Badge key={user.userId} variant="secondary" className="block text-xs text-center truncate w-full">
+                                                                        {user.userName}
+                                                                    </Badge>
+                                                                ))}
+                                                                </div>
+                                                            </Button>
                                                         </TableCell>
                                                     )
                                                 })}
@@ -426,13 +442,21 @@ export default function ScheduleView() {
                                                                             <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                                             <p className="text-xs text-muted-foreground">({template.role})</p>
                                                                         </div>
-                                                                        <ShiftAssignmentPopover
-                                                                            shift={shiftObject}
-                                                                            availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
-                                                                            dailyAvailability={availabilityByDay[dateKey] || []}
-                                                                            onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                            canEdit={canEditSchedule}
-                                                                        />
+                                                                        <Button 
+                                                                            variant="secondary"
+                                                                            size="sm"
+                                                                            onClick={() => handleOpenAssignmentDialog(shiftObject)}
+                                                                            disabled={!canEditSchedule}
+                                                                        >
+                                                                            Phân công
+                                                                        </Button>
+                                                                    </div>
+                                                                     <div className="flex flex-wrap gap-1 mt-2">
+                                                                        {shiftObject.assignedUsers.map(user => (
+                                                                            <Badge key={user.userId} variant="secondary">
+                                                                                {user.userName}
+                                                                            </Badge>
+                                                                        ))}
                                                                     </div>
                                                                 </div>
                                                             );
@@ -514,6 +538,16 @@ export default function ScheduleView() {
                    <TotalHoursTracker schedule={localSchedule} allUsers={allUsers} />
                 </div>
             </div>
+            {activeShift && (
+                <ShiftAssignmentDialog
+                    isOpen={isAssignmentDialogOpen}
+                    onClose={() => setIsAssignmentDialogOpen(false)}
+                    shift={activeShift}
+                    allUsers={allUsers}
+                    dailyAvailability={availabilityByDay[activeShift.date] || []}
+                    onSave={handleUpdateShiftAssignment}
+                />
+            )}
             {user?.role === 'Chủ nhà hàng' && (
                 <>
                     <ShiftTemplatesDialog
