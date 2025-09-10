@@ -70,3 +70,9 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+    .sidebar-active-indicator {
+        @apply absolute top-1/2 -translate-y-1/2 left-0 h-5 w-1 rounded-r-full bg-primary transition-opacity duration-200 opacity-0 data-[active=true]:opacity-100;
+    }
+}

@@ -38,7 +38,6 @@ type ShiftAssignmentPopoverProps = {
   availableUsers: ManagedUser[];
   dailyAvailability: Availability[];
   onUpdateAssignment: (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => void;
-  onDelete: (shiftId: string) => void;
   canEdit: boolean;
 };
 
@@ -47,7 +46,6 @@ export default function ShiftAssignmentPopover({
   availableUsers,
   dailyAvailability,
   onUpdateAssignment,
-  onDelete,
   canEdit,
 }: ShiftAssignmentPopoverProps) {
   const [open, setOpen] = useState(false);

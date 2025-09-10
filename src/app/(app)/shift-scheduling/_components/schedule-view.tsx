@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,8 @@ import {
     BookOpen,
     ChevronsDownUp,
     Plus,
+    Save,
+    History,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -49,6 +51,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import isEqual from 'lodash.isequal';
 
 
 export default function ScheduleView() {
@@ -57,7 +60,11 @@ export default function ScheduleView() {
     const isMobile = useIsMobile();
 
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [schedule, setSchedule] = useState<Schedule | null>(null);
+    
+    const [serverSchedule, setServerSchedule] = useState<Schedule | null>(null);
+    const [localSchedule, setLocalSchedule] = useState<Schedule | null>(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
 
@@ -89,7 +96,10 @@ export default function ScheduleView() {
 
         setIsLoading(true);
         const unsubSchedule = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
-            setSchedule(newSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] });
+            const fullSchedule = newSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+            setServerSchedule(fullSchedule);
+            setLocalSchedule(fullSchedule);
+            setHasUnsavedChanges(false);
             setIsLoading(false);
         });
 
@@ -107,9 +117,23 @@ export default function ScheduleView() {
 
     }, [user, weekId, canManage]);
     
+    // Check for unsaved changes before leaving the page
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = ''; // Required for legacy browsers
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+
     // Auto-populate shifts from templates
     useEffect(() => {
-        if (!schedule || schedule.status !== 'draft' || !shiftTemplates.length) return;
+        if (!localSchedule || localSchedule.status !== 'draft' || !shiftTemplates.length) return;
 
         const shiftsToAdd: AssignedShift[] = [];
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
@@ -120,7 +144,7 @@ export default function ScheduleView() {
 
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
-                    const doesShiftExist = schedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
+                    const doesShiftExist = localSchedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
                     if (!doesShiftExist) {
                         shiftsToAdd.push({
                             id: `shift_${dateKey}_${template.id}`,
@@ -137,42 +161,71 @@ export default function ScheduleView() {
         });
 
         if (shiftsToAdd.length > 0) {
-            const updatedShifts = [...schedule.shifts, ...shiftsToAdd].sort((a, b) => {
+            const updatedShifts = [...localSchedule.shifts, ...shiftsToAdd].sort((a, b) => {
                 if (a.date < b.date) return -1;
                 if (a.date > b.date) return 1;
                 return a.timeSlot.start.localeCompare(b.timeSlot.start);
             });
-            dataStore.updateSchedule(weekId, { shifts: updatedShifts });
+            handleLocalScheduleUpdate({ shifts: updatedShifts });
         }
-    }, [schedule?.status, shiftTemplates, weekId, currentDate]);
+    }, [localSchedule?.status, shiftTemplates, weekId, currentDate, localSchedule]);
+
+    const handleLocalScheduleUpdate = useCallback((data: Partial<Schedule>) => {
+        setLocalSchedule(prev => {
+            if (!prev) return null;
+            const newSchedule = { ...prev, ...data };
+            setHasUnsavedChanges(!isEqual(newSchedule, serverSchedule));
+            return newSchedule;
+        });
+    }, [serverSchedule]);
 
 
     const handleDateChange = (direction: 'next' | 'prev') => {
+        if (hasUnsavedChanges) {
+            if (!window.confirm("Bạn có các thay đổi chưa được lưu. Bạn có chắc muốn chuyển tuần?")) {
+                return;
+            }
+        }
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
     };
     
-    const handleUpdateShiftAssignment = async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
-        if (!schedule) return;
+    const handleUpdateShiftAssignment = useCallback((shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
+        if (!localSchedule) return;
         
         let updatedShifts;
-        const shiftExists = schedule.shifts.some(s => s.id === shiftId);
+        const shiftExists = localSchedule.shifts.some(s => s.id === shiftId);
 
         if (shiftExists) {
-            updatedShifts = schedule.shifts.map(shift => 
+            updatedShifts = localSchedule.shifts.map(shift => 
                 shift.id === shiftId ? { ...shift, assignedUsers: newAssignedUsers } : shift
             );
         } else {
              const newShift = createShiftFromId(shiftId);
              if (newShift) {
                 newShift.assignedUsers = newAssignedUsers;
-                updatedShifts = [...schedule.shifts, newShift];
+                updatedShifts = [...localSchedule.shifts, newShift];
             } else {
-                updatedShifts = [...schedule.shifts];
+                updatedShifts = [...localSchedule.shifts];
             }
         }
-        
-        await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
-    }
+        handleLocalScheduleUpdate({ shifts: updatedShifts });
+    }, [localSchedule, handleLocalScheduleUpdate]);
+
+    const handleSaveChanges = async () => {
+        if (!localSchedule || !hasUnsavedChanges) return;
+        setIsSubmitting(true);
+        try {
+            await dataStore.updateSchedule(weekId, localSchedule);
+            toast({ title: "Đã lưu!", description: "Lịch làm việc đã được cập nhật." });
+            setHasUnsavedChanges(false);
+            setServerSchedule(localSchedule); // Sync server state with local
+        } catch (error) {
+            console.error("Failed to save changes:", error);
+            toast({ title: 'Lỗi', description: 'Không thể lưu thay đổi.', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const createShiftFromId = (shiftId: string): AssignedShift | null => {
         const parts = shiftId.split('_');
@@ -195,6 +248,10 @@ export default function ScheduleView() {
     };
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
+        if(hasUnsavedChanges && !window.confirm("Bạn có các thay đổi chưa được lưu. Những thay đổi này sẽ bị mất nếu bạn tiếp tục. Bạn có chắc không?")) {
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await dataStore.updateSchedule(weekId, { status: newStatus });
@@ -209,8 +266,8 @@ export default function ScheduleView() {
     
     const availabilityByDay = useMemo(() => {
         const grouped: { [key: string]: Availability[] } = {};
-         if (schedule?.availability) {
-            for (const avail of schedule.availability) {
+         if (localSchedule?.availability) {
+            for (const avail of localSchedule.availability) {
                 if (!grouped[avail.date]) {
                     grouped[avail.date] = [];
                 }
@@ -218,7 +275,7 @@ export default function ScheduleView() {
             }
         }
         return grouped;
-    }, [schedule?.availability]);
+    }, [localSchedule?.availability]);
 
     const handleToggleAllMobileDays = () => {
         if (openMobileDays.length === daysOfWeek.length) {
@@ -238,7 +295,7 @@ export default function ScheduleView() {
         )
     }
     
-    const canEditSchedule = schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng';
+    const canEditSchedule = localSchedule?.status === 'draft' || user?.role === 'Chủ nhà hàng';
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
     const areAllMobileDaysOpen = openMobileDays.length === daysOfWeek.length;
 
@@ -251,7 +308,7 @@ export default function ScheduleView() {
                         <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                              <div>
                                 <CardTitle>Lịch tuần: {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}</CardTitle>
-                                <CardDescription>Trạng thái: <span className="font-semibold">{schedule?.status || 'chưa tạo'}</span></CardDescription>
+                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'chưa tạo'}</span></CardDescription>
                             </div>
                              <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
@@ -296,7 +353,7 @@ export default function ScheduleView() {
                                                         return <TableCell key={dateKey} className="bg-muted/30" />;
                                                     }
                                                     
-                                                    const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                    const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                     const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
                                                     if (!shiftObject) return <TableCell key={dateKey} className="bg-muted/30" />;
@@ -330,7 +387,7 @@ export default function ScheduleView() {
                                     {daysOfWeek.map(day => {
                                         const dateKey = format(day, 'yyyy-MM-dd');
                                         const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
-                                        const shiftsForDay = schedule?.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
+                                        const shiftsForDay = localSchedule?.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
                                         
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey}>
@@ -351,7 +408,7 @@ export default function ScheduleView() {
                                                 <AccordionContent className="pt-2">
                                                     <div className="space-y-3 p-2">
                                                         {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
-                                                            const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                            const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                             const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
                                                             if (!shiftObject) return null;
@@ -393,38 +450,52 @@ export default function ScheduleView() {
                                             <Settings className="mr-2 h-4 w-4"/> Mẫu ca
                                         </Button>
                                          <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)}>
-                                            <BookOpen className="mr-2 h-4 w-4"/> Lịch sử
+                                            <History className="mr-2 h-4 w-4"/> Lịch sử
                                         </Button>
                                     </>
                                 )}
                             </div>
                             <div className="flex-1" />
-                            {schedule?.status === 'draft' && user?.role === 'Quản lý' && (
-                               <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
-                            )}
-                             {schedule?.status === 'proposed' && user?.role === 'Chủ nhà hàng' && (
-                               <div className="flex gap-2">
-                                  <Button variant="secondary" onClick={() => handleUpdateStatus('draft')} disabled={isSubmitting}><FileSignature className="mr-2 h-4 w-4"/> Chỉnh sửa lại</Button>
-                                  <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting}><CheckCircle className="mr-2 h-4 w-4"/> Duyệt và Công bố</Button>
-                               </div>
-                            )}
-                             {schedule?.status === 'published' && user?.role === 'Chủ nhà hàng' && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                         <Button variant="secondary" disabled={isSubmitting}><FileSignature className="mr-2 h-4 w-4"/> Hủy công bố & Chỉnh sửa</Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader><AlertDialogTitle>Hủy công bố lịch?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ thu hồi lịch đã công bố và cho phép bạn chỉnh sửa lại. Nhân viên sẽ không thấy lịch này nữa cho đến khi bạn công bố lại.</AlertDialogDescription></AlertDialogHeader>
-                                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận</AlertDialogAction></AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
+                            <div className="flex items-center gap-4">
+                                {hasUnsavedChanges && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex h-3 w-3">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                                        </div>
+                                        <span className="text-sm text-muted-foreground">Có thay đổi chưa lưu</span>
+                                        <Button variant="default" onClick={handleSaveChanges} disabled={isSubmitting}>
+                                            <Save className="mr-2 h-4 w-4"/> Lưu thay đổi
+                                        </Button>
+                                    </div>
+                                )}
+                                {localSchedule?.status === 'draft' && user?.role === 'Quản lý' && (
+                                   <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
+                                )}
+                                 {localSchedule?.status === 'proposed' && user?.role === 'Chủ nhà hàng' && (
+                                   <div className="flex gap-2">
+                                      <Button variant="secondary" onClick={() => handleUpdateStatus('draft')} disabled={isSubmitting || hasUnsavedChanges}><FileSignature className="mr-2 h-4 w-4"/> Chỉnh sửa lại</Button>
+                                      <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting || hasUnsavedChanges}><CheckCircle className="mr-2 h-4 w-4"/> Duyệt và Công bố</Button>
+                                   </div>
+                                )}
+                                 {localSchedule?.status === 'published' && user?.role === 'Chủ nhà hàng' && (
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                             <Button variant="secondary" disabled={isSubmitting || hasUnsavedChanges}><FileSignature className="mr-2 h-4 w-4"/> Hủy công bố & Chỉnh sửa</Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Hủy công bố lịch?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ thu hồi lịch đã công bố và cho phép bạn chỉnh sửa lại. Nhân viên sẽ không thấy lịch này nữa cho đến khi bạn công bố lại.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
+                            </div>
                         </CardFooter>
                     </Card>
                 </div>
                 {/* Side Panel */}
                 <div className="w-full xl:w-80 xl:sticky xl:top-4">
-                   <TotalHoursTracker schedule={schedule} allUsers={allUsers} />
+                   <TotalHoursTracker schedule={localSchedule} allUsers={allUsers} />
                 </div>
             </div>
             {user?.role === 'Chủ nhà hàng' && (
