@@ -247,8 +247,8 @@ export const initialViolationCategories: ViolationCategory[] = [
 ];
 
 export const defaultTimeSlots: TimeSlot[] = [
-    { start: '06:00', end: '12:00' },
-    { start: '12:00', end: '18:00' },
-    { start: '18:00', end: '23:00' },
+    { start: '05:30', end: '12:00' },
+    { start: '12:00', end: '17:00' },
+    { start: '17:00', end: '23:00' },
     { start: '06:00', end: '23:00' },
 ];
