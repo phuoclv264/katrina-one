@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -7,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     ChevronLeft,
     ChevronRight,
@@ -20,7 +19,10 @@ import {
     Eye,
     Settings,
     MoreVertical,
-    BookOpen
+    BookOpen,
+    UserCheck,
+    ZoomIn,
+    ZoomOut
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -51,7 +53,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import HistoryAndReportsDialog from './_components/history-reports-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+type ViewMode = 'compact' | 'detailed';
 
 export default function ShiftSchedulingPage() {
     const { user, loading: authLoading } = useAuth();
@@ -62,6 +67,7 @@ export default function ShiftSchedulingPage() {
     const [schedule, setSchedule] = useState<Schedule | null>(null);
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
+    const [viewMode, setViewMode] = useState<ViewMode>('detailed');
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -232,69 +238,90 @@ export default function ShiftSchedulingPage() {
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
+                                 <Button variant={viewMode === 'compact' ? 'default' : 'outline'} size="icon" onClick={() => setViewMode('compact')}><ZoomOut /></Button>
+                                <Button variant={viewMode === 'detailed' ? 'default' : 'outline'} size="icon" onClick={() => setViewMode('detailed')}><ZoomIn /></Button>
                             </div>
                         </CardHeader>
                         <CardContent>
-                           <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 border-t border-l">
-                               {daysOfWeek.map(day => {
-                                    const dateKey = format(day, 'yyyy-MM-dd');
-                                    const dayShifts = shiftsByDay[dateKey] || [];
-                                    const availableUsersForDay = availabilityByDay[dateKey] || [];
-                                    const uniqueAvailableUsers = Array.from(new Map(availableUsersForDay.map(avail => [avail.userId, avail])).values());
-                                    
-                                    return (
-                                        <div key={dateKey} className="border-b border-r min-h-[200px] flex flex-col bg-muted/20">
-                                            <div className={cn("p-2 border-b flex justify-between items-center bg-background", isSameDay(day, new Date()) && "bg-primary/10")}>
-                                                <span className="font-bold">{format(day, 'dd')}</span>
-                                                <span className="text-sm text-muted-foreground">{format(day, 'eee', {locale: vi})}</span>
-                                            </div>
-                                            
-                                            {/* Available Users */}
-                                            <div className="px-2 pt-2">
-                                                <div className="flex flex-wrap -space-x-2">
-                                                    {uniqueAvailableUsers.map(avail => {
-                                                        const user = allUsers.find(u => u.uid === avail.userId);
-                                                        return (
-                                                        <Tooltip key={avail.userId}>
-                                                            <TooltipTrigger asChild>
-                                                                <Avatar className="h-7 w-7 border-2 border-background">
-                                                                    <AvatarFallback className="text-xs">{user?.displayName?.charAt(0)}</AvatarFallback>
-                                                                </Avatar>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>{user?.displayName}</p>
-                                                                <ul className="text-xs text-muted-foreground">
-                                                                    {avail.availableSlots.map((slot, i) => <li key={i}>{slot.start} - {slot.end}</li>)}
-                                                                </ul>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    )})}
-                                                </div>
-                                            </div>
+                           <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                <Table className="w-max">
+                                    <TableHeader>
+                                        <TableRow>
+                                            {daysOfWeek.map(day => (
+                                                <TableHead 
+                                                    key={day.toString()}
+                                                    className={cn(
+                                                        "text-center p-2 min-w-48",
+                                                        viewMode === 'detailed' && "sm:min-w-64",
+                                                        isSameDay(day, new Date()) && "bg-primary/10"
+                                                    )}
+                                                >
+                                                    <div className="font-bold text-lg">{format(day, 'dd')}</div>
+                                                    <div className="text-sm text-muted-foreground">{format(day, 'eee', {locale: vi})}</div>
+                                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <TableRow>
+                                            {daysOfWeek.map(day => {
+                                                const dateKey = format(day, 'yyyy-MM-dd');
+                                                const dayShifts = shiftsByDay[dateKey] || [];
+                                                const availableUsersForDay = availabilityByDay[dateKey] || [];
+                                                const uniqueAvailableUsers = Array.from(new Map(availableUsersForDay.map(avail => [avail.userId, avail])).values());
+                                                
+                                                return (
+                                                    <TableCell key={dateKey} className="h-full align-top p-2 space-y-2">
+                                                        {/* Available Users */}
+                                                        <div className="flex flex-wrap -space-x-2 justify-center h-8">
+                                                            {uniqueAvailableUsers.map(avail => {
+                                                                const user = allUsers.find(u => u.uid === avail.userId);
+                                                                return (
+                                                                <Tooltip key={avail.userId}>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Avatar className="h-7 w-7 border-2 border-background">
+                                                                            <AvatarFallback className="text-xs">{user?.displayName?.charAt(0)}</AvatarFallback>
+                                                                        </Avatar>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>{user?.displayName}</p>
+                                                                        <ul className="text-xs text-muted-foreground">
+                                                                            {avail.availableSlots.map((slot, i) => <li key={i}>{slot.start} - {slot.end}</li>)}
+                                                                        </ul>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            )})}
+                                                        </div>
 
-                                            <div className="flex-grow p-2 space-y-2">
-                                                {dayShifts.map(shift => (
-                                                    <ShiftAssignmentPopover
-                                                        key={shift.id}
-                                                        shift={shift}
-                                                        availableUsers={allUsers.filter(u => u.role === shift.role || shift.role === 'Bất kỳ')}
-                                                        dailyAvailability={availabilityByDay[dateKey] || []}
-                                                        onUpdateAssignment={handleUpdateShiftAssignment}
-                                                        onDelete={handleDeleteShift}
-                                                        canEdit={schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng'}
-                                                    />
-                                                ))}
-                                            </div>
+                                                        {/* Shifts */}
+                                                        <div className="flex-grow space-y-2">
+                                                            {dayShifts.map(shift => (
+                                                                <ShiftAssignmentPopover
+                                                                    key={shift.id}
+                                                                    shift={shift}
+                                                                    availableUsers={allUsers.filter(u => u.role === shift.role || shift.role === 'Bất kỳ')}
+                                                                    dailyAvailability={availabilityByDay[dateKey] || []}
+                                                                    onUpdateAssignment={handleUpdateShiftAssignment}
+                                                                    onDelete={handleDeleteShift}
+                                                                    canEdit={schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng'}
+                                                                />
+                                                            ))}
+                                                        </div>
 
-                                            {(schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng') && (
-                                                <Button variant="ghost" size="sm" className="m-2 mt-auto" onClick={() => handleAddShiftClick(day)}>
-                                                    <Plus className="mr-2 h-4 w-4"/> Thêm ca
-                                                </Button>
-                                            )}
-                                        </div>
-                                    )
-                               })}
-                            </div>
+                                                        {/* Add Shift Button */}
+                                                        {(schedule?.status === 'draft' || user?.role === 'Chủ nhà hàng') && (
+                                                            <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => handleAddShiftClick(day)}>
+                                                                <Plus className="mr-2 h-4 w-4"/> Thêm ca
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
+                                                )
+                                            })}
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                                <ScrollBar orientation="horizontal" />
+                           </ScrollArea>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
                             <div className="flex gap-2">
@@ -362,4 +389,3 @@ export default function ShiftSchedulingPage() {
         </TooltipProvider>
     )
 }
-
