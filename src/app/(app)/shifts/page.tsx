@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Sunset, ShieldX } from 'lucide-react';
+import { Sun, Moon, Sunset, ShieldX, CalendarDays } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -55,6 +55,12 @@ export default function ShiftsPage() {
             </Link>
           </Button>
           <Separator className="my-2" />
+          <Button asChild size="lg" variant="outline">
+            <Link href="/schedule">
+                <CalendarDays className="mr-2" />
+                Lịch làm việc
+            </Link>
+          </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/violations">
                 <ShieldX className="mr-2" />
