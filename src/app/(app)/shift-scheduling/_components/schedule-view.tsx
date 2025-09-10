@@ -254,7 +254,12 @@ export default function ScheduleView() {
 
         setIsSubmitting(true);
         try {
-            await dataStore.updateSchedule(weekId, { status: newStatus });
+            const dataToUpdate: Partial<Schedule> = { status: newStatus };
+            // When publishing directly, also save the current state of shifts
+            if (newStatus === 'published') {
+                dataToUpdate.shifts = localSchedule?.shifts;
+            }
+            await dataStore.updateSchedule(weekId, dataToUpdate);
             toast({ title: 'Thành công!', description: `Đã cập nhật trạng thái lịch thành: ${newStatus}` });
         } catch (error) {
             console.error("Failed to update schedule status:", error);
@@ -471,6 +476,9 @@ export default function ScheduleView() {
                                 )}
                                 {localSchedule?.status === 'draft' && user?.role === 'Quản lý' && (
                                    <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
+                                )}
+                                 {localSchedule?.status === 'draft' && user?.role === 'Chủ nhà hàng' && (
+                                    <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting || hasUnsavedChanges}><CheckCircle className="mr-2 h-4 w-4"/> Công bố trực tiếp</Button>
                                 )}
                                  {localSchedule?.status === 'proposed' && user?.role === 'Chủ nhà hàng' && (
                                    <div className="flex gap-2">
