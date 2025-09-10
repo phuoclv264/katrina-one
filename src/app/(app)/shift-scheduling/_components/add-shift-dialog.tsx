@@ -58,7 +58,7 @@ export default function AddShiftDialog({ isOpen, onClose, onSave, templates, dat
               >
                  <div>
                     <p className="font-semibold">{template.label}</p>
-                    <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
+                     <p className="text-sm text-muted-foreground">{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</p>
                  </div>
                 <RadioGroupItem value={template.id} id={template.id} />
               </Label>

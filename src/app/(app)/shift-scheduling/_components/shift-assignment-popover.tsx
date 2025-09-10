@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -91,66 +92,25 @@ export default function ShiftAssignmentPopover({
   )
 
   return (
-    <Card className="bg-background shadow-sm">
-        <CardHeader className="p-3 flex flex-row items-start justify-between">
-            <div>
-                <CardTitle className="text-sm">{shift.label}</CardTitle>
-                <CardDescription className="text-xs flex items-center gap-1 mt-1">
-                    <Clock className="h-3 w-3"/>
-                    {shift.timeSlot.start} - {shift.timeSlot.end}
-                </CardDescription>
-            </div>
-            {canEdit && (
-                <AlertDialog>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4"/> Xóa ca
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Xác nhận xóa ca làm việc?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Hành động này sẽ xóa ca "{shift.label}" khỏi lịch tuần này.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(shift.id)}>Xóa</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            )}
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-             <div className="flex flex-wrap gap-1 mb-2">
-                {shift.assignedUsers.map(user => (
-                    <Badge key={user.userId} variant="secondary">{user.userName}</Badge>
+      <Popover open={open} onOpenChange={setOpen}>
+        <div className="space-y-1">
+            <div className="flex flex-wrap gap-1">
+                 {shift.assignedUsers.map(user => (
+                    <Badge key={user.userId} variant="secondary" className="text-xs">{user.userName}</Badge>
                 ))}
             </div>
              {canEdit ? (
-                <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" size="xs" className="w-full h-7">
-                            <UserPlus className="mr-2 h-3 w-3" />
-                            {shift.assignedUsers.length > 0 ? 'Chỉnh sửa' : 'Phân công'}
-                        </Button>
-                    </PopoverTrigger>
-                    {popoverContent}
-                </Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="xs" className="w-full h-7 justify-start p-1 text-muted-foreground hover:text-foreground">
+                        <UserPlus className="mr-2 h-3 w-3" />
+                        {shift.assignedUsers.length > 0 ? 'Sửa' : 'Phân công'}
+                    </Button>
+                </PopoverTrigger>
             ) : (
-                 shift.assignedUsers.length === 0 && <p className="text-xs text-muted-foreground italic">Chưa có ai được phân công.</p>
+                 shift.assignedUsers.length === 0 && <p className="text-xs text-muted-foreground italic text-center pt-2">Trống</p>
             )}
-        </CardContent>
-    </Card>
+        </div>
+        {popoverContent}
+    </Popover>
   );
 }
