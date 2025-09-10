@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     ChevronLeft,
     ChevronRight,
@@ -161,8 +162,36 @@ export default function ShiftSchedulingPage() {
         const updatedShifts = schedule.shifts.map(shift => 
             shift.id === shiftId ? { ...shift, assignedUsers: newAssignedUsers } : shift
         );
+         // If the shift didn't exist before, add it now.
+        if (!schedule.shifts.some(s => s.id === shiftId)) {
+            const newShift = createShiftFromId(shiftId);
+            if (newShift) {
+                newShift.assignedUsers = newAssignedUsers;
+                updatedShifts.push(newShift);
+            }
+        }
         await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
     }
+
+    const createShiftFromId = (shiftId: string): AssignedShift | null => {
+        const parts = shiftId.split('_');
+        if (parts.length < 3) return null;
+        const [_, dateKey, ...templateIdParts] = parts;
+        const templateId = templateIdParts.join('_');
+        
+        const template = shiftTemplates.find(t => t.id === templateId);
+        if (!template) return null;
+
+        return {
+            id: shiftId,
+            templateId: template.id,
+            date: dateKey,
+            label: template.label,
+            role: template.role,
+            timeSlot: template.timeSlot,
+            assignedUsers: [],
+        };
+    };
 
     const handleDeleteShift = async (shiftId: string) => {
          if (!schedule) return;
@@ -289,25 +318,34 @@ export default function ShiftSchedulingPage() {
                                             </TableCell>
                                             {daysOfWeek.map(day => {
                                                 const dateKey = format(day, 'yyyy-MM-dd');
+                                                const dayOfWeek = getDay(day);
+
+                                                if (!(template.applicableDays || []).includes(dayOfWeek)) {
+                                                    return <TableCell key={dateKey} className="bg-muted/30" />;
+                                                }
+                                                
                                                 const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                 
-                                                if (shiftForCell) {
-                                                    return (
-                                                        <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
-                                                            <ShiftAssignmentPopover
-                                                                shift={shiftForCell}
-                                                                availableUsers={allUsers.filter(u => u.role === shiftForCell.role || shiftForCell.role === 'Bất kỳ')}
-                                                                dailyAvailability={availabilityByDay[dateKey] || []}
-                                                                onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                onDelete={handleDeleteShift}
-                                                                canEdit={canEditSchedule}
-                                                            />
-                                                        </TableCell>
-                                                    )
-                                                }
+                                                const shiftObject = shiftForCell ?? {
+                                                    id: `shift_${dateKey}_${template.id}`,
+                                                    templateId: template.id,
+                                                    date: dateKey,
+                                                    label: template.label,
+                                                    role: template.role,
+                                                    timeSlot: template.timeSlot,
+                                                    assignedUsers: [],
+                                                };
 
                                                 return (
-                                                    <TableCell key={dateKey} className="p-2 align-top text-center h-24">
+                                                    <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
+                                                        <ShiftAssignmentPopover
+                                                            shift={shiftObject}
+                                                            availableUsers={allUsers.filter(u => u.role === shiftObject.role || shiftObject.role === 'Bất kỳ')}
+                                                            dailyAvailability={availabilityByDay[dateKey] || []}
+                                                            onUpdateAssignment={handleUpdateShiftAssignment}
+                                                            onDelete={handleDeleteShift}
+                                                            canEdit={canEditSchedule}
+                                                        />
                                                     </TableCell>
                                                 )
                                             })}
