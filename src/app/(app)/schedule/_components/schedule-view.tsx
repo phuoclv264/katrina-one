@@ -263,21 +263,29 @@ export default function ScheduleView() {
                                                 <span>{format(day, 'eeee, dd/MM', { locale: vi })}</span>
                                                 {!isOpen && (
                                                     <div className="mt-2 text-xs font-normal text-muted-foreground space-y-1">
-                                                        {shiftsForDay.length > 0 ? shiftsForDay.map(shift => (
-                                                            <div key={shift.id}>
+                                                        {shiftsForDay.map(shift => (
+                                                            <div key={shift.id} className="flex items-center gap-1.5">
+                                                                <UserCheck className="h-3 w-3 text-primary"/>
                                                                 <span className="font-medium text-foreground">{shift.label}:</span> {shift.timeSlot.start} - {shift.timeSlot.end}
                                                             </div>
-                                                        )) : (passRequestsForDay.length === 0 && !canRegisterAvailability && <p>Chưa có lịch</p>)}
+                                                        ))}
                                                         
-                                                        {availabilityForDay.length > 0 && <p className="text-blue-600 font-medium">Đã đăng ký: {availabilityForDay.length} khung giờ</p>}
+                                                        {availabilityForDay.map((slot, i) => (
+                                                            <div key={i} className="flex items-center gap-1.5">
+                                                                <Clock className="h-3 w-3 text-blue-600"/>
+                                                                <span className="font-medium text-blue-600">{slot.start} - {slot.end}</span>
+                                                            </div>
+                                                        ))}
+
+                                                        {shiftsForDay.length === 0 && availabilityForDay.length === 0 && passRequestsForDay.length === 0 && !canRegisterAvailability && <p>Chưa có lịch</p>}
 
                                                         {passRequestsForDay.length > 0 && <Badge variant="destructive">Có ca cần người</Badge>}
                                                     </div>
                                                 )}
                                             </div>
                                         </AccordionTrigger>
-                                        <AccordionContent className="pt-2">
-                                             <div className="p-2 space-y-2">
+                                        <AccordionContent className="pt-0 p-2">
+                                             <div className="space-y-2">
                                                 {shiftsForDay.length > 0 && (
                                                     <div className="space-y-1">
                                                         {shiftsForDay.map(shift => (
