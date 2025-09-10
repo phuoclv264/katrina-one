@@ -180,7 +180,7 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                                 <p className="text-sm text-muted-foreground">{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</p>
                                 <div className="flex gap-1 mt-1">
                                     {weekDays.map(day => (
-                                        <Badge key={day.value} variant={template.applicableDays.includes(day.value) ? 'default' : 'outline'}>{day.label}</Badge>
+                                        <Badge key={day.value} variant={(template.applicableDays || []).includes(day.value) ? 'default' : 'outline'}>{day.label}</Badge>
                                     ))}
                                 </div>
                             </div>
