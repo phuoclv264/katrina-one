@@ -7,7 +7,14 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+    CardFooter,
+} from '@/components/ui/card';
 import {
     ChevronLeft,
     ChevronRight,
@@ -149,7 +156,7 @@ export default function ShiftSchedulingPage() {
             dataStore.updateSchedule(weekId, { shifts: updatedShifts });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [schedule?.status, shiftTemplates, weekId]); // Run only when templates or week changes
+    }, [schedule?.status, shiftTemplates, weekId]);
     
 
 
