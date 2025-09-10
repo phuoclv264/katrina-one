@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -51,7 +50,7 @@ export default function PassRequestsDialog({
             myReqs.push({ shift, request });
           } else {
             // Check if current user is eligible
-            const isDifferentRole = currentUser.role !== shift.role && shift.role !== 'Bất kỳ';
+            const isDifferentRole = shift.role !== 'Bất kỳ' && currentUser.role !== shift.role;
             const hasDeclined = (request.declinedBy || []).includes(currentUser.uid);
             
             // Check for schedule conflicts
