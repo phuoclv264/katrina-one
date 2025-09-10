@@ -183,8 +183,8 @@ export default function ScheduleView() {
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                        <div className="text-center w-40">
-                        <span className="text-lg font-medium">
+                        <div className="text-center w-48 sm:w-56">
+                        <span className="text-base sm:text-lg font-medium whitespace-nowrap">
                             {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
                         </span>
                             <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1 h-8" onClick={() => setCurrentDate(new Date())}>
