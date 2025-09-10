@@ -142,7 +142,7 @@ export default function ChecklistPage() {
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
-    if (!isAuthLoading && !user) {
+    if (!isAuthLoading && (!user || user.role !== 'Phục vụ')) {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);

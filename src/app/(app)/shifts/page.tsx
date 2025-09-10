@@ -6,8 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Sun, Moon, Sunset, ShieldX } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function ShiftsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user && user.role !== 'Phục vụ') {
+      router.replace('/');
+    }
+  }, [user, loading, router]);
+  
+  if (loading || !user) {
+    return (
+       <div className="flex min-h-full items-center justify-center">
+         <p>Đang tải...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <Card className="w-full max-w-md">
