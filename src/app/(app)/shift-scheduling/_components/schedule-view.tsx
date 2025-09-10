@@ -461,7 +461,7 @@ export default function ScheduleView() {
                                 )}
                             </div>
                             <div className="flex-1" />
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-end gap-4 flex-wrap">
                                 {hasUnsavedChanges && (
                                     <div className="flex items-center gap-2">
                                         <div className="relative flex h-3 w-3">
