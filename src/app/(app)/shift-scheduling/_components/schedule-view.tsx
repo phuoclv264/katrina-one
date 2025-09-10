@@ -20,11 +20,9 @@ import {
     CheckCircle,
     FileSignature,
     Settings,
-    BookOpen,
-    ChevronsDownUp,
-    Plus,
-    Save,
     History,
+    ChevronsDownUp,
+    Save,
 } from 'lucide-react';
 import {
     getISOWeek,

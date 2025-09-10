@@ -10,28 +10,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-import { Check, UserPlus, Trash2, MoreVertical, Clock } from 'lucide-react';
-import type { AssignedShift, Availability, ManagedUser, TimeSlot } from '@/lib/types';
+import { Check, UserPlus } from 'lucide-react';
+import type { AssignedShift, Availability, ManagedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { isUserAvailable } from '@/lib/schedule-utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 type ShiftAssignmentPopoverProps = {
   shift: AssignedShift;
