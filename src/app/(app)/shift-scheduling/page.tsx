@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -54,7 +53,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import HistoryAndReportsDialog from './_components/history-reports-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { isUserAvailable } from '@/lib/schedule-utils';
 
@@ -201,7 +199,7 @@ export default function ShiftSchedulingPage() {
     
     const availabilityByDay = useMemo(() => {
         const grouped: { [key: string]: Availability[] } = {};
-         if (schedule && schedule.availability) {
+         if (schedule?.availability) {
             for (const avail of schedule.availability) {
                 if (!grouped[avail.date]) {
                     grouped[avail.date] = [];
@@ -256,65 +254,62 @@ export default function ShiftSchedulingPage() {
                         <CardContent>
                            {/* Desktop Timeline View */}
                             <div className="hidden md:block">
-                               <ScrollArea>
-                                    <Table className="min-w-full border-collapse">
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[200px] min-w-[200px] sticky left-0 bg-background z-10">Ca làm việc</TableHead>
-                                                {daysOfWeek.map(day => (
-                                                    <TableHead key={day.toString()} className="min-w-[250px] text-center">
-                                                        {format(day, 'eee', { locale: vi })}
-                                                        <br />
-                                                        {format(day, 'dd/MM')}
-                                                    </TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {shiftTemplates.map(template => {
-                                                const shiftsForTemplateRow = schedule?.shifts.filter(s => s.templateId === template.id);
-                                                return (
-                                                <TableRow key={template.id}>
-                                                    <TableCell className="font-semibold sticky left-0 bg-background z-10">
-                                                         <p>{template.label}</p>
-                                                        <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
-                                                        <p className="text-xs text-muted-foreground font-normal">({template.role})</p>
-                                                    </TableCell>
-                                                    {daysOfWeek.map(day => {
-                                                        const dateKey = format(day, 'yyyy-MM-dd');
-                                                        const shiftForCell = shiftsForTemplateRow?.find(s => s.date === dateKey);
-                                                        
-                                                        if (shiftForCell) {
-                                                            return (
-                                                                <TableCell key={dateKey} className="p-2 align-top h-24">
-                                                                     <ShiftAssignmentPopover
-                                                                        shift={shiftForCell}
-                                                                        availableUsers={allUsers.filter(u => u.role === shiftForCell.role || shiftForCell.role === 'Bất kỳ')}
-                                                                        dailyAvailability={availabilityByDay[dateKey] || []}
-                                                                        onUpdateAssignment={handleUpdateShiftAssignment}
-                                                                        onDelete={handleDeleteShift}
-                                                                        canEdit={canEditSchedule}
-                                                                    />
-                                                                </TableCell>
-                                                            )
-                                                        }
-
+                                <Table className="min-w-full border-collapse">
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[200px] sticky left-0 bg-background z-10">Ca làm việc</TableHead>
+                                            {daysOfWeek.map(day => (
+                                                <TableHead key={day.toString()} className="text-center">
+                                                    {format(day, 'eee', { locale: vi })}
+                                                    <br />
+                                                    {format(day, 'dd/MM')}
+                                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {shiftTemplates.map(template => {
+                                            const shiftsForTemplateRow = schedule?.shifts.filter(s => s.templateId === template.id);
+                                            return (
+                                            <TableRow key={template.id}>
+                                                <TableCell className="font-semibold sticky left-0 bg-background z-10">
+                                                     <p>{template.label}</p>
+                                                    <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
+                                                    <p className="text-xs text-muted-foreground font-normal">({template.role})</p>
+                                                </TableCell>
+                                                {daysOfWeek.map(day => {
+                                                    const dateKey = format(day, 'yyyy-MM-dd');
+                                                    const shiftForCell = shiftsForTemplateRow?.find(s => s.date === dateKey);
+                                                    
+                                                    if (shiftForCell) {
                                                         return (
-                                                            <TableCell key={dateKey} className="p-2 align-top text-center h-24">
-                                                                 {canEditSchedule && (
-                                                                    <Button variant="ghost" className="h-full w-full" onClick={() => handleSaveShift(template.id, day)}>
-                                                                        <Plus className="h-4 w-4 text-muted-foreground" />
-                                                                    </Button>
-                                                                 )}
+                                                            <TableCell key={dateKey} className="p-2 align-top h-24">
+                                                                 <ShiftAssignmentPopover
+                                                                    shift={shiftForCell}
+                                                                    availableUsers={allUsers.filter(u => u.role === shiftForCell.role || shiftForCell.role === 'Bất kỳ')}
+                                                                    dailyAvailability={availabilityByDay[dateKey] || []}
+                                                                    onUpdateAssignment={handleUpdateShiftAssignment}
+                                                                    onDelete={handleDeleteShift}
+                                                                    canEdit={canEditSchedule}
+                                                                />
                                                             </TableCell>
                                                         )
-                                                    })}
-                                                </TableRow>
-                                            )})}
-                                        </TableBody>
-                                    </Table>
-                                    <ScrollBar orientation="horizontal" />
-                               </ScrollArea>
+                                                    }
+
+                                                    return (
+                                                        <TableCell key={dateKey} className="p-2 align-top text-center h-24">
+                                                             {canEditSchedule && (
+                                                                <Button variant="ghost" className="h-full w-full" onClick={() => handleSaveShift(template.id, day)}>
+                                                                    <Plus className="h-4 w-4 text-muted-foreground" />
+                                                                </Button>
+                                                             )}
+                                                        </TableCell>
+                                                    )
+                                                })}
+                                            </TableRow>
+                                        )})}
+                                    </TableBody>
+                                </Table>
                             </div>
                             
                             {/* Mobile Agenda View */}
@@ -353,15 +348,22 @@ export default function ShiftSchedulingPage() {
                                             </CardHeader>
                                             <CardContent className="p-3 pt-0 space-y-2">
                                                 {dayShifts.length > 0 ? dayShifts.map(shift => (
-                                                    <ShiftAssignmentPopover
-                                                        key={shift.id}
-                                                        shift={shift}
-                                                        availableUsers={allUsers.filter(u => u.role === shift.role || shift.role === 'Bất kỳ')}
-                                                        dailyAvailability={availabilityByDay[dateKey] || []}
-                                                        onUpdateAssignment={handleUpdateShiftAssignment}
-                                                        onDelete={handleDeleteShift}
-                                                        canEdit={canEditSchedule}
-                                                    />
+                                                     <Card key={shift.id} className="p-3">
+                                                        <CardHeader className="p-0 mb-2">
+                                                            <CardTitle className="text-sm">{shift.label}</CardTitle>
+                                                            <CardDescription>{shift.timeSlot.start} - {shift.timeSlot.end} ({shift.role})</CardDescription>
+                                                        </CardHeader>
+                                                        <CardContent className="p-0">
+                                                            <ShiftAssignmentPopover
+                                                                shift={shift}
+                                                                availableUsers={allUsers.filter(u => u.role === shift.role || shift.role === 'Bất kỳ')}
+                                                                dailyAvailability={availabilityByDay[dateKey] || []}
+                                                                onUpdateAssignment={handleUpdateShiftAssignment}
+                                                                onDelete={handleDeleteShift}
+                                                                canEdit={canEditSchedule}
+                                                            />
+                                                        </CardContent>
+                                                    </Card>
                                                 )) : <p className="text-xs text-muted-foreground text-center py-2">Chưa có ca làm việc</p>}
                                                 
                                                 {canEditSchedule && (
