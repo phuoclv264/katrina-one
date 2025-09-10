@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -294,7 +293,7 @@ export default function ShiftSchedulingPage() {
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Hôm nay</Button>
+                                <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Tuần này</Button>
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
@@ -333,15 +332,11 @@ export default function ShiftSchedulingPage() {
                                                 
                                                 const shiftForCell = schedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                 
-                                                const shiftObject = shiftForCell ?? {
-                                                    id: `shift_${dateKey}_${template.id}`,
-                                                    templateId: template.id,
-                                                    date: dateKey,
-                                                    label: template.label,
-                                                    role: template.role,
-                                                    timeSlot: template.timeSlot,
-                                                    assignedUsers: [],
-                                                };
+                                                const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
+
+                                                if (!shiftObject) {
+                                                    return <TableCell key={dateKey} className="bg-muted/30" />;
+                                                }
 
                                                 return (
                                                     <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
