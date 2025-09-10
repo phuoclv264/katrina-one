@@ -75,7 +75,7 @@ export const dataStore = {
     subscribeToAllSchedules(callback: (schedules: Schedule[]) => void): () => void {
         const q = query(collection(db, 'schedules'), orderBy('weekId', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const schedules = snapshot.docs.map(doc => doc.data() as Schedule);
+            const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
             callback(schedules);
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read all schedules: ${error.code}`);
@@ -100,7 +100,7 @@ export const dataStore = {
 
         return scheduleDocs
             .filter(docSnap => docSnap.exists())
-            .map(docSnap => docSnap.data() as Schedule);
+            .map(docSnap => ({...docSnap.data(), weekId: docSnap.id} as Schedule));
     },
 
     async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
@@ -190,6 +190,43 @@ export const dataStore = {
                         return p;
                     });
                     return { ...s, passRequests: updatedRequests };
+                }
+                return s;
+            });
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+        });
+    },
+
+    async revertPassRequest(weekId: string, shiftId: string, passRequestToRevert: PassRequest): Promise<void> {
+        const scheduleRef = doc(db, "schedules", weekId);
+
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === shiftId) {
+                    // Filter out the reverted pass request
+                    const updatedRequests = (s.passRequests || []).filter(p => 
+                        p.requestingUser.userId !== passRequestToRevert.requestingUser.userId || 
+                        p.status !== 'taken'
+                    );
+
+                    // Revert assigned users
+                    let updatedAssignedUsers = [...s.assignedUsers];
+                    // Remove the user who took the shift
+                    if (passRequestToRevert.takenBy) {
+                        updatedAssignedUsers = updatedAssignedUsers.filter(u => u.userId !== passRequestToRevert.takenBy!.userId);
+                    }
+                    // Add the original user back
+                    updatedAssignedUsers.push(passRequestToRevert.requestingUser);
+
+                    return { 
+                        ...s, 
+                        passRequests: updatedRequests,
+                        assignedUsers: updatedAssignedUsers
+                    };
                 }
                 return s;
             });

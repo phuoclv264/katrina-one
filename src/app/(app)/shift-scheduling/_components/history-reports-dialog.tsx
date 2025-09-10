@@ -25,7 +25,9 @@ import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 
 function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: ManagedUser[]}) {
@@ -112,17 +114,30 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
 function PassHistoryReport() {
     const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState<string | null>(null);
+    const { toast } = useToast();
 
     useEffect(() => {
         setIsLoading(true);
-        // This could be optimized if we expect a huge number of schedules.
-        // For now, fetching all seems acceptable for this feature.
         const unsub = dataStore.subscribeToAllSchedules((schedules) => {
             setAllSchedules(schedules);
             setIsLoading(false);
         });
         return () => unsub();
     }, []);
+    
+    const handleRevertPass = async (weekId: string, shiftId: string, passRequest: PassRequest) => {
+        setIsProcessing(`${weekId}-${shiftId}-${passRequest.requestingUser.userId}`);
+        try {
+            await dataStore.revertPassRequest(weekId, shiftId, passRequest);
+            toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca.'});
+        } catch (error) {
+            console.error("Failed to revert pass request:", error);
+            toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+        } finally {
+            setIsProcessing(null);
+        }
+    }
 
     const completedPasses = useMemo(() => {
         return allSchedules
@@ -163,17 +178,41 @@ function PassHistoryReport() {
                         <TableHead>Ca làm việc</TableHead>
                         <TableHead>Người pass</TableHead>
                         <TableHead>Người nhận</TableHead>
+                        <TableHead className="text-right">Hành động</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {completedPasses.map(({ shift, passRequest }) => (
-                        <TableRow key={`${shift.id}-${passRequest.requestingUser.userId}`}>
+                        <TableRow key={`${shift.id}-${passRequest.requestingUser.userId}`} className={isProcessing === `${shift.weekId}-${shift.id}-${passRequest.requestingUser.userId}` ? 'opacity-50' : ''}>
                             <TableCell>
                                 <p className="font-semibold">{shift.label}</p>
                                 <p className="text-xs text-muted-foreground">{format(new Date(shift.date), 'dd/MM/yyyy')} | {shift.timeSlot.start} - {shift.timeSlot.end}</p>
                             </TableCell>
                             <TableCell>{passRequest.requestingUser.userName}</TableCell>
                             <TableCell>{passRequest.takenBy?.userName}</TableCell>
+                            <TableCell className="text-right">
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" disabled={!!isProcessing}>
+                                            <Trash2 className="h-4 w-4 text-destructive"/>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Hoàn tác yêu cầu Pass ca?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Hành động này sẽ xóa yêu cầu và gán ca làm việc trở lại cho nhân viên ban đầu ({passRequest.requestingUser.userName}).
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleRevertPass(shift.weekId, shift.id, passRequest)}>
+                                                Xác nhận hoàn tác
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
