@@ -129,7 +129,9 @@ export default function SchedulePage() {
     }
     
     const userAvailability = useMemo(() => {
-        if (!user || !schedule) return new Map<string, TimeSlot[]>();
+        if (!user || !schedule || !Array.isArray(schedule.availability)) {
+          return new Map<string, TimeSlot[]>();
+        }
         const map = new Map<string, TimeSlot[]>();
         schedule.availability
             .filter(a => a.userId === user.uid)
