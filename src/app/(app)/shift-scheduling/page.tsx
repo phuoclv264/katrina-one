@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,25 +13,20 @@ export default function ShiftSchedulingPage() {
     const router = useRouter();
     const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
 
-    if (authLoading) {
+    useEffect(() => {
+        if (!authLoading && !canManage) {
+            router.replace('/');
+        }
+    }, [authLoading, canManage, router]);
+
+
+    if (authLoading || !canManage) {
         return (
             <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
                 <Skeleton className="h-12 w-1/2 mb-4" />
                 <Skeleton className="h-[60vh] w-full" />
             </div>
         )
-    }
-
-    if (!user || !canManage) {
-        if (typeof window !== 'undefined') {
-            router.replace('/');
-        }
-        return (
-             <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
-                <Skeleton className="h-12 w-1/2 mb-4" />
-                <Skeleton className="h-[60vh] w-full" />
-            </div>
-        );
     }
     
     return (
