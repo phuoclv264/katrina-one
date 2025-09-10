@@ -106,7 +106,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
 
         // 2. Add timestamp overlay
         const now = new Date();
-        const timestamp = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+        const timestamp = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) 
                         + ' ' 
                         + now.toLocaleDateString('vi-VN');
         

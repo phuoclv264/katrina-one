@@ -348,7 +348,7 @@ function ReportView() {
                <CardDescription>
                 {selectedReportId === 'summary' 
                     ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
-                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN')}.`
+                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}.`
                 }
                 </CardDescription>
             </CardHeader>

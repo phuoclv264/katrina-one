@@ -192,7 +192,7 @@ function DailySummaryGenerator({
                         <DialogTitle>Tóm tắt báo cáo ngày {new Date(date).toLocaleDateString('vi-VN')}</DialogTitle>
                         {summaryData?.generatedAt && (
                             <DialogDescription>
-                                AI tạo lúc: {new Date(summaryData.generatedAt as string).toLocaleString('vi-VN')}
+                                AI tạo lúc: {new Date(summaryData.generatedAt as string).toLocaleString('vi-VN', {hour12: false})}
                             </DialogDescription>
                         )}
                     </DialogHeader>
@@ -416,7 +416,7 @@ export default function ReportsPage() {
                                   if (!current.submittedAt) return latest;
                                   return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
                               });
-                              const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+                              const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
 
                               return (
                                 <TableRow 

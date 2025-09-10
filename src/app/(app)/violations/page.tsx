@@ -479,7 +479,7 @@ export default function ViolationsPage() {
                                         )}
                                     </div>
                                     <p className="text-sm text-muted-foreground mt-1">
-                                        Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN')}
+                                        Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
                                     </p>
                                     <p className="mt-2 text-sm">{v.content}</p>
                                     {v.photos && v.photos.length > 0 && (
@@ -496,7 +496,7 @@ export default function ViolationsPage() {
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
                                                 <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                     <CheckCircle className="h-4 w-4" />
-                                                    <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN') : 'Không rõ'}</span>
+                                                    <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <Button size="sm" variant="secondary" onClick={() => { setLightboxSlides(v.penaltyPhotos!.map(p => ({ src: p }))); setLightboxOpen(true); }}>

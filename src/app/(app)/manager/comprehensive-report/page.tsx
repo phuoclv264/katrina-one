@@ -224,7 +224,7 @@ export default function ComprehensiveReportPage() {
     const newReport = JSON.parse(JSON.stringify(report));
     let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
     const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
     
     const newCompletion: CompletionRecord = {
       timestamp: formattedTime,
@@ -250,7 +250,7 @@ export default function ComprehensiveReportPage() {
     const newReport = JSON.parse(JSON.stringify(report));
     let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
     const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
     
     const newCompletion: CompletionRecord = {
       timestamp: formattedTime,
@@ -279,7 +279,7 @@ export default function ComprehensiveReportPage() {
         } else {
             // Create a new completion record
             const now = new Date();
-            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
             
             const newCompletion: CompletionRecord = {
                 timestamp: formattedTime,

@@ -286,7 +286,7 @@ function ComprehensiveReportView() {
             <CardHeader>
               <CardTitle>Kết quả kiểm tra</CardTitle>
                <CardDescription>
-                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}</span>.
                 </CardDescription>
             </CardHeader>
             <CardContent>
