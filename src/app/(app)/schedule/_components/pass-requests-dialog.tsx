@@ -178,7 +178,7 @@ export default function PassRequestsDialog({
         <DialogHeader>
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
-            Xem xét các yêu cầu pass ca từ đồng nghiệp hoặc quản lý các yêu cầu của bạn cho tuần này.
+            Các yêu cầu cho tuần từ {format(weekInterval.start, 'dd/MM')} đến {format(weekInterval.end, 'dd/MM/yyyy')}.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] -mx-6 px-6">
