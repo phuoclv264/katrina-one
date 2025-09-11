@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -43,6 +43,7 @@ export default function ScheduleView() {
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
+    const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -71,9 +72,10 @@ export default function ScheduleView() {
         let scheduleSubscribed = false;
         let templatesSubscribed = false;
         let notificationsSubscribed = false;
+        let usersSubscribed = false;
 
         const checkLoadingDone = () => {
-            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed) {
+            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed) {
                 setIsLoading(false);
             }
         };
@@ -96,11 +98,18 @@ export default function ScheduleView() {
             notificationsSubscribed = true;
             checkLoadingDone();
         });
+        
+        const unsubUsers = dataStore.subscribeToUsers((userList) => {
+            setAllUsers(userList);
+            usersSubscribed = true;
+            checkLoadingDone();
+        });
 
         return () => {
             unsubSchedule();
             unsubTemplates();
             unsubNotifications();
+            unsubUsers();
         };
     }, [user, authLoading, router, weekId]);
 
@@ -413,7 +422,7 @@ export default function ScheduleView() {
                 weekId={weekId}
                 notifications={notifications}
                 currentUser={user}
-                allUsers={[]}
+                allUsers={allUsers}
                 onAccept={handleTakeShift}
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
