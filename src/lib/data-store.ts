@@ -23,7 +23,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, PassRequest, ShiftTemplate } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, PassRequest, ShiftTemplate, Notification } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -56,7 +56,37 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
-     // --- Schedule ---
+     // --- Notifications ---
+    subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
+        const notificationsCollection = collection(db, 'notifications');
+        const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const notifications: Notification[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            notifications.push({
+            id: doc.id,
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification);
+        });
+        callback(notifications);
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
+            callback([]);
+        });
+
+        return unsubscribe;
+    },
+
+    async updateNotificationStatus(notificationId: string, status: Notification['status']): Promise<void> {
+        const docRef = doc(db, 'notifications', notificationId);
+        await updateDoc(docRef, { status, resolvedAt: serverTimestamp() });
+    },
+
+    // --- Schedule ---
     subscribeToSchedule(weekId: string, callback: (schedule: Schedule | null) => void): () => void {
         const docRef = doc(db, 'schedules', weekId);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -134,229 +164,154 @@ export const dataStore = {
         await setDoc(docRef, { templates });
     },
     
-    async requestPassShift(weekId: string, schedule: Schedule, shiftId: string, requestingUser: { userId: string, userName: string }): Promise<void> {
-        const shiftIndex = schedule.shifts.findIndex(s => s.id === shiftId);
-        if (shiftIndex === -1) throw new Error("Shift not found");
-
-        const newRequest: PassRequest = {
-            requestingUser: { userId: requestingUser.userId, userName: requestingUser.userName },
+    async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
+         const newNotification: Omit<Notification, 'id'> = {
+            type: 'pass_request',
             status: 'pending',
-            timestamp: Timestamp.now(),
-            declinedBy: [],
+            createdAt: serverTimestamp(),
+            payload: {
+                weekId: getISOWeek(new Date(shiftToPass.date)).toString(),
+                shiftId: shiftToPass.id,
+                shiftLabel: shiftToPass.label,
+                shiftDate: shiftToPass.date,
+                shiftTimeSlot: shiftToPass.timeSlot,
+                shiftRole: shiftToPass.role,
+                requestingUser: {
+                    userId: requestingUser.uid,
+                    userName: requestingUser.displayName
+                },
+                declinedBy: [],
+            }
         };
-        
-        const updatedShifts = [...schedule.shifts];
-        const shiftToUpdate = { ...updatedShifts[shiftIndex] };
-        shiftToUpdate.passRequests = [...(shiftToUpdate.passRequests || []), newRequest];
-        updatedShifts[shiftIndex] = shiftToUpdate;
-
-        await this.updateSchedule(weekId, { shifts: updatedShifts });
-    },
-    
-    async cancelPassShift(weekId: string, shiftId: string, requestingUserId: string): Promise<void> {
-         const scheduleRef = doc(db, "schedules", weekId);
-        await runTransaction(db, async (transaction) => {
-            const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) throw new Error("Schedule not found");
-
-            const scheduleData = scheduleDoc.data() as Schedule;
-            const updatedShifts = scheduleData.shifts.map(s => {
-                if (s.id === shiftId) {
-                    const updatedRequests = (s.passRequests || []).filter(p => 
-                        !(p.requestingUser.userId === requestingUserId && p.status === 'pending')
-                    );
-                    return { ...s, passRequests: updatedRequests };
-                }
-                return s;
-            });
-            transaction.update(scheduleRef, { shifts: updatedShifts });
-        });
+        await addDoc(collection(db, "notifications"), newNotification);
     },
 
-    async cancelPassRequestByOwner(weekId: string, shiftId: string, requestingUserId: string): Promise<void> {
-        return this.cancelPassShift(weekId, shiftId, requestingUserId);
-    },
-    
-    async declinePassShift(weekId: string, shiftId: string, requestingUserId: string, decliningUserId: string): Promise<void> {
-        const scheduleRef = doc(db, "schedules", weekId);
-        await runTransaction(db, async (transaction) => {
-            const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) throw new Error("Schedule not found");
-
-            const scheduleData = scheduleDoc.data() as Schedule;
-            const updatedShifts = scheduleData.shifts.map(s => {
-                if (s.id === shiftId) {
-                    const updatedRequests = (s.passRequests || []).map(p => {
-                        if (p.requestingUser.userId === requestingUserId && p.status === 'pending') {
-                            const declinedBy = Array.from(new Set([...(p.declinedBy || []), decliningUserId]));
-                            return { ...p, declinedBy };
-                        }
-                        return p;
-                    });
-                    return { ...s, passRequests: updatedRequests };
-                }
-                return s;
-            });
-            transaction.update(scheduleRef, { shifts: updatedShifts });
-        });
-    },
-
-    async revertPassRequest(weekId: string, shiftId: string, passRequestToRevert: PassRequest): Promise<void> {
-        const scheduleRef = doc(db, "schedules", weekId);
+    async revertPassRequest(notification: Notification): Promise<void> {
+        const { payload } = notification;
+        const scheduleRef = doc(db, "schedules", payload.weekId);
 
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
             if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
 
+            // 1. Revert assigned users in schedule
             const scheduleData = scheduleDoc.data() as Schedule;
             const updatedShifts = scheduleData.shifts.map(s => {
-                if (s.id === shiftId) {
-                    // Filter out the reverted pass request
-                    const updatedRequests = (s.passRequests || []).filter(p => 
-                        !(p.requestingUser.userId === passRequestToRevert.requestingUser.userId && 
-                          p.status === 'taken' &&
-                          p.takenBy?.userId === passRequestToRevert.takenBy?.userId)
-                    );
-
-                    // Revert assigned users
+                if (s.id === payload.shiftId) {
                     let updatedAssignedUsers = [...s.assignedUsers];
-                    // Remove the user who took the shift
-                    if (passRequestToRevert.takenBy) {
-                        updatedAssignedUsers = updatedAssignedUsers.filter(u => u.userId !== passRequestToRevert.takenBy!.userId);
+                    if (payload.takenBy) {
+                        updatedAssignedUsers = updatedAssignedUsers.filter(u => u.userId !== payload.takenBy!.userId);
                     }
-                    // Add the original user back if they are not already in the list
-                    if (!updatedAssignedUsers.some(u => u.userId === passRequestToRevert.requestingUser.userId)) {
-                        updatedAssignedUsers.push(passRequestToRevert.requestingUser);
+                    if (!updatedAssignedUsers.some(u => u.userId === payload.requestingUser.userId)) {
+                        updatedAssignedUsers.push(payload.requestingUser);
                     }
-
-                    return { 
-                        ...s, 
-                        passRequests: updatedRequests,
-                        assignedUsers: updatedAssignedUsers
-                    };
+                    return { ...s, assignedUsers: updatedAssignedUsers };
                 }
                 return s;
             });
-            transaction.update(scheduleRef, { shifts: updatedShifts });
+             transaction.update(scheduleRef, { shifts: updatedShifts });
+
+            // 2. Revert notification status
+            const notificationRef = doc(db, "notifications", notification.id);
+            transaction.update(notificationRef, {
+                status: 'pending',
+                takenBy: null, // or delete field
+                resolvedAt: null, // or delete field
+            });
         });
     },
 
-    async acceptPassShift(
-        weekId: string,
-        shiftToTake: AssignedShift,
-    ): Promise<void> {
-        const scheduleRef = doc(db, "schedules", weekId);
+    async acceptPassShift(notification: Notification): Promise<void> {
         const acceptingUser = { userId: auth.currentUser!.uid, userName: auth.currentUser!.displayName! };
+        const scheduleRef = doc(db, "schedules", notification.payload.weekId);
+        const notificationRef = doc(db, "notifications", notification.id);
 
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) {
-                throw new Error("Không tìm thấy lịch làm việc.");
-            }
-
-            const scheduleData = scheduleDoc.data() as Schedule;
-            const shifts = scheduleData.shifts;
+            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
             
-            const passRequest = shiftToTake.passRequests?.find(p => p.status === 'pending');
-            if (!passRequest) throw new Error("Yêu cầu pass ca không còn hợp lệ.");
-            const requestingUser = passRequest.requestingUser;
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
+            if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
 
-            const shiftToUpdate = shifts.find(s => s.id === shiftToTake.id);
-            if (!shiftToUpdate) {
-                throw new Error("Không tìm thấy ca làm việc này.");
-            }
-
-            // --- Check for scheduling conflicts ---
+            // --- Conflict Check ---
             const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`);
             const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`);
-
-            const hasConflict = shifts.some(existingShift => {
-                if (existingShift.id === shiftToUpdate.id || existingShift.date !== shiftToUpdate.date) {
-                    return false;
-                }
+            const hasConflict = scheduleData.shifts.some(existingShift => {
+                if (existingShift.id === shiftToUpdate.id || existingShift.date !== shiftToUpdate.date) return false;
                 const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId);
-                if (!isUserAssigned) {
-                    return false;
-                }
+                if (!isUserAssigned) return false;
                 const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`);
                 const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`);
                 return shiftStartTime < existingEndTime && shiftEndTime > existingStartTime;
             });
 
-            if (hasConflict) {
-                throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
-            }
-            // --- End conflict check ---
+            if (hasConflict) throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
+            // --- End Conflict Check ---
 
-            const updatedShifts = shifts.map(s => {
+            // 1. Update Schedule
+            const updatedShifts = scheduleData.shifts.map(s => {
                 if (s.id === shiftToUpdate.id) {
-                    const passRequestIndex = (s.passRequests || []).findIndex(p => p.requestingUser.userId === requestingUser.userId && p.status === 'pending');
-                    if (passRequestIndex === -1) {
-                         throw new Error("Yêu cầu pass ca này không còn hợp lệ hoặc đã được người khác nhận.");
-                    }
-
-                    const updatedPassRequests = [...(s.passRequests || [])];
-                    updatedPassRequests[passRequestIndex] = {
-                        ...updatedPassRequests[passRequestIndex],
-                        status: 'taken',
-                        takenBy: acceptingUser,
-                    };
-
-                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== requestingUser.userId);
+                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
                     if (!newAssignedUsers.some(u => u.userId === acceptingUser.userId)) {
                         newAssignedUsers.push(acceptingUser);
                     }
-                    
-                    return {
-                        ...s,
-                        assignedUsers: newAssignedUsers,
-                        passRequests: updatedPassRequests
-                    };
+                    return { ...s, assignedUsers: newAssignedUsers };
                 }
                 return s;
             });
-
-            transaction.update(scheduleRef, { shifts: updatedShifts });
+             transaction.update(scheduleRef, { shifts: updatedShifts });
+            
+            // 2. Update Notification
+            transaction.update(notificationRef, {
+                status: 'resolved',
+                takenBy: acceptingUser,
+                resolvedAt: serverTimestamp(),
+            });
         });
     },
 
-    async assignUserToShift(weekId: string, shiftId: string, assignedUser: {userId: string, userName: string}, passRequest: PassRequest): Promise<void> {
-        const scheduleRef = doc(db, "schedules", weekId);
+    async declinePassShift(notificationId: string, decliningUserId: string): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
+        await runTransaction(db, async (transaction) => {
+            const notificationDoc = await transaction.get(notificationRef);
+            if (!notificationDoc.exists()) throw new Error("Notification not found");
+            const existingDeclined = notificationDoc.data().payload.declinedBy || [];
+            const newDeclined = Array.from(new Set([...existingDeclined, decliningUserId]));
+            const newPayload = { ...notificationDoc.data().payload, declinedBy: newDeclined };
+            transaction.update(notificationRef, { payload: newPayload });
+        });
+    },
+
+    async assignUserToShift(notification: Notification, userToAssign: ManagedUser): Promise<void> {
+        const scheduleRef = doc(db, "schedules", notification.payload.weekId);
+        const notificationRef = doc(db, "notifications", notification.id);
+
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
             if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
 
             const scheduleData = scheduleDoc.data() as Schedule;
             const updatedShifts = scheduleData.shifts.map(s => {
-                if (s.id === shiftId) {
-                     // 1. Update the pass request status
-                     const updatedRequests = (s.passRequests || []).map(p => {
-                        if(p.requestingUser.userId === passRequest.requestingUser.userId && p.status === 'pending') {
-                            return {
-                                ...p,
-                                status: 'taken' as const,
-                                takenBy: assignedUser
-                            };
-                        }
-                        return p;
-                    });
-                    
-                    // 2. Update the assigned users
-                    const newAssignedUsers = s.assignedUsers
-                        .filter(u => u.userId !== passRequest.requestingUser.userId); // Remove original user
-                    
-                    if (!newAssignedUsers.some(u => u.userId === assignedUser.userId)) {
-                        newAssignedUsers.push(assignedUser); // Add the new user
+                if (s.id === notification.payload.shiftId) {
+                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
+                    if (!newAssignedUsers.some(u => u.userId === userToAssign.uid)) {
+                        newAssignedUsers.push({ userId: userToAssign.uid, userName: userToAssign.displayName });
                     }
-                    
-                    return { ...s, passRequests: updatedRequests, assignedUsers: newAssignedUsers };
+                    return { ...s, assignedUsers: newAssignedUsers };
                 }
                 return s;
             });
             transaction.update(scheduleRef, { shifts: updatedShifts });
+
+            transaction.update(notificationRef, {
+                status: 'resolved',
+                takenBy: { userId: userToAssign.uid, userName: userToAssign.displayName },
+                resolvedAt: serverTimestamp(),
+            });
         });
     },
-
+    
     // --- End Schedule ---
     async cleanupOldReports(daysToKeep: number): Promise<number> {
         const cutoffDate = new Date();

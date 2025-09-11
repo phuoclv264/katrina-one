@@ -91,7 +91,7 @@ export default function ScheduleView() {
             checkLoadingDone();
         });
         
-        const unsubNotifications = dataStore.subscribeToNotifications((notifs) => {
+        const unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
             setNotifications(notifs);
             notificationsSubscribed = true;
             checkLoadingDone();
@@ -410,4 +410,3 @@ export default function ScheduleView() {
         </div>
     );
 }
-
