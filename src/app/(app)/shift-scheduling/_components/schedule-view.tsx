@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -23,6 +22,7 @@ import {
     History,
     ChevronsDownUp,
     Save,
+    MailQuestion,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -37,7 +37,7 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
@@ -51,6 +51,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
+import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 
 
 export default function ScheduleView() {
@@ -66,6 +67,7 @@ export default function ScheduleView() {
 
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,6 +77,7 @@ export default function ScheduleView() {
 
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+    const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
     
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -102,7 +105,6 @@ export default function ScheduleView() {
             setServerSchedule(fullSchedule);
             setLocalSchedule(fullSchedule);
             setHasUnsavedChanges(false);
-            setIsLoading(false);
         });
 
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
@@ -111,10 +113,18 @@ export default function ScheduleView() {
             setShiftTemplates(sortedTemplates);
         });
 
+        const unsubNotifications = dataStore.subscribeToAllNotifications(setNotifications);
+
+        Promise.all([
+            new Promise(resolve => setTimeout(() => resolve(true), 500)) 
+        ]).then(() => setIsLoading(false));
+
+
         return () => {
             unsubSchedule();
             unsubUsers();
             unsubTemplates();
+            unsubNotifications();
         };
 
     }, [user, weekId, canManage]);
@@ -298,6 +308,27 @@ export default function ScheduleView() {
             setOpenMobileDays(daysOfWeek.map(day => format(day, 'yyyy-MM-dd')));
         }
     };
+    
+    const handleCancelPassRequest = async (notificationId: string) => {
+        if (!user) return;
+        try {
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
+             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
+        } catch (error: any) {
+             toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
+        }
+    }
+    
+     const handleRevertRequest = async (notification: Notification) => {
+        if (!user) return;
+         try {
+            await dataStore.revertPassRequest(notification);
+            toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+        }
+    }
 
 
     if (isLoading) {
@@ -480,6 +511,9 @@ export default function ScheduleView() {
                                         </Button>
                                     </>
                                 )}
+                                 <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)}>
+                                    <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
+                                </Button>
                             </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
@@ -545,6 +579,20 @@ export default function ScheduleView() {
                     onSave={handleUpdateShiftAssignment}
                 />
             )}
+
+            <PassRequestsDialog
+                isOpen={isPassRequestsDialogOpen}
+                onClose={() => setIsPassRequestsDialogOpen(false)}
+                notifications={notifications}
+                currentUser={user}
+                allUsers={allUsers}
+                onAccept={() => {}} // Dummy functions, will be replaced
+                onDecline={() => {}}
+                onCancel={handleCancelPassRequest}
+                onRevert={handleRevertRequest}
+                onAssign={() => { /* TODO */ }}
+            />
+
             {user?.role === 'Chủ nhà hàng' && (
                 <>
                     <ShiftTemplatesDialog

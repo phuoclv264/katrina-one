@@ -1392,5 +1392,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
