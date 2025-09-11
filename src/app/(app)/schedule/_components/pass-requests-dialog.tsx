@@ -69,7 +69,9 @@ export default function PassRequestsDialog({
 
       if (isMyRequest) {
         myReqs.push(notification);
-      } else if (notification.status === 'pending') {
+      } 
+      
+      if (notification.status === 'pending' && !isMyRequest) {
          const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
          const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
          if (!isDifferentRole && !hasDeclined) {
@@ -82,12 +84,7 @@ export default function PassRequestsDialog({
       }
     });
 
-    myReqs.sort((a, b) => {
-        const statusOrder: { [key: string]: number } = { 'pending': 0, 'resolved': 1, 'cancelled': 2 };
-        if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
-        return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
-    });
-    
+    myReqs.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
     otherReqs.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
     completed.sort((a,b) => {
         const timeA = a.resolvedAt || a.createdAt;
@@ -159,11 +156,11 @@ export default function PassRequestsDialog({
       return null;
   }
   
-  const requestsForMe = canManage ? otherPendingRequests : myRequests;
-  const requestsForOthers = canManage ? completedRequests : otherPendingRequests;
-  
   const firstListTitle = canManage ? 'Yêu cầu đang chờ xử lý' : 'Yêu cầu của bạn';
   const secondListTitle = canManage ? 'Lịch sử yêu cầu đã xử lý' : 'Yêu cầu từ người khác';
+
+  const firstList = canManage ? otherPendingRequests : myRequests;
+  const secondList = canManage ? completedRequests : otherPendingRequests;
   
   const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ." : "Bạn không có yêu cầu nào.";
   const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý." : "Không có yêu cầu nào phù hợp.";
@@ -182,9 +179,9 @@ export default function PassRequestsDialog({
                 {/* My Requests (for staff) / All Pending (for manager) */}
                 <div>
                     <h3 className="font-semibold mb-2">{firstListTitle}</h3>
-                    {requestsForMe.length > 0 ? (
+                    {firstList.length > 0 ? (
                         <div className="space-y-3">
-                        {requestsForMe.map(notification => {
+                        {firstList.map(notification => {
                             const payload = notification.payload;
                             return (
                                 <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
@@ -211,9 +208,9 @@ export default function PassRequestsDialog({
                 {/* Other's Requests (for staff) / Completed (for manager) */}
                 <div>
                     <h3 className="font-semibold mb-2">{secondListTitle}</h3>
-                     {requestsForOthers.length > 0 ? (
+                     {secondList.length > 0 ? (
                         <div className="space-y-3">
-                        {requestsForOthers.map(notification => {
+                        {secondList.map(notification => {
                             const payload = notification.payload;
                              const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
                             return (
@@ -245,3 +242,4 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
+

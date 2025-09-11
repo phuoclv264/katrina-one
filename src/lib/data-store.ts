@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -82,47 +83,70 @@ export const dataStore = {
 
     subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
-        const q = query(
+        
+        // Query for user's own requests
+        const myRequestsQuery = query(
             notificationsCollection,
-            or(
-                // My own requests
-                where('payload.requestingUser.userId', '==', userId),
-                // Pending requests from others that I am eligible for
-                where('status', '==', 'pending')
-            ),
+            where('payload.requestingUser.userId', '==', userId),
             orderBy('createdAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const notifications: Notification[] = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const notification = {
-                    id: doc.id,
-                    ...data,
-                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                    resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
-                } as Notification;
+        // Query for pending requests from others
+        const otherRequestsQuery = query(
+            notificationsCollection,
+            where('status', '==', 'pending'),
+             where('payload.requestingUser.userId', '!=', userId)
+        );
 
-                // Further client-side filtering for eligibility
-                if (notification.payload.requestingUser.userId === userId) {
-                    notifications.push(notification);
-                } else {
-                    const payload = notification.payload;
-                    const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
-                    const hasDeclined = (payload.declinedBy || []).includes(userId);
-                    if (!isDifferentRole && !hasDeclined) {
-                        notifications.push(notification);
-                    }
+        const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
+            const combined = new Map<string, Notification>();
+
+            // Add my requests first
+            myRequests.forEach(n => combined.set(n.id, n));
+
+            // Add other eligible requests
+            otherRequests.forEach(n => {
+                const payload = n.payload;
+                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
+                const hasDeclined = (payload.declinedBy || []).includes(userId);
+                if (!isDifferentRole && !hasDeclined) {
+                    combined.set(n.id, n);
                 }
             });
-            callback(notifications);
-        }, (error) => {
-            console.warn(`[Firestore Read Error] Could not read relevant notifications: ${error.code}`);
-            callback([]);
-        });
 
-        return unsubscribe;
+            const finalNotifications = Array.from(combined.values())
+                .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+                
+            callback(finalNotifications);
+        };
+
+        let myRequestsCache: Notification[] = [];
+        let otherRequestsCache: Notification[] = [];
+        
+        const unsubMyRequests = onSnapshot(myRequestsQuery, (snapshot) => {
+            myRequestsCache = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                resolvedAt: (doc.data().resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification));
+            processResults(myRequestsCache, otherRequestsCache);
+        }, (error) => console.error("Error fetching my pass requests:", error));
+        
+        const unsubOtherRequests = onSnapshot(otherRequestsQuery, (snapshot) => {
+            otherRequestsCache = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                resolvedAt: (doc.data().resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification));
+            processResults(myRequestsCache, otherRequestsCache);
+        }, (error) => console.error("Error fetching other pass requests:", error));
+        
+        return () => {
+            unsubMyRequests();
+            unsubOtherRequests();
+        };
     },
 
     async updateNotificationStatus(notificationId: string, status: Notification['status']): Promise<void> {
@@ -1392,3 +1416,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
