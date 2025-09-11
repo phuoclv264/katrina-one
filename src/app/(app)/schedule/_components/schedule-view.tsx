@@ -433,7 +433,7 @@ export default function ScheduleView() {
 
              <AvailabilityDialog 
                 isOpen={isAvailabilityDialogOpen}
-                onClose={()={() => setIsAvailabilityDialogOpen(false)}}
+                onClose={() => setIsAvailabilityDialogOpen(false)}
                 onSave={handleSaveAvailability}
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
@@ -455,5 +455,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
-    
