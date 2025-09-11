@@ -277,19 +277,20 @@ export default function ScheduleView() {
         return (
             <div>
                 <Skeleton className="h-12 w-full sm:w-1/2 mb-4" />
-                <Skeleton className="h-[60vh] w-full" />
+                <div className="border rounded-lg">
+                    <Skeleton className="h-[60vh] w-full" />
+                </div>
             </div>
         )
     }
     
     const today = startOfToday();
-    const startOfThisWeek = startOfWeek(new Date(), {weekStartsOn: 1});
-    const canRegisterAvailability = isBefore(startOfThisWeek, weekInterval.start) || isSameDay(startOfThisWeek, weekInterval.start);
+    const canRegisterAvailability = isBefore(today, endOfWeek(currentDate, { weekStartsOn: 1 }));
     const isSchedulePublished = schedule?.status === 'published';
 
     return (
         <TooltipProvider>
-            <div className="flex flex-wrap justify-center sm:justify-between items-center gap-4 mb-8">
+             <div className="flex flex-col sm:flex-row flex-wrap justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
@@ -337,10 +338,10 @@ export default function ScheduleView() {
                 </Card>
             )}
             
-             <div className="border rounded-lg">
-                <Table className="table-fixed">
+            <div className="border rounded-lg">
+                <Table>
                     <TableHeader>
-                        <TableRow className="bg-muted/50">
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <TableHead className="w-[30%] text-center font-bold text-foreground">Ngày</TableHead>
                             <TableHead className="text-center font-bold text-foreground">
                                 {isSchedulePublished
