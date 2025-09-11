@@ -194,6 +194,17 @@ export default function ScheduleView() {
              toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
         }
     }
+
+    const handleRevertRequest = async (notification: Notification) => {
+        if (!user) return;
+         try {
+            await dataStore.revertPassRequest(notification);
+            toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+        }
+    }
     
     const userAvailability = useMemo(() => {
         if (!user || !schedule || !Array.isArray(schedule.availability)) {
@@ -406,6 +417,7 @@ export default function ScheduleView() {
                 onAccept={handleTakeShift}
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
+                onRevert={handleRevertRequest}
             />
         </div>
     );
