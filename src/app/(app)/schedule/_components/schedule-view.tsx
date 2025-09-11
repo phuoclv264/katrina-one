@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
@@ -276,6 +276,7 @@ export default function ScheduleView() {
         )
     }
     
+    const today = startOfToday();
     const startOfThisWeek = startOfWeek(new Date(), {weekStartsOn: 1});
     const canRegisterAvailability = isBefore(startOfThisWeek, weekInterval.start) || isSameDay(startOfThisWeek, weekInterval.start);
     const isSchedulePublished = schedule?.status === 'published';
@@ -356,10 +357,16 @@ export default function ScheduleView() {
                             ).sort((a,b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
                                                         
                             return (
-                                <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
+                                <TableRow 
+                                    key={dateKey} 
+                                    className={cn(
+                                        isSameDay(day, today) && "bg-primary/10",
+                                        isBefore(day, today) && "text-muted-foreground opacity-70"
+                                    )}
+                                >
                                     <TableCell className="font-semibold align-top">
                                         <p>{format(day, 'dd/MM')}</p>
-                                        <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
+                                        <p className="text-sm font-normal">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
                                     <TableCell className="align-top">
                                         {!isSchedulePublished ? (
@@ -373,7 +380,7 @@ export default function ScheduleView() {
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <p className="text-xs text-center text-muted-foreground italic">Chưa đăng ký</p>
+                                                            <p className="text-xs text-center italic">Chưa đăng ký</p>
                                                         )}
                                                         <Button size="sm" variant="link" className="w-full mt-1 h-auto py-1" onClick={() => openAvailabilityDialog(day)}>
                                                             {availabilityForDay.length > 0 ? 'Chỉnh sửa' : 'Đăng ký'}
@@ -411,7 +418,7 @@ export default function ScheduleView() {
                                                         </div>
                                                     ))
                                                 ) : (
-                                                    <p className="text-sm text-muted-foreground italic">Không có ca</p>
+                                                    <p className="text-sm italic">Không có ca</p>
                                                 )}
                                             </div>
                                         )}
@@ -447,3 +454,4 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
