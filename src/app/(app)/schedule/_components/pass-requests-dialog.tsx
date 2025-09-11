@@ -62,6 +62,7 @@ export default function PassRequestsDialog({
 
     notifications.forEach(notification => {
       const payload = notification.payload;
+      if (notification.type !== 'pass_request') return;
       
       // My Requests
       if (payload.requestingUser.userId === currentUser.uid) {
@@ -91,7 +92,11 @@ export default function PassRequestsDialog({
     });
     
     otherReqs.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-    completed.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+    completed.sort((a,b) => {
+        const timeA = a.resolvedAt || a.createdAt;
+        const timeB = b.resolvedAt || b.createdAt;
+        return new Date(timeB as string).getTime() - new Date(timeA as string).getTime();
+    });
 
 
     return { myRequests: myReqs, otherPendingRequests: otherReqs, completedRequests: completed };
@@ -166,7 +171,7 @@ export default function PassRequestsDialog({
             Xem xét các yêu cầu pass ca từ đồng nghiệp hoặc quản lý các yêu cầu của bạn.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <ScrollArea className="max-h-[60vh] -mx-6 px-6">
             <div className="space-y-6">
                 {/* My Requests (for staff) / All Pending (for manager) */}
                 <div>
@@ -190,9 +195,9 @@ export default function PassRequestsDialog({
                         })}
                         </div>
                     ) : (
-                        <div className="text-sm text-muted-foreground text-center py-4 flex items-center justify-center gap-2">
+                        <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <Info className="h-4 w-4"/>
-                            <span>Không có yêu cầu nào.</span>
+                            <span>{canManage ? "Không có yêu cầu nào đang chờ." : "Bạn không có yêu cầu nào."}</span>
                         </div>
                     )}
                 </div>
@@ -204,13 +209,14 @@ export default function PassRequestsDialog({
                         <div className="space-y-3">
                         {(canManage ? completedRequests : otherPendingRequests).map(notification => {
                             const payload = notification.payload;
+                             const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
                             return (
                                 <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                                     <div className="flex-1">
                                         <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
                                         <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
                                         {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
-                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy</Badge>}
+                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>}
                                     </div>
                                     {renderRequestActions(notification)}
                                 </div>
@@ -218,7 +224,7 @@ export default function PassRequestsDialog({
                         })}
                         </div>
                     ) : (
-                         <div className="text-sm text-muted-foreground text-center py-4 flex items-center justify-center gap-2">
+                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <AlertCircle className="h-4 w-4"/>
                             <span>{canManage ? 'Chưa có yêu cầu nào được xử lý.' : 'Không có yêu cầu nào phù hợp.'}</span>
                          </div>
