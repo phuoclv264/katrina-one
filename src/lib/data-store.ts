@@ -165,12 +165,13 @@ export const dataStore = {
     },
     
     async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
-         const newNotification: Omit<Notification, 'id'> = {
+        const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+        const newNotification: Omit<Notification, 'id'> = {
             type: 'pass_request',
             status: 'pending',
             createdAt: serverTimestamp(),
             payload: {
-                weekId: getISOWeek(new Date(shiftToPass.date)).toString(),
+                weekId: weekId,
                 shiftId: shiftToPass.id,
                 shiftLabel: shiftToPass.label,
                 shiftDate: shiftToPass.date,
@@ -215,14 +216,15 @@ export const dataStore = {
             const notificationRef = doc(db, "notifications", notification.id);
             transaction.update(notificationRef, {
                 status: 'pending',
-                takenBy: null, // or delete field
-                resolvedAt: null, // or delete field
+                takenBy: null,
+                resolvedAt: null,
             });
         });
     },
 
     async acceptPassShift(notification: Notification): Promise<void> {
-        const acceptingUser = { userId: auth.currentUser!.uid, userName: auth.currentUser!.displayName! };
+        if (!auth.currentUser) throw new Error("User not authenticated.");
+        const acceptingUser = { userId: auth.currentUser.uid, userName: auth.currentUser.displayName! };
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
@@ -1347,3 +1349,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    

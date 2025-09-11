@@ -85,7 +85,7 @@ export default function PassRequestsDialog({
 
     // Sort my requests by status and then date
     myReqs.sort((a, b) => {
-        const statusOrder = { pending: 0, taken: 1, cancelled: 2 };
+        const statusOrder: { [key: string]: number } = { 'pending': 0, 'resolved': 1, 'cancelled': 2 };
         if (statusOrder[a.status] !== statusOrder[b.status]) {
             return statusOrder[a.status] - statusOrder[b.status];
         }
@@ -188,3 +188,5 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
+
+    
