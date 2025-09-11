@@ -368,64 +368,62 @@ export default function ScheduleView() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            {/* Desktop View */}
-                            <div className="hidden md:block">
-                                <Table>
+                             {/* Desktop View */}
+                            <div className="overflow-x-auto hidden md:block">
+                                <Table className="table-fixed w-full">
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[250px] sticky left-0 bg-background z-10">Ca làm việc</TableHead>
-                                            {daysOfWeek.map(day => (
-                                                <TableHead key={day.toString()} className="text-center">
-                                                    {format(day, 'eee', { locale: vi })}
-                                                    <br />
-                                                    {format(day, 'dd/MM')}
+                                            <TableHead className="w-36">Ngày</TableHead>
+                                            {shiftTemplates.map(template => (
+                                                <TableHead key={template.id} className="text-center">
+                                                    <p>{template.label}</p>
+                                                    <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                 </TableHead>
                                             ))}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {shiftTemplates.map(template => {
+                                        {daysOfWeek.map(day => {
+                                            const dateKey = format(day, 'yyyy-MM-dd');
                                             return (
-                                            <TableRow key={template.id}>
-                                                <TableCell className="font-semibold sticky left-0 bg-background z-10 align-top">
-                                                    <p>{template.label}</p>
-                                                    <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
-                                                    <p className="text-xs text-muted-foreground font-normal">({template.role})</p>
+                                            <TableRow key={dateKey}>
+                                                <TableCell className="font-semibold align-top">
+                                                    <p>{format(day, 'eee, dd/MM', { locale: vi })}</p>
                                                 </TableCell>
-                                                {daysOfWeek.map(day => {
-                                                    const dateKey = format(day, 'yyyy-MM-dd');
+                                                {shiftTemplates.map(template => {
                                                     const dayOfWeek = getDay(day);
 
                                                     if (!(template.applicableDays || []).includes(dayOfWeek)) {
-                                                        return <TableCell key={dateKey} className="bg-muted/30" />;
+                                                        return <TableCell key={template.id} className="bg-muted/30" />;
                                                     }
                                                     
                                                     const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                     const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
-                                                    if (!shiftObject) return <TableCell key={dateKey} className="bg-muted/30" />;
+                                                    if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30" />;
 
                                                     return (
-                                                        <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
-                                                             <Button 
+                                                        <TableCell key={template.id} className="p-1 align-top h-28 text-center">
+                                                            <Button 
                                                                 variant="ghost" 
                                                                 className="h-full w-full flex flex-col items-center justify-center p-1 group"
                                                                 onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                 disabled={!canEditSchedule}
                                                             >
-                                                                {shiftObject.assignedUsers.length === 0 && (
+                                                                {shiftObject.assignedUsers.length === 0 ? (
                                                                     <div className="text-muted-foreground group-hover:text-primary">
                                                                         <UserPlus className="h-6 w-6 mx-auto" />
-                                                                        <span className="text-xs">Thêm</span>
+                                                                        <span className="text-xs mt-1">Thêm</span>
+                                                                    </div>
+                                                                ) : (
+                                                                     <div className="flex-grow space-y-1 py-1 w-full">
+                                                                        {shiftObject.assignedUsers.map(user => (
+                                                                            <Badge key={user.userId} variant="secondary" className="block text-xs text-center truncate w-full">
+                                                                                {user.userName}
+                                                                            </Badge>
+                                                                        ))}
                                                                     </div>
                                                                 )}
-                                                                <div className="flex-grow space-y-1 py-1">
-                                                                {shiftObject.assignedUsers.map(user => (
-                                                                    <Badge key={user.userId} variant="secondary" className="block text-xs text-center truncate w-full">
-                                                                        {user.userName}
-                                                                    </Badge>
-                                                                ))}
-                                                                </div>
                                                             </Button>
                                                         </TableCell>
                                                     )
@@ -594,7 +592,7 @@ export default function ScheduleView() {
                 notifications={notifications}
                 currentUser={user!}
                 allUsers={allUsers}
-                onAccept={() => {}} // Dummy functions, will be replaced
+                onAccept={() => { /* TODO */ }}
                 onDecline={() => {}}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
