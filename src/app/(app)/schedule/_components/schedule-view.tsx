@@ -37,7 +37,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import isEqual from 'lodash.isequal';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 export default function ScheduleView() {
@@ -255,13 +255,19 @@ export default function ScheduleView() {
         return notifications.filter(n => {
             if (n.type !== 'pass_request' || n.status !== 'pending' || n.payload.requestingUser.userId === user.uid) return false;
             
+            // Filter by current week
+            const shiftDate = parseISO(n.payload.shiftDate);
+            if (!isWithinInterval(shiftDate, weekInterval)) {
+                return false;
+            }
+            
             const payload = n.payload;
             const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
             const hasDeclined = (payload.declinedBy || []).includes(user.uid);
             
             return !isDifferentRole && !hasDeclined;
         }).length;
-    }, [notifications, user]);
+    }, [notifications, user, weekInterval]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
         return notifications.some(n => n.payload.shiftId === shiftId && n.status === 'pending');
@@ -331,12 +337,12 @@ export default function ScheduleView() {
                 </Card>
             )}
             
-            <div className="w-full">
+             <div className="border rounded-lg">
                 <Table className="table-fixed">
                     <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[30%] font-bold text-foreground text-center">Ngày</TableHead>
-                            <TableHead className="font-bold text-foreground text-center">
+                        <TableRow className="bg-muted/50">
+                            <TableHead className="w-[30%] text-center font-bold text-foreground">Ngày</TableHead>
+                            <TableHead className="text-center font-bold text-foreground">
                                 {isSchedulePublished
                                     ? 'Ca làm việc'
                                     : 'Thời gian rảnh'
@@ -361,7 +367,7 @@ export default function ScheduleView() {
                                     key={dateKey} 
                                     className={cn(
                                         isSameDay(day, today) && "bg-primary/10",
-                                        isBefore(day, today) && "text-muted-foreground opacity-70"
+                                        isBefore(day, today) && "bg-muted/30 text-muted-foreground"
                                     )}
                                 >
                                     <TableCell className="font-semibold align-middle text-center w-[30%]">
@@ -371,7 +377,7 @@ export default function ScheduleView() {
                                     <TableCell className="align-middle text-center">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
-                                                <Card className="bg-muted/30 hover:bg-muted/60 transition-colors max-w-sm mx-auto">
+                                                <Card className="bg-card hover:bg-accent/50 transition-colors max-w-sm mx-auto">
                                                     <CardContent className="p-2">
                                                         {availabilityForDay.length > 0 ? (
                                                             <div className="space-y-1 text-xs">
