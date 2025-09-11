@@ -290,7 +290,7 @@ export default function ScheduleView() {
 
     return (
         <TooltipProvider>
-             <div className="flex flex-col sm:flex-row flex-wrap justify-between items-center gap-4 mb-8">
+             <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
@@ -341,7 +341,7 @@ export default function ScheduleView() {
             <div className="border rounded-lg">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableRow className="bg-muted/50">
                             <TableHead className="w-[30%] text-center font-bold text-foreground">Ngày</TableHead>
                             <TableHead className="text-center font-bold text-foreground">
                                 {isSchedulePublished
@@ -372,22 +372,22 @@ export default function ScheduleView() {
                                     )}
                                 >
                                     <TableCell className="font-semibold align-middle text-center w-[30%]">
-                                        <p>{format(day, 'dd/MM')}</p>
-                                        <p className="text-sm font-normal">{format(day, 'eeee', { locale: vi })}</p>
+                                        <p className="text-base">{format(day, 'dd/MM')}</p>
+                                        <p className="text-sm">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
                                     <TableCell className="align-middle text-center">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
-                                                <Card className="bg-card hover:bg-accent/50 transition-colors max-w-sm mx-auto">
+                                                <Card className="bg-card transition-colors max-w-sm mx-auto hover:bg-accent/50">
                                                     <CardContent className="p-2">
                                                         {availabilityForDay.length > 0 ? (
-                                                            <div className="space-y-1 text-xs">
+                                                            <div className="space-y-1 text-sm">
                                                                 {availabilityForDay.map((slot, i) => (
                                                                     <div key={i} className="bg-background p-1.5 rounded text-center">{slot.start} - {slot.end}</div>
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <p className="text-xs text-center italic">Chưa đăng ký</p>
+                                                            <p className="text-sm text-center italic">Chưa đăng ký</p>
                                                         )}
                                                         <Button size="sm" variant="link" className="w-full mt-1 h-auto py-1" onClick={() => openAvailabilityDialog(day)}>
                                                             {availabilityForDay.length > 0 ? 'Chỉnh sửa' : 'Đăng ký'}
