@@ -68,7 +68,7 @@ export default function PassRequestsDialog({
 
     weeklyNotifications.forEach(notification => {
       const payload = notification.payload;
-      
+
       if (payload.requestingUser.userId === currentUser.uid) {
         myReqs.push(notification);
       } else if (notification.status === 'pending') {

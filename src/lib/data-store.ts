@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';

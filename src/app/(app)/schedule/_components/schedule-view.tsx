@@ -1,5 +1,3 @@
-
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -105,8 +103,8 @@ export default function ScheduleView() {
             checkLoadingDone();
         });
         
-        let unsubNotifications;
-        if(canManage) {
+        let unsubNotifications: () => void;
+        if (canManage) {
             unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
                 setNotifications(notifs);
                 notificationsSubscribed = true;
