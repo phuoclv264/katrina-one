@@ -91,7 +91,7 @@ export default function ScheduleView() {
             checkLoadingDone();
         });
         
-        const unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
+        const unsubNotifications = dataStore.subscribeToNotifications((notifs) => {
             setNotifications(notifs);
             notificationsSubscribed = true;
             checkLoadingDone();
@@ -155,7 +155,7 @@ export default function ScheduleView() {
     const handlePassShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
         try {
-            await dataStore.requestPassShift(weekId, shift);
+            await dataStore.requestPassShift(shift, user);
             toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
         } catch (error) {
             console.error("Failed to pass shift:", error);
@@ -410,3 +410,4 @@ export default function ScheduleView() {
         </div>
     );
 }
+
