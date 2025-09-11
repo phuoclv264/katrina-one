@@ -38,6 +38,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import isEqual from 'lodash.isequal';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 
 export default function ScheduleView() {
@@ -64,6 +65,7 @@ export default function ScheduleView() {
         return eachDayOfInterval({ start, end });
     }, [currentDate]);
 
+    const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -97,17 +99,27 @@ export default function ScheduleView() {
             checkLoadingDone();
         });
         
-        const unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
-            setNotifications(notifs);
-            notificationsSubscribed = true;
-            checkLoadingDone();
-        });
-        
         const unsubUsers = dataStore.subscribeToUsers((userList) => {
             setAllUsers(userList);
             usersSubscribed = true;
             checkLoadingDone();
         });
+        
+        let unsubNotifications;
+        if(canManage) {
+            unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
+                setNotifications(notifs);
+                notificationsSubscribed = true;
+                checkLoadingDone();
+            });
+        } else {
+             unsubNotifications = dataStore.subscribeToRelevantNotifications(user.uid, user.role, (notifs) => {
+                setNotifications(notifs);
+                notificationsSubscribed = true;
+                checkLoadingDone();
+            });
+        }
+
 
         return () => {
             unsubSchedule();
@@ -115,7 +127,7 @@ export default function ScheduleView() {
             unsubNotifications();
             unsubUsers();
         };
-    }, [user, authLoading, router, weekId]);
+    }, [user, authLoading, router, weekId, canManage]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
@@ -247,8 +259,6 @@ export default function ScheduleView() {
             const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
             const hasDeclined = (payload.declinedBy || []).includes(user.uid);
             
-            // A full conflict check would require the schedule, this is a simplified view for the badge.
-            // A more robust check happens in the dialog.
             return !isDifferentRole && !hasDeclined;
         }).length;
     }, [notifications, user]);
@@ -271,7 +281,7 @@ export default function ScheduleView() {
     const isSchedulePublished = schedule?.status === 'published';
 
     return (
-        <div>
+        <TooltipProvider>
             <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
@@ -432,6 +442,6 @@ export default function ScheduleView() {
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
             />
-        </div>
+        </TooltipProvider>
     );
 }

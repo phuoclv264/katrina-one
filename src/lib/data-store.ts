@@ -21,9 +21,10 @@ import {
   limit,
   writeBatch,
   runTransaction,
+  or,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, PassRequest, ShiftTemplate, Notification } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -75,6 +76,51 @@ export const dataStore = {
         callback(notifications);
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
+            callback([]);
+        });
+
+        return unsubscribe;
+    },
+
+    subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
+        const notificationsCollection = collection(db, 'notifications');
+        const q = query(
+            notificationsCollection,
+            or(
+                // My own requests
+                where('payload.requestingUser.userId', '==', userId),
+                // Pending requests from others that I am eligible for
+                where('status', '==', 'pending')
+            ),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const notifications: Notification[] = [];
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const notification = {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+                } as Notification;
+
+                // Further client-side filtering for eligibility
+                if (notification.payload.requestingUser.userId === userId) {
+                    notifications.push(notification);
+                } else {
+                    const payload = notification.payload;
+                    const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
+                    const hasDeclined = (payload.declinedBy || []).includes(userId);
+                    if (!isDifferentRole && !hasDeclined) {
+                        notifications.push(notification);
+                    }
+                }
+            });
+            callback(notifications);
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read relevant notifications: ${error.code}`);
             callback([]);
         });
 
@@ -216,7 +262,7 @@ export const dataStore = {
             const notificationRef = doc(db, "notifications", notification.id);
             transaction.update(notificationRef, {
                 status: 'pending',
-                takenBy: null,
+                'payload.takenBy': null,
                 resolvedAt: null,
             });
         });
@@ -267,7 +313,7 @@ export const dataStore = {
             // 2. Update Notification
             transaction.update(notificationRef, {
                 status: 'resolved',
-                takenBy: acceptingUser,
+                'payload.takenBy': acceptingUser,
                 resolvedAt: serverTimestamp(),
             });
         });
@@ -280,8 +326,7 @@ export const dataStore = {
             if (!notificationDoc.exists()) throw new Error("Notification not found");
             const existingDeclined = notificationDoc.data().payload.declinedBy || [];
             const newDeclined = Array.from(new Set([...existingDeclined, decliningUserId]));
-            const newPayload = { ...notificationDoc.data().payload, declinedBy: newDeclined };
-            transaction.update(notificationRef, { payload: newPayload });
+            transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
         });
     },
 
@@ -308,7 +353,7 @@ export const dataStore = {
 
             transaction.update(notificationRef, {
                 status: 'resolved',
-                takenBy: { userId: userToAssign.uid, userName: userToAssign.displayName },
+                'payload.takenBy': { userId: userToAssign.uid, userName: userToAssign.displayName },
                 resolvedAt: serverTimestamp(),
             });
         });
