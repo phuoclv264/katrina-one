@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -23,6 +24,7 @@ import {
     ChevronsDownUp,
     Save,
     MailQuestion,
+    UserPlus,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -407,10 +409,16 @@ export default function ScheduleView() {
                                                         <TableCell key={dateKey} className="p-2 align-top h-24 text-center">
                                                              <Button 
                                                                 variant="ghost" 
-                                                                className="h-full w-full flex flex-col items-center justify-center p-1"
+                                                                className="h-full w-full flex flex-col items-center justify-center p-1 group"
                                                                 onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                 disabled={!canEditSchedule}
                                                             >
+                                                                {shiftObject.assignedUsers.length === 0 && (
+                                                                    <div className="text-muted-foreground group-hover:text-primary">
+                                                                        <UserPlus className="h-6 w-6 mx-auto" />
+                                                                        <span className="text-xs">Thêm</span>
+                                                                    </div>
+                                                                )}
                                                                 <div className="flex-grow space-y-1 py-1">
                                                                 {shiftObject.assignedUsers.map(user => (
                                                                     <Badge key={user.userId} variant="secondary" className="block text-xs text-center truncate w-full">
@@ -584,7 +592,7 @@ export default function ScheduleView() {
                 isOpen={isPassRequestsDialogOpen}
                 onClose={() => setIsPassRequestsDialogOpen(false)}
                 notifications={notifications}
-                currentUser={user}
+                currentUser={user!}
                 allUsers={allUsers}
                 onAccept={() => {}} // Dummy functions, will be replaced
                 onDecline={() => {}}
