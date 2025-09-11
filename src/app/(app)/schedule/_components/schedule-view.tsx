@@ -335,8 +335,8 @@ export default function ScheduleView() {
                 <Table className="table-fixed">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[30%]">Ngày</TableHead>
-                            <TableHead>
+                            <TableHead className="font-bold w-[30%]">Ngày</TableHead>
+                            <TableHead className="font-bold">
                                 {isSchedulePublished
                                     ? 'Ca làm việc'
                                     : 'Thời gian rảnh'
@@ -368,7 +368,7 @@ export default function ScheduleView() {
                                         <p>{format(day, 'dd/MM')}</p>
                                         <p className="text-sm font-normal">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
-                                    <TableCell className="align-top">
+                                    <TableCell className="align-middle">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
                                                 <Card className="bg-muted/30 hover:bg-muted/60 transition-colors">
@@ -418,7 +418,7 @@ export default function ScheduleView() {
                                                         </div>
                                                     ))
                                                 ) : (
-                                                    <p className="text-sm italic">Không có ca</p>
+                                                    <p className="text-sm italic text-center">Không có ca</p>
                                                 )}
                                             </div>
                                         )}
@@ -454,4 +454,5 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
