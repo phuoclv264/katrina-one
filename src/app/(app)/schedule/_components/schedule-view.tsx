@@ -270,7 +270,7 @@ export default function ScheduleView() {
     if (authLoading || isLoading || !user) {
         return (
             <div>
-                <Skeleton className="h-12 w-1/2 mb-4" />
+                <Skeleton className="h-12 w-full sm:w-1/2 mb-4" />
                 <Skeleton className="h-[60vh] w-full" />
             </div>
         )
@@ -282,7 +282,7 @@ export default function ScheduleView() {
 
     return (
         <TooltipProvider>
-            <div className="flex justify-center sm:justify-between items-center gap-4 mb-8">
+            <div className="flex flex-wrap justify-center sm:justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
@@ -300,8 +300,8 @@ export default function ScheduleView() {
                     </Button>
                 </div>
 
-                <div className="relative">
-                    <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)}>
+                <div className="relative w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
                         <MailQuestion className="mr-2 h-4 w-4"/>
                         Yêu cầu Pass ca
                     </Button>
@@ -334,7 +334,7 @@ export default function ScheduleView() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="min-w-[120px]">Ngày</TableHead>
+                            <TableHead className="w-[30%]">Ngày</TableHead>
                             {isSchedulePublished
                                 ? <TableHead>Ca làm việc</TableHead>
                                 : <TableHead>Thời gian rảnh</TableHead>
@@ -355,14 +355,14 @@ export default function ScheduleView() {
                                                         
                             return (
                                 <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
-                                    <TableCell className="font-semibold align-top">
+                                    <TableCell className="font-semibold align-top w-[30%]">
                                         <p>{format(day, 'dd/MM')}</p>
                                         <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
                                     <TableCell className="align-top">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
-                                                <Card className="bg-muted/30 hover:bg-muted/60 transition-colors w-full max-w-xs">
+                                                <Card className="bg-muted/30 hover:bg-muted/60 transition-colors">
                                                     <CardContent className="p-2">
                                                         {availabilityForDay.length > 0 ? (
                                                             <div className="space-y-1 text-xs">
@@ -380,10 +380,10 @@ export default function ScheduleView() {
                                                 </Card>
                                             )
                                         ) : (
-                                            <div className="space-y-2 max-w-xs">
+                                            <div className="space-y-2">
                                                 {(shiftsForDay && shiftsForDay.length > 0) ? (
                                                     shiftsForDay.map(shift => (
-                                                        <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group w-full">
+                                                        <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group">
                                                             <p className="font-bold">{shift.label}</p>
                                                             <p className="text-xs">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                             <DropdownMenu>
