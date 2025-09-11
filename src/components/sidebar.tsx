@@ -57,7 +57,6 @@ export function AppSidebar() {
           ];
           case 'Chủ nhà hàng': return [
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-            { href: '/notifications', label: 'Thông báo', icon: Bell },
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
