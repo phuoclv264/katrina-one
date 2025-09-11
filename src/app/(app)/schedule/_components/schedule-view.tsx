@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -10,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -190,7 +191,8 @@ export default function ScheduleView() {
         if (!user || !schedule) return;
         
         try {
-            await dataStore.acceptPassShift(notification);
+            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
+            await dataStore.acceptPassShift(notification, acceptingUser);
             toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
@@ -280,16 +282,16 @@ export default function ScheduleView() {
 
     return (
         <TooltipProvider>
-            <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-4 mb-8">
+            <div className="flex justify-center sm:justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                        <div className="text-center w-48 sm:w-56">
-                        <span className="text-base sm:text-lg font-medium whitespace-nowrap">
+                        <div className="text-center w-56">
+                        <span className="text-lg font-medium whitespace-nowrap">
                             {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
                         </span>
-                            <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1 h-8" onClick={() => setCurrentDate(new Date())}>
+                            <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1" onClick={() => setCurrentDate(new Date())}>
                             {isCurrentWeek ? 'Tuần này' : 'Quay về tuần hiện tại'}
                         </Button>
                         </div>
@@ -431,7 +433,6 @@ export default function ScheduleView() {
             <PassRequestsDialog 
                 isOpen={isPassRequestsDialogOpen}
                 onClose={() => setIsPassRequestsDialogOpen(false)}
-                weekId={weekId}
                 notifications={notifications}
                 currentUser={user}
                 allUsers={allUsers}
@@ -439,7 +440,9 @@ export default function ScheduleView() {
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
+                onAssign={() => { /* TODO */ }}
             />
         </TooltipProvider>
     );
 }
+
