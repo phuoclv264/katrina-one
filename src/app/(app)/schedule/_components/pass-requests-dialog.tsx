@@ -156,14 +156,14 @@ export default function PassRequestsDialog({
       return null;
   }
   
-  const firstListTitle = canManage ? 'Yêu cầu đang chờ xử lý' : 'Yêu cầu của bạn';
-  const secondListTitle = canManage ? 'Lịch sử yêu cầu đã xử lý' : 'Yêu cầu từ người khác';
+  const firstListTitle = canManage ? 'Yêu cầu đang chờ xử lý' : 'Yêu cầu từ người khác';
+  const secondListTitle = canManage ? 'Lịch sử yêu cầu đã xử lý' : 'Yêu cầu của bạn';
 
-  const firstList = canManage ? otherPendingRequests : myRequests;
-  const secondList = canManage ? completedRequests : otherPendingRequests;
+  const firstList = canManage ? otherPendingRequests : otherPendingRequests;
+  const secondList = canManage ? completedRequests : myRequests;
   
-  const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ." : "Bạn không có yêu cầu nào.";
-  const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý." : "Không có yêu cầu nào phù hợp.";
+  const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ." : "Không có yêu cầu nào phù hợp.";
+  const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý." : "Bạn không có yêu cầu nào.";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -176,41 +176,13 @@ export default function PassRequestsDialog({
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] -mx-6 px-6">
             <div className="space-y-6">
-                {/* My Requests (for staff) / All Pending (for manager) */}
+                
+                 {/* Other's Requests (for staff) / All Pending (for manager) */}
                 <div>
                     <h3 className="font-semibold mb-2">{firstListTitle}</h3>
                     {firstList.length > 0 ? (
                         <div className="space-y-3">
                         {firstList.map(notification => {
-                            const payload = notification.payload;
-                            return (
-                                <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                                    <div className="flex-1">
-                                        <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                                        <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-                                        {notification.status === 'pending' && <Badge variant="secondary" className="mt-1">Đang chờ</Badge>}
-                                        {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
-                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy</Badge>}
-                                    </div>
-                                    {renderRequestActions(notification)}
-                                </div>
-                            )
-                        })}
-                        </div>
-                    ) : (
-                        <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
-                            <Info className="h-4 w-4"/>
-                            <span>{firstListEmptyMessage}</span>
-                        </div>
-                    )}
-                </div>
-                
-                {/* Other's Requests (for staff) / Completed (for manager) */}
-                <div>
-                    <h3 className="font-semibold mb-2">{secondListTitle}</h3>
-                     {secondList.length > 0 ? (
-                        <div className="space-y-3">
-                        {secondList.map(notification => {
                             const payload = notification.payload;
                              const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
                             return (
@@ -229,8 +201,37 @@ export default function PassRequestsDialog({
                     ) : (
                          <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <AlertCircle className="h-4 w-4"/>
-                            <span>{secondListEmptyMessage}</span>
+                            <span>{firstListEmptyMessage}</span>
                          </div>
+                    )}
+                </div>
+
+                 {/* My Requests (for staff) / Completed (for manager) */}
+                <div>
+                    <h3 className="font-semibold mb-2">{secondListTitle}</h3>
+                    {secondList.length > 0 ? (
+                        <div className="space-y-3">
+                        {secondList.map(notification => {
+                            const payload = notification.payload;
+                            return (
+                                <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                                    <div className="flex-1">
+                                        <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                                        <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+                                        {notification.status === 'pending' && <Badge variant="secondary" className="mt-1">Đang chờ</Badge>}
+                                        {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
+                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy</Badge>}
+                                    </div>
+                                    {renderRequestActions(notification)}
+                                </div>
+                            )
+                        })}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
+                            <Info className="h-4 w-4"/>
+                            <span>{secondListEmptyMessage}</span>
+                        </div>
                     )}
                 </div>
             </div>
@@ -242,4 +243,3 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
-
