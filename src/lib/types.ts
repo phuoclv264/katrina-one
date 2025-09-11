@@ -232,6 +232,14 @@ export type Schedule = {
   shifts: AssignedShift[];
 };
 
+export type Availability = {
+  userId: string;
+  userName: string;
+  date: string; // YYYY-MM-DD
+  availableSlots: TimeSlot[];
+};
+
+
 // --- Notification System Types ---
 
 export type NotificationStatus = 'pending' | 'resolved' | 'cancelled';
