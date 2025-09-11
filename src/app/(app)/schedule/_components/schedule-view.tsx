@@ -335,8 +335,8 @@ export default function ScheduleView() {
                 <Table className="table-fixed">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="font-bold w-[30%]">Ngày</TableHead>
-                            <TableHead className="font-bold">
+                            <TableHead className="w-[30%] font-bold text-foreground text-center">Ngày</TableHead>
+                            <TableHead className="font-bold text-foreground text-center">
                                 {isSchedulePublished
                                     ? 'Ca làm việc'
                                     : 'Thời gian rảnh'
@@ -364,14 +364,14 @@ export default function ScheduleView() {
                                         isBefore(day, today) && "text-muted-foreground opacity-70"
                                     )}
                                 >
-                                    <TableCell className="font-semibold align-top w-[30%]">
+                                    <TableCell className="font-semibold align-middle text-center w-[30%]">
                                         <p>{format(day, 'dd/MM')}</p>
                                         <p className="text-sm font-normal">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
-                                    <TableCell className="align-middle">
+                                    <TableCell className="align-middle text-center">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
-                                                <Card className="bg-muted/30 hover:bg-muted/60 transition-colors">
+                                                <Card className="bg-muted/30 hover:bg-muted/60 transition-colors max-w-sm mx-auto">
                                                     <CardContent className="p-2">
                                                         {availabilityForDay.length > 0 ? (
                                                             <div className="space-y-1 text-xs">
@@ -389,7 +389,7 @@ export default function ScheduleView() {
                                                 </Card>
                                             )
                                         ) : (
-                                            <div className="space-y-2">
+                                            <div className="space-y-2 max-w-sm mx-auto">
                                                 {(shiftsForDay && shiftsForDay.length > 0) ? (
                                                     shiftsForDay.map(shift => (
                                                         <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group">
@@ -433,7 +433,7 @@ export default function ScheduleView() {
 
              <AvailabilityDialog 
                 isOpen={isAvailabilityDialogOpen}
-                onClose={() => setIsAvailabilityDialogOpen(false)}
+                onClose={()={() => setIsAvailabilityDialogOpen(false)}}
                 onSave={handleSaveAvailability}
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
@@ -455,3 +455,5 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
+    
