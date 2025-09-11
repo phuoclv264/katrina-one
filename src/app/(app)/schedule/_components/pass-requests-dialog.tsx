@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -64,14 +65,11 @@ export default function PassRequestsDialog({
       const payload = notification.payload;
       if (notification.type !== 'pass_request') return;
       
-      // My Requests
-      if (payload.requestingUser.userId === currentUser.uid) {
+      const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+
+      if (isMyRequest) {
         myReqs.push(notification);
-        return;
-      }
-      
-      // Other's requests for me to see
-      if (notification.status === 'pending') {
+      } else if (notification.status === 'pending') {
          const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
          const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
          if (!isDifferentRole && !hasDeclined) {
@@ -79,7 +77,6 @@ export default function PassRequestsDialog({
          }
       }
       
-      // Completed requests (for managers to see)
       if (canManage && (notification.status === 'resolved' || notification.status === 'cancelled')) {
           completed.push(notification);
       }
@@ -162,6 +159,15 @@ export default function PassRequestsDialog({
       return null;
   }
   
+  const requestsForMe = canManage ? otherPendingRequests : myRequests;
+  const requestsForOthers = canManage ? completedRequests : otherPendingRequests;
+  
+  const firstListTitle = canManage ? 'Yêu cầu đang chờ xử lý' : 'Yêu cầu của bạn';
+  const secondListTitle = canManage ? 'Lịch sử yêu cầu đã xử lý' : 'Yêu cầu từ người khác';
+  
+  const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ." : "Bạn không có yêu cầu nào.";
+  const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý." : "Không có yêu cầu nào phù hợp.";
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -175,10 +181,10 @@ export default function PassRequestsDialog({
             <div className="space-y-6">
                 {/* My Requests (for staff) / All Pending (for manager) */}
                 <div>
-                    <h3 className="font-semibold mb-2">{canManage ? 'Yêu cầu đang chờ xử lý' : 'Yêu cầu của bạn'}</h3>
-                    {(canManage ? otherPendingRequests : myRequests).length > 0 ? (
+                    <h3 className="font-semibold mb-2">{firstListTitle}</h3>
+                    {requestsForMe.length > 0 ? (
                         <div className="space-y-3">
-                        {(canManage ? otherPendingRequests : myRequests).map(notification => {
+                        {requestsForMe.map(notification => {
                             const payload = notification.payload;
                             return (
                                 <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
@@ -197,17 +203,17 @@ export default function PassRequestsDialog({
                     ) : (
                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <Info className="h-4 w-4"/>
-                            <span>{canManage ? "Không có yêu cầu nào đang chờ." : "Bạn không có yêu cầu nào."}</span>
+                            <span>{firstListEmptyMessage}</span>
                         </div>
                     )}
                 </div>
                 
                 {/* Other's Requests (for staff) / Completed (for manager) */}
                 <div>
-                    <h3 className="font-semibold mb-2">{canManage ? 'Lịch sử yêu cầu đã xử lý' : 'Yêu cầu từ người khác'}</h3>
-                     {(canManage ? completedRequests : otherPendingRequests).length > 0 ? (
+                    <h3 className="font-semibold mb-2">{secondListTitle}</h3>
+                     {requestsForOthers.length > 0 ? (
                         <div className="space-y-3">
-                        {(canManage ? completedRequests : otherPendingRequests).map(notification => {
+                        {requestsForOthers.map(notification => {
                             const payload = notification.payload;
                              const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
                             return (
@@ -226,7 +232,7 @@ export default function PassRequestsDialog({
                     ) : (
                          <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <AlertCircle className="h-4 w-4"/>
-                            <span>{canManage ? 'Chưa có yêu cầu nào được xử lý.' : 'Không có yêu cầu nào phù hợp.'}</span>
+                            <span>{secondListEmptyMessage}</span>
                          </div>
                     )}
                 </div>
