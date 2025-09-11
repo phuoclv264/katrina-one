@@ -364,7 +364,7 @@ export default function ScheduleView() {
                                         isBefore(day, today) && "text-muted-foreground opacity-70"
                                     )}
                                 >
-                                    <TableCell className="font-semibold align-top">
+                                    <TableCell className="font-semibold align-top w-[30%]">
                                         <p>{format(day, 'dd/MM')}</p>
                                         <p className="text-sm font-normal">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
@@ -445,6 +445,7 @@ export default function ScheduleView() {
                 notifications={notifications}
                 currentUser={user}
                 allUsers={allUsers}
+                weekInterval={weekInterval}
                 onAccept={handleTakeShift}
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
@@ -454,5 +455,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
-

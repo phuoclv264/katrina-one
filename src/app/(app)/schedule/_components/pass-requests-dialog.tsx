@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2 } from 'lucide-react';
 import {
@@ -34,6 +34,7 @@ type PassRequestsDialogProps = {
   notifications: Notification[];
   currentUser: AuthUser;
   allUsers: ManagedUser[];
+  weekInterval: { start: Date; end: Date };
   onAccept: (notification: Notification) => void;
   onDecline: (notification: Notification) => void;
   onCancel: (notificationId: string) => void;
@@ -47,6 +48,7 @@ export default function PassRequestsDialog({
   notifications,
   currentUser,
   allUsers,
+  weekInterval,
   onAccept,
   onDecline,
   onCancel,
@@ -61,9 +63,14 @@ export default function PassRequestsDialog({
     const otherReqs: Notification[] = [];
     const completed: Notification[] = [];
 
-    notifications.forEach(notification => {
+    const weekFilteredNotifications = notifications.filter(notification => {
+        if (notification.type !== 'pass_request') return false;
+        const shiftDate = parseISO(notification.payload.shiftDate);
+        return isWithinInterval(shiftDate, weekInterval);
+    });
+
+    weekFilteredNotifications.forEach(notification => {
       const payload = notification.payload;
-      if (notification.type !== 'pass_request') return;
       
       const isMyRequest = payload.requestingUser.userId === currentUser.uid;
 
@@ -94,7 +101,7 @@ export default function PassRequestsDialog({
 
 
     return { myRequests: myReqs, otherPendingRequests: otherReqs, completedRequests: completed };
-  }, [notifications, currentUser, canManage]);
+  }, [notifications, currentUser, canManage, weekInterval]);
   
   const renderRequestActions = (notification: Notification) => {
       if (canManage) {
@@ -162,8 +169,8 @@ export default function PassRequestsDialog({
   const firstList = canManage ? otherPendingRequests : otherPendingRequests;
   const secondList = canManage ? completedRequests : myRequests;
   
-  const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ." : "Không có yêu cầu nào phù hợp.";
-  const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý." : "Bạn không có yêu cầu nào.";
+  const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ trong tuần này." : "Không có yêu cầu nào phù hợp trong tuần này.";
+  const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý trong tuần này." : "Bạn không có yêu cầu nào trong tuần này.";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -171,42 +178,13 @@ export default function PassRequestsDialog({
         <DialogHeader>
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
-            Xem xét các yêu cầu pass ca từ đồng nghiệp hoặc quản lý các yêu cầu của bạn.
+            Xem xét các yêu cầu pass ca từ đồng nghiệp hoặc quản lý các yêu cầu của bạn cho tuần này.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] -mx-6 px-6">
             <div className="space-y-6">
                 
                  {/* Other's Requests (for staff) / All Pending (for manager) */}
-                <div>
-                    <h3 className="font-semibold mb-2">{firstListTitle}</h3>
-                    {firstList.length > 0 ? (
-                        <div className="space-y-3">
-                        {firstList.map(notification => {
-                            const payload = notification.payload;
-                             const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
-                            return (
-                                <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                                    <div className="flex-1">
-                                        <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                                        <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
-                                        {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
-                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>}
-                                    </div>
-                                    {renderRequestActions(notification)}
-                                </div>
-                            )
-                        })}
-                        </div>
-                    ) : (
-                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4"/>
-                            <span>{firstListEmptyMessage}</span>
-                         </div>
-                    )}
-                </div>
-
-                 {/* My Requests (for staff) / Completed (for manager) */}
                 <div>
                     <h3 className="font-semibold mb-2">{secondListTitle}</h3>
                     {secondList.length > 0 ? (
@@ -232,6 +210,35 @@ export default function PassRequestsDialog({
                             <Info className="h-4 w-4"/>
                             <span>{secondListEmptyMessage}</span>
                         </div>
+                    )}
+                </div>
+
+                 {/* My Requests (for staff) / Completed (for manager) */}
+                <div>
+                    <h3 className="font-semibold mb-2">{firstListTitle}</h3>
+                    {firstList.length > 0 ? (
+                        <div className="space-y-3">
+                        {firstList.map(notification => {
+                            const payload = notification.payload;
+                             const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
+                            return (
+                                <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                                    <div className="flex-1">
+                                        <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                                        <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
+                                        {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
+                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>}
+                                    </div>
+                                    {renderRequestActions(notification)}
+                                </div>
+                            )
+                        })}
+                        </div>
+                    ) : (
+                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4"/>
+                            <span>{firstListEmptyMessage}</span>
+                         </div>
                     )}
                 </div>
             </div>

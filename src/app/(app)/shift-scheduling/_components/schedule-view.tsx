@@ -36,6 +36,8 @@ import {
     isSameDay,
     getDay,
     isSameWeek,
+    isWithinInterval,
+    parseISO,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -373,9 +375,9 @@ export default function ScheduleView() {
                                 <Table className="table-fixed w-full">
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-36">Ngày</TableHead>
+                                            <TableHead className="w-36 font-bold">Ngày</TableHead>
                                             {shiftTemplates.map(template => (
-                                                <TableHead key={template.id} className="text-center">
+                                                <TableHead key={template.id} className="text-center font-bold">
                                                     <p>{template.label}</p>
                                                     <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                 </TableHead>
@@ -592,6 +594,7 @@ export default function ScheduleView() {
                 notifications={notifications}
                 currentUser={user!}
                 allUsers={allUsers}
+                weekInterval={weekInterval}
                 onAccept={() => { /* TODO */ }}
                 onDecline={() => {}}
                 onCancel={handleCancelPassRequest}
