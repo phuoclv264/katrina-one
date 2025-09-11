@@ -287,7 +287,7 @@ export default function ScheduleView() {
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                        <div className="text-center w-56">
+                        <div className="text-center">
                         <span className="text-lg font-medium whitespace-nowrap">
                             {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
                         </span>
@@ -330,15 +330,17 @@ export default function ScheduleView() {
                 </Card>
             )}
             
-            <div className="overflow-x-auto">
-                <Table>
+            <div className="w-full">
+                <Table className="table-fixed">
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[30%]">Ngày</TableHead>
-                            {isSchedulePublished
-                                ? <TableHead>Ca làm việc</TableHead>
-                                : <TableHead>Thời gian rảnh</TableHead>
-                            }
+                            <TableHead>
+                                {isSchedulePublished
+                                    ? 'Ca làm việc'
+                                    : 'Thời gian rảnh'
+                                }
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -355,7 +357,7 @@ export default function ScheduleView() {
                                                         
                             return (
                                 <TableRow key={dateKey} className={cn(isSameDay(day, new Date()) && "bg-primary/10")}>
-                                    <TableCell className="font-semibold align-top w-[30%]">
+                                    <TableCell className="font-semibold align-top">
                                         <p>{format(day, 'dd/MM')}</p>
                                         <p className="text-sm font-normal text-muted-foreground">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
@@ -445,4 +447,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
