@@ -29,7 +29,7 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
     const sortedAvailability = weekAvailability.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return (
-        <div className="border rounded-md bg-card">
+        <div className="border rounded-md bg-white dark:bg-card">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -146,7 +146,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     </div>
                 </CardHeader>
             </Card>
-             <div className="border rounded-md bg-card">
+             <div className="border rounded-md bg-white dark:bg-card">
                  {isLoading ? (
                     <div className="h-48 flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -220,7 +220,7 @@ export default function UserDetailsDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>
                     <DialogDescription>
