@@ -72,7 +72,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
         publishedSchedules.forEach(schedule => {
             schedule.shifts.forEach(shift => {
-                const shiftDate = new Date(shift.date);
+                 const shiftDate = new Date(shift.date);
                 if (shift.assignedUsers.some(u => u.userId === user.uid) && shiftDate >= monthStart && shiftDate <= monthEnd) {
                     const dateKey = shift.date;
                     if (!shiftsMap.has(dateKey)) {
@@ -131,7 +131,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     </div>
                 </CardHeader>
             </Card>
-            <div className="border rounded-md bg-white dark:bg-card">
+            <div className="border rounded-md bg-card">
                  {isLoading ? (
                     <div className="h-48 flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -140,7 +140,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[200px] text-center">Ngày</TableHead>
+                                <TableHead className="w-[35%] text-center">Ngày</TableHead>
                                 <TableHead className="text-center">Ca làm việc</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -157,19 +157,22 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
                             return (
                                 <TableRow key={dateKey}>
-                                    <TableCell className="font-bold align-middle text-center text-base">
-                                        <p>{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</p>
-                                        <p className="text-sm text-muted-foreground font-normal">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
+                                    <TableCell className="font-semibold align-middle text-center">
+                                        <p className="text-base">{format(new Date(dateKey), 'dd/MM')}</p>
+                                        <p className="text-sm font-medium">{format(new Date(dateKey), 'eeee', { locale: vi })}</p>
+                                        <p className="text-xs text-muted-foreground font-normal">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
                                     </TableCell>
-                                    <TableCell className="align-middle text-center">
-                                            <div className="flex flex-col gap-1 items-center">
-                                                {shiftsForDay.map((shift, index) => (
-                                                    <div key={index} className="text-base">
-                                                        <span className="font-semibold">{shift.label}:</span>
-                                                        <span className="text-muted-foreground ml-2">{shift.timeSlot}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                    <TableCell className="align-middle text-center p-2">
+                                        <div className="space-y-2 max-w-sm mx-auto">
+                                            {shiftsForDay.map((shift, index) => (
+                                                 <Card key={index} className="text-left bg-muted text-muted-foreground">
+                                                    <CardContent className="p-3">
+                                                         <p className="font-bold text-base text-foreground">{shift.label}</p>
+                                                         <p className="text-sm">{shift.timeSlot}</p>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )
