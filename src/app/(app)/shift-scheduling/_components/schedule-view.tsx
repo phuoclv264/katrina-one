@@ -72,7 +72,6 @@ export default function ScheduleView() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
-    const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -155,7 +154,6 @@ export default function ScheduleView() {
 
         const unsubNotifications = dataStore.subscribeToAllNotifications(setNotifications);
 
-        const unsubAllSchedules = dataStore.subscribeToAllSchedules(setAllSchedules);
 
         Promise.all([
             new Promise(resolve => setTimeout(() => resolve(true), 500)) 
@@ -167,7 +165,6 @@ export default function ScheduleView() {
             unsubUsers();
             unsubTemplates();
             unsubNotifications();
-            unsubAllSchedules();
         };
 
     }, [user, weekId, canManage]);
@@ -378,13 +375,9 @@ export default function ScheduleView() {
 
     const pendingRequestCount = useMemo(() => {
         if (!notifications) return 0;
-        return notifications.filter(n => {
-            if (n.type !== 'pass_request' || n.status !== 'pending') return false;
-            
-            const shiftDate = parseISO(n.payload.shiftDate);
-            return isWithinInterval(shiftDate, weekInterval);
-        }).length;
-    }, [notifications, weekInterval]);
+        // Manager sees all pending requests
+        return notifications.filter(n => n.status === 'pending').length;
+    }, [notifications]);
 
     const handleUserClick = (user: ManagedUser) => {
         setSelectedUserForDetails(user);
@@ -605,7 +598,7 @@ export default function ScheduleView() {
                                     <History className="mr-2 h-4 w-4"/> Lịch sử
                                 </Button>
                             </div>
-                            <div className="relative w-full sm:w-auto">
+                            <div className="w-full sm:w-auto relative">
                                 <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
                                     <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
                                 </Button>
@@ -729,7 +722,6 @@ export default function ScheduleView() {
                     isOpen={isUserDetailsDialogOpen}
                     onClose={() => setIsUserDetailsDialogOpen(false)}
                     user={selectedUserForDetails}
-                    allSchedules={allSchedules}
                     weekAvailability={localSchedule?.availability.filter(a => a.userId === selectedUserForDetails.uid) || []}
                 />
             )}

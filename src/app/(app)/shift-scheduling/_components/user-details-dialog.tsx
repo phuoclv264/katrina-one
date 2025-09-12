@@ -22,6 +22,7 @@ import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { dataStore } from '@/lib/data-store';
 
 function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[] }) {
     if (weekAvailability.length === 0) {
@@ -53,20 +54,29 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
     );
 }
 
-function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: Schedule[] }) {
+function HistoryTab({ user }: { user: ManagedUser }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
-    
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
     const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
+    
+    useEffect(() => {
+        setIsLoading(true);
+        dataStore.getSchedulesForMonth(currentMonth).then(monthlySchedules => {
+            setSchedules(monthlySchedules);
+            setIsLoading(false);
+        });
+    }, [currentMonth]);
 
     const userShiftsByDate = useMemo(() => {
         const shiftsMap = new Map<string, { label: string; timeSlot: string }[]>();
-        allSchedules.forEach(schedule => {
+        schedules.forEach(schedule => {
             if (schedule.status !== 'published') return;
 
             schedule.shifts.forEach(shift => {
-                const shiftDate = new Date(shift.date);
-                if (shiftDate >= monthStart && shiftDate <= monthEnd && shift.assignedUsers.some(u => u.userId === user.uid)) {
+                if (shift.assignedUsers.some(u => u.userId === user.uid)) {
                     const dateKey = shift.date;
                     if (!shiftsMap.has(dateKey)) {
                         shiftsMap.set(dateKey, []);
@@ -79,14 +89,14 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
             });
         });
         return shiftsMap;
-    }, [allSchedules, user.uid, monthStart, monthEnd]);
+    }, [schedules, user.uid]);
     
     const daysWithShifts = useMemo(() => {
         return Array.from(userShiftsByDate.keys()).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     }, [userShiftsByDate]);
 
     const totalHoursThisMonth = useMemo(() => {
-        const shiftsThisMonth = allSchedules.flatMap(s => s.shifts)
+        const shiftsThisMonth = schedules.flatMap(s => s.shifts)
             .filter(shift => {
                 if(s.status !== 'published') return false;
                 const shiftDate = new Date(shift.date);
@@ -94,7 +104,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                        shiftDate >= monthStart && shiftDate <= monthEnd;
             });
         return calculateTotalHours(shiftsThisMonth.map(s => s.timeSlot));
-    }, [allSchedules, user.uid, monthStart, monthEnd]);
+    }, [schedules, user.uid, monthStart, monthEnd]);
     
     const handleMonthChange = (direction: 'prev' | 'next') => {
         setCurrentMonth(prev => {
@@ -125,45 +135,50 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                 </CardHeader>
             </Card>
             <div className="border rounded-md">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[150px]">Ngày</TableHead>
-                            <TableHead>Ca làm việc</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                       {daysWithShifts.map(dateKey => {
-                           const shiftsForDay = userShiftsByDate.get(dateKey);
-                           if (!shiftsForDay || shiftsForDay.length === 0) return null;
+                 {isLoading ? (
+                    <div className="h-48 flex items-center justify-center">
+                        <Skeleton className="h-24 w-full" />
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[150px]">Ngày</TableHead>
+                                <TableHead>Ca làm việc</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {daysWithShifts.length > 0 ? daysWithShifts.map(dateKey => {
+                            const shiftsForDay = userShiftsByDate.get(dateKey);
+                            if (!shiftsForDay || shiftsForDay.length === 0) return null;
 
-                           return (
-                               <TableRow key={dateKey}>
-                                   <TableCell className="font-medium align-top">
-                                        {format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}
-                                   </TableCell>
-                                   <TableCell>
-                                        <div className="flex flex-col gap-1">
-                                            {shiftsForDay.map((shift, index) => (
-                                                <div key={index} className="text-sm">
-                                                    <span className="font-semibold">{shift.label}:</span>
-                                                    <span className="text-muted-foreground ml-2">{shift.timeSlot}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                   </TableCell>
-                               </TableRow>
-                           )
-                       })}
-                        {daysWithShifts.length === 0 && (
+                            return (
+                                <TableRow key={dateKey}>
+                                    <TableCell className="font-medium align-top">
+                                            {format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}
+                                    </TableCell>
+                                    <TableCell>
+                                            <div className="flex flex-col gap-1">
+                                                {shiftsForDay.map((shift, index) => (
+                                                    <div key={index} className="text-sm">
+                                                        <span className="font-semibold">{shift.label}:</span>
+                                                        <span className="text-muted-foreground ml-2">{shift.timeSlot}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        }) : (
                             <TableRow>
                                 <TableCell colSpan={2} className="text-center text-muted-foreground h-24">
                                     Không có ca làm việc nào trong tháng này.
                                 </TableCell>
                             </TableRow>
                         )}
-                    </TableBody>
-                </Table>
+                        </TableBody>
+                    </Table>
+                )}
             </div>
         </div>
     );
@@ -173,13 +188,11 @@ export default function UserDetailsDialog({
     isOpen,
     onClose,
     user,
-    allSchedules,
     weekAvailability,
 }: {
     isOpen: boolean;
     onClose: () => void;
     user: ManagedUser;
-    allSchedules: Schedule[];
     weekAvailability: Availability[];
 }) {
     if (!user) return null;
@@ -203,7 +216,7 @@ export default function UserDetailsDialog({
                             <AvailabilityTab weekAvailability={weekAvailability} />
                         </TabsContent>
                         <TabsContent value="history" className="mt-4 max-h-[70vh] overflow-y-auto pr-2">
-                            <HistoryTab user={user} allSchedules={allSchedules} />
+                            <HistoryTab user={user} />
                         </TabsContent>
                     </Tabs>
                 </div>
