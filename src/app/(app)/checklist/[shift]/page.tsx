@@ -28,6 +28,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { format } from 'date-fns';
 import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
+import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -42,10 +43,10 @@ export default function ChecklistPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
-  const [submissionNotes, setSubmissionNotes] = useState('');
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -62,6 +63,30 @@ export default function ChecklistPage() {
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // --- Back button handling for Lightbox and Dialogs ---
+  useEffect(() => {
+    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || isSubmissionNotesOpen || showSyncDialog;
+    const handler = (e: PopStateEvent) => {
+      if (dialogIsOpen) {
+        e.preventDefault();
+        setIsLightboxOpen(false);
+        setIsCameraOpen(false);
+        setIsOpinionOpen(false);
+        setIsSubmissionNotesOpen(false);
+        setShowSyncDialog(false);
+      }
+    };
+
+    if (dialogIsOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+        window.removeEventListener('popstate', handler);
+    };
+  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, isSubmissionNotesOpen, showSyncDialog]);
 
   // Initialize accordion state based on completion status
   useEffect(() => {
@@ -147,7 +172,6 @@ export default function ChecklistPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
-              setSubmissionNotes(loadedReport.issues || '');
               await fetchLocalPhotos(loadedReport);
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
@@ -366,17 +390,18 @@ export default function ChecklistPage() {
       await updateLocalReport(newReport);
   }
   
-    const handleSubmitReport = async () => {
+    const handleSubmitReport = async (notes: string) => {
         if (!report) return;
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
+        setIsSubmissionNotesOpen(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
-        const finalReport = { ...report, issues: submissionNotes || null };
+        const finalReport = { ...report, issues: notes || null };
 
         try {
             await dataStore.submitReport(finalReport);
@@ -413,7 +438,6 @@ export default function ChecklistPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
-        setSubmissionNotes(serverReport.issues || '');
         await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
@@ -433,12 +457,6 @@ export default function ChecklistPage() {
         setIsSubmitting(false);
       }
   }
-
-  const handleNotesChange = useCallback((notes: string) => {
-    if (!report) return;
-    setSubmissionNotes(notes);
-    updateLocalReport({ ...report, issues: notes });
-  }, [report, updateLocalReport]);
     
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -744,13 +762,6 @@ export default function ChecklistPage() {
             )
             })}
         </Accordion>
-        
-        <SubmissionNotesSection
-            initialNotes={submissionNotes}
-            onNotesChange={handleNotesChange}
-            isReadonly={isReadonly}
-        />
-
       </div>
     </div>
     
@@ -759,7 +770,7 @@ export default function ChecklistPage() {
         <Button
             size="lg"
             className="rounded-full shadow-lg h-16 w-16"
-            onClick={handleSubmitReport} 
+            onClick={() => setIsSubmissionNotesOpen(true)}
             disabled={isReadonly || syncStatus === 'server-newer'}
             aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
         >
@@ -787,6 +798,13 @@ export default function ChecklistPage() {
         taskText={activeTask?.text || ''}
     />
     
+    <SubmissionNotesDialog
+        isOpen={isSubmissionNotesOpen}
+        onClose={() => setIsSubmissionNotesOpen(false)}
+        onSubmit={handleSubmitReport}
+        isSubmitting={isSubmitting}
+    />
+    
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -799,7 +817,7 @@ export default function ChecklistPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
