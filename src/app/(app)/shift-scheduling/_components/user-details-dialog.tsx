@@ -131,7 +131,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
             <Card>
                 <CardHeader className="p-4 flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle className="text-base">Thống kê tháng {format(currentMonth, 'MM/yyyy')}</CardTitle>
+                        <CardTitle className="text-base">Tháng {format(currentMonth, 'MM/yyyy')}</CardTitle>
                         <CardDescription>
                             Tổng giờ làm: <span className="font-bold text-primary">{totalHoursThisMonth.toFixed(1)} giờ</span>
                         </CardDescription>
@@ -220,7 +220,7 @@ export default function UserDetailsDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>
                     <DialogDescription>
@@ -230,8 +230,8 @@ export default function UserDetailsDialog({
                 <div className="py-4">
                     <Tabs defaultValue="availability">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="availability"><Clock className="mr-2 h-4 w-4" /> Thời gian rảnh (Tuần này)</TabsTrigger>
-                            <TabsTrigger value="history">Lịch sử làm việc</TabsTrigger>
+                            <TabsTrigger value="availability" className="whitespace-normal"><Clock className="mr-2 h-4 w-4" /> Thời gian rảnh</TabsTrigger>
+                            <TabsTrigger value="history" className="whitespace-normal">Lịch sử làm việc</TabsTrigger>
                         </TabsList>
                         <TabsContent value="availability" className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
                             <AvailabilityTab weekAvailability={weekAvailability} />
