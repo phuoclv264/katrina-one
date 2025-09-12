@@ -258,9 +258,9 @@ export default function ScheduleView() {
                     toast({ title: 'Lỗi', description: `Không thể chỉ định ca: ${error.message}`, variant: 'destructive' });
                 } finally {
                     setIsSubmitting(false);
-                    setActiveNotification(null); // Reset active notification
+                    setActiveNotification(null);
                 }
-                 // The onSnapshot listener will update the local state automatically.
+                 // The onSnapshot listener will update the local state automatically, no need for local update here.
                 return; 
             }
         }
@@ -635,7 +635,7 @@ export default function ScheduleView() {
                                     <MailQuestion className="mr-2 h-4 w-4"/>
                                     Yêu cầu Pass ca
                                     {pendingRequestCount > 0 && (
-                                        <Badge variant="destructive" className="ml-2">{pendingRequestCount}</Badge>
+                                        <Badge variant="destructive" className="absolute -top-2 -right-2 px-2">{pendingRequestCount}</Badge>
                                     )}
                                 </Button>
                             </div>
@@ -744,8 +744,8 @@ export default function ScheduleView() {
                 currentUser={user!}
                 allUsers={allUsers}
                 weekInterval={weekInterval}
-                onAccept={() => { /* TODO */ }}
-                onDecline={() => {}}
+                onAccept={() => { /* Not needed on this page */ }}
+                onDecline={() => { /* Not needed on this page */}}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
                 onAssign={handleAssignShift}
