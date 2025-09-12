@@ -170,23 +170,11 @@ export default function InventoryPage() {
   
   const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
     if (!activeItemId || !report || photoIds.length === 0) return;
-    
-    const newPhotoId = photoIds[0]; // We only care about the latest photo
 
     const newReport = { ...report, stockLevels: { ...report.stockLevels } };
     const record = newReport.stockLevels[activeItemId] || { stock: '' };
     
-    // --- New Logic: Delete old photo from IndexedDB before replacing ID ---
-    if (record.photoIds && record.photoIds.length > 0) {
-      const oldPhotoId = record.photoIds[0];
-      if (oldPhotoId) {
-        await photoStore.deletePhoto(oldPhotoId);
-      }
-    }
-    // --- End New Logic ---
-    
-    // Replace old photoId with the new one
-    record.photoIds = [newPhotoId]; 
+    record.photoIds = [...(record.photoIds || []), ...photoIds];
     newReport.stockLevels[activeItemId] = record;
 
     setReport(newReport);
@@ -467,7 +455,7 @@ export default function InventoryPage() {
                                             const status = getItemStatus(item.id, item.minStock);
                                             const record = report.stockLevels[item.id];
                                             const stockValue = record?.stock ?? '';
-                                            const latestPhotoId = record?.photoIds?.[record.photoIds.length - 1];
+                                            const photoIds = record?.photoIds || [];
                                             return (
                                                 <div 
                                                     key={item.id} 
@@ -504,19 +492,23 @@ export default function InventoryPage() {
                                                                 >
                                                                     <Camera className="h-4 w-4" />
                                                                 </Button>
-                                                                {latestPhotoId && localPhotoUrls.get(latestPhotoId) && (
-                                                                    <div className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
-                                                                        <Image src={localPhotoUrls.get(latestPhotoId)!} alt="Inventory photo" fill className="object-cover" />
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            size="icon"
-                                                                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
-                                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, latestPhotoId, true);}}
-                                                                        >
-                                                                            <X className="h-2 w-2" />
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
+                                                                 {photoIds.map((photoId) => {
+                                                                    const photoUrl = localPhotoUrls.get(photoId);
+                                                                    if (!photoUrl) return null;
+                                                                    return (
+                                                                        <div key={photoId} className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
+                                                                            <Image src={photoUrl} alt="Inventory photo" fill className="object-cover" />
+                                                                            <Button
+                                                                                variant="destructive"
+                                                                                size="icon"
+                                                                                className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
+                                                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, photoId, true);}}
+                                                                            >
+                                                                                <X className="h-2 w-2" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    )
+                                                                })}
                                                             </div>
                                                          )}
                                                     </div>
@@ -615,7 +607,6 @@ export default function InventoryPage() {
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
-        singlePhotoMode={true}
       />
     </div>
     </TooltipProvider>
