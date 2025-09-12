@@ -545,7 +545,7 @@ export default function ScheduleView() {
                              </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex-row gap-2">
+                            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
                                     <>
                                         <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
@@ -559,37 +559,28 @@ export default function ScheduleView() {
                             </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
-                                {hasUnsavedChanges && (
+                                {(localSchedule?.status !== 'published' || hasUnsavedChanges) && (
                                     <div className="flex items-center gap-2">
-                                        <div className="relative flex h-3 w-3">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                                        </div>
-                                        <span className="text-sm text-muted-foreground">Có thay đổi chưa lưu</span>
-                                        <Button variant="default" onClick={handleSaveChanges} disabled={isSubmitting}>
-                                            <Save className="mr-2 h-4 w-4"/> Lưu thay đổi
-                                        </Button>
+                                        {localSchedule?.status === 'draft' && user?.role === 'Quản lý' && (
+                                            <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
+                                        )}
+                                        
+                                        {user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published' && !hasUnsavedChanges && (
+                                            <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button disabled={isSubmitting}>
+                                                        <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
                                     </div>
                                 )}
-                                {localSchedule?.status === 'draft' && user?.role === 'Quản lý' && (
-                                   <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
-                                )}
-                                
-                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published' && (
-                                     <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
-                                        <AlertDialogTrigger asChild>
-                                            <Button disabled={isSubmitting}>
-                                                <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                )}
-                                
-                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && (
+                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
                                     <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="secondary" disabled={isSubmitting}>
@@ -619,6 +610,29 @@ export default function ScheduleView() {
                    <TotalHoursTracker schedule={localSchedule} allUsers={allUsers} />
                 </div>
             </div>
+
+            {hasUnsavedChanges && (
+                 <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+                    <div className="relative">
+                        <Button
+                            size="lg"
+                            className="rounded-full shadow-lg h-16 w-auto px-6"
+                            onClick={handleSaveChanges}
+                            disabled={isSubmitting}
+                            aria-label="Lưu thay đổi"
+                        >
+                            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin"/> : <Save className="h-6 w-6" />}
+                            <span className="ml-2 text-base">Lưu thay đổi</span>
+                        </Button>
+                        <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                        </div>
+                    </div>
+                </div>
+            )}
+           
+
             {activeShift && (
                 <ShiftAssignmentDialog
                     isOpen={isAssignmentDialogOpen}
