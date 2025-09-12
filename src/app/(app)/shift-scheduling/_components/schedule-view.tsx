@@ -25,6 +25,7 @@ import {
     Save,
     MailQuestion,
     UserPlus,
+    Loader2,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -545,7 +546,7 @@ export default function ScheduleView() {
                              </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-2">
+                            <div className="w-full grid grid-cols-2 sm:flex sm:flex-row gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
                                     <>
                                         <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
@@ -559,47 +560,46 @@ export default function ScheduleView() {
                             </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
-                                {(localSchedule?.status !== 'published' || hasUnsavedChanges) && (
-                                    <div className="flex items-center gap-2">
-                                        {localSchedule?.status === 'draft' && user?.role === 'Quản lý' && (
-                                            <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
-                                        )}
-                                        
-                                        {user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published' && !hasUnsavedChanges && (
-                                            <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button disabled={isSubmitting}>
-                                                        <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
-                                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        )}
-                                    </div>
+                                {user?.role === 'Quản lý' && localSchedule?.status === 'draft' && (
+                                    <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
                                 )}
-                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
-                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="secondary" disabled={isSubmitting}>
-                                                <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                {user?.role === 'Chủ nhà hàng' && !hasUnsavedChanges && (
+                                    <>
+                                    {localSchedule?.status !== 'published' && (
+                                         <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+                                            <AlertDialogTrigger asChild>
+                                                <Button disabled={isSubmitting}>
+                                                    <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
+                                    {localSchedule?.status === 'published' && (
+                                        <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="secondary" disabled={isSubmitting}>
+                                                    <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
+                                    </>
                                 )}
                             </div>
                         </CardFooter>
