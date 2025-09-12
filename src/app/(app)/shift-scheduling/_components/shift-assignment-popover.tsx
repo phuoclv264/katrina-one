@@ -34,6 +34,7 @@ import { Card, CardContent } from '@/components/ui/card';
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
   allUsers: ManagedUser[];
+  currentUserRole: UserRole;
   dailyAvailability: Availability[];
   onSave: (shiftId: string, newAssignedUsers: AssignedUser[]) => void;
   isOpen: boolean;
@@ -52,6 +53,7 @@ const roleOrder: Record<UserRole, number> = {
 export default function ShiftAssignmentDialog({
   shift,
   allUsers,
+  currentUserRole,
   dailyAvailability,
   onSave,
   isOpen,
@@ -134,6 +136,18 @@ export default function ShiftAssignmentDialog({
   }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser]);
   
   const handleSelectUser = (user: ManagedUser) => {
+    // Prevent manager from selecting busy users. Only owner can.
+    const isAvailable = isUserAvailable(user.uid, shift.timeSlot, dailyAvailability);
+    if (currentUserRole === 'Quản lý' && !isAvailable) {
+        toast({
+            title: "Không thể chọn",
+            description: "Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.",
+            variant: "default",
+        });
+        return;
+    }
+
+
     if (isPassAssignmentMode) {
       // Single selection mode
       const newSet = new Set<string>();
@@ -179,13 +193,14 @@ export default function ShiftAssignmentDialog({
   const UserCard = ({user, isAvailable}: {user: ManagedUser, isAvailable: boolean}) => {
     const isSelected = selectedUserIds.has(user.uid);
     const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
+    const canSelect = currentUserRole === 'Chủ nhà hàng' || isAvailable;
     
     return (
       <Card 
         className={cn(
             "cursor-pointer transition-all",
             isSelected ? 'border-primary ring-2 ring-primary' : 'hover:border-primary/50',
-            !isAvailable && !isSelected && 'opacity-60 bg-muted/50'
+            !canSelect && !isSelected && 'opacity-60 bg-muted/50 cursor-not-allowed'
         )}
         onClick={() => handleSelectUser(user)}
       >

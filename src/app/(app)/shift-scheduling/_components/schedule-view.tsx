@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -141,7 +142,7 @@ export default function ScheduleView() {
 
         setIsLoading(true);
         const unsubSchedule = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
-            const fullSchedule = newSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+            const fullSchedule = newSchedule ?? null;
             setServerSchedule(fullSchedule);
             setLocalSchedule(fullSchedule);
             setHasUnsavedChanges(false);
@@ -186,7 +187,7 @@ export default function ScheduleView() {
 
     // Auto-populate shifts from templates
     useEffect(() => {
-        if (!localSchedule || localSchedule.status !== 'draft' || !shiftTemplates.length) return;
+        if (localSchedule && (localSchedule.status !== 'draft' || !shiftTemplates.length)) return;
 
         const shiftsToAdd: AssignedShift[] = [];
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
@@ -197,7 +198,7 @@ export default function ScheduleView() {
 
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
-                    const doesShiftExist = localSchedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
+                    const doesShiftExist = localSchedule?.shifts.some(s => s.date === dateKey && s.templateId === template.id);
                     if (!doesShiftExist) {
                         shiftsToAdd.push({
                             id: `shift_${dateKey}_${template.id}`,
@@ -214,23 +215,34 @@ export default function ScheduleView() {
         });
 
         if (shiftsToAdd.length > 0) {
-            const updatedShifts = [...localSchedule.shifts, ...shiftsToAdd].sort((a, b) => {
+            const baseSchedule = localSchedule ?? {
+                weekId,
+                status: 'draft',
+                availability: [],
+                shifts: [],
+            };
+            const updatedShifts = [...baseSchedule.shifts, ...shiftsToAdd].sort((a, b) => {
                 if (a.date < b.date) return -1;
                 if (a.date > b.date) return 1;
                 return a.timeSlot.start.localeCompare(b.timeSlot.start);
             });
-            handleLocalScheduleUpdate({ shifts: updatedShifts });
+            handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
         }
-    }, [localSchedule?.status, shiftTemplates, weekId, currentDate, localSchedule]);
+    }, [localSchedule, shiftTemplates, weekId, currentDate, handleLocalScheduleUpdate]);
 
     const handleLocalScheduleUpdate = useCallback((data: Partial<Schedule>) => {
         setLocalSchedule(prev => {
-            if (!prev) return null;
-            const newSchedule = { ...prev, ...data };
+            const baseSchedule = prev ?? {
+                weekId,
+                status: 'draft',
+                availability: [],
+                shifts: [],
+            };
+            const newSchedule = { ...baseSchedule, ...data };
             setHasUnsavedChanges(!isEqual(newSchedule, serverSchedule));
             return newSchedule;
         });
-    }, [serverSchedule]);
+    }, [serverSchedule, weekId]);
 
 
     const handleDateChange = (direction: 'next' | 'prev') => {
@@ -243,7 +255,12 @@ export default function ScheduleView() {
     };
     
     const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
-        if (!localSchedule) return;
+        const baseSchedule = localSchedule ?? {
+            weekId,
+            status: 'draft',
+            availability: [],
+            shifts: [],
+        };
 
         // If this update comes from resolving a pass request
         if (activeNotification && activeNotification.payload.shiftId === shiftId) {
@@ -268,23 +285,23 @@ export default function ScheduleView() {
         
         // Normal shift assignment update
         let updatedShifts;
-        const shiftExists = localSchedule.shifts.some(s => s.id === shiftId);
+        const shiftExists = baseSchedule.shifts.some(s => s.id === shiftId);
 
         if (shiftExists) {
-            updatedShifts = localSchedule.shifts.map(shift => 
+            updatedShifts = baseSchedule.shifts.map(shift => 
                 shift.id === shiftId ? { ...shift, assignedUsers: newAssignedUsers } : shift
             );
         } else {
              const newShift = createShiftFromId(shiftId);
              if (newShift) {
                 newShift.assignedUsers = newAssignedUsers;
-                updatedShifts = [...localSchedule.shifts, newShift];
+                updatedShifts = [...baseSchedule.shifts, newShift];
             } else {
-                updatedShifts = [...localSchedule.shifts];
+                updatedShifts = [...baseSchedule.shifts];
             }
         }
-        handleLocalScheduleUpdate({ shifts: updatedShifts });
-    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast]);
+        handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
+    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast, weekId]);
 
     const handleSaveChanges = async () => {
         if (!localSchedule || !hasUnsavedChanges) return;
@@ -398,7 +415,8 @@ export default function ScheduleView() {
     }
 
     const handleAssignShift = (notification: Notification) => {
-        const shiftToAssign = localSchedule?.shifts.find(s => s.id === notification.payload.shiftId);
+        const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+        const shiftToAssign = schedule.shifts.find(s => s.id === notification.payload.shiftId);
         if (shiftToAssign) {
             handleOpenAssignmentDialog(shiftToAssign, notification);
         } else {
@@ -465,7 +483,7 @@ export default function ScheduleView() {
                         <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                              <div>
                                 <CardTitle>Lịch tuần: {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}</CardTitle>
-                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'chưa tạo'}</span></CardDescription>
+                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'Chưa có lịch (bản nháp mới)'}</span></CardDescription>
                             </div>
                              <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
@@ -507,7 +525,8 @@ export default function ScheduleView() {
                                                         return <TableCell key={template.id} className="bg-muted/30 border-l" />;
                                                     }
                                                     
-                                                    const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                    const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+                                                    const shiftForCell = schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                     const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
                                                     if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30 border-l" />;
@@ -554,8 +573,9 @@ export default function ScheduleView() {
                                 <Accordion type="multiple" value={openMobileDays} onValueChange={setOpenMobileDays}>
                                     {daysOfWeek.map(day => {
                                         const dateKey = format(day, 'yyyy-MM-dd');
+                                        const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
                                         const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
-                                        const shiftsForDay = localSchedule?.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
+                                        const shiftsForDay = schedule.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
                                         
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey} className="border-b">
@@ -576,7 +596,7 @@ export default function ScheduleView() {
                                                 <AccordionContent className="pt-2">
                                                     <div className="space-y-3 p-2 border border-t-0 rounded-b-md">
                                                         {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
-                                                            const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                            const shiftForCell = schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                             const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
                                                             if (!shiftObject) return null;
@@ -724,7 +744,7 @@ export default function ScheduleView() {
             )}
            
 
-            {activeShift && (
+            {activeShift && user && (
                 <ShiftAssignmentDialog
                     isOpen={isAssignmentDialogOpen}
                     onClose={() => {
@@ -734,6 +754,7 @@ export default function ScheduleView() {
                     }}
                     shift={activeShift}
                     allUsers={allUsers}
+                    currentUserRole={user.role}
                     dailyAvailability={availabilityByDay[activeShift.date] || []}
                     onSave={handleUpdateShiftAssignment}
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
