@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -29,6 +30,17 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
     });
     return hoursMap;
   }, [schedule]);
+
+  const availableHoursByUser = useMemo(() => {
+    if (!schedule?.availability) return new Map<string, number>();
+
+    const hoursMap = new Map<string, number>();
+    schedule.availability.forEach(avail => {
+        const userHours = calculateTotalHours(avail.availableSlots);
+        hoursMap.set(avail.userId, (hoursMap.get(avail.userId) || 0) + userHours);
+    });
+    return hoursMap;
+  }, [schedule?.availability]);
   
   const sortedUsers = useMemo(() => {
     const activeUsers = allUsers.filter(u => u.role !== 'Chủ nhà hàng');
@@ -40,10 +52,11 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
   }, [allUsers, totalHoursByUser]);
 
   const maxHours = useMemo(() => {
-    const hours = Array.from(totalHoursByUser.values());
-    if (hours.length === 0) return 40; // Default max if no one is scheduled
-    return Math.max(...hours, 40);
-  }, [totalHoursByUser]);
+    const allHours = Array.from(totalHoursByUser.values()).concat(Array.from(availableHoursByUser.values()));
+    if (allHours.length === 0) return 40;
+    return Math.max(...allHours, 40);
+  }, [totalHoursByUser, availableHoursByUser]);
+
 
   if (!schedule) {
       return (
@@ -71,8 +84,10 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
       </CardHeader>
       <CardContent className="space-y-2">
         {sortedUsers.map(user => {
-            const hours = totalHoursByUser.get(user.uid) || 0;
-            const progressValue = (hours / maxHours) * 100;
+            const workedHours = totalHoursByUser.get(user.uid) || 0;
+            const availableHours = availableHoursByUser.get(user.uid) || 0;
+            const progressValue = availableHours > 0 ? (workedHours / availableHours) * 100 : 0;
+            
             return (
                 <Button 
                     key={user.uid}
@@ -83,7 +98,9 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
                     <div className="w-full">
                         <div className="flex justify-between mb-1 text-sm">
                             <span className="font-medium">{user.displayName}</span>
-                            <span className="text-muted-foreground">{hours.toFixed(1)} giờ</span>
+                            <span className="text-muted-foreground">
+                                {workedHours.toFixed(1)} / {availableHours.toFixed(1)} giờ
+                            </span>
                         </div>
                         <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
                     </div>
