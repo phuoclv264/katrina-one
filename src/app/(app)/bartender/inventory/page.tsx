@@ -168,24 +168,34 @@ export default function InventoryPage() {
     handleLocalSave(newReport);
   };
   
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeItemId || !report || photoIds.length === 0) return;
-        
-        const newPhotoId = photoIds[0]; // We only care about the latest photo
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+    if (!activeItemId || !report || photoIds.length === 0) return;
+    
+    const newPhotoId = photoIds[0]; // We only care about the latest photo
 
-        const newReport = { ...report, stockLevels: { ...report.stockLevels } };
-        const record = newReport.stockLevels[activeItemId] || { stock: '' };
-        
-        // Replace old photoId with the new one
-        record.photoIds = [newPhotoId]; 
-        newReport.stockLevels[activeItemId] = record;
+    const newReport = { ...report, stockLevels: { ...report.stockLevels } };
+    const record = newReport.stockLevels[activeItemId] || { stock: '' };
+    
+    // --- New Logic: Delete old photo from IndexedDB before replacing ID ---
+    if (record.photoIds && record.photoIds.length > 0) {
+      const oldPhotoId = record.photoIds[0];
+      if (oldPhotoId) {
+        await photoStore.deletePhoto(oldPhotoId);
+      }
+    }
+    // --- End New Logic ---
+    
+    // Replace old photoId with the new one
+    record.photoIds = [newPhotoId]; 
+    newReport.stockLevels[activeItemId] = record;
 
-        setReport(newReport);
-        await handleLocalSave(newReport);
+    setReport(newReport);
+    await handleLocalSave(newReport);
 
-        setIsCameraOpen(false);
-        setActiveItemId(null);
-    }, [activeItemId, report, handleLocalSave]);
+    setIsCameraOpen(false);
+    setActiveItemId(null);
+  }, [activeItemId, report, handleLocalSave]);
+
 
     const handleDeletePhoto = async (itemId: string, photoId: string, isLocal: boolean) => {
         if (!report) return;
