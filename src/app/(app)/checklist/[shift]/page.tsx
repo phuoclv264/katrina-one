@@ -7,7 +7,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronsDownUp, MessageSquareWarning } from 'lucide-react';
@@ -26,10 +25,9 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-
+import SubmissionNotesSection from '../_components/submission-notes-section';
+import { cn } from '@/lib/utils';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -64,30 +62,6 @@ export default function ChecklistPage() {
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || showSyncDialog;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setIsLightboxOpen(false);
-        setIsCameraOpen(false);
-        setIsOpinionOpen(false);
-        setShowSyncDialog(false);
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-        window.removeEventListener('popstate', handler);
-    };
-  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, showSyncDialog]);
-
 
   // Initialize accordion state based on completion status
   useEffect(() => {
@@ -459,6 +433,12 @@ export default function ChecklistPage() {
         setIsSubmitting(false);
       }
   }
+
+  const handleNotesChange = useCallback((notes: string) => {
+    if (!report) return;
+    setSubmissionNotes(notes);
+    updateLocalReport({ ...report, issues: notes });
+  }, [report, updateLocalReport]);
     
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -588,7 +568,7 @@ export default function ChecklistPage() {
             {shift.sections.map((section) => {
             const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
             return (
-            <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
+            <AccordionItem value={section.title} key={section.title} className={cn('rounded-lg border-[3px] bg-card', getSectionBorderColor(section.title))}>
                 <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
                     <div className="flex items-center">
                     {getSectionIcon(section.title)}
@@ -765,27 +745,12 @@ export default function ChecklistPage() {
             })}
         </Accordion>
         
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <MessageSquareWarning />
-                    Ghi chú / Vấn đề phát sinh
-                </CardTitle>
-                <CardDescription>
-                    Báo cáo mọi sự cố hoặc sự kiện đáng chú ý trong ca của bạn tại đây.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Textarea
-                    placeholder="Khách có phàn nàn gì không? Có bất cứ vấn đề gì muốn đề xuất thì cứ nói nhé! (Có thể bỏ trống)"
-                    rows={5}
-                    value={submissionNotes}
-                    onChange={(e) => setSubmissionNotes(e.target.value)}
-                    onBlur={() => updateLocalReport({ ...report, issues: submissionNotes })}
-                    disabled={isReadonly}
-                />
-            </CardContent>
-        </Card>
+        <SubmissionNotesSection
+            initialNotes={submissionNotes}
+            onNotesChange={handleNotesChange}
+            isReadonly={isReadonly}
+        />
+
       </div>
     </div>
     
