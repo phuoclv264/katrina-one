@@ -12,13 +12,23 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, CheckCircle } from 'lucide-react';
+import { User, CheckCircle, AlertCircle } from 'lucide-react';
 import type { AssignedShift, Availability, ManagedUser, UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { isUserAvailable } from '@/lib/schedule-utils';
+import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
@@ -27,6 +37,7 @@ type ShiftAssignmentDialogProps = {
   onSave: (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => void;
   isOpen: boolean;
   onClose: () => void;
+  allShiftsOnDay: AssignedShift[];
 };
 
 const roleOrder: Record<UserRole, number> = {
@@ -43,26 +54,33 @@ export default function ShiftAssignmentDialog({
   onSave,
   isOpen,
   onClose,
+  allShiftsOnDay,
 }: ShiftAssignmentDialogProps) {
     
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedUserIds(new Set(shift.assignedUsers.map(u => u.userId)));
+      setConflictError(null);
     }
   }, [isOpen, shift.assignedUsers]);
   
   // --- Back button handling ---
   useEffect(() => {
+    const dialogIsOpen = isOpen || !!conflictError;
     const handler = (e: PopStateEvent) => {
-      if (isOpen) {
+      if (dialogIsOpen) {
         e.preventDefault();
-        onClose();
+        setConflictError(null);
+        if (isOpen && !conflictError) {
+          onClose();
+        }
       }
     };
 
-    if (isOpen) {
+    if (dialogIsOpen) {
       window.history.pushState(null, '', window.location.href);
       window.addEventListener('popstate', handler);
     }
@@ -70,7 +88,7 @@ export default function ShiftAssignmentDialog({
     return () => {
       window.removeEventListener('popstate', handler);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, conflictError]);
 
 
   const sortedUsers = useMemo(() => {
@@ -99,17 +117,22 @@ export default function ShiftAssignmentDialog({
 
     return { availableUsers, busyUsers };
   }, [allUsers, shift.role, shift.timeSlot, dailyAvailability]);
-
-  const handleSelectUser = (userId: string) => {
-    setSelectedUserIds(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(userId)) {
-            newSet.delete(userId);
+  
+  const handleSelectUser = (user: ManagedUser) => {
+    const newSet = new Set(selectedUserIds);
+    if (newSet.has(user.uid)) {
+        newSet.delete(user.uid);
+        setSelectedUserIds(newSet);
+    } else {
+        // Check for conflicts before adding
+        const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
+        if (conflict) {
+            setConflictError({ userName: user.displayName, shiftLabel: conflict.label });
         } else {
-            newSet.add(userId);
+            newSet.add(user.uid);
+            setSelectedUserIds(newSet);
         }
-        return newSet;
-    });
+    }
   };
 
   const handleSave = () => {
@@ -127,7 +150,7 @@ export default function ShiftAssignmentDialog({
             <DialogHeader>
                 <DialogTitle>Phân công: {shift.label}</DialogTitle>
                 <DialogDescription>
-                    {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })}
+                    {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })} | {shift.timeSlot.start} - {shift.timeSlot.end}
                 </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[50vh] pr-4">
@@ -143,7 +166,7 @@ export default function ShiftAssignmentDialog({
                                         key={user.uid}
                                         variant={isSelected ? "default" : "outline"}
                                         className="w-full justify-start h-auto p-3 text-left"
-                                        onClick={() => handleSelectUser(user.uid)}
+                                        onClick={() => handleSelectUser(user)}
                                     >
                                         <div className="flex items-center w-full">
                                         <div className="flex-1">
@@ -171,7 +194,7 @@ export default function ShiftAssignmentDialog({
                                         key={user.uid}
                                         variant={isSelected ? "secondary" : "outline"}
                                         className="w-full justify-start h-auto p-3 text-left opacity-70"
-                                        onClick={() => handleSelectUser(user.uid)}
+                                        onClick={() => handleSelectUser(user)}
                                     >
                                         <div className="flex items-center w-full">
                                             <div className="flex-1">
@@ -199,6 +222,22 @@ export default function ShiftAssignmentDialog({
                 <Button variant="outline" onClick={onClose}>Hủy</Button>
                 <Button onClick={handleSave}>Lưu thay đổi</Button>
             </DialogFooter>
+
+             <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2"><AlertCircle className="text-destructive"/>Lỗi: Phân công bị trùng</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Nhân viên <span className="font-bold">{conflictError?.userName}</span> đã được xếp vào ca <span className="font-bold">{conflictError?.shiftLabel}</span>, bị trùng giờ với ca này.
+                             <br/><br/>
+                            Vui lòng bỏ phân công ở ca đó trước khi thêm vào ca này.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setConflictError(null)}>Đã hiểu</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </DialogContent>
       </Dialog>
   );

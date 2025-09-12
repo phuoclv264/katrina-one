@@ -1,5 +1,5 @@
 
-import type { TimeSlot, Availability } from './types';
+import type { TimeSlot, Availability, AssignedShift } from './types';
 
 /**
  * Checks if a user is available for a given shift time slot.
@@ -30,6 +30,43 @@ export function isUserAvailable(
     return availableStart <= shiftStart && availableEnd >= shiftEnd;
   });
 }
+
+/**
+ * Checks if assigning a user to a shift creates a time conflict with other shifts they are already assigned to on the same day.
+ * @param userId The user ID to check.
+ * @param shiftToAdd The new shift being considered for assignment.
+ * @param allShiftsOnDay An array of all shifts scheduled for that day.
+ * @returns The conflicting shift object if a conflict is found, otherwise null.
+ */
+export function hasTimeConflict(
+  userId: string,
+  shiftToAdd: AssignedShift,
+  allShiftsOnDay: AssignedShift[]
+): AssignedShift | null {
+  const startA = parseTime(shiftToAdd.timeSlot.start);
+  const endA = parseTime(shiftToAdd.timeSlot.end);
+  
+  // Find a shift that this user is already in, which conflicts with the new shift.
+  const conflictingShift = allShiftsOnDay.find(existingShift => {
+    // Don't compare the shift with itself
+    if (existingShift.id === shiftToAdd.id) return false;
+    
+    // Check if the user is assigned to this existing shift
+    const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === userId);
+    if (!isUserAssigned) return false;
+
+    // Check for time overlap
+    const startB = parseTime(existingShift.timeSlot.start);
+    const endB = parseTime(existingShift.timeSlot.end);
+
+    // Overlap exists if one shift starts before the other ends, AND vice versa.
+    // (startA < endB) and (startB < endA)
+    return startA < endB && startB < endA;
+  });
+  
+  return conflictingShift || null;
+}
+
 
 /**
  * Calculates the total duration in hours from an array of time slots.
