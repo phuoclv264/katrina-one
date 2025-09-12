@@ -59,20 +59,20 @@ function ManagerHygieneReportView() {
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
+    const handler = (e: PopStateEvent) => {
       if (isLightboxOpen) {
-        event.preventDefault();
+        e.preventDefault();
         setIsLightboxOpen(false);
       }
     };
 
     if (isLightboxOpen) {
       window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
+      window.addEventListener('popstate', handler);
     }
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('popstate', handler);
     };
   }, [isLightboxOpen]);
 

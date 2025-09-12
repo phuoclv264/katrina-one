@@ -33,6 +33,26 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
       setSlots(existingAvailability.length > 0 ? existingAvailability : []);
     }
   }, [isOpen, existingAvailability]);
+  
+  // --- Back button handling ---
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      if (isOpen) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [isOpen, onClose]);
+
 
   const handleSlotChange = (index: number, field: 'start' | 'end', value: string) => {
     const newSlots = [...slots];

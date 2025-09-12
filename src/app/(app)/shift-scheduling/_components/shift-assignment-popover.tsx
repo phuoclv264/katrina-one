@@ -52,6 +52,26 @@ export default function ShiftAssignmentDialog({
       setSelectedUserIds(new Set(shift.assignedUsers.map(u => u.userId)));
     }
   }, [isOpen, shift.assignedUsers]);
+  
+  // --- Back button handling ---
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      if (isOpen) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [isOpen, onClose]);
+
 
   const sortedUsers = useMemo(() => {
     const shiftRole = shift.role;

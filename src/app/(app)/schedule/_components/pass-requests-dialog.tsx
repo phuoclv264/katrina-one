@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,26 @@ export default function PassRequestsDialog({
 }: PassRequestsDialogProps) {
   
   const canManage = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
+
+  // --- Back button handling ---
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      if (isOpen) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [isOpen, onClose]);
+
 
   const { myRequests, otherPendingRequests, completedRequests } = useMemo(() => {
     const myReqs: Notification[] = [];

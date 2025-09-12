@@ -61,24 +61,29 @@ export default function ComprehensiveReportPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // --- Back button handling for Lightbox ---
+  // --- Back button handling for Lightbox and Dialogs ---
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
+    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || isSubmissionNotesOpen || showSyncDialog;
+    const handler = (e: PopStateEvent) => {
+      if (dialogIsOpen) {
+        e.preventDefault();
         setIsLightboxOpen(false);
+        setIsCameraOpen(false);
+        setIsOpinionOpen(false);
+        setIsSubmissionNotesOpen(false);
+        setShowSyncDialog(false);
       }
     };
 
-    if (isLightboxOpen) {
+    if (dialogIsOpen) {
       window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
+      window.addEventListener('popstate', handler);
     }
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('popstate', handler);
     };
-  }, [isLightboxOpen]);
+  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, isSubmissionNotesOpen, showSyncDialog]);
 
 
   // Initialize accordion to be all open by default

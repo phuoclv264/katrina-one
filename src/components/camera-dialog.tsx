@@ -44,6 +44,32 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
     }
   }, []);
 
+  const handleDialogClose = useCallback(() => {
+    if (!isStarting && !isSubmitting) {
+        onClose();
+    }
+  },[isStarting, isSubmitting, onClose]);
+
+  // --- Back button handling ---
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      if (isOpen) {
+        e.preventDefault();
+        handleDialogClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [isOpen, handleDialogClose]);
+
+
 
   const startCamera = useCallback(async () => {
     if (isStarting || (streamRef.current && streamRef.current.active)) return;
@@ -183,11 +209,6 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
     }
   };
   
-  const handleDialogClose = () => {
-    if (!isStarting && !isSubmitting) {
-        onClose();
-    }
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleDialogClose(); }}>

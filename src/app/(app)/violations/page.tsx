@@ -85,6 +85,28 @@ function ViolationDialog({
     }
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
+  // --- Back button handling ---
+  useEffect(() => {
+    const dialogIsOpen = open || isCameraOpen;
+    const handler = (e: PopStateEvent) => {
+      if (dialogIsOpen) {
+        e.preventDefault();
+        setIsCameraOpen(false);
+        onOpenChange(false);
+      }
+    };
+
+    if (dialogIsOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [open, isCameraOpen, onOpenChange]);
+
+
   const handleSave = () => {
     if (!content || selectedUsers.length === 0 || !selectedCategory) {
       alert('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
@@ -212,30 +234,26 @@ export default function ViolationsPage() {
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
 
 
-  // --- Back button handling for Lightbox ---
+  // --- Back button handling for Lightbox and Dialogs ---
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (lightboxOpen) {
-        event.preventDefault();
+    const dialogIsOpen = lightboxOpen || isPenaltyCameraOpen;
+    const handler = (e: PopStateEvent) => {
+      if (dialogIsOpen) {
+        e.preventDefault();
         setLightboxOpen(false);
+        setIsPenaltyCameraOpen(false);
       }
     };
 
-    if (lightboxOpen) {
-      window.history.pushState({ sidebarOpen: true }, '');
-      window.addEventListener('popstate', handlePopState);
-    } else {
-      // If the sidebar was closed by other means (e.g. clicking the overlay)
-      // and the history state we pushed is still present, we go back.
-      if (window.history.state?.sidebarOpen) {
-        window.history.back();
-      }
+    if (dialogIsOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
     }
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('popstate', handler);
     };
-  }, [lightboxOpen]);
+  }, [lightboxOpen, isPenaltyCameraOpen]);
 
 
   useEffect(() => {

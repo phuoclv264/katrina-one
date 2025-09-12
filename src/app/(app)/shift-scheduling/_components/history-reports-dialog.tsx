@@ -128,6 +128,26 @@ export default function HistoryAndReportsDialog({
       setSelectedUserId(allUsers[0].uid);
     }
   }, [isOpen, allUsers, selectedUserId]);
+  
+  // --- Back button handling ---
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      if (isOpen) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [isOpen, onClose]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -50,6 +50,25 @@ export default function InventoryPage() {
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
+  // --- Back button handling for Dialogs ---
+  useEffect(() => {
+    const handler = (e: PopStateEvent) => {
+      if (isCameraOpen) {
+        e.preventDefault();
+        setIsCameraOpen(false);
+      }
+    };
+
+    if (isCameraOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handler);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handler);
+    };
+  }, [isCameraOpen]);
+
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
