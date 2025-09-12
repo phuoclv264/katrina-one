@@ -497,12 +497,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
-    
-
-    
-
-
-
-
-
