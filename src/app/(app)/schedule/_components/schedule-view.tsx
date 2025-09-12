@@ -416,36 +416,48 @@ export default function ScheduleView() {
                                         ) : (
                                             <div className="space-y-2 max-w-sm mx-auto">
                                                 {(shiftsForDay && shiftsForDay.length > 0) ? (
-                                                    shiftsForDay.map(shift => (
-                                                        <Card key={shift.id} className="bg-primary text-primary-foreground text-left shadow-md">
-                                                            <CardContent className="p-3 flex items-center justify-between gap-2">
-                                                                <div>
-                                                                    <p className="font-bold text-base">{shift.label}</p>
-                                                                    <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
-                                                                </div>
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
-                                                                            <MoreVertical className="h-5 w-5" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent>
-                                                                        <AlertDialog>
-                                                                            <AlertDialogTrigger asChild>
-                                                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
-                                                                                    <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
-                                                                                </DropdownMenuItem>
-                                                                            </AlertDialogTrigger>
-                                                                            <AlertDialogContent>
-                                                                                <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
-                                                                                <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
-                                                                            </AlertDialogContent>
-                                                                        </AlertDialog>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </CardContent>
-                                                        </Card>
-                                                    ))
+                                                    shiftsForDay.map(shift => {
+                                                        const shiftEndTime = new Date(`${shift.date}T${shift.timeSlot.end}`);
+                                                        const isPastShift = isBefore(shiftEndTime, new Date());
+                                                        return (
+                                                            <Card 
+                                                                key={shift.id} 
+                                                                className={cn(
+                                                                    "text-left shadow-md",
+                                                                    isPastShift 
+                                                                        ? "bg-muted text-muted-foreground"
+                                                                        : "bg-primary text-primary-foreground"
+                                                                )}
+                                                            >
+                                                                <CardContent className="p-3 flex items-center justify-between gap-2">
+                                                                    <div>
+                                                                        <p className="font-bold text-base">{shift.label}</p>
+                                                                        <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
+                                                                    </div>
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" className={cn("h-8 w-8", isPastShift ? "hover:bg-muted/80" : "text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground")}>
+                                                                                <MoreVertical className="h-5 w-5" />
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent>
+                                                                            <AlertDialog>
+                                                                                <AlertDialogTrigger asChild>
+                                                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
+                                                                                        <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                                    </DropdownMenuItem>
+                                                                                </AlertDialogTrigger>
+                                                                                <AlertDialogContent>
+                                                                                    <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                                </AlertDialogContent>
+                                                                            </AlertDialog>
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                </CardContent>
+                                                            </Card>
+                                                        )
+                                                    })
                                                 ) : (
                                                     <p className="text-sm italic text-center">Không có ca</p>
                                                 )}
@@ -488,5 +500,6 @@ export default function ScheduleView() {
     
 
     
+
 
 
