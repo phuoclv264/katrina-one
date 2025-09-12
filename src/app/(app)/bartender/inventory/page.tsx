@@ -274,7 +274,8 @@ export default function InventoryPage() {
             }
 
             const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
-            if (!hasLocalPhoto) {
+            const hasServerPhoto = record.photos && record.photos.length > 0;
+            if (!hasLocalPhoto && !hasServerPhoto) {
                  toast({
                     title: "Thiếu ảnh bằng chứng",
                     description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
