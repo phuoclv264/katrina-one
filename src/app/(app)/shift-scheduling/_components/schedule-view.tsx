@@ -381,6 +381,30 @@ export default function ScheduleView() {
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
     const areAllMobileDaysOpen = openMobileDays.length === daysOfWeek.length;
 
+    // Logic for the Floating Action Button
+    let fabAction: (() => void) | null = null;
+    let fabIcon: React.ReactNode | null = null;
+    let fabLabel: string | null = null;
+    let isFabVisible = false;
+
+    if (hasUnsavedChanges) {
+        fabAction = handleSaveChanges;
+        fabIcon = <Save className="h-6 w-6" />;
+        fabLabel = 'Lưu thay đổi';
+        isFabVisible = true;
+    } else if (user?.role === 'Quản lý' && localSchedule?.status === 'draft') {
+        fabAction = () => handleUpdateStatus('proposed');
+        fabIcon = <Send className="h-6 w-6" />;
+        fabLabel = 'Đề xuất lịch';
+        isFabVisible = true;
+    } else if (user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published') {
+        fabAction = () => setShowPublishConfirm(true);
+        fabIcon = <CheckCircle className="h-6 w-6" />;
+        fabLabel = 'Công bố lịch';
+        isFabVisible = true;
+    }
+
+
     return (
         <TooltipProvider>
             <div className="flex flex-col xl:flex-row gap-8">
@@ -548,11 +572,9 @@ export default function ScheduleView() {
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
                             <div className="w-full grid grid-cols-2 sm:flex sm:flex-row gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
-                                    <>
-                                        <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
-                                            <Settings className="mr-2 h-4 w-4"/> Mẫu ca
-                                        </Button>
-                                    </>
+                                    <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
+                                        <Settings className="mr-2 h-4 w-4"/> Mẫu ca
+                                    </Button>
                                 )}
                                  <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)}>
                                     <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
@@ -560,46 +582,26 @@ export default function ScheduleView() {
                             </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
-                                {user?.role === 'Quản lý' && localSchedule?.status === 'draft' && (
-                                    <Button onClick={() => handleUpdateStatus('proposed')} disabled={isSubmitting || hasUnsavedChanges}><Send className="mr-2 h-4 w-4"/> Đề xuất lịch</Button>
-                                )}
-                                {user?.role === 'Chủ nhà hàng' && !hasUnsavedChanges && (
-                                    <>
-                                    {localSchedule?.status !== 'published' && (
-                                         <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
-                                            <AlertDialogTrigger asChild>
-                                                <Button disabled={isSubmitting}>
-                                                    <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
-                                                <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    )}
-                                    {localSchedule?.status === 'published' && (
-                                        <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="secondary" disabled={isSubmitting}>
-                                                    <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    )}
-                                    </>
+                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
+                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="secondary" disabled={isSubmitting}>
+                                                <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 )}
                             </div>
                         </CardFooter>
@@ -611,23 +613,35 @@ export default function ScheduleView() {
                 </div>
             </div>
 
-            {hasUnsavedChanges && (
-                 <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+            {isFabVisible && (
+                <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
                     <div className="relative">
-                        <Button
-                            size="lg"
-                            className="rounded-full shadow-lg h-16 w-auto px-6"
-                            onClick={handleSaveChanges}
-                            disabled={isSubmitting}
-                            aria-label="Lưu thay đổi"
-                        >
-                            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin"/> : <Save className="h-6 w-6" />}
-                            <span className="ml-2 text-base">Lưu thay đổi</span>
-                        </Button>
-                        <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
-                        </div>
+                        <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+                            <Button
+                                size="lg"
+                                className="rounded-full shadow-lg h-16 w-auto px-6"
+                                onClick={fabAction!}
+                                disabled={isSubmitting}
+                                aria-label={fabLabel!}
+                            >
+                                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin"/> : fabIcon}
+                                <span className="ml-2 text-base">{fabLabel}</span>
+                            </Button>
+                            
+                            {fabAction === (() => setShowPublishConfirm(true)) && (
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                            )}
+                        </AlertDialog>
+
+                        {hasUnsavedChanges && (
+                            <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
