@@ -56,12 +56,17 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
 function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: Schedule[] }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     
+    const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
+    const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
+
     const userShiftsByDate = useMemo(() => {
         const shiftsMap = new Map<string, { label: string; timeSlot: string }[]>();
         allSchedules.forEach(schedule => {
             if (schedule.status !== 'published') return;
+
             schedule.shifts.forEach(shift => {
-                if (shift.assignedUsers.some(u => u.userId === user.uid)) {
+                const shiftDate = new Date(shift.date);
+                if (shiftDate >= monthStart && shiftDate <= monthEnd && shift.assignedUsers.some(u => u.userId === user.uid)) {
                     const dateKey = shift.date;
                     if (!shiftsMap.has(dateKey)) {
                         shiftsMap.set(dateKey, []);
@@ -74,17 +79,13 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
             });
         });
         return shiftsMap;
-    }, [allSchedules, user.uid]);
+    }, [allSchedules, user.uid, monthStart, monthEnd]);
     
-    const daysInMonth = useMemo(() => {
-        const start = startOfMonth(currentMonth);
-        const end = endOfMonth(currentMonth);
-        return eachDayOfInterval({ start, end });
-    }, [currentMonth]);
+    const daysWithShifts = useMemo(() => {
+        return Array.from(userShiftsByDate.keys()).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+    }, [userShiftsByDate]);
 
     const totalHoursThisMonth = useMemo(() => {
-        const monthStart = startOfMonth(currentMonth);
-        const monthEnd = endOfMonth(currentMonth);
         const shiftsThisMonth = allSchedules.flatMap(s => s.shifts)
             .filter(shift => {
                 if(s.status !== 'published') return false;
@@ -93,7 +94,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                        shiftDate >= monthStart && shiftDate <= monthEnd;
             });
         return calculateTotalHours(shiftsThisMonth.map(s => s.timeSlot));
-    }, [allSchedules, user.uid, currentMonth]);
+    }, [allSchedules, user.uid, monthStart, monthEnd]);
     
     const handleMonthChange = (direction: 'prev' | 'next') => {
         setCurrentMonth(prev => {
@@ -132,18 +133,14 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                       {daysInMonth.map(day => {
-                           const dateKey = format(day, 'yyyy-MM-dd');
+                       {daysWithShifts.map(dateKey => {
                            const shiftsForDay = userShiftsByDate.get(dateKey);
-
-                           if (!shiftsForDay || shiftsForDay.length === 0) {
-                               return null; // Skip days with no shifts
-                           }
+                           if (!shiftsForDay || shiftsForDay.length === 0) return null;
 
                            return (
                                <TableRow key={dateKey}>
                                    <TableCell className="font-medium align-top">
-                                        {format(day, 'eeee, dd/MM', { locale: vi })}
+                                        {format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}
                                    </TableCell>
                                    <TableCell>
                                         <div className="flex flex-col gap-1">
@@ -158,7 +155,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                                </TableRow>
                            )
                        })}
-                        {totalHoursThisMonth === 0 && (
+                        {daysWithShifts.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={2} className="text-center text-muted-foreground h-24">
                                     Không có ca làm việc nào trong tháng này.
