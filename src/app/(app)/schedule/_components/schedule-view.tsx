@@ -161,40 +161,45 @@ export default function ScheduleView() {
 
     const handleSaveAvailability = async (date: Date, slots: TimeSlot[]) => {
         if (!user) return;
-
-        const currentSchedule = schedule ?? {
+    
+        const baseSchedule = schedule ?? {
             weekId,
             status: 'draft',
             availability: [],
             shifts: [],
         };
-
+    
         const newAvailability: Availability = {
             userId: user.uid,
             userName: user.displayName,
             date: format(date, 'yyyy-MM-dd'),
             availableSlots: slots,
         };
-        
-        const availabilityList = currentSchedule.availability || [];
+    
+        const availabilityList = baseSchedule.availability ?? [];
         const existingIndex = availabilityList.findIndex(a => a.userId === user.uid && a.date === newAvailability.date);
-        
+    
         const updatedAvailability = [...availabilityList];
         if (existingIndex > -1) {
             updatedAvailability[existingIndex] = newAvailability;
         } else {
             updatedAvailability.push(newAvailability);
         }
+    
+        const dataToSave: Schedule = {
+            ...baseSchedule,
+            status: baseSchedule.status === 'published' ? 'published' : 'draft',
+            availability: updatedAvailability,
+        };
 
         try {
-            await dataStore.updateSchedule(weekId, { ...currentSchedule, availability: updatedAvailability });
+            await dataStore.updateSchedule(weekId, dataToSave);
             toast({ title: 'Thành công', description: 'Đã cập nhật thời gian rảnh của bạn.' });
-            
         } catch (error) {
             console.error("Failed to save availability:", error);
             toast({ title: 'Lỗi', description: 'Không thể lưu thời gian rảnh.', variant: 'destructive' });
         }
-
+    
         setIsAvailabilityDialogOpen(false);
     };
 
