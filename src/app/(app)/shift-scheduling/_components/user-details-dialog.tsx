@@ -93,7 +93,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
     }, [userShiftsByDate]);
 
     const totalHoursThisMonth = useMemo(() => {
-        const publishedSchedules = schedules.filter(s => s.status === 'published');
+        const publishedSchedules = schedules.filter(schedule => schedule.status === 'published');
         const shiftsThisMonth = publishedSchedules.flatMap(s => s.shifts)
             .filter(shift => {
                 const shiftDate = new Date(shift.date);
@@ -131,7 +131,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     </div>
                 </CardHeader>
             </Card>
-            <div className="border rounded-md">
+            <div className="border rounded-md bg-white dark:bg-card">
                  {isLoading ? (
                     <div className="h-48 flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -140,8 +140,8 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[180px]">Ngày</TableHead>
-                                <TableHead>Ca làm việc</TableHead>
+                                <TableHead className="w-[200px] text-center">Ngày</TableHead>
+                                <TableHead className="text-center">Ca làm việc</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -157,14 +157,14 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
                             return (
                                 <TableRow key={dateKey}>
-                                    <TableCell className="font-medium align-top">
+                                    <TableCell className="font-bold align-middle text-center text-base">
                                         <p>{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</p>
-                                        <p className="text-xs text-muted-foreground">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
+                                        <p className="text-sm text-muted-foreground font-normal">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
                                     </TableCell>
-                                    <TableCell>
-                                            <div className="flex flex-col gap-1">
+                                    <TableCell className="align-middle text-center">
+                                            <div className="flex flex-col gap-1 items-center">
                                                 {shiftsForDay.map((shift, index) => (
-                                                    <div key={index} className="text-sm">
+                                                    <div key={index} className="text-base">
                                                         <span className="font-semibold">{shift.label}:</span>
                                                         <span className="text-muted-foreground ml-2">{shift.timeSlot}</span>
                                                     </div>
