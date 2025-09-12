@@ -9,18 +9,14 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ManagedUser, Schedule, Availability } from '@/lib/types';
-import { format, startOfMonth, endOfMonth, isSameDay, eachDayOfInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { dataStore } from '@/lib/data-store';
 
@@ -144,19 +140,26 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[150px]">Ngày</TableHead>
+                                <TableHead className="w-[180px]">Ngày</TableHead>
                                 <TableHead>Ca làm việc</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                         {daysWithShifts.length > 0 ? daysWithShifts.map(dateKey => {
-                            const shiftsForDay = userShiftsByDate.get(dateKey);
-                            if (!shiftsForDay || shiftsForDay.length === 0) return null;
+                            const shiftsForDay = userShiftsByDate.get(dateKey) || [];
+                            if (shiftsForDay.length === 0) return null;
+                            
+                            const timeSlotsForDay = shiftsForDay.map(s => {
+                                const [start, end] = s.timeSlot.split('-');
+                                return { start, end };
+                            });
+                            const dailyTotalHours = calculateTotalHours(timeSlotsForDay);
 
                             return (
                                 <TableRow key={dateKey}>
                                     <TableCell className="font-medium align-top">
-                                            {format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}
+                                        <p>{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</p>
+                                        <p className="text-xs text-muted-foreground">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
                                     </TableCell>
                                     <TableCell>
                                             <div className="flex flex-col gap-1">
