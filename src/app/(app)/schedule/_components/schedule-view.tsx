@@ -336,7 +336,10 @@ export default function ScheduleView() {
                         Yêu cầu Pass ca
                     </Button>
                      {pendingRequestCount > 0 && (
-                        <Badge className="absolute -top-2 -right-2 px-2">{pendingRequestCount}</Badge>
+                        <div className="absolute -top-2 -right-2 flex h-5 w-5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <Badge className="relative px-2">{pendingRequestCount}</Badge>
+                        </div>
                     )}
                 </div>
             </div>
