@@ -28,7 +28,7 @@ import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, Inventor
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format } from 'date-fns';
 
 
 const getTodaysDateKey = () => {
@@ -1420,3 +1420,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+      

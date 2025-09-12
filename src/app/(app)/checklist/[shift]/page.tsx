@@ -10,14 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronsDownUp } from 'lucide-react';
+import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronsDownUp, MessageSquareWarning } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -27,6 +26,10 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -41,10 +44,10 @@ export default function ChecklistPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
+  const [submissionNotes, setSubmissionNotes] = useState('');
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -64,14 +67,13 @@ export default function ChecklistPage() {
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
-    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || isSubmissionNotesOpen || showSyncDialog;
+    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || showSyncDialog;
     const handler = (e: PopStateEvent) => {
       if (dialogIsOpen) {
         e.preventDefault();
         setIsLightboxOpen(false);
         setIsCameraOpen(false);
         setIsOpinionOpen(false);
-        setIsSubmissionNotesOpen(false);
         setShowSyncDialog(false);
       }
     };
@@ -84,7 +86,7 @@ export default function ChecklistPage() {
     return () => {
         window.removeEventListener('popstate', handler);
     };
-  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, isSubmissionNotesOpen, showSyncDialog]);
+  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, showSyncDialog]);
 
 
   // Initialize accordion state based on completion status
@@ -111,8 +113,9 @@ export default function ChecklistPage() {
   }, [shift, report]);
 
   const collapseCompletedSection = useCallback((section: TaskSection) => {
+    if (!report) return;
     const isCollapsible = section.title === 'Đầu ca' || section.title === 'Cuối ca';
-    if (!isCollapsible || !report) return;
+    if (!isCollapsible) return;
 
     const allTasksCompleted = section.tasks.every(task => {
         const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
@@ -170,6 +173,7 @@ export default function ChecklistPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
+              setSubmissionNotes(loadedReport.issues || '');
               await fetchLocalPhotos(loadedReport);
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
@@ -255,12 +259,10 @@ export default function ChecklistPage() {
 
         const newReport = JSON.parse(JSON.stringify(report));
         let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
         
         const newCompletion: CompletionRecord = {
-        timestamp: formattedTime,
-        value: value,
+          timestamp: format(new Date(), 'HH:mm'),
+          value: value,
         };
 
         taskCompletions.unshift(newCompletion);
@@ -283,12 +285,10 @@ export default function ChecklistPage() {
 
         const newReport = JSON.parse(JSON.stringify(report));
         let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
         
         const newCompletion: CompletionRecord = {
-        timestamp: formattedTime,
-        opinion: opinionText.trim() || undefined,
+          timestamp: format(new Date(), 'HH:mm'),
+          opinion: opinionText.trim() || undefined,
         };
 
         taskCompletions.unshift(newCompletion);
@@ -310,10 +310,8 @@ export default function ChecklistPage() {
             completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
         } else {
             // Create a new completion record
-            const now = new Date();
-            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
             taskCompletions.unshift({
-                timestamp: formattedTime,
+                timestamp: format(new Date(), 'HH:mm'),
                 photoIds: photoIds,
                 photos: [],
             });
@@ -394,25 +392,23 @@ export default function ChecklistPage() {
       await updateLocalReport(newReport);
   }
   
-    const handleSubmitReport = async (notes: string) => {
+    const handleSubmitReport = async () => {
         if (!report) return;
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        setIsSubmissionNotesOpen(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
-        const finalReport = { ...report, issues: notes || null };
+        const finalReport = { ...report, issues: submissionNotes || null };
 
         try {
             await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
             await fetchLocalPhotos(serverReport); 
-            setSyncStatus('synced');
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
@@ -443,6 +439,7 @@ export default function ChecklistPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        setSubmissionNotes(serverReport.issues || '');
         await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
@@ -767,6 +764,28 @@ export default function ChecklistPage() {
             )
             })}
         </Accordion>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <MessageSquareWarning />
+                    Ghi chú / Vấn đề phát sinh
+                </CardTitle>
+                <CardDescription>
+                    Báo cáo mọi sự cố hoặc sự kiện đáng chú ý trong ca của bạn tại đây.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Textarea
+                    placeholder="Khách có phàn nàn gì không? Có bất cứ vấn đề gì muốn đề xuất thì cứ nói nhé! (Có thể bỏ trống)"
+                    rows={5}
+                    value={submissionNotes}
+                    onChange={(e) => setSubmissionNotes(e.target.value)}
+                    onBlur={() => updateLocalReport({ ...report, issues: submissionNotes })}
+                    disabled={isReadonly}
+                />
+            </CardContent>
+        </Card>
       </div>
     </div>
     
@@ -775,11 +794,11 @@ export default function ChecklistPage() {
         <Button
             size="lg"
             className="rounded-full shadow-lg h-16 w-16"
-            onClick={() => setIsSubmissionNotesOpen(true)} 
+            onClick={handleSubmitReport} 
             disabled={isReadonly || syncStatus === 'server-newer'}
             aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
         >
-            <Send className="h-6 w-6" />
+            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
         </Button>
         {hasUnsubmittedChanges && (
             <div className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -803,13 +822,6 @@ export default function ChecklistPage() {
         taskText={activeTask?.text || ''}
     />
     
-    <SubmissionNotesDialog
-      isOpen={isSubmissionNotesOpen}
-      onClose={() => setIsSubmissionNotesOpen(false)}
-      onSubmit={handleSubmitReport}
-      isSubmitting={isSubmitting}
-    />
-    
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -822,7 +834,7 @@ export default function ChecklistPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
@@ -860,3 +872,5 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
+
+      
