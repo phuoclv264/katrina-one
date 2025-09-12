@@ -185,6 +185,20 @@ export default function ScheduleView() {
     }, [hasUnsavedChanges]);
 
 
+    const handleLocalScheduleUpdate = useCallback((data: Partial<Schedule>) => {
+        setLocalSchedule(prev => {
+            const baseSchedule = prev ?? {
+                weekId,
+                status: 'draft',
+                availability: [],
+                shifts: [],
+            };
+            const newSchedule = { ...baseSchedule, ...data };
+            setHasUnsavedChanges(!isEqual(newSchedule, serverSchedule));
+            return newSchedule;
+        });
+    }, [serverSchedule, weekId]);
+
     // Auto-populate shifts from templates
     useEffect(() => {
         if (localSchedule && (localSchedule.status !== 'draft' || !shiftTemplates.length)) return;
@@ -198,7 +212,8 @@ export default function ScheduleView() {
 
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
-                    const doesShiftExist = localSchedule?.shifts.some(s => s.date === dateKey && s.templateId === template.id);
+                    const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+                    const doesShiftExist = baseSchedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
                     if (!doesShiftExist) {
                         shiftsToAdd.push({
                             id: `shift_${dateKey}_${template.id}`,
@@ -229,20 +244,6 @@ export default function ScheduleView() {
             handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
         }
     }, [localSchedule, shiftTemplates, weekId, currentDate, handleLocalScheduleUpdate]);
-
-    const handleLocalScheduleUpdate = useCallback((data: Partial<Schedule>) => {
-        setLocalSchedule(prev => {
-            const baseSchedule = prev ?? {
-                weekId,
-                status: 'draft',
-                availability: [],
-                shifts: [],
-            };
-            const newSchedule = { ...baseSchedule, ...data };
-            setHasUnsavedChanges(!isEqual(newSchedule, serverSchedule));
-            return newSchedule;
-        });
-    }, [serverSchedule, weekId]);
 
 
     const handleDateChange = (direction: 'next' | 'prev') => {
