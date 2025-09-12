@@ -131,7 +131,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     </div>
                 </CardHeader>
             </Card>
-            <div className="border rounded-md bg-card">
+             <div className="border rounded-md bg-card">
                  {isLoading ? (
                     <div className="h-48 flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -167,8 +167,8 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                                             {shiftsForDay.map((shift, index) => (
                                                  <Card key={index} className="text-left bg-muted text-muted-foreground">
                                                     <CardContent className="p-3">
-                                                         <p className="font-bold text-base text-foreground">{shift.label}</p>
-                                                         <p className="text-sm">{shift.timeSlot}</p>
+                                                         <p className="font-semibold text-sm text-foreground">{shift.label}</p>
+                                                         <p className="text-xs">{shift.timeSlot}</p>
                                                     </CardContent>
                                                 </Card>
                                             ))}
