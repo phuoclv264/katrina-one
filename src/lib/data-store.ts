@@ -351,20 +351,24 @@ export const dataStore = {
         });
     },
 
-    async assignUserToShift(notification: Notification, userToAssign: ManagedUser): Promise<void> {
+    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+            if (!scheduleDoc.exists()) {
+                throw new Error("Không tìm thấy lịch làm việc.");
+            }
 
+            // 1. Update Schedule
             const scheduleData = scheduleDoc.data() as Schedule;
             const updatedShifts = scheduleData.shifts.map(s => {
                 if (s.id === notification.payload.shiftId) {
+                    // Replace the requesting user with the newly assigned user
                     const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
-                    if (!newAssignedUsers.some(u => u.userId === userToAssign.uid)) {
-                        newAssignedUsers.push({ userId: userToAssign.uid, userName: userToAssign.displayName });
+                    if (!newAssignedUsers.some(u => u.userId === assignedUser.userId)) {
+                        newAssignedUsers.push(assignedUser);
                     }
                     return { ...s, assignedUsers: newAssignedUsers };
                 }
@@ -372,9 +376,10 @@ export const dataStore = {
             });
             transaction.update(scheduleRef, { shifts: updatedShifts });
 
+            // 2. Update Notification
             transaction.update(notificationRef, {
                 status: 'resolved',
-                'payload.takenBy': { userId: userToAssign.uid, userName: userToAssign.displayName },
+                'payload.takenBy': assignedUser,
                 resolvedAt: serverTimestamp(),
             });
         });
@@ -1415,7 +1420,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-
-
-

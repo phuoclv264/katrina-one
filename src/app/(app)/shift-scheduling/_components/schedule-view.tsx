@@ -80,6 +80,8 @@ export default function ScheduleView() {
 
     const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
     const [activeShift, setActiveShift] = useState<AssignedShift | null>(null);
+    const [activeNotification, setActiveNotification] = useState<Notification | null>(null);
+
 
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -241,9 +243,29 @@ export default function ScheduleView() {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
     };
     
-    const handleUpdateShiftAssignment = useCallback((shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
+    const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
         if (!localSchedule) return;
+
+        // If this update comes from resolving a pass request
+        if (activeNotification && activeNotification.payload.shiftId === shiftId) {
+            const userToAssign = newAssignedUsers[0]; // Assuming only one user can be assigned to resolve
+            if (userToAssign) {
+                setIsSubmitting(true);
+                try {
+                    await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign);
+                    toast({ title: 'Thành công!', description: `Đã chỉ định ca cho ${userToAssign.userName}.` });
+                } catch (error: any) {
+                    toast({ title: 'Lỗi', description: `Không thể chỉ định ca: ${error.message}`, variant: 'destructive' });
+                } finally {
+                    setIsSubmitting(false);
+                    setActiveNotification(null); // Reset active notification
+                }
+                 // The onSnapshot listener will update the local state automatically.
+                return; 
+            }
+        }
         
+        // Normal shift assignment update
         let updatedShifts;
         const shiftExists = localSchedule.shifts.some(s => s.id === shiftId);
 
@@ -261,7 +283,7 @@ export default function ScheduleView() {
             }
         }
         handleLocalScheduleUpdate({ shifts: updatedShifts });
-    }, [localSchedule, handleLocalScheduleUpdate]);
+    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast]);
 
     const handleSaveChanges = async () => {
         if (!localSchedule || !hasUnsavedChanges) return;
@@ -299,8 +321,9 @@ export default function ScheduleView() {
         };
     };
     
-    const handleOpenAssignmentDialog = (shift: AssignedShift) => {
+    const handleOpenAssignmentDialog = (shift: AssignedShift, notification: Notification | null = null) => {
         setActiveShift(shift);
+        setActiveNotification(notification);
         setIsAssignmentDialogOpen(true);
     };
 
@@ -376,8 +399,7 @@ export default function ScheduleView() {
     const handleAssignShift = (notification: Notification) => {
         const shiftToAssign = localSchedule?.shifts.find(s => s.id === notification.payload.shiftId);
         if (shiftToAssign) {
-            setActiveShift(shiftToAssign);
-            setIsAssignmentDialogOpen(true);
+            handleOpenAssignmentDialog(shiftToAssign, notification);
         } else {
              toast({ title: 'Lỗi', description: 'Không tìm thấy ca làm việc để chỉ định.', variant: 'destructive'});
         }
@@ -702,7 +724,11 @@ export default function ScheduleView() {
             {activeShift && (
                 <ShiftAssignmentDialog
                     isOpen={isAssignmentDialogOpen}
-                    onClose={() => setIsAssignmentDialogOpen(false)}
+                    onClose={() => {
+                        setIsAssignmentDialogOpen(false);
+                        setActiveNotification(null);
+                        setActiveShift(null);
+                    }}
                     shift={activeShift}
                     allUsers={allUsers}
                     dailyAvailability={availabilityByDay[activeShift.date] || []}
