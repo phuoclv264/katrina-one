@@ -99,6 +99,35 @@ export default function ScheduleView() {
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
     const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
+    
+    const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+    const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+
+    // --- Back button handling ---
+    useEffect(() => {
+        const dialogIsOpen = isAssignmentDialogOpen || isTemplatesDialogOpen || isHistoryDialogOpen || isPassRequestsDialogOpen || showPublishConfirm || showRevertConfirm;
+        const handler = (e: PopStateEvent) => {
+            if (dialogIsOpen) {
+                e.preventDefault();
+                setIsAssignmentDialogOpen(false);
+                setIsTemplatesDialogOpen(false);
+                setIsHistoryDialogOpen(false);
+                setIsPassRequestsDialogOpen(false);
+                setShowPublishConfirm(false);
+                setShowRevertConfirm(false);
+            }
+        };
+
+        if (dialogIsOpen) {
+            window.history.pushState(null, '', window.location.href);
+            window.addEventListener('popstate', handler);
+        }
+
+        return () => {
+            window.removeEventListener('popstate', handler);
+        };
+    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm]);
+
 
     useEffect(() => {
         if (!user || !canManage) return;
@@ -277,6 +306,9 @@ export default function ScheduleView() {
                 return;
             }
         }
+        
+        setShowPublishConfirm(false);
+        setShowRevertConfirm(false);
 
         setIsSubmitting(true);
         try {
@@ -513,7 +545,7 @@ export default function ScheduleView() {
                              </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex-row gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
                                     <>
                                         <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
@@ -544,13 +576,21 @@ export default function ScheduleView() {
                                 )}
                                 
                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published' && (
-                                    <Button onClick={() => handleUpdateStatus('published')} disabled={isSubmitting}>
-                                        <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
-                                    </Button>
+                                     <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+                                        <AlertDialogTrigger asChild>
+                                            <Button disabled={isSubmitting}>
+                                                <CheckCircle className="mr-2 h-4 w-4"/> Công bố lịch
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 )}
                                 
                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && (
-                                    <AlertDialog>
+                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="secondary" disabled={isSubmitting}>
                                                 <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch

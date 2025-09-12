@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -58,16 +58,24 @@ export default function PassRequestsDialog({
   
   const canManage = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
 
+  const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
+  const [showRevertConfirm, setShowRevertConfirm] = useState<Notification | null>(null);
+
   // --- Back button handling ---
   useEffect(() => {
+    const dialogIsOpen = isOpen || !!showCancelConfirm || !!showRevertConfirm;
     const handler = (e: PopStateEvent) => {
-      if (isOpen) {
+      if (dialogIsOpen) {
         e.preventDefault();
-        onClose();
+        setShowCancelConfirm(null);
+        setShowRevertConfirm(null);
+        if (isOpen && !showCancelConfirm && !showRevertConfirm) {
+          onClose();
+        }
       }
     };
 
-    if (isOpen) {
+    if (dialogIsOpen) {
       window.history.pushState(null, '', window.location.href);
       window.addEventListener('popstate', handler);
     }
@@ -75,7 +83,7 @@ export default function PassRequestsDialog({
     return () => {
       window.removeEventListener('popstate', handler);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showCancelConfirm, showRevertConfirm]);
 
 
   const { myRequests, otherPendingRequests, completedRequests } = useMemo(() => {
@@ -131,15 +139,15 @@ export default function PassRequestsDialog({
                  <Button variant="secondary" size="sm" onClick={() => onAssign(notification)}>
                     <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
                 </Button>
-                <AlertDialog>
+                <AlertDialog open={showCancelConfirm === notification.id} onOpenChange={(open) => !open && setShowCancelConfirm(null)}>
                     <AlertDialogTrigger asChild>
-                         <Button variant="destructive" size="sm">
+                         <Button variant="destructive" size="sm" onClick={() => setShowCancelConfirm(notification.id)}>
                             <Trash2 className="mr-2 h-4 w-4"/> Hủy
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                          <AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ hủy yêu cầu của {notification.payload.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
+                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => { onCancel(notification.id); setShowCancelConfirm(null); }}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             </div>
@@ -148,13 +156,13 @@ export default function PassRequestsDialog({
         if (notification.status === 'resolved') {
            return (
             <div className="flex gap-2 self-end sm:self-center">
-                <AlertDialog>
+                <AlertDialog open={showRevertConfirm?.id === notification.id} onOpenChange={(open) => !open && setShowRevertConfirm(null)}>
                     <AlertDialogTrigger asChild>
-                         <Button variant="outline" size="sm"><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
+                         <Button variant="outline" size="sm" onClick={() => setShowRevertConfirm(notification)}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                          <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({notification.payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
+                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => { onRevert(notification); setShowRevertConfirm(null); }}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             </div>
