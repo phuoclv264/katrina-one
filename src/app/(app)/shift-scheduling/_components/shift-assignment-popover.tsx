@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Card, CardContent } from '@/components/ui/card';
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
@@ -143,6 +144,37 @@ export default function ShiftAssignmentDialog({
     onSave(shift.id, newAssignedUsers);
     onClose();
   };
+  
+  const UserCard = ({user, isAvailable}: {user: ManagedUser, isAvailable: boolean}) => {
+    const isSelected = selectedUserIds.has(user.uid);
+    const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
+    
+    return (
+      <Card 
+        className={cn(
+            "cursor-pointer transition-all",
+            isSelected ? 'border-primary ring-2 ring-primary' : 'hover:border-primary/50',
+            !isAvailable && !isSelected && 'opacity-60 bg-muted/50'
+        )}
+        onClick={() => handleSelectUser(user)}
+      >
+        <CardContent className="p-3 flex items-center justify-between gap-3">
+          <div className="flex-1 space-y-1">
+            <p className="font-semibold">{user.displayName}</p>
+            <p className="text-xs text-muted-foreground">{user.role}</p>
+          </div>
+           <div className="flex flex-col items-end gap-1">
+             {isSelected ? (
+                <CheckCircle className="h-5 w-5 text-primary" />
+             ) : (
+                conflict && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Trùng ca</Badge>
+             )}
+            {!isAvailable && !isSelected && <Badge variant="outline" className="text-xs">Bận</Badge>}
+           </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -159,29 +191,7 @@ export default function ShiftAssignmentDialog({
                         <div>
                             <h4 className="text-sm font-semibold mb-2">Nhân viên rảnh</h4>
                             <div className="space-y-2">
-                            {sortedUsers.availableUsers.map(user => {
-                                const isSelected = selectedUserIds.has(user.uid);
-                                const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
-                                return (
-                                    <Button
-                                        key={user.uid}
-                                        variant={isSelected ? "default" : "outline"}
-                                        className="w-full justify-start h-auto p-3 text-left whitespace-normal"
-                                        onClick={() => handleSelectUser(user)}
-                                    >
-                                        <div className="flex items-center w-full">
-                                            <div className="flex-1">
-                                                <p className="font-semibold">{user.displayName}</p>
-                                                <p className="text-xs">{user.role}</p>
-                                            </div>
-                                            {conflict && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900">Trùng ca</Badge>}
-                                            {isSelected && !conflict && (
-                                                <CheckCircle className="h-5 w-5 text-primary-foreground"/>
-                                            )}
-                                        </div>
-                                    </Button>
-                                );
-                            })}
+                                {sortedUsers.availableUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={true} />)}
                             </div>
                         </div>
                     )}
@@ -189,31 +199,7 @@ export default function ShiftAssignmentDialog({
                         <div>
                             <h4 className="text-sm font-semibold mb-2">Nhân viên bận hoặc chưa đăng ký</h4>
                             <div className="space-y-2">
-                            {sortedUsers.busyUsers.map(user => {
-                                const isSelected = selectedUserIds.has(user.uid);
-                                const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
-                                return (
-                                    <Button
-                                        key={user.uid}
-                                        variant={isSelected ? "secondary" : "outline"}
-                                        className="w-full justify-start h-auto p-3 text-left opacity-70 whitespace-normal"
-                                        onClick={() => handleSelectUser(user)}
-                                    >
-                                        <div className="flex items-center w-full">
-                                            <div className="flex-1">
-                                                <p className="font-semibold">{user.displayName}</p>
-                                                <p className="text-xs">{user.role}</p>
-                                            </div>
-                                            {conflict && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900">Trùng ca</Badge>}
-                                            {isSelected ? (
-                                                <Badge variant="destructive">Chọn dù bận</Badge>
-                                            ) : (
-                                                !conflict && <Badge variant="outline">Bận</Badge>
-                                            )}
-                                        </div>
-                                    </Button>
-                                );
-                            })}
+                                {sortedUsers.busyUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={false} />)}
                             </div>
                         </div>
                     )}
