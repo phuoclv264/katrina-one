@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -248,7 +247,7 @@ export default function ScheduleView() {
 
         // If this update comes from resolving a pass request
         if (activeNotification && activeNotification.payload.shiftId === shiftId) {
-            const userToAssign = newAssignedUsers[0]; // Assuming only one user can be assigned to resolve
+            const userToAssign = newAssignedUsers[0]; // In pass request mode, we only assign one user
             if (userToAssign) {
                 setIsSubmitting(true);
                 try {
@@ -260,9 +259,11 @@ export default function ScheduleView() {
                     setIsSubmitting(false);
                     setActiveNotification(null);
                 }
-                 // The onSnapshot listener will update the local state automatically, no need for local update here.
+                // The onSnapshot listener will update the local state automatically, no need for local update here.
                 return; 
             }
+             // If the assignment was cleared, do nothing for now.
+            setActiveNotification(null);
         }
         
         // Normal shift assignment update
@@ -630,12 +631,14 @@ export default function ScheduleView() {
                                     <History className="mr-2 h-4 w-4"/> Lịch sử
                                 </Button>
                             </div>
-                            <div className="w-full sm:w-auto relative">
-                                <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
+                             <div className="w-full sm:w-auto relative">
+                                <Button variant="secondary" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
                                     <MailQuestion className="mr-2 h-4 w-4"/>
                                     Yêu cầu Pass ca
                                     {pendingRequestCount > 0 && (
-                                        <Badge variant="destructive" className="absolute -top-2 -right-2 px-2">{pendingRequestCount}</Badge>
+                                        <Badge variant="destructive" className="ml-2">
+                                            {pendingRequestCount}
+                                        </Badge>
                                     )}
                                 </Button>
                             </div>
@@ -734,6 +737,7 @@ export default function ScheduleView() {
                     dailyAvailability={availabilityByDay[activeShift.date] || []}
                     onSave={handleUpdateShiftAssignment}
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
+                    passRequestingUser={activeNotification?.payload.requestingUser}
                 />
             )}
 

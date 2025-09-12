@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User, CheckCircle, AlertCircle } from 'lucide-react';
-import type { AssignedShift, Availability, ManagedUser, UserRole } from '@/lib/types';
+import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,10 +35,11 @@ type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
   allUsers: ManagedUser[];
   dailyAvailability: Availability[];
-  onSave: (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => void;
+  onSave: (shiftId: string, newAssignedUsers: AssignedUser[]) => void;
   isOpen: boolean;
   onClose: () => void;
   allShiftsOnDay: AssignedShift[];
+  passRequestingUser?: AssignedUser | null;
 };
 
 const roleOrder: Record<UserRole, number> = {
@@ -56,17 +57,24 @@ export default function ShiftAssignmentDialog({
   isOpen,
   onClose,
   allShiftsOnDay,
+  passRequestingUser,
 }: ShiftAssignmentDialogProps) {
     
+  const isPassAssignmentMode = !!passRequestingUser;
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedUserIds(new Set(shift.assignedUsers.map(u => u.userId)));
+      if (isPassAssignmentMode) {
+        // In pass assignment mode, selection is cleared initially.
+        setSelectedUserIds(new Set());
+      } else {
+        setSelectedUserIds(new Set(shift.assignedUsers.map(u => u.userId)));
+      }
       setConflictError(null);
     }
-  }, [isOpen, shift.assignedUsers]);
+  }, [isOpen, shift.assignedUsers, isPassAssignmentMode]);
   
   // --- Back button handling ---
   useEffect(() => {
@@ -94,7 +102,13 @@ export default function ShiftAssignmentDialog({
 
   const sortedUsers = useMemo(() => {
     const shiftRole = shift.role;
-    const roleFilteredUsers = allUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole);
+    let roleFilteredUsers = allUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole);
+
+    // In pass assignment mode, filter out the user who is making the request
+    if (isPassAssignmentMode && passRequestingUser) {
+        roleFilteredUsers = roleFilteredUsers.filter(user => user.uid !== passRequestingUser.userId);
+    }
+
 
     const availableUsers: ManagedUser[] = [];
     const busyUsers: ManagedUser[] = [];
@@ -117,24 +131,41 @@ export default function ShiftAssignmentDialog({
     busyUsers.sort(sortFn);
 
     return { availableUsers, busyUsers };
-  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability]);
+  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser]);
   
   const handleSelectUser = (user: ManagedUser) => {
-    const newSet = new Set(selectedUserIds);
-    if (newSet.has(user.uid)) {
-        newSet.delete(user.uid);
-        setSelectedUserIds(newSet);
-    } else {
+    if (isPassAssignmentMode) {
+      // Single selection mode
+      const newSet = new Set<string>();
+      if (!selectedUserIds.has(user.uid)) {
         // Check for conflicts before adding
         const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
         if (conflict) {
-            setConflictError({ userName: user.displayName, shiftLabel: conflict.label });
-        } else {
-            newSet.add(user.uid);
-            setSelectedUserIds(newSet);
+          setConflictError({ userName: user.displayName, shiftLabel: conflict.label });
+          return;
         }
+        newSet.add(user.uid);
+      }
+      // If the user is already selected, clicking again deselects them.
+      setSelectedUserIds(newSet);
+    } else {
+      // Multi-selection mode
+      const newSet = new Set(selectedUserIds);
+      if (newSet.has(user.uid)) {
+        newSet.delete(user.uid);
+      } else {
+        // Check for conflicts before adding
+        const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
+        if (conflict) {
+          setConflictError({ userName: user.displayName, shiftLabel: conflict.label });
+          return;
+        }
+        newSet.add(user.uid);
+      }
+      setSelectedUserIds(newSet);
     }
   };
+
 
   const handleSave = () => {
     const newAssignedUsers = Array.from(selectedUserIds).map(userId => {
@@ -182,9 +213,10 @@ export default function ShiftAssignmentDialog({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-md">
             <DialogHeader>
-                <DialogTitle>Phân công: {shift.label}</DialogTitle>
+                <DialogTitle>{isPassAssignmentMode ? 'Chỉ định ca thay thế' : `Phân công: ${shift.label}`}</DialogTitle>
                 <DialogDescription>
                     {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })} | {shift.timeSlot.start} - {shift.timeSlot.end}
+                     {isPassAssignmentMode && ` cho ${passRequestingUser?.userName}`}
                 </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[50vh] pr-4">
@@ -206,7 +238,7 @@ export default function ShiftAssignmentDialog({
                         </div>
                     )}
                     {sortedUsers.availableUsers.length === 0 && sortedUsers.busyUsers.length === 0 && (
-                        <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào thuộc vai trò này.</p>
+                        <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào phù hợp để chỉ định.</p>
                     )}
                 </div>
             </ScrollArea>
