@@ -600,14 +600,12 @@ export default function ScheduleView() {
                             </div>
                             <div className="w-full sm:w-auto relative">
                                 <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
-                                    <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
+                                    <MailQuestion className="mr-2 h-4 w-4"/>
+                                    Yêu cầu Pass ca
+                                    {pendingRequestCount > 0 && (
+                                        <Badge variant="destructive" className="ml-2">{pendingRequestCount}</Badge>
+                                    )}
                                 </Button>
-                                 {pendingRequestCount > 0 && (
-                                    <div className="absolute -top-2 -right-2 flex h-5 w-5">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                        <Badge className="relative px-2">{pendingRequestCount}</Badge>
-                                    </div>
-                                )}
                             </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
