@@ -386,6 +386,7 @@ export default function ScheduleView() {
     let fabIcon: React.ReactNode | null = null;
     let fabLabel: string | null = null;
     let isFabVisible = false;
+    let isPublishAction = false;
 
     if (hasUnsavedChanges) {
         fabAction = handleSaveChanges;
@@ -402,6 +403,7 @@ export default function ScheduleView() {
         fabIcon = <CheckCircle className="h-6 w-6" />;
         fabLabel = 'Công bố lịch';
         isFabVisible = true;
+        isPublishAction = true;
     }
 
 
@@ -613,29 +615,41 @@ export default function ScheduleView() {
                 </div>
             </div>
 
-            {isFabVisible && (
+             {isFabVisible && (
                 <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
                     <div className="relative">
                         <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
-                            <Button
-                                size="lg"
-                                className="rounded-full shadow-lg h-16 w-auto px-6"
-                                onClick={fabAction!}
-                                disabled={isSubmitting}
-                                aria-label={fabLabel!}
-                            >
-                                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin"/> : fabIcon}
-                                <span className="ml-2 text-base">{fabLabel}</span>
-                            </Button>
-                            
-                            {fabAction === (() => setShowPublishConfirm(true)) && (
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
-                                </AlertDialogContent>
+                            {isPublishAction ? (
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        size="lg"
+                                        className="rounded-full shadow-lg h-16 w-auto px-6"
+                                        disabled={isSubmitting}
+                                        aria-label={fabLabel!}
+                                    >
+                                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : fabIcon}
+                                        <span className="ml-2 text-base">{fabLabel}</span>
+                                    </Button>
+                                </AlertDialogTrigger>
+                            ) : (
+                                <Button
+                                    size="lg"
+                                    className="rounded-full shadow-lg h-16 w-auto px-6"
+                                    onClick={fabAction!}
+                                    disabled={isSubmitting}
+                                    aria-label={fabLabel!}
+                                >
+                                    {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : fabIcon}
+                                    <span className="ml-2 text-base">{fabLabel}</span>
+                                </Button>
                             )}
-                        </AlertDialog>
 
+                            <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        
                         {hasUnsavedChanges && (
                             <div className="absolute -top-1 -right-1 flex h-4 w-4">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
