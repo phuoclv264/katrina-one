@@ -360,10 +360,10 @@ export default function ScheduleView() {
                 </Card>
             )}
             
-            <div className="border rounded-lg">
+            <div className="border rounded-lg bg-card">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-muted/50">
+                        <TableRow>
                             <TableHead className="w-[30%] text-center font-bold text-foreground">Ngày</TableHead>
                             <TableHead className="text-center font-bold text-foreground">
                                 {isSchedulePublished
@@ -401,7 +401,7 @@ export default function ScheduleView() {
                                     <TableCell className="align-middle text-center p-2 sm:p-4">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
-                                                <Card className="bg-card transition-colors max-w-sm mx-auto hover:bg-accent/50">
+                                                <Card className="bg-background transition-colors max-w-sm mx-auto hover:bg-accent/50">
                                                     <CardContent className="p-2">
                                                         {availabilityForDay.length > 0 ? (
                                                             <div className="space-y-1 text-sm">
@@ -489,5 +489,7 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
+    
 
     
