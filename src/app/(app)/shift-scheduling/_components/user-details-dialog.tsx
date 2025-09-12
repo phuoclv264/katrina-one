@@ -18,7 +18,7 @@ import { format, startOfMonth, endOfMonth, isSameDay, eachDayOfInterval } from '
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { calculateTotalHours } from '@/lib/schedule-utils';
-import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -72,11 +72,12 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
     const userShiftsByDate = useMemo(() => {
         const shiftsMap = new Map<string, { label: string; timeSlot: string }[]>();
-        schedules.forEach(schedule => {
-            if (schedule.status !== 'published') return;
+        const publishedSchedules = schedules.filter(s => s.status === 'published');
 
+        publishedSchedules.forEach(schedule => {
             schedule.shifts.forEach(shift => {
-                if (shift.assignedUsers.some(u => u.userId === user.uid)) {
+                const shiftDate = new Date(shift.date);
+                if (shift.assignedUsers.some(u => u.userId === user.uid) && shiftDate >= monthStart && shiftDate <= monthEnd) {
                     const dateKey = shift.date;
                     if (!shiftsMap.has(dateKey)) {
                         shiftsMap.set(dateKey, []);
@@ -89,16 +90,16 @@ function HistoryTab({ user }: { user: ManagedUser }) {
             });
         });
         return shiftsMap;
-    }, [schedules, user.uid]);
+    }, [schedules, user.uid, monthStart, monthEnd]);
     
     const daysWithShifts = useMemo(() => {
         return Array.from(userShiftsByDate.keys()).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     }, [userShiftsByDate]);
 
     const totalHoursThisMonth = useMemo(() => {
-        const shiftsThisMonth = schedules.flatMap(s => s.shifts)
+        const publishedSchedules = schedules.filter(s => s.status === 'published');
+        const shiftsThisMonth = publishedSchedules.flatMap(s => s.shifts)
             .filter(shift => {
-                if(s.status !== 'published') return false;
                 const shiftDate = new Date(shift.date);
                 return shift.assignedUsers.some(u => u.userId === user.uid) &&
                        shiftDate >= monthStart && shiftDate <= monthEnd;
@@ -137,7 +138,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
             <div className="border rounded-md">
                  {isLoading ? (
                     <div className="h-48 flex items-center justify-center">
-                        <Skeleton className="h-24 w-full" />
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                 ) : (
                     <Table>
@@ -199,7 +200,7 @@ export default function UserDetailsDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>
                     <DialogDescription>
