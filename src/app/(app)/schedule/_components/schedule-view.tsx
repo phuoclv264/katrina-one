@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
@@ -65,6 +65,28 @@ export default function ScheduleView() {
     }, [currentDate]);
 
     const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
+
+    // --- Back button handling ---
+    useEffect(() => {
+        const dialogIsOpen = isAvailabilityDialogOpen || isPassRequestsDialogOpen;
+        const handler = (e: PopStateEvent) => {
+        if (dialogIsOpen) {
+            e.preventDefault();
+            setIsAvailabilityDialogOpen(false);
+            setIsPassRequestsDialogOpen(false);
+        }
+        };
+
+        if (dialogIsOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handler);
+        }
+
+        return () => {
+        window.removeEventListener('popstate', handler);
+        };
+    }, [isAvailabilityDialogOpen, isPassRequestsDialogOpen]);
+
 
     useEffect(() => {
         if (authLoading) return;
@@ -367,15 +389,16 @@ export default function ScheduleView() {
                                 <TableRow 
                                     key={dateKey} 
                                     className={cn(
+                                        "border-t",
                                         isSameDay(day, today) && "bg-primary/10",
                                         isBefore(day, today) && "bg-muted/30 text-muted-foreground"
                                     )}
                                 >
                                     <TableCell className="font-semibold align-middle text-center w-[30%]">
-                                        <p className="text-base">{format(day, 'dd/MM')}</p>
-                                        <p className="text-sm">{format(day, 'eeee', { locale: vi })}</p>
+                                        <p className="text-lg">{format(day, 'dd/MM')}</p>
+                                        <p className="text-base font-medium">{format(day, 'eeee', { locale: vi })}</p>
                                     </TableCell>
-                                    <TableCell className="align-middle text-center">
+                                    <TableCell className="align-middle text-center p-2 sm:p-4">
                                         {!isSchedulePublished ? (
                                              canRegisterAvailability && (
                                                 <Card className="bg-card transition-colors max-w-sm mx-auto hover:bg-accent/50">
@@ -399,30 +422,34 @@ export default function ScheduleView() {
                                             <div className="space-y-2 max-w-sm mx-auto">
                                                 {(shiftsForDay && shiftsForDay.length > 0) ? (
                                                     shiftsForDay.map(shift => (
-                                                        <div key={shift.id} className="bg-primary text-primary-foreground p-2 rounded-md text-sm relative group">
-                                                            <p className="font-bold">{shift.label}</p>
-                                                            <p className="text-xs">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
-                                                                        <MoreVertical className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent>
-                                                                    <AlertDialog>
-                                                                        <AlertDialogTrigger asChild>
-                                                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
-                                                                                <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
-                                                                            </DropdownMenuItem>
-                                                                        </AlertDialogTrigger>
-                                                                        <AlertDialogContent>
-                                                                            <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
-                                                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
-                                                                        </AlertDialogContent>
-                                                                    </AlertDialog>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </div>
+                                                        <Card key={shift.id} className="bg-primary text-primary-foreground text-left shadow-md">
+                                                            <CardContent className="p-3 flex items-center justify-between gap-2">
+                                                                <div>
+                                                                    <p className="font-bold text-base">{shift.label}</p>
+                                                                    <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
+                                                                </div>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground">
+                                                                            <MoreVertical className="h-5 w-5" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent>
+                                                                        <AlertDialog>
+                                                                            <AlertDialogTrigger asChild>
+                                                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
+                                                                                    <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                                </DropdownMenuItem>
+                                                                            </AlertDialogTrigger>
+                                                                            <AlertDialogContent>
+                                                                                <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                                <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                            </AlertDialogContent>
+                                                                        </AlertDialog>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </CardContent>
+                                                        </Card>
                                                     ))
                                                 ) : (
                                                     <p className="text-sm italic text-center">Không có ca</p>
@@ -462,3 +489,5 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
+    
