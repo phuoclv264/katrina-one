@@ -323,7 +323,7 @@ export default function ScheduleView() {
                 </div>
 
                 <div className="relative w-full sm:w-auto">
-                    <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
+                    <Button variant="secondary" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
                         <MailQuestion className="mr-2 h-4 w-4"/>
                         Yêu cầu Pass ca
                     </Button>
@@ -434,26 +434,28 @@ export default function ScheduleView() {
                                                                         <p className="font-bold text-base">{shift.label}</p>
                                                                         <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                                     </div>
-                                                                    <DropdownMenu>
-                                                                        <DropdownMenuTrigger asChild>
-                                                                            <Button variant="ghost" size="icon" className={cn("h-8 w-8", isPastShift ? "hover:bg-muted/80" : "text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground")}>
-                                                                                <MoreVertical className="h-5 w-5" />
-                                                                            </Button>
-                                                                        </DropdownMenuTrigger>
-                                                                        <DropdownMenuContent>
-                                                                            <AlertDialog>
-                                                                                <AlertDialogTrigger asChild>
-                                                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
-                                                                                        <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
-                                                                                    </DropdownMenuItem>
-                                                                                </AlertDialogTrigger>
-                                                                                <AlertDialogContent>
-                                                                                    <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
-                                                                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
-                                                                                </AlertDialogContent>
-                                                                            </AlertDialog>
-                                                                        </DropdownMenuContent>
-                                                                    </DropdownMenu>
+                                                                    {!isPastShift && (
+                                                                        <DropdownMenu>
+                                                                            <DropdownMenuTrigger asChild>
+                                                                                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground h-8 w-8">
+                                                                                    <MoreVertical className="h-5 w-5" />
+                                                                                </Button>
+                                                                            </DropdownMenuTrigger>
+                                                                            <DropdownMenuContent>
+                                                                                <AlertDialog>
+                                                                                    <AlertDialogTrigger asChild>
+                                                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
+                                                                                            <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                                        </DropdownMenuItem>
+                                                                                    </AlertDialogTrigger>
+                                                                                    <AlertDialogContent>
+                                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                                    </AlertDialogContent>
+                                                                                </AlertDialog>
+                                                                            </DropdownMenuContent>
+                                                                        </DropdownMenu>
+                                                                    )}
                                                                 </CardContent>
                                                             </Card>
                                                         )
@@ -500,6 +502,7 @@ export default function ScheduleView() {
     
 
     
+
 
 
 
