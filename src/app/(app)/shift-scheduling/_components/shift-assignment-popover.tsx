@@ -165,11 +165,13 @@ export default function ShiftAssignmentDialog({
           </div>
            <div className="flex flex-col items-end gap-1">
              {isSelected ? (
-                <CheckCircle className="h-5 w-5 text-primary" />
+                <>
+                    <CheckCircle className="h-5 w-5 text-primary" />
+                    {!isAvailable && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Chọn dù bận</Badge>}
+                </>
              ) : (
-                conflict && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Trùng ca</Badge>
+                conflict ? <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Trùng ca</Badge> : (!isAvailable && <Badge variant="outline" className="text-xs">Bận</Badge>)
              )}
-            {!isAvailable && !isSelected && <Badge variant="outline" className="text-xs">Bận</Badge>}
            </div>
         </CardContent>
       </Card>
