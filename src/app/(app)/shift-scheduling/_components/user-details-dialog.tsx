@@ -19,6 +19,8 @@ import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Clock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[] }) {
     if (weekAvailability.length === 0) {
@@ -56,6 +58,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
     const userShiftsByDate = useMemo(() => {
         const shiftsMap = new Map<string, { label: string; timeSlot: string }[]>();
         allSchedules.forEach(schedule => {
+            if (schedule.status !== 'published') return; // Only count published shifts
             schedule.shifts.forEach(shift => {
                 if (shift.assignedUsers.some(u => u.userId === user.uid)) {
                     const dateKey = shift.date;
@@ -77,6 +80,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
         const monthEnd = endOfMonth(date);
         const shiftsThisMonth = allSchedules.flatMap(s => s.shifts)
             .filter(shift => {
+                if(s.status !== 'published') return false;
                 const shiftDate = new Date(shift.date);
                 return shift.assignedUsers.some(u => u.userId === user.uid) &&
                        shiftDate >= monthStart && shiftDate <= monthEnd;
@@ -95,39 +99,61 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                 </CardHeader>
             </Card>
              <div className="flex justify-center">
-                <Calendar
-                    mode="single"
-                    month={date}
-                    onMonthChange={setDate}
-                    selected={new Date()} // Dummy date
-                    className="rounded-md border p-0"
-                    classNames={{
-                        head_cell: "w-full",
-                        day: "h-14 w-full",
-                        day_selected: "",
-                        day_today: "bg-accent text-accent-foreground",
-                    }}
-                    components={{
-                        DayContent: ({ date: dayDate }) => {
-                            const dateKey = format(dayDate, 'yyyy-MM-dd');
-                            const shifts = userShiftsByDate.get(dateKey);
-                            return (
-                                <div className="flex flex-col h-full w-full p-1 text-xs text-left">
-                                    <div className={cn("self-start", isSameDay(dayDate, new Date()) && "font-bold")}>{format(dayDate, 'd')}</div>
-                                    {shifts && (
-                                        <div className="flex-grow mt-1 space-y-0.5 overflow-y-auto">
-                                            {shifts.map((shift, i) => 
-                                                <div key={i} className="bg-primary/20 rounded-sm px-1 truncate text-[10px] leading-tight">
-                                                    {shift.label}
+                 <TooltipProvider>
+                    <Calendar
+                        mode="single"
+                        month={date}
+                        onMonthChange={setDate}
+                        selected={new Date()} // Dummy date
+                        className="rounded-md border p-0"
+                        classNames={{
+                            head_cell: "w-full",
+                            day: "h-16 w-full",
+                            day_selected: "",
+                            day_today: "bg-accent text-accent-foreground",
+                        }}
+                        components={{
+                            DayContent: ({ date: dayDate }) => {
+                                const dateKey = format(dayDate, 'yyyy-MM-dd');
+                                const shifts = userShiftsByDate.get(dateKey);
+                                
+                                const dayContent = (
+                                    <div className="flex flex-col h-full w-full p-1 text-xs text-left">
+                                        <div className={cn("self-start", isSameDay(dayDate, new Date()) && "font-bold")}>{format(dayDate, 'd')}</div>
+                                        {shifts && (
+                                            <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
+                                                {shifts.map((shift, i) => 
+                                                    <Badge key={i} variant="secondary" className="w-full justify-start truncate text-[10px] leading-tight font-normal">
+                                                        {shift.label}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+
+                                if (shifts && shifts.length > 0) {
+                                    return (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                {dayContent}
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <div className="space-y-1 text-sm">
+                                                    {shifts.map((shift, i) => (
+                                                        <p key={i}><span className="font-semibold">{shift.label}:</span> {shift.timeSlot}</p>
+                                                    ))}
                                                 </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        }
-                    }}
-                />
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    );
+                                }
+                                
+                                return dayContent;
+                            }
+                        }}
+                    />
+                 </TooltipProvider>
             </div>
         </div>
     );
@@ -163,7 +189,7 @@ export default function UserDetailsDialog({
                             <TabsTrigger value="availability"><Clock className="mr-2 h-4 w-4" /> Thời gian rảnh (Tuần này)</TabsTrigger>
                             <TabsTrigger value="history">Lịch sử làm việc</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="availability" className="mt-4 max-h-[50vh] overflow-y-auto pr-2">
+                        <TabsContent value="availability" className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
                             <AvailabilityTab weekAvailability={weekAvailability} />
                         </TabsContent>
                         <TabsContent value="history" className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
@@ -175,3 +201,4 @@ export default function UserDetailsDialog({
         </Dialog>
     );
 }
+
