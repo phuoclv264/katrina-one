@@ -372,12 +372,12 @@ export default function ScheduleView() {
                         <CardContent>
                              {/* Desktop View */}
                             <div className="overflow-x-auto hidden md:block">
-                                <Table className="table-fixed w-full">
+                                <Table className="table-fixed w-full border">
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-36 font-bold">Ngày</TableHead>
+                                            <TableHead className="w-36 font-bold text-center">Ngày</TableHead>
                                             {shiftTemplates.map(template => (
-                                                <TableHead key={template.id} className="text-center font-bold">
+                                                <TableHead key={template.id} className="text-center font-bold border-l">
                                                     <p>{template.label}</p>
                                                     <p className="text-xs text-muted-foreground font-normal">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                 </TableHead>
@@ -388,24 +388,24 @@ export default function ScheduleView() {
                                         {daysOfWeek.map(day => {
                                             const dateKey = format(day, 'yyyy-MM-dd');
                                             return (
-                                            <TableRow key={dateKey}>
-                                                <TableCell className="font-semibold align-top">
+                                            <TableRow key={dateKey} className="border-t">
+                                                <TableCell className="font-semibold align-top text-center">
                                                     <p>{format(day, 'eee, dd/MM', { locale: vi })}</p>
                                                 </TableCell>
                                                 {shiftTemplates.map(template => {
                                                     const dayOfWeek = getDay(day);
 
                                                     if (!(template.applicableDays || []).includes(dayOfWeek)) {
-                                                        return <TableCell key={template.id} className="bg-muted/30" />;
+                                                        return <TableCell key={template.id} className="bg-muted/30 border-l" />;
                                                     }
                                                     
                                                     const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                     const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
-                                                    if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30" />;
+                                                    if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30 border-l" />;
 
                                                     return (
-                                                        <TableCell key={template.id} className="p-1 align-top h-28 text-center">
+                                                        <TableCell key={template.id} className="p-1 align-top h-28 text-center border-l">
                                                             <Button 
                                                                 variant="ghost" 
                                                                 className="h-full w-full flex flex-col items-center justify-center p-1 group"
@@ -450,8 +450,8 @@ export default function ScheduleView() {
                                         const shiftsForDay = localSchedule?.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
                                         
                                         return (
-                                            <AccordionItem value={dateKey} key={dateKey}>
-                                                <AccordionTrigger className="font-semibold text-base p-4 bg-muted/50 rounded-md">
+                                            <AccordionItem value={dateKey} key={dateKey} className="border-b">
+                                                <AccordionTrigger className="font-semibold text-base p-4 bg-muted/30 rounded-t-md">
                                                      <div className="flex flex-col items-start text-left">
                                                         <span>{format(day, 'eeee, dd/MM', { locale: vi })}</span>
                                                          {openMobileDays.includes(dateKey) ? null : (
@@ -466,7 +466,7 @@ export default function ScheduleView() {
                                                      </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent className="pt-2">
-                                                    <div className="space-y-3 p-2">
+                                                    <div className="space-y-3 p-2 border border-t-0 rounded-b-md">
                                                         {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
                                                             const shiftForCell = localSchedule?.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                             const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
@@ -474,7 +474,7 @@ export default function ScheduleView() {
                                                             if (!shiftObject) return null;
 
                                                             return (
-                                                                <div key={template.id} className="p-3 border rounded-md">
+                                                                <div key={template.id} className="p-3 border rounded-md bg-card">
                                                                     <div className="flex justify-between items-start gap-2">
                                                                         <div>
                                                                             <p className="font-semibold">{template.label}</p>
@@ -486,7 +486,9 @@ export default function ScheduleView() {
                                                                             size="sm"
                                                                             onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                             disabled={!canEditSchedule}
+                                                                            className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900"
                                                                         >
+                                                                            <UserPlus className="mr-2 h-4 w-4" />
                                                                             Phân công
                                                                         </Button>
                                                                     </div>
@@ -511,7 +513,7 @@ export default function ScheduleView() {
                              </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                            <div className="flex gap-2">
+                            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
                                     <>
                                         <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
