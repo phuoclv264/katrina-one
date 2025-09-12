@@ -154,11 +154,15 @@ export default function ShiftAssignmentDialog({
                                         onClick={() => handleSelectUser(user.uid)}
                                     >
                                         <div className="flex items-center w-full">
-                                        <div className="flex-1">
+                                            <div className="flex-1">
                                                 <p className="font-semibold">{user.displayName}</p>
                                                 <p className="text-xs">{user.role}</p>
-                                        </div>
-                                        {isSelected && <Badge variant="destructive">Chọn dù bận</Badge>}
+                                            </div>
+                                            {isSelected ? (
+                                                <Badge variant="destructive">Chọn dù bận</Badge>
+                                            ) : (
+                                                <Badge variant="outline">Bận</Badge>
+                                            )}
                                         </div>
                                     </Button>
                                 );
