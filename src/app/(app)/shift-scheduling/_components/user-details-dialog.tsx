@@ -108,7 +108,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
     }, [userShiftsByDate]);
 
     const totalHoursThisMonth = useMemo(() => {
-        const publishedSchedules = schedules.filter(schedule => schedule.status === 'published');
+        const publishedSchedules = schedules.filter(s => s.status === 'published');
         const shiftsThisMonth = publishedSchedules.flatMap(s => s.shifts)
             .filter(shift => {
                 const shiftDate = new Date(shift.date);
@@ -229,7 +229,7 @@ export default function UserDetailsDialog({
                 </DialogHeader>
                 <div className="py-4">
                     <Tabs defaultValue="availability">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-2 h-auto">
                             <TabsTrigger value="availability" className="whitespace-normal"><Clock className="mr-2 h-4 w-4" /> Thời gian rảnh</TabsTrigger>
                             <TabsTrigger value="history" className="whitespace-normal">Lịch sử làm việc</TabsTrigger>
                         </TabsList>
