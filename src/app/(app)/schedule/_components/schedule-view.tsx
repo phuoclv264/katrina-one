@@ -273,23 +273,15 @@ export default function ScheduleView() {
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     const pendingRequestCount = useMemo(() => {
-        if (!user) return 0;
+        if (!notifications) return 0;
         return notifications.filter(n => {
-            if (n.type !== 'pass_request' || n.status !== 'pending' || n.payload.requestingUser.userId === user.uid) return false;
+            if (n.type !== 'pass_request' || n.status !== 'pending') return false;
             
             // Filter by current week
             const shiftDate = parseISO(n.payload.shiftDate);
-            if (!isWithinInterval(shiftDate, weekInterval)) {
-                return false;
-            }
-            
-            const payload = n.payload;
-            const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
-            const hasDeclined = (payload.declinedBy || []).includes(user.uid);
-            
-            return !isDifferentRole && !hasDeclined;
+            return isWithinInterval(shiftDate, weekInterval);
         }).length;
-    }, [notifications, user, weekInterval]);
+    }, [notifications, weekInterval]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
         return notifications.some(n => n.payload.shiftId === shiftId && n.status === 'pending');
@@ -496,4 +488,5 @@ export default function ScheduleView() {
     
 
     
+
 
