@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser } from '@/lib/types';
 import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Card, CardContent } from '@/components/ui/card';
 
 type PassRequestsDialogProps = {
   isOpen: boolean;
@@ -218,13 +219,21 @@ export default function PassRequestsDialog({
                             const payload = notification.payload;
                             const isMyRequest = payload.requestingUser.userId === currentUser.uid;
                             return (
-                                <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                                    <div className="flex-1">
-                                        <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                                        <p className="text-sm text-muted-foreground">{isMyRequest ? 'Yêu cầu của bạn' : `Yêu cầu từ ${payload.requestingUser.userName}`} - {format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-                                    </div>
-                                    {renderRequestActions(notification)}
-                                </div>
+                                <Card key={notification.id} className="border-primary border-2">
+                                    <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
+                                        <div className="space-y-2">
+                                            <p className="font-bold text-lg">{payload.shiftLabel}</p>
+                                            <div className="text-sm text-muted-foreground space-y-1">
+                                                <p className="flex items-center gap-2"><Clock />{payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end}</p>
+                                                <p className="flex items-center gap-2"><Calendar />{format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+                                                <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />{isMyRequest ? 'Yêu cầu của bạn' : `Từ ${payload.requestingUser.userName}`}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-end">
+                                            {renderRequestActions(notification)}
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             )
                         })}
                         </div>
@@ -245,15 +254,21 @@ export default function PassRequestsDialog({
                             const payload = notification.payload;
                             const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
                             return (
-                                <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                                    <div className="flex-1">
-                                        <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                                        <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
-                                        {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
-                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>}
-                                    </div>
-                                    {renderRequestActions(notification)}
-                                </div>
+                                <Card key={notification.id}>
+                                    <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
+                                        <div className="space-y-2">
+                                            <p className="font-medium">{payload.shiftLabel} <span className="text-sm text-muted-foreground">({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</span></p>
+                                            <div className="text-sm text-muted-foreground space-y-1">
+                                                 <p className="flex items-center gap-2"><UserIcon />{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
+                                            </div>
+                                            {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
+                                            {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>}
+                                        </div>
+                                        <div className="flex items-end">
+                                            {renderRequestActions(notification)}
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             )
                         })}
                         </div>
@@ -273,3 +288,5 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
+
+    
