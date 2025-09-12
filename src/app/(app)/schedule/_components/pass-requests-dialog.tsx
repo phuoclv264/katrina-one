@@ -86,10 +86,9 @@ export default function PassRequestsDialog({
   }, [isOpen, onClose, showCancelConfirm, showRevertConfirm]);
 
 
-  const { myRequests, otherPendingRequests, completedRequests } = useMemo(() => {
-    const myReqs: Notification[] = [];
-    const otherReqs: Notification[] = [];
-    const completed: Notification[] = [];
+  const { pendingRequests, historicalRequests } = useMemo(() => {
+    const pending: Notification[] = [];
+    const historical: Notification[] = [];
 
     const weekFilteredNotifications = notifications.filter(notification => {
         if (notification.type !== 'pass_request') return false;
@@ -99,36 +98,43 @@ export default function PassRequestsDialog({
 
     weekFilteredNotifications.forEach(notification => {
       const payload = notification.payload;
-      
       const isMyRequest = payload.requestingUser.userId === currentUser.uid;
 
-      if (isMyRequest) {
-        myReqs.push(notification);
-      } 
-      
-      if (notification.status === 'pending' && !isMyRequest) {
+      if (notification.status === 'pending') {
+         // Show my own pending requests
+         if (isMyRequest) {
+            pending.push(notification);
+            return;
+         }
+         // For others' requests, check if eligible to see
          const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
          const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
          if (!isDifferentRole && !hasDeclined) {
-            otherReqs.push(notification);
+            pending.push(notification);
          }
-      }
-      
-      if (canManage && (notification.status === 'resolved' || notification.status === 'cancelled')) {
-          completed.push(notification);
+      } else { // 'resolved' or 'cancelled'
+        if(isMyRequest || canManage) {
+            historical.push(notification);
+        }
       }
     });
 
-    myReqs.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-    otherReqs.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-    completed.sort((a,b) => {
+    // Sort pending requests by shift time (earliest first)
+    pending.sort((a,b) => {
+        const dateA = new Date(`${a.payload.shiftDate}T${a.payload.shiftTimeSlot.start}`);
+        const dateB = new Date(`${b.payload.shiftDate}T${b.payload.shiftTimeSlot.start}`);
+        return dateA.getTime() - dateB.getTime();
+    });
+
+    // Sort historical requests by when they were created/resolved (newest first)
+    historical.sort((a,b) => {
         const timeA = a.resolvedAt || a.createdAt;
         const timeB = b.resolvedAt || b.createdAt;
         return new Date(timeB as string).getTime() - new Date(timeA as string).getTime();
     });
 
 
-    return { myRequests: myReqs, otherPendingRequests: otherReqs, completedRequests: completed };
+    return { pendingRequests: pending, historicalRequests: historical };
   }, [notifications, currentUser, canManage, weekInterval]);
   
   const renderRequestActions = (notification: Notification) => {
@@ -191,15 +197,6 @@ export default function PassRequestsDialog({
       return null;
   }
   
-  const firstListTitle = canManage ? 'Yêu cầu đang chờ xử lý' : 'Yêu cầu từ người khác';
-  const secondListTitle = canManage ? 'Lịch sử yêu cầu đã xử lý' : 'Yêu cầu của bạn';
-
-  const firstList = canManage ? otherPendingRequests : otherPendingRequests;
-  const secondList = canManage ? completedRequests : myRequests;
-  
-  const firstListEmptyMessage = canManage ? "Không có yêu cầu nào đang chờ trong tuần này." : "Không có yêu cầu nào phù hợp trong tuần này.";
-  const secondListEmptyMessage = canManage ? "Chưa có yêu cầu nào được xử lý trong tuần này." : "Bạn không có yêu cầu nào trong tuần này.";
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -212,21 +209,19 @@ export default function PassRequestsDialog({
         <ScrollArea className="max-h-[60vh] -mx-6 px-6">
             <div className="space-y-6">
                 
-                 {/* Other's Requests (for staff) / All Pending (for manager) */}
+                 {/* All Pending Requests */}
                 <div>
-                    <h3 className="font-semibold mb-2">{secondListTitle}</h3>
-                    {secondList.length > 0 ? (
+                    <h3 className="font-semibold mb-2">Yêu cầu đang chờ xử lý</h3>
+                    {pendingRequests.length > 0 ? (
                         <div className="space-y-3">
-                        {secondList.map(notification => {
+                        {pendingRequests.map(notification => {
                             const payload = notification.payload;
+                            const isMyRequest = payload.requestingUser.userId === currentUser.uid;
                             return (
                                 <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                                     <div className="flex-1">
                                         <p className="font-medium">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                                        <p className="text-sm text-muted-foreground">{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-                                        {notification.status === 'pending' && <Badge variant="secondary" className="mt-1">Đang chờ</Badge>}
-                                        {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-600">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
-                                        {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy</Badge>}
+                                        <p className="text-sm text-muted-foreground">{isMyRequest ? 'Yêu cầu của bạn' : `Yêu cầu từ ${payload.requestingUser.userName}`} - {format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
                                     </div>
                                     {renderRequestActions(notification)}
                                 </div>
@@ -236,19 +231,19 @@ export default function PassRequestsDialog({
                     ) : (
                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <Info className="h-4 w-4"/>
-                            <span>{secondListEmptyMessage}</span>
+                            <span>Không có yêu cầu nào đang chờ trong tuần này.</span>
                         </div>
                     )}
                 </div>
 
-                 {/* My Requests (for staff) / Completed (for manager) */}
+                 {/* Historical Requests */}
                 <div>
-                    <h3 className="font-semibold mb-2">{firstListTitle}</h3>
-                    {firstList.length > 0 ? (
+                    <h3 className="font-semibold mb-2">Lịch sử yêu cầu</h3>
+                    {historicalRequests.length > 0 ? (
                         <div className="space-y-3">
-                        {firstList.map(notification => {
+                        {historicalRequests.map(notification => {
                             const payload = notification.payload;
-                             const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
+                            const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
                             return (
                                 <div key={notification.id} className="p-3 border rounded-md flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                                     <div className="flex-1">
@@ -265,7 +260,7 @@ export default function PassRequestsDialog({
                     ) : (
                          <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
                             <AlertCircle className="h-4 w-4"/>
-                            <span>{firstListEmptyMessage}</span>
+                            <span>Không có lịch sử yêu cầu nào cho tuần này.</span>
                          </div>
                     )}
                 </div>
