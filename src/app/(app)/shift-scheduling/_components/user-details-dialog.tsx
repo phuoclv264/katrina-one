@@ -108,7 +108,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                         className="rounded-md border p-0"
                         classNames={{
                             head_cell: "w-full",
-                            day: "h-16 w-full",
+                            day: "h-24 w-full",
                             day_selected: "",
                             day_today: "bg-accent text-accent-foreground",
                         }}
@@ -121,11 +121,12 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                                     <div className="flex flex-col h-full w-full p-1 text-xs text-left">
                                         <div className={cn("self-start", isSameDay(dayDate, new Date()) && "font-bold")}>{format(dayDate, 'd')}</div>
                                         {shifts && (
-                                            <div className="flex-grow mt-1 space-y-0.5 overflow-hidden">
+                                            <div className="flex-grow mt-1 space-y-0.5 overflow-y-auto">
                                                 {shifts.map((shift, i) => 
-                                                    <Badge key={i} variant="secondary" className="w-full justify-start truncate text-[10px] leading-tight font-normal">
-                                                        {shift.label}
-                                                    </Badge>
+                                                    <div key={i} className="bg-primary/20 text-primary-foreground rounded-sm px-1.5 py-0.5 leading-tight">
+                                                        <p className="font-semibold text-[11px] truncate">{shift.label}</p>
+                                                        <p className="text-[10px] opacity-80">{shift.timeSlot}</p>
+                                                    </div>
                                                 )}
                                             </div>
                                         )}
@@ -135,9 +136,7 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                                 if (shifts && shifts.length > 0) {
                                     return (
                                         <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                {dayContent}
-                                            </TooltipTrigger>
+                                            <TooltipTrigger className="h-full w-full">{dayContent}</TooltipTrigger>
                                             <TooltipContent>
                                                 <div className="space-y-1 text-sm">
                                                     {shifts.map((shift, i) => (
@@ -176,7 +175,7 @@ export default function UserDetailsDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>
                     <DialogDescription>
@@ -192,7 +191,7 @@ export default function UserDetailsDialog({
                         <TabsContent value="availability" className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
                             <AvailabilityTab weekAvailability={weekAvailability} />
                         </TabsContent>
-                        <TabsContent value="history" className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
+                        <TabsContent value="history" className="mt-4 max-h-[70vh] overflow-y-auto pr-2">
                             <HistoryTab user={user} allSchedules={allSchedules} />
                         </TabsContent>
                     </Tabs>
