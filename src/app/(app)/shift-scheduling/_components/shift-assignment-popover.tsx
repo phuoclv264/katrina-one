@@ -13,10 +13,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User, CheckCircle } from 'lucide-react';
-import type { AssignedShift, Availability, ManagedUser } from '@/lib/types';
+import type { AssignedShift, Availability, ManagedUser, UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { isUserAvailable } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { format, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
@@ -25,6 +27,13 @@ type ShiftAssignmentDialogProps = {
   onSave: (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => void;
   isOpen: boolean;
   onClose: () => void;
+};
+
+const roleOrder: Record<UserRole, number> = {
+    'Phục vụ': 1,
+    'Pha chế': 2,
+    'Quản lý': 3,
+    'Chủ nhà hàng': 4, // Should not be assigned, but included for completeness
 };
 
 export default function ShiftAssignmentDialog({
@@ -44,20 +53,31 @@ export default function ShiftAssignmentDialog({
     }
   }, [isOpen, shift.assignedUsers]);
 
-  const usersAvailableForShift = useMemo(() => {
+  const sortedUsers = useMemo(() => {
     const shiftRole = shift.role;
     const roleFilteredUsers = allUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole);
-    
-    return roleFilteredUsers.map(user => ({
-        user,
-        isAvailable: isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)
-    })).sort((a, b) => {
-        // Prioritize available users
-        if (a.isAvailable && !b.isAvailable) return -1;
-        if (!a.isAvailable && b.isAvailable) return 1;
-        // Then sort by name
-        return a.user.displayName.localeCompare(b.user.displayName);
+
+    const availableUsers: ManagedUser[] = [];
+    const busyUsers: ManagedUser[] = [];
+
+    roleFilteredUsers.forEach(user => {
+      if (isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)) {
+        availableUsers.push(user);
+      } else {
+        busyUsers.push(user);
+      }
     });
+
+    const sortFn = (a: ManagedUser, b: ManagedUser) => {
+        const roleComparison = (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+        if (roleComparison !== 0) return roleComparison;
+        return a.displayName.localeCompare(b.displayName, 'vi');
+    };
+
+    availableUsers.sort(sortFn);
+    busyUsers.sort(sortFn);
+
+    return { availableUsers, busyUsers };
   }, [allUsers, shift.role, shift.timeSlot, dailyAvailability]);
 
   const handleSelectUser = (userId: string) => {
@@ -85,46 +105,70 @@ export default function ShiftAssignmentDialog({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-md">
             <DialogHeader>
-                <DialogTitle>Phân công ca: {shift.label}</DialogTitle>
+                <DialogTitle>Phân công: {shift.label}</DialogTitle>
                 <DialogDescription>
-                    Chọn nhân viên để thêm vào ca làm việc này. Chỉ những nhân viên có thời gian rảnh phù hợp mới được ưu tiên hiển thị.
+                    {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })}
                 </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[50vh] pr-4">
-                <div className="space-y-2">
-                {usersAvailableForShift.map(({user, isAvailable}) => {
-                    const isSelected = selectedUserIds.has(user.uid);
-                    return (
-                         <Button
-                            key={user.uid}
-                            variant={isSelected ? "default" : "outline"}
-                            className={cn(
-                                "w-full justify-start h-auto p-3 text-left",
-                                !isAvailable && "opacity-50 line-through"
-                            )}
-                            onClick={() => handleSelectUser(user.uid)}
-                         >
-                            <div className="flex items-center w-full">
-                               <div className="flex-1">
-                                    <p className="font-semibold">{user.displayName}</p>
-                                    <p className="text-xs">{user.role}</p>
-                               </div>
-                                {isAvailable && isSelected && (
-                                    <CheckCircle className="h-5 w-5 text-primary-foreground"/>
-                                )}
-                                 {isAvailable && !isSelected && (
-                                    <div className="w-5 h-5"/>
-                                )}
-                                {!isAvailable && (
-                                     <Badge variant="destructive" className="text-xs">Bận</Badge>
-                                )}
+                <div className="space-y-4">
+                    {sortedUsers.availableUsers.length > 0 && (
+                        <div>
+                            <h4 className="text-sm font-semibold mb-2">Nhân viên rảnh</h4>
+                            <div className="space-y-2">
+                            {sortedUsers.availableUsers.map(user => {
+                                const isSelected = selectedUserIds.has(user.uid);
+                                return (
+                                    <Button
+                                        key={user.uid}
+                                        variant={isSelected ? "default" : "outline"}
+                                        className="w-full justify-start h-auto p-3 text-left"
+                                        onClick={() => handleSelectUser(user.uid)}
+                                    >
+                                        <div className="flex items-center w-full">
+                                        <div className="flex-1">
+                                                <p className="font-semibold">{user.displayName}</p>
+                                                <p className="text-xs">{user.role}</p>
+                                        </div>
+                                        {isSelected && (
+                                                <CheckCircle className="h-5 w-5 text-primary-foreground"/>
+                                        )}
+                                        </div>
+                                    </Button>
+                                );
+                            })}
                             </div>
-                         </Button>
-                    );
-                })}
-                {usersAvailableForShift.length === 0 && (
-                    <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào thuộc vai trò này.</p>
-                )}
+                        </div>
+                    )}
+                     {sortedUsers.busyUsers.length > 0 && (
+                        <div>
+                            <h4 className="text-sm font-semibold mb-2">Nhân viên bận hoặc chưa đăng ký</h4>
+                            <div className="space-y-2">
+                            {sortedUsers.busyUsers.map(user => {
+                                const isSelected = selectedUserIds.has(user.uid);
+                                return (
+                                    <Button
+                                        key={user.uid}
+                                        variant={isSelected ? "secondary" : "outline"}
+                                        className="w-full justify-start h-auto p-3 text-left opacity-70"
+                                        onClick={() => handleSelectUser(user.uid)}
+                                    >
+                                        <div className="flex items-center w-full">
+                                        <div className="flex-1">
+                                                <p className="font-semibold">{user.displayName}</p>
+                                                <p className="text-xs">{user.role}</p>
+                                        </div>
+                                        {isSelected && <Badge variant="destructive">Chọn dù bận</Badge>}
+                                        </div>
+                                    </Button>
+                                );
+                            })}
+                            </div>
+                        </div>
+                    )}
+                    {sortedUsers.availableUsers.length === 0 && sortedUsers.busyUsers.length === 0 && (
+                        <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào thuộc vai trò này.</p>
+                    )}
                 </div>
             </ScrollArea>
             <DialogFooter>
