@@ -583,23 +583,23 @@ export default function ScheduleView() {
                              </div>
                         </CardContent>
                          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                            <div className="w-full grid grid-cols-2 sm:flex sm:flex-row gap-2">
+                            <div className="w-full sm:w-auto flex items-center gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
-                                    <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)}>
+                                    <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)} className="flex-1 sm:flex-none">
                                         <Settings className="mr-2 h-4 w-4"/> Mẫu ca
                                     </Button>
                                 )}
-                                 <div className="relative w-full sm:w-auto">
-                                    <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
-                                        <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
-                                    </Button>
-                                     {pendingRequestCount > 0 && (
-                                        <div className="absolute -top-2 -right-2 flex h-5 w-5">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                            <Badge className="relative px-2">{pendingRequestCount}</Badge>
-                                        </div>
-                                    )}
-                                </div>
+                            </div>
+                             <div className="relative w-full sm:w-auto">
+                                <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
+                                    <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
+                                </Button>
+                                 {pendingRequestCount > 0 && (
+                                    <div className="absolute -top-2 -right-2 flex h-5 w-5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <Badge className="relative px-2">{pendingRequestCount}</Badge>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
