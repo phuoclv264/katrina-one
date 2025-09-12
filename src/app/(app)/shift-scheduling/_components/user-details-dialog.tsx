@@ -29,23 +29,38 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
     const sortedAvailability = weekAvailability.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return (
-        <div className="space-y-4">
-            {sortedAvailability.map(avail => (
-                <div key={avail.date}>
-                    <h4 className="font-semibold">{format(new Date(avail.date), 'eeee, dd/MM', { locale: vi })}</h4>
-                    {avail.availableSlots.length > 0 ? (
-                        <div className="mt-1 space-y-1">
-                            {avail.availableSlots.map((slot, index) => (
-                                <div key={index} className="text-sm bg-muted p-2 rounded-md">
-                                    {slot.start} - {slot.end}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground italic mt-1">Không có khung giờ rảnh.</p>
-                    )}
-                </div>
-            ))}
+        <div className="border rounded-md bg-card">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[35%] text-center">Ngày</TableHead>
+                        <TableHead className="text-center">Thời gian rảnh đã đăng ký</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sortedAvailability.map(avail => {
+                        if (avail.availableSlots.length === 0) return null;
+                        return (
+                            <TableRow key={avail.date}>
+                                <TableCell className="font-semibold text-base align-middle text-center">
+                                    {format(new Date(avail.date), 'eeee, dd/MM', { locale: vi })}
+                                </TableCell>
+                                <TableCell className="align-middle text-center p-2">
+                                     <div className="space-y-2 max-w-sm mx-auto">
+                                        {avail.availableSlots.map((slot, index) => (
+                                            <Card key={index} className="text-left bg-blue-100/60 dark:bg-blue-900/40">
+                                                <CardContent className="p-3">
+                                                    <p className="font-semibold text-sm text-center">{slot.start} - {slot.end}</p>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </TableBody>
+            </Table>
         </div>
     );
 }
@@ -157,9 +172,8 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
                             return (
                                 <TableRow key={dateKey}>
-                                    <TableCell className="font-semibold align-middle text-center">
-                                        <p className="text-base">{format(new Date(dateKey), 'dd/MM')}</p>
-                                        <p className="text-sm font-medium">{format(new Date(dateKey), 'eeee', { locale: vi })}</p>
+                                    <TableCell className="font-semibold text-base align-middle text-center">
+                                        <p>{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</p>
                                         <p className="text-xs text-muted-foreground font-normal">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
                                     </TableCell>
                                     <TableCell className="align-middle text-center p-2">
