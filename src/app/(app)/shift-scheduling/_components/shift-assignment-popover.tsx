@@ -166,7 +166,7 @@ export default function ShiftAssignmentDialog({
                                     <Button
                                         key={user.uid}
                                         variant={isSelected ? "default" : "outline"}
-                                        className="w-full justify-start h-auto p-3 text-left"
+                                        className="w-full justify-start h-auto p-3 text-left whitespace-normal"
                                         onClick={() => handleSelectUser(user)}
                                     >
                                         <div className="flex items-center w-full">
@@ -196,7 +196,7 @@ export default function ShiftAssignmentDialog({
                                     <Button
                                         key={user.uid}
                                         variant={isSelected ? "secondary" : "outline"}
-                                        className="w-full justify-start h-auto p-3 text-left opacity-70"
+                                        className="w-full justify-start h-auto p-3 text-left opacity-70 whitespace-normal"
                                         onClick={() => handleSelectUser(user)}
                                     >
                                         <div className="flex items-center w-full">
