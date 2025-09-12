@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -8,13 +7,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { Schedule, ManagedUser } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type TotalHoursTrackerProps = {
   schedule: Schedule | null;
   allUsers: ManagedUser[];
+  onUserClick: (user: ManagedUser) => void;
 };
 
-export default function TotalHoursTracker({ schedule, allUsers }: TotalHoursTrackerProps) {
+export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: TotalHoursTrackerProps) {
 
   const totalHoursByUser = useMemo(() => {
     if (!schedule) return new Map<string, number>();
@@ -68,18 +69,25 @@ export default function TotalHoursTracker({ schedule, allUsers }: TotalHoursTrac
           Số giờ làm dự kiến của mỗi nhân viên dựa trên lịch đã xếp.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         {sortedUsers.map(user => {
             const hours = totalHoursByUser.get(user.uid) || 0;
             const progressValue = (hours / maxHours) * 100;
             return (
-                <div key={user.uid}>
-                    <div className="flex justify-between mb-1 text-sm">
-                        <span className="font-medium">{user.displayName}</span>
-                        <span className="text-muted-foreground">{hours.toFixed(1)} giờ</span>
+                <Button 
+                    key={user.uid}
+                    variant="ghost"
+                    className="w-full h-auto p-2 text-left"
+                    onClick={() => onUserClick(user)}
+                >
+                    <div className="w-full">
+                        <div className="flex justify-between mb-1 text-sm">
+                            <span className="font-medium">{user.displayName}</span>
+                            <span className="text-muted-foreground">{hours.toFixed(1)} giờ</span>
+                        </div>
+                        <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
                     </div>
-                    <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
-                </div>
+                </Button>
             )
         })}
         {sortedUsers.length === 0 && (

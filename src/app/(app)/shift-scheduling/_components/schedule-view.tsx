@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -57,6 +56,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
+import UserDetailsDialog from './user-details-dialog';
 
 
 export default function ScheduleView() {
@@ -71,6 +71,7 @@ export default function ScheduleView() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
+    const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -84,6 +85,9 @@ export default function ScheduleView() {
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
     
+    const [isUserDetailsDialogOpen, setIsUserDetailsDialogOpen] = useState(false);
+    const [selectedUserForDetails, setSelectedUserForDetails] = useState<ManagedUser | null>(null);
+
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -106,7 +110,7 @@ export default function ScheduleView() {
 
     // --- Back button handling ---
     useEffect(() => {
-        const dialogIsOpen = isAssignmentDialogOpen || isTemplatesDialogOpen || isHistoryDialogOpen || isPassRequestsDialogOpen || showPublishConfirm || showRevertConfirm;
+        const dialogIsOpen = isAssignmentDialogOpen || isTemplatesDialogOpen || isHistoryDialogOpen || isPassRequestsDialogOpen || showPublishConfirm || showRevertConfirm || isUserDetailsDialogOpen;
         const handler = (e: PopStateEvent) => {
             if (dialogIsOpen) {
                 e.preventDefault();
@@ -116,6 +120,7 @@ export default function ScheduleView() {
                 setIsPassRequestsDialogOpen(false);
                 setShowPublishConfirm(false);
                 setShowRevertConfirm(false);
+                setIsUserDetailsDialogOpen(false);
             }
         };
 
@@ -127,7 +132,7 @@ export default function ScheduleView() {
         return () => {
             window.removeEventListener('popstate', handler);
         };
-    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm]);
+    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm, isUserDetailsDialogOpen]);
 
 
     useEffect(() => {
@@ -149,6 +154,8 @@ export default function ScheduleView() {
 
         const unsubNotifications = dataStore.subscribeToAllNotifications(setNotifications);
 
+        const unsubAllSchedules = dataStore.subscribeToAllSchedules(setAllSchedules);
+
         Promise.all([
             new Promise(resolve => setTimeout(() => resolve(true), 500)) 
         ]).then(() => setIsLoading(false));
@@ -159,6 +166,7 @@ export default function ScheduleView() {
             unsubUsers();
             unsubTemplates();
             unsubNotifications();
+            unsubAllSchedules();
         };
 
     }, [user, weekId, canManage]);
@@ -372,12 +380,15 @@ export default function ScheduleView() {
         return notifications.filter(n => {
             if (n.type !== 'pass_request' || n.status !== 'pending') return false;
             
-            // Filter by current week
             const shiftDate = parseISO(n.payload.shiftDate);
             return isWithinInterval(shiftDate, weekInterval);
         }).length;
     }, [notifications, weekInterval]);
 
+    const handleUserClick = (user: ManagedUser) => {
+        setSelectedUserForDetails(user);
+        setIsUserDetailsDialogOpen(true);
+    };
 
     if (isLoading) {
         return (
@@ -589,8 +600,11 @@ export default function ScheduleView() {
                                         <Settings className="mr-2 h-4 w-4"/> Mẫu ca
                                     </Button>
                                 )}
+                                <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)} className="flex-1 sm:flex-none">
+                                    <History className="mr-2 h-4 w-4"/> Lịch sử
+                                </Button>
                             </div>
-                             <div className="relative w-full sm:w-auto">
+                            <div className="relative w-full sm:w-auto">
                                 <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
                                     <MailQuestion className="mr-2 h-4 w-4"/> Yêu cầu Pass ca
                                 </Button>
@@ -630,7 +644,11 @@ export default function ScheduleView() {
                 </div>
                 {/* Side Panel */}
                 <div className="w-full xl:w-80 xl:sticky xl:top-4">
-                   <TotalHoursTracker schedule={localSchedule} allUsers={allUsers} />
+                   <TotalHoursTracker 
+                        schedule={localSchedule} 
+                        allUsers={allUsers}
+                        onUserClick={handleUserClick}
+                    />
                 </div>
             </div>
 
@@ -704,6 +722,16 @@ export default function ScheduleView() {
                 onRevert={handleRevertRequest}
                 onAssign={() => { /* TODO */ }}
             />
+            
+            {selectedUserForDetails && (
+                <UserDetailsDialog
+                    isOpen={isUserDetailsDialogOpen}
+                    onClose={() => setIsUserDetailsDialogOpen(false)}
+                    user={selectedUserForDetails}
+                    allSchedules={allSchedules}
+                    weekAvailability={localSchedule?.availability.filter(a => a.userId === selectedUserForDetails.uid) || []}
+                />
+            )}
 
             {user?.role === 'Chủ nhà hàng' && (
                 <>
