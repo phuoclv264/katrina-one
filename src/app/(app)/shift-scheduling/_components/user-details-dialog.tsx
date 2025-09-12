@@ -14,13 +14,14 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ManagedUser, Schedule, Availability } from '@/lib/types';
-import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, eachDayOfInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { calculateTotalHours } from '@/lib/schedule-utils';
-import { Clock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[] }) {
     if (weekAvailability.length === 0) {
@@ -53,12 +54,12 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
 }
 
 function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: Schedule[] }) {
-    const [date, setDate] = useState(new Date());
+    const [currentMonth, setCurrentMonth] = useState(new Date());
     
     const userShiftsByDate = useMemo(() => {
         const shiftsMap = new Map<string, { label: string; timeSlot: string }[]>();
         allSchedules.forEach(schedule => {
-            if (schedule.status !== 'published') return; // Only count published shifts
+            if (schedule.status !== 'published') return;
             schedule.shifts.forEach(shift => {
                 if (shift.assignedUsers.some(u => u.userId === user.uid)) {
                     const dateKey = shift.date;
@@ -74,10 +75,16 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
         });
         return shiftsMap;
     }, [allSchedules, user.uid]);
+    
+    const daysInMonth = useMemo(() => {
+        const start = startOfMonth(currentMonth);
+        const end = endOfMonth(currentMonth);
+        return eachDayOfInterval({ start, end });
+    }, [currentMonth]);
 
     const totalHoursThisMonth = useMemo(() => {
-        const monthStart = startOfMonth(date);
-        const monthEnd = endOfMonth(date);
+        const monthStart = startOfMonth(currentMonth);
+        const monthEnd = endOfMonth(currentMonth);
         const shiftsThisMonth = allSchedules.flatMap(s => s.shifts)
             .filter(shift => {
                 if(s.status !== 'published') return false;
@@ -86,73 +93,80 @@ function HistoryTab({ user, allSchedules }: { user: ManagedUser, allSchedules: S
                        shiftDate >= monthStart && shiftDate <= monthEnd;
             });
         return calculateTotalHours(shiftsThisMonth.map(s => s.timeSlot));
-    }, [allSchedules, user.uid, date]);
+    }, [allSchedules, user.uid, currentMonth]);
+    
+    const handleMonthChange = (direction: 'prev' | 'next') => {
+        setCurrentMonth(prev => {
+            const newMonth = new Date(prev);
+            newMonth.setMonth(newMonth.getMonth() + (direction === 'next' ? 1 : -1));
+            return newMonth;
+        });
+    };
 
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="p-4">
-                    <CardTitle className="text-base">Thống kê tháng {format(date, 'MM/yyyy')}</CardTitle>
-                    <CardDescription>
-                        Tổng giờ làm: <span className="font-bold text-primary">{totalHoursThisMonth.toFixed(1)} giờ</span>
-                    </CardDescription>
+                <CardHeader className="p-4 flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-base">Thống kê tháng {format(currentMonth, 'MM/yyyy')}</CardTitle>
+                        <CardDescription>
+                            Tổng giờ làm: <span className="font-bold text-primary">{totalHoursThisMonth.toFixed(1)} giờ</span>
+                        </CardDescription>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleMonthChange('next')}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </CardHeader>
             </Card>
-             <div className="flex justify-center">
-                 <TooltipProvider>
-                    <Calendar
-                        mode="single"
-                        month={date}
-                        onMonthChange={setDate}
-                        selected={new Date()} // Dummy date
-                        className="rounded-md border p-0"
-                        classNames={{
-                            head_cell: "w-full",
-                            day: "h-24 w-full",
-                            day_selected: "",
-                            day_today: "bg-accent text-accent-foreground",
-                        }}
-                        components={{
-                            DayContent: ({ date: dayDate }) => {
-                                const dateKey = format(dayDate, 'yyyy-MM-dd');
-                                const shifts = userShiftsByDate.get(dateKey);
-                                
-                                const dayContent = (
-                                    <div className="flex flex-col h-full w-full p-1 text-xs text-left">
-                                        <div className={cn("self-start", isSameDay(dayDate, new Date()) && "font-bold")}>{format(dayDate, 'd')}</div>
-                                        {shifts && (
-                                            <div className="flex-grow mt-1 space-y-0.5 overflow-y-auto">
-                                                {shifts.map((shift, i) => 
-                                                    <div key={i} className="bg-primary/20 text-primary-foreground rounded-sm px-1.5 py-0.5 leading-tight">
-                                                        <p className="font-semibold text-[11px] truncate">{shift.label}</p>
-                                                        <p className="text-[10px] opacity-80">{shift.timeSlot}</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
+            <div className="border rounded-md">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[150px]">Ngày</TableHead>
+                            <TableHead>Ca làm việc</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                       {daysInMonth.map(day => {
+                           const dateKey = format(day, 'yyyy-MM-dd');
+                           const shiftsForDay = userShiftsByDate.get(dateKey);
 
-                                if (shifts && shifts.length > 0) {
-                                    return (
-                                        <Tooltip>
-                                            <TooltipTrigger className="h-full w-full">{dayContent}</TooltipTrigger>
-                                            <TooltipContent>
-                                                <div className="space-y-1 text-sm">
-                                                    {shifts.map((shift, i) => (
-                                                        <p key={i}><span className="font-semibold">{shift.label}:</span> {shift.timeSlot}</p>
-                                                    ))}
+                           if (!shiftsForDay || shiftsForDay.length === 0) {
+                               return null; // Skip days with no shifts
+                           }
+
+                           return (
+                               <TableRow key={dateKey}>
+                                   <TableCell className="font-medium align-top">
+                                        {format(day, 'eeee, dd/MM', { locale: vi })}
+                                   </TableCell>
+                                   <TableCell>
+                                        <div className="flex flex-col gap-1">
+                                            {shiftsForDay.map((shift, index) => (
+                                                <div key={index} className="text-sm">
+                                                    <span className="font-semibold">{shift.label}:</span>
+                                                    <span className="text-muted-foreground ml-2">{shift.timeSlot}</span>
                                                 </div>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    );
-                                }
-                                
-                                return dayContent;
-                            }
-                        }}
-                    />
-                 </TooltipProvider>
+                                            ))}
+                                        </div>
+                                   </TableCell>
+                               </TableRow>
+                           )
+                       })}
+                        {totalHoursThisMonth === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={2} className="text-center text-muted-foreground h-24">
+                                    Không có ca làm việc nào trong tháng này.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </div>
         </div>
     );
@@ -200,4 +214,3 @@ export default function UserDetailsDialog({
         </Dialog>
     );
 }
-
