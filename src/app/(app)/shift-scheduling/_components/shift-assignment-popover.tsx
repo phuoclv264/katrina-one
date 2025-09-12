@@ -161,6 +161,7 @@ export default function ShiftAssignmentDialog({
                             <div className="space-y-2">
                             {sortedUsers.availableUsers.map(user => {
                                 const isSelected = selectedUserIds.has(user.uid);
+                                const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
                                 return (
                                     <Button
                                         key={user.uid}
@@ -169,13 +170,14 @@ export default function ShiftAssignmentDialog({
                                         onClick={() => handleSelectUser(user)}
                                     >
                                         <div className="flex items-center w-full">
-                                        <div className="flex-1">
+                                            <div className="flex-1">
                                                 <p className="font-semibold">{user.displayName}</p>
                                                 <p className="text-xs">{user.role}</p>
-                                        </div>
-                                        {isSelected && (
+                                            </div>
+                                            {conflict && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900">Trùng ca</Badge>}
+                                            {isSelected && !conflict && (
                                                 <CheckCircle className="h-5 w-5 text-primary-foreground"/>
-                                        )}
+                                            )}
                                         </div>
                                     </Button>
                                 );
@@ -189,6 +191,7 @@ export default function ShiftAssignmentDialog({
                             <div className="space-y-2">
                             {sortedUsers.busyUsers.map(user => {
                                 const isSelected = selectedUserIds.has(user.uid);
+                                const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
                                 return (
                                     <Button
                                         key={user.uid}
@@ -201,10 +204,11 @@ export default function ShiftAssignmentDialog({
                                                 <p className="font-semibold">{user.displayName}</p>
                                                 <p className="text-xs">{user.role}</p>
                                             </div>
+                                            {conflict && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900">Trùng ca</Badge>}
                                             {isSelected ? (
                                                 <Badge variant="destructive">Chọn dù bận</Badge>
                                             ) : (
-                                                <Badge variant="outline">Bận</Badge>
+                                                !conflict && <Badge variant="outline">Bận</Badge>
                                             )}
                                         </div>
                                     </Button>
