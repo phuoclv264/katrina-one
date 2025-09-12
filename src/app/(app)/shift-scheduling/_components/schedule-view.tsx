@@ -373,6 +373,16 @@ export default function ScheduleView() {
         }
     }
 
+    const handleAssignShift = (notification: Notification) => {
+        const shiftToAssign = localSchedule?.shifts.find(s => s.id === notification.payload.shiftId);
+        if (shiftToAssign) {
+            setActiveShift(shiftToAssign);
+            setIsAssignmentDialogOpen(true);
+        } else {
+             toast({ title: 'Lỗi', description: 'Không tìm thấy ca làm việc để chỉ định.', variant: 'destructive'});
+        }
+    }
+
     const pendingRequestCount = useMemo(() => {
         if (!notifications) return 0;
         // Manager sees all pending requests
@@ -712,7 +722,7 @@ export default function ScheduleView() {
                 onDecline={() => {}}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
-                onAssign={() => { /* TODO */ }}
+                onAssign={handleAssignShift}
             />
             
             {selectedUserForDetails && (
