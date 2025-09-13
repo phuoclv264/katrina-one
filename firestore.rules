@@ -1,13 +1,39 @@
-
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Allow read/write access to all documents for development purposes.
-    // IMPORTANT: These rules are insecure and should be replaced with
-    // proper authentication and authorization rules before production.
-    match /{document=**} {
-      allow read, write: if true;
+{
+  "rules": {
+    "users/{userId}": {
+      "allow read": "request.auth != null && request.auth.uid == userId",
+      "allow write": "request.auth != null && request.auth.uid == userId"
+    },
+    "reports/{reportId}": {
+      "allow read": "request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Quản lý', 'Chủ nhà hàng'])",
+      "allow create, update": "request.auth != null && request.resource.data.userId == request.auth.uid",
+      "allow delete": "request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Chủ nhà hàng'"
+    },
+    "inventory-reports/{reportId}": {
+      "allow get": "request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Quản lý', 'Chủ nhà hàng'])",
+      "allow list": "request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Quản lý', 'Chủ nhà hàng']",
+      "allow create, update": "request.auth != null"
+    },
+    "app-data/{docId}": {
+      "allow read": "request.auth != null",
+      "allow write": "request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Chủ nhà hàng'"
+    },
+    "errors/{errorId}": {
+      "allow create": true,
+      "allow read": "request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Chủ nhà hàng'"
+    },
+     "violations/{violationId}": {
+      "allow read": "request.auth != null",
+      "allow create": "request.auth != null",
+      "allow update": "request.auth != null && (resource.data.reporterId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Quản lý', 'Chủ nhà hàng'])",
+      "allow delete": "request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Chủ nhà hàng'"
+    },
+     "schedules/{weekId}": {
+      "allow read": "request.auth != null",
+      "allow write": "request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Quản lý', 'Chủ nhà hàng']"
+    },
+    "notifications/{notificationId}": {
+      "allow read, write": "request.auth != null"
     }
   }
 }
