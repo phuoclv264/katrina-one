@@ -235,8 +235,10 @@ export default function ScheduleView() {
 
     // Auto-populate shifts from templates
     useEffect(() => {
-        if (localSchedule && (localSchedule.status !== 'draft' || !shiftTemplates.length)) return;
+        if (localSchedule?.status === 'published' || !shiftTemplates.length) return;
 
+        const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+        
         const shiftsToAdd: AssignedShift[] = [];
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
         
@@ -246,7 +248,6 @@ export default function ScheduleView() {
 
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
-                    const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
                     const doesShiftExist = baseSchedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
                     if (!doesShiftExist) {
                         shiftsToAdd.push({
@@ -264,12 +265,6 @@ export default function ScheduleView() {
         });
 
         if (shiftsToAdd.length > 0) {
-            const baseSchedule = localSchedule ?? {
-                weekId,
-                status: 'draft',
-                availability: [],
-                shifts: [],
-            };
             const updatedShifts = [...baseSchedule.shifts, ...shiftsToAdd].sort((a, b) => {
                 if (a.date < b.date) return -1;
                 if (a.date > b.date) return 1;
@@ -605,11 +600,11 @@ export default function ScheduleView() {
                                                                         <span className="text-xs mt-1">Thêm</span>
                                                                     </div>
                                                                 ) : (
-                                                                     <div className="flex-grow flex flex-col items-center space-y-1 py-1 w-full">
+                                                                     <div className="flex-grow flex flex-col items-center justify-center space-y-1 py-1 w-full">
                                                                         {sortedAssignedUsers.map(assignedUser => {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                             return (
-                                                                            <Badge key={assignedUser.userId} variant="outline" className={cn("block w-full h-auto py-0.5 whitespace-normal", getRoleColor(userRole))}>
+                                                                            <Badge key={assignedUser.userId} variant="outline" className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
                                                                                 {abbreviateName(assignedUser.userName)}
                                                                             </Badge>
                                                                         )})}
@@ -637,20 +632,38 @@ export default function ScheduleView() {
                                         const dateKey = format(day, 'yyyy-MM-dd');
                                         const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
                                         const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
-                                        const shiftsForDay = schedule.shifts.filter(s => s.date === dateKey && s.assignedUsers.length > 0) || [];
+                                        const shiftsForDay = applicableTemplates.map(template => {
+                                            return schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id) ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
+                                        }).filter(Boolean) as AssignedShift[];
+
+                                        const dayHasAssignments = shiftsForDay.some(s => s.assignedUsers.length > 0);
                                         
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey} className="border-b">
                                                 <AccordionTrigger className="font-semibold text-base p-4 bg-muted/30 rounded-t-md">
-                                                     <div className="flex flex-col items-start text-left">
+                                                     <div className="flex flex-col items-start text-left w-full">
                                                         <span>{format(day, 'eeee, dd/MM', { locale: vi })}</span>
                                                          {openMobileDays.includes(dateKey) ? null : (
-                                                            <div className="mt-2 text-xs font-normal text-muted-foreground space-y-1">
-                                                                {shiftsForDay.length > 0 ? shiftsForDay.map(shift => (
-                                                                    <div key={shift.id}>
-                                                                        <span className="font-medium text-foreground">{shift.label}:</span> {shift.assignedUsers.map(u => u.userName).join(', ')}
-                                                                    </div>
-                                                                )) : <p>Chưa xếp lịch</p>}
+                                                            <div className="mt-2 text-xs font-normal text-muted-foreground space-y-1 w-full">
+                                                                {dayHasAssignments ? shiftsForDay.map(shift => {
+                                                                    if (shift.assignedUsers.length === 0) return null;
+                                                                    const sortedUsers = [...shift.assignedUsers].sort((a, b) => {
+                                                                        const userA = allUsers.find(u => u.uid === a.userId);
+                                                                        const userB = allUsers.find(u => u.uid === b.userId);
+                                                                        return (roleOrder[userA?.role as UserRole] || 99) - (roleOrder[userB?.role as UserRole] || 99);
+                                                                    });
+                                                                    return (
+                                                                        <div key={shift.id} className="flex gap-2 items-center">
+                                                                            <span className="font-medium text-foreground">{shift.label}:</span>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {sortedUsers.map(user => {
+                                                                                    const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
+                                                                                    return <Badge key={user.userId} variant="outline" className={cn('text-xs', getRoleColor(userRole))}>{user.userName}</Badge>
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )
+                                                                }) : <p>Chưa xếp lịch</p>}
                                                             </div>
                                                         )}
                                                      </div>
@@ -658,10 +671,15 @@ export default function ScheduleView() {
                                                 <AccordionContent className="pt-2">
                                                     <div className="space-y-3 p-2 border border-t-0 rounded-b-md">
                                                         {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
-                                                            const shiftForCell = schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
-                                                            const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
-
+                                                            const shiftObject = shiftsForDay.find(s => s.templateId === template.id);
                                                             if (!shiftObject) return null;
+                                                            
+                                                             const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
+                                                                const userA = allUsers.find(u => u.uid === a.userId);
+                                                                const userB = allUsers.find(u => u.uid === b.userId);
+                                                                if (!userA || !userB) return 0;
+                                                                return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                            });
 
                                                             return (
                                                                 <div key={template.id} className="p-3 border rounded-md bg-card">
@@ -683,11 +701,14 @@ export default function ScheduleView() {
                                                                         </Button>
                                                                     </div>
                                                                      <div className="flex flex-wrap gap-1 mt-2">
-                                                                        {shiftObject.assignedUsers.map(user => (
-                                                                            <Badge key={user.userId} variant="secondary">
-                                                                                {user.userName}
-                                                                            </Badge>
-                                                                        ))}
+                                                                        {sortedAssignedUsers.map(user => {
+                                                                            const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
+                                                                            return (
+                                                                                <Badge key={user.userId} variant="outline" className={cn(getRoleColor(userRole))}>
+                                                                                    {user.userName}
+                                                                                </Badge>
+                                                                            )
+                                                                        })}
                                                                     </div>
                                                                 </div>
                                                             );
