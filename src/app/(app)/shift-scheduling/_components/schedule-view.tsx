@@ -60,6 +60,28 @@ import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 import UserDetailsDialog from './user-details-dialog';
 
+// Helper function to abbreviate names
+const abbreviateName = (name: string): string => {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) {
+    return name;
+  }
+  const lastWord = parts[parts.length - 1];
+  const initials = parts
+    .slice(0, -1)
+    .map(part => `${part.charAt(0).toUpperCase()}.`)
+    .join('');
+  return `${initials}${lastWord}`;
+};
+
+const roleOrder: Record<UserRole, number> = {
+  'Phục vụ': 1,
+  'Pha chế': 2,
+  'Quản lý': 3,
+  'Chủ nhà hàng': 4,
+};
+
 
 export default function ScheduleView() {
     const { user } = useAuth();
@@ -458,10 +480,10 @@ export default function ScheduleView() {
 
     const getRoleColor = (role: UserRole | 'Bất kỳ'): string => {
         switch (role) {
-            case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200';
-            case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200';
+            case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
+            case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+            case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
         }
     };
 
@@ -562,6 +584,13 @@ export default function ScheduleView() {
 
                                                     if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30 border-l" />;
 
+                                                    const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
+                                                        const userA = allUsers.find(u => u.uid === a.userId);
+                                                        const userB = allUsers.find(u => u.uid === b.userId);
+                                                        if (!userA || !userB) return 0;
+                                                        return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                    });
+
                                                     return (
                                                         <TableCell key={template.id} className="p-1 align-top h-28 text-center border-l">
                                                             <Button 
@@ -577,11 +606,11 @@ export default function ScheduleView() {
                                                                     </div>
                                                                 ) : (
                                                                      <div className="flex-grow flex flex-col items-center space-y-1 py-1 w-full">
-                                                                        {shiftObject.assignedUsers.map(assignedUser => {
+                                                                        {sortedAssignedUsers.map(assignedUser => {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                             return (
                                                                             <Badge key={assignedUser.userId} variant="outline" className={cn("block w-full h-auto py-0.5 whitespace-normal", getRoleColor(userRole))}>
-                                                                                {assignedUser.userName}
+                                                                                {abbreviateName(assignedUser.userName)}
                                                                             </Badge>
                                                                         )})}
                                                                     </div>
