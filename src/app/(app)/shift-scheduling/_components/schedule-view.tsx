@@ -604,7 +604,7 @@ export default function ScheduleView() {
                                                                         {sortedAssignedUsers.map(assignedUser => {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                             return (
-                                                                            <Badge key={assignedUser.userId} variant="outline" className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
+                                                                            <Badge key={assignedUser.userId} className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
                                                                                 {abbreviateName(assignedUser.userName)}
                                                                             </Badge>
                                                                         )})}
@@ -658,7 +658,7 @@ export default function ScheduleView() {
                                                                             <div className="flex flex-wrap gap-1">
                                                                                 {sortedUsers.map(user => {
                                                                                     const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
-                                                                                    return <Badge key={user.userId} variant="outline" className={cn('text-xs', getRoleColor(userRole))}>{user.userName}</Badge>
+                                                                                    return <Badge key={user.userId} variant="outline" className={cn('text-xs', getRoleColor(userRole))}>{abbreviateName(user.userName)}</Badge>
                                                                                 })}
                                                                             </div>
                                                                         </div>
@@ -704,7 +704,7 @@ export default function ScheduleView() {
                                                                         {sortedAssignedUsers.map(user => {
                                                                             const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
                                                                             return (
-                                                                                <Badge key={user.userId} variant="outline" className={cn(getRoleColor(userRole))}>
+                                                                                <Badge key={user.userId} variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
                                                                                     {user.userName}
                                                                                 </Badge>
                                                                             )
