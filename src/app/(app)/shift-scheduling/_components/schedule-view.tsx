@@ -43,7 +43,7 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
@@ -65,8 +65,17 @@ export default function ScheduleView() {
     const { user } = useAuth();
     const { toast } = useToast();
     const isMobile = useIsMobile();
+    
+    const getInitialDate = () => {
+        const today = new Date();
+        const dayOfWeek = getDay(today); // Sunday = 0, Saturday = 6
+        if (dayOfWeek === 6 || dayOfWeek === 0) { // If it's Saturday or Sunday
+            return addDays(today, 7); // Show next week
+        }
+        return today; // Otherwise, show this week
+    };
 
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [currentDate, setCurrentDate] = useState(getInitialDate());
     
     const [serverSchedule, setServerSchedule] = useState<Schedule | null>(null);
     const [localSchedule, setLocalSchedule] = useState<Schedule | null>(null);
