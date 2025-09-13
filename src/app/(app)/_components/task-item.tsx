@@ -49,6 +49,8 @@ const TaskItemComponent = ({
 
   useEffect(() => {
     let isMounted = true;
+    const urlsToRevoke: string[] = [];
+
     const fetchLocalPhotos = async () => {
       const allLocalPhotoIds: string[] = [];
       completions.forEach(completion => {
@@ -62,15 +64,23 @@ const TaskItemComponent = ({
       });
   
       if (allLocalPhotoIds.length > 0) {
-        const urls = await photoStore.getPhotosAsBase64(allLocalPhotoIds);
+        const urls = await photoStore.getPhotosAsUrls(allLocalPhotoIds);
         if (isMounted) {
+          urls.forEach(url => urlsToRevoke.push(url));
           setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
+        } else {
+            // If component unmounted before state update, revoke immediately
+            urls.forEach(url => URL.revokeObjectURL(url));
         }
       }
     };
   
     fetchLocalPhotos();
-    return () => { isMounted = false; };
+    
+    return () => { 
+        isMounted = false; 
+        urlsToRevoke.forEach(url => URL.revokeObjectURL(url));
+    };
   }, [completions, localPhotoUrls]);
 
   const handleOpenLightbox = (allPhotosInTask: {src: string}[], currentPhotoUrl: string) => {
@@ -214,7 +224,13 @@ const TaskItemComponent = ({
                             variant="destructive"
                             size="icon"
                             className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                            onClick={(e) => { e.stopPropagation(); onDeletePhoto(task.id, cIndex, photoId, true); }}
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (photoUrl) {
+                                  URL.revokeObjectURL(photoUrl);
+                                }
+                                onDeletePhoto(task.id, cIndex, photoId, true); 
+                            }}
                         >
                             <X className="h-3 w-3" />
                             <span className="sr-only">Xóa ảnh</span>

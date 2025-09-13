@@ -51,7 +51,7 @@ export const photoStore = {
     return result?.blob;
   },
   
-  async getPhotosAsBase64(ids: string[]): Promise<Map<string, string>> {
+  async getPhotosAsUrls(ids: string[]): Promise<Map<string, string>> {
     const db = await getDb();
     const tx = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
@@ -59,26 +59,13 @@ export const photoStore = {
     
     const urlMap = new Map<string, string>();
     
-    const readerPromises = results.map(result => {
-        return new Promise<void>((resolve, reject) => {
-            if (result) {
-                const reader = new FileReader();
-                reader.readAsDataURL(result.blob);
-                reader.onloadend = () => {
-                    urlMap.set(result.id, reader.result as string);
-                    resolve();
-                };
-                reader.onerror = (error) => {
-                    console.error("FileReader error:", error);
-                    reject(error);
-                };
-            } else {
-                resolve(); // Resolve even if a photo is not found
-            }
-        });
+    results.forEach(result => {
+        if (result) {
+            const url = URL.createObjectURL(result.blob);
+            urlMap.set(result.id, url);
+        }
     });
 
-    await Promise.all(readerPromises);
     await tx.done;
     return urlMap;
   },
