@@ -296,7 +296,18 @@ export default function ChecklistPage() {
         handleOpinionClose();
     }
   
-    const handleCapturePhotos = useCallback((photoIds: string[]) => {
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTask(null);
+    setActiveCompletionIndex(null);
+  }, []);
+
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTask(null);
+  }, []);
+
+  const handleCapturePhotos = useCallback((photoIds: string[]) => {
         if (!activeTask) return;
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
@@ -479,17 +490,6 @@ export default function ChecklistPage() {
       }
   }
     
-  const handleCameraClose = useCallback(() => {
-    setIsCameraOpen(false);
-    setActiveTask(null);
-    setActiveCompletionIndex(null);
-  }, []);
-
-  const handleOpinionClose = useCallback(() => {
-    setIsOpinionOpen(false);
-    setActiveTask(null);
-  }, []);
-  
   const getSectionIcon = (title: string) => {
     switch(title) {
         case 'Đầu ca': return <Sunrise className="mr-3 h-5 w-5 text-yellow-500" />;
