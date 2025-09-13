@@ -49,27 +49,28 @@ const TaskItemComponent = ({
 
   useEffect(() => {
     let isMounted = true;
-    const fetchPhotos = async () => {
-      const allPhotoIds = new Set<string>();
+    const fetchLocalPhotos = async () => {
+      const allLocalPhotoIds: string[] = [];
       completions.forEach(completion => {
         if (completion.photoIds) {
           completion.photoIds.forEach(id => {
             if (!localPhotoUrls.has(id)) {
-              allPhotoIds.add(id);
+              allLocalPhotoIds.push(id);
             }
           });
         }
       });
-
-      if (allPhotoIds.size > 0) {
-        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
+  
+      if (allLocalPhotoIds.length > 0) {
+        const urls = await photoStore.getPhotosAsBase64(allLocalPhotoIds);
         if (isMounted) {
-           setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
+          setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
         }
       }
     };
-    fetchPhotos();
-    return () => { isMounted = false; }
+  
+    fetchLocalPhotos();
+    return () => { isMounted = false; };
   }, [completions, localPhotoUrls]);
 
   const handleOpenLightbox = (allPhotosInTask: {src: string}[], currentPhotoUrl: string) => {
@@ -241,5 +242,3 @@ const TaskItemComponent = ({
 };
 
 export const TaskItem = React.memo(TaskItemComponent);
-
-    
