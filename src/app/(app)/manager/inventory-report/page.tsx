@@ -9,15 +9,16 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryStockRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, Copy, ChevronsDownUp } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, Copy, ChevronsDownUp, RefreshCw, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
+import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -35,6 +36,7 @@ function ManagerInventoryReportView() {
   const [allReports, setAllReports] = useState<InventoryReport[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -160,6 +162,54 @@ function ManagerInventoryReportView() {
         });
     });
   };
+
+    const handleRegenerateSuggestions = async () => {
+        if (!reportToView) return;
+        setIsGenerating(true);
+        toast({
+            title: "Đang tạo lại đề xuất...",
+            description: "AI đang phân tích lại dữ liệu tồn kho."
+        });
+
+        try {
+            const itemsWithCurrentStock = inventoryList
+                .map(item => ({
+                    ...item,
+                    currentStock: reportToView.stockLevels[item.id] || { stock: 0 } as InventoryStockRecord
+                }))
+                .filter(({ currentStock }) => currentStock && (currentStock.stock !== undefined && String(currentStock.stock).trim() !== ''));
+
+            if (itemsWithCurrentStock.length === 0) {
+                 toast({
+                    title: "Không có dữ liệu",
+                    description: "Báo cáo này không có dữ liệu tồn kho hợp lệ để tạo đề xuất.",
+                    variant: "destructive"
+                });
+                return;
+            }
+
+            const result = await generateInventoryOrderSuggestion({ items: itemsWithCurrentStock });
+            
+            await dataStore.updateInventoryReportSuggestions(reportToView.id, result);
+
+            // Optimistically update local state to reflect the change
+            setSelectedReport(prev => prev ? { ...prev, suggestions: result } : null);
+
+            toast({
+                title: "Thành công!",
+                description: "Đã tạo lại và cập nhật đề xuất đặt hàng."
+            });
+        } catch (error) {
+            console.error("Error regenerating suggestions:", error);
+            toast({
+                title: "Lỗi",
+                description: "Không thể tạo lại đề xuất. Vui lòng thử lại.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
@@ -351,12 +401,16 @@ function ManagerInventoryReportView() {
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                         <span className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</span>
-                        {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
-                             <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
-                                <Copy className="mr-2 h-4 w-4"/>
-                                Sao chép
+                        <div className="flex items-center gap-1">
+                            {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
+                                <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
+                                    <Copy className="mr-2 h-4 w-4"/> Sao chép
+                                </Button>
+                            )}
+                            <Button size="icon" variant="ghost" onClick={handleRegenerateSuggestions} disabled={isGenerating}>
+                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
                             </Button>
-                        )}
+                        </div>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>

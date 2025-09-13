@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -24,7 +23,7 @@ import {
   or,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -829,6 +828,14 @@ export const dataStore = {
      if (typeof window !== 'undefined') {
        localStorage.removeItem(report.id);
     }
+  },
+
+  async updateInventoryReportSuggestions(reportId: string, suggestions: InventoryOrderSuggestion): Promise<void> {
+    const reportRef = doc(db, 'inventory-reports', reportId);
+    await updateDoc(reportRef, {
+        suggestions: suggestions,
+        lastUpdated: serverTimestamp(),
+    });
   },
 
   async deleteInventoryReport(reportId: string): Promise<void> {
