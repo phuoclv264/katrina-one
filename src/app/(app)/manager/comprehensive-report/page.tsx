@@ -202,6 +202,18 @@ export default function ComprehensiveReportPage() {
     });
   }, []);
 
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTaskId(null);
+    setActiveCompletionIndex(null);
+  }, []);
+  
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTaskId(null);
+    setActiveTaskText('');
+  }, []);
+
   const handlePhotoTaskAction = (taskId: string, completionIndex: number | null = null) => {
     setActiveTaskId(taskId);
     setActiveCompletionIndex(completionIndex);
@@ -465,18 +477,6 @@ export default function ComprehensiveReportPage() {
     });
   }, []);
     
-  const handleCameraClose = useCallback(() => {
-    setIsCameraOpen(false);
-    setActiveTaskId(null);
-    setActiveCompletionIndex(null);
-  }, []);
-  
-  const handleOpinionClose = useCallback(() => {
-    setIsOpinionOpen(false);
-    setActiveTaskId(null);
-    setActiveTaskText('');
-  }, []);
-  
   const openLightbox = (photoUrl: string) => {
     const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
     if (photoIndex > -1) {
@@ -831,4 +831,3 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
-
