@@ -1357,7 +1357,7 @@ export const dataStore = {
           id: doc.id,
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate().toISOString(),
+          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
         } as Violation);
       });
       callback(violations);
