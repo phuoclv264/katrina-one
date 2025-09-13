@@ -350,25 +350,32 @@ export default function ScheduleView() {
     };
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
-        if (!localSchedule) return;
-
-        // If trying to publish, ensure changes are saved first.
+        if (!localSchedule || !user) return;
+    
         if (newStatus === 'published' && hasUnsavedChanges) {
             if (!window.confirm("Bạn có thay đổi chưa lưu. Công bố sẽ lưu các thay đổi này và phát hành lịch. Bạn có muốn tiếp tục?")) {
                 return;
             }
         }
-        
+    
         setShowPublishConfirm(false);
         setShowRevertConfirm(false);
         setShowRevertProposedConfirm(false);
-
         setIsSubmitting(true);
+    
         try {
             const dataToUpdate = { ...localSchedule, status: newStatus };
             await dataStore.updateSchedule(weekId, dataToUpdate);
             toast({ title: 'Thành công!', description: `Đã cập nhật trạng thái lịch thành: ${newStatus}` });
-            setHasUnsavedChanges(false); // Changes are now saved
+            setHasUnsavedChanges(false);
+    
+            // If publishing as owner, create next week's draft
+            if (newStatus === 'published' && user.role === 'Chủ nhà hàng') {
+                const nextWeekDate = addDays(currentDate, 7);
+                await dataStore.createDraftScheduleForNextWeek(nextWeekDate, shiftTemplates);
+                toast({ title: 'Đã tạo lịch nháp', description: 'Lịch cho tuần kế tiếp đã được tự động tạo.' });
+            }
+    
         } catch (error) {
             console.error("Failed to update schedule status:", error);
             toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái lịch.', variant: 'destructive' });
@@ -564,7 +571,7 @@ export default function ScheduleView() {
                                                                         {shiftObject.assignedUsers.map(assignedUser => {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                             return (
-                                                                            <Badge key={assignedUser.userId} variant="outline" className={cn("block text-xs text-center w-full whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
+                                                                            <Badge key={assignedUser.userId} variant="outline" className={cn("block w-full h-auto py-0.5 whitespace-normal", getRoleColor(userRole))}>
                                                                                 {assignedUser.userName}
                                                                             </Badge>
                                                                         )})}

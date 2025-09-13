@@ -23,11 +23,11 @@ import {
   or,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays } from 'date-fns';
 
 
 const getTodaysDateKey = () => {
@@ -204,6 +204,55 @@ export const dataStore = {
     async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
         const docRef = doc(db, 'schedules', weekId);
         await setDoc(docRef, data, { merge: true });
+    },
+
+    async createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
+        const nextWeekDate = addDays(currentDate, 7);
+        const nextWeekId = `${nextWeekDate.getFullYear()}-W${getISOWeek(nextWeekDate)}`;
+    
+        const scheduleRef = doc(db, 'schedules', nextWeekId);
+        const scheduleSnap = await getDoc(scheduleRef);
+    
+        if (scheduleSnap.exists()) {
+            return; // Schedule already exists, do nothing.
+        }
+    
+        const startOfNextWeek = startOfWeek(nextWeekDate, { weekStartsOn: 1 });
+        const endOfNextWeek = endOfWeek(nextWeekDate, { weekStartsOn: 1 });
+        const daysInNextWeek = eachDayOfInterval({ start: startOfNextWeek, end: endOfNextWeek });
+    
+        const newShifts: AssignedShift[] = [];
+        daysInNextWeek.forEach(day => {
+            const dayOfWeek = getDay(day);
+            const dateKey = format(day, 'yyyy-MM-dd');
+    
+            shiftTemplates.forEach(template => {
+                if ((template.applicableDays || []).includes(dayOfWeek)) {
+                    newShifts.push({
+                        id: `shift_${dateKey}_${template.id}`,
+                        templateId: template.id,
+                        date: dateKey,
+                        label: template.label,
+                        role: template.role,
+                        timeSlot: template.timeSlot,
+                        assignedUsers: [],
+                    });
+                }
+            });
+        });
+    
+        const newSchedule: Schedule = {
+            weekId: nextWeekId,
+            status: 'draft',
+            availability: [],
+            shifts: newShifts.sort((a, b) => {
+                if (a.date < b.date) return -1;
+                if (a.date > b.date) return 1;
+                return a.timeSlot.start.localeCompare(b.timeSlot.start);
+            }),
+        };
+    
+        await setDoc(scheduleRef, newSchedule);
     },
     
     subscribeToShiftTemplates(callback: (templates: ShiftTemplate[]) => void): () => void {
