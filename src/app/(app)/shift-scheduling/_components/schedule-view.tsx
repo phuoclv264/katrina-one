@@ -294,7 +294,7 @@ export default function ScheduleView() {
 
         // If this update comes from resolving a pass request
         if (activeNotification && activeNotification.payload.shiftId === shiftId) {
-            const userToAssign = newAssignedUsers[0]; // In pass request mode, we only assign one user
+            const userToAssign = newAssignedUsers[0]; // In pass assignment mode, we only assign one user
             if (userToAssign) {
                 setIsSubmitting(true);
                 try {
@@ -635,37 +635,12 @@ export default function ScheduleView() {
                                         const shiftsForDay = applicableTemplates.map(template => {
                                             return schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id) ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
                                         }).filter(Boolean) as AssignedShift[];
-
-                                        const dayHasAssignments = shiftsForDay.some(s => s.assignedUsers.length > 0);
                                         
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey} className="border-b">
                                                 <AccordionTrigger className="font-semibold text-base p-4 bg-muted/30 rounded-t-md">
                                                      <div className="flex flex-col items-start text-left w-full">
                                                         <span>{format(day, 'eeee, dd/MM', { locale: vi })}</span>
-                                                         {openMobileDays.includes(dateKey) ? null : (
-                                                            <div className="mt-2 text-xs font-normal text-muted-foreground space-y-1 w-full">
-                                                                {dayHasAssignments ? shiftsForDay.map(shift => {
-                                                                    if (shift.assignedUsers.length === 0) return null;
-                                                                    const sortedUsers = [...shift.assignedUsers].sort((a, b) => {
-                                                                        const userA = allUsers.find(u => u.uid === a.userId);
-                                                                        const userB = allUsers.find(u => u.uid === b.userId);
-                                                                        return (roleOrder[userA?.role as UserRole] || 99) - (roleOrder[userB?.role as UserRole] || 99);
-                                                                    });
-                                                                    return (
-                                                                        <div key={shift.id} className="flex gap-2 items-center">
-                                                                            <span className="font-medium text-foreground">{shift.label}:</span>
-                                                                            <div className="flex flex-wrap gap-1">
-                                                                                {sortedUsers.map(user => {
-                                                                                    const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
-                                                                                    return <Badge key={user.userId} variant="outline" className={cn('text-xs', getRoleColor(userRole))}>{abbreviateName(user.userName)}</Badge>
-                                                                                })}
-                                                                            </div>
-                                                                        </div>
-                                                                    )
-                                                                }) : <p>Chưa xếp lịch</p>}
-                                                            </div>
-                                                        )}
                                                      </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent className="pt-2">
@@ -683,7 +658,7 @@ export default function ScheduleView() {
 
                                                             return (
                                                                 <div key={template.id} className="p-3 border rounded-md bg-card">
-                                                                    <div className="flex justify-between items-start gap-2">
+                                                                    <div className="flex flex-wrap items-start justify-between gap-2">
                                                                         <div>
                                                                             <p className="font-semibold">{template.label}</p>
                                                                             <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
@@ -705,7 +680,7 @@ export default function ScheduleView() {
                                                                             const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
                                                                             return (
                                                                                 <Badge key={user.userId} variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
-                                                                                    {user.userName}
+                                                                                    {abbreviateName(user.userName)}
                                                                                 </Badge>
                                                                             )
                                                                         })}
