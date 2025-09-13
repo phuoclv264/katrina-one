@@ -26,6 +26,7 @@ import {
     MailQuestion,
     UserPlus,
     Loader2,
+    FileX2,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -109,6 +110,7 @@ export default function ScheduleView() {
     
     const [showPublishConfirm, setShowPublishConfirm] = useState(false);
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+    const [showRevertProposedConfirm, setShowRevertProposedConfirm] = useState(false);
 
     // --- Back button handling ---
     useEffect(() => {
@@ -122,6 +124,7 @@ export default function ScheduleView() {
                 setIsPassRequestsDialogOpen(false);
                 setShowPublishConfirm(false);
                 setShowRevertConfirm(false);
+                setShowRevertProposedConfirm(false);
                 setIsUserDetailsDialogOpen(false);
             }
         };
@@ -134,7 +137,7 @@ export default function ScheduleView() {
         return () => {
             window.removeEventListener('popstate', handler);
         };
-    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm, isUserDetailsDialogOpen]);
+    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm, showRevertProposedConfirm, isUserDetailsDialogOpen]);
 
 
     useEffect(() => {
@@ -358,6 +361,7 @@ export default function ScheduleView() {
         
         setShowPublishConfirm(false);
         setShowRevertConfirm(false);
+        setShowRevertProposedConfirm(false);
 
         setIsSubmitting(true);
         try {
@@ -664,7 +668,28 @@ export default function ScheduleView() {
                                 </Button>
                             </div>
                             <div className="flex-1" />
-                            <div className="flex items-center justify-end gap-4 flex-wrap">
+                             <div className="flex items-center justify-end gap-4 flex-wrap">
+                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'proposed' && !hasUnsavedChanges && (
+                                     <AlertDialog open={showRevertProposedConfirm} onOpenChange={setShowRevertProposedConfirm}>
+                                         <AlertDialogTrigger asChild>
+                                             <Button variant="destructive" disabled={isSubmitting}>
+                                                 <FileX2 className="mr-2 h-4 w-4"/> Trả về bản nháp
+                                             </Button>
+                                         </AlertDialogTrigger>
+                                         <AlertDialogContent>
+                                             <AlertDialogHeader>
+                                                 <AlertDialogTitle>Từ chối lịch đề xuất?</AlertDialogTitle>
+                                                 <AlertDialogDescription>
+                                                     Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa.
+                                                 </AlertDialogDescription>
+                                             </AlertDialogHeader>
+                                             <AlertDialogFooter>
+                                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                 <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận</AlertDialogAction>
+                                             </AlertDialogFooter>
+                                         </AlertDialogContent>
+                                     </AlertDialog>
+                                 )}
                                  {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
                                     <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
                                         <AlertDialogTrigger asChild>
