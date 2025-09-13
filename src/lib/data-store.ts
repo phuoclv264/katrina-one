@@ -214,7 +214,12 @@ export const dataStore = {
         const scheduleSnap = await getDoc(scheduleRef);
     
         if (scheduleSnap.exists()) {
-            return; // Schedule already exists, do nothing.
+            const scheduleData = scheduleSnap.data() as Schedule;
+            const validStatus: Schedule['status'][] = ['draft', 'proposed', 'published'];
+            if (!scheduleData.status || !validStatus.includes(scheduleData.status)) {
+                await updateDoc(scheduleRef, { status: 'draft' });
+            }
+            return;
         }
     
         const startOfNextWeek = startOfWeek(nextWeekDate, { weekStartsOn: 1 });
