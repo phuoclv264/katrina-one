@@ -59,10 +59,9 @@ export default function ChecklistPage() {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
-  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Initialize accordion state based on completion status
   useEffect(() => {
@@ -102,30 +101,6 @@ export default function ChecklistPage() {
     }
   }, [report]);
 
-  const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
-    if (!currentReport) return;
-
-    const allPhotoIds = new Set<string>();
-    for (const taskId in currentReport.completedTasks) {
-        for (const completion of currentReport.completedTasks[taskId]) {
-            if (completion.photoIds) {
-                completion.photoIds.forEach(id => {
-                    if (!localPhotoUrls.has(id)) {
-                        allPhotoIds.add(id);
-                    }
-                });
-            }
-        }
-    }
-
-    if (allPhotoIds.size === 0) {
-        return;
-    }
-
-    const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-    setLocalPhotoUrls(prevUrls => new Map([...prevUrls, ...urls]));
-  }, [localPhotoUrls]);
-
   // --- Data Loading and Initialization ---
   useEffect(() => {
     if (!isAuthLoading && (!user || user.role !== 'Phục vụ')) {
@@ -152,7 +127,6 @@ export default function ChecklistPage() {
             if(isMounted) {
               setReport(loadedReport);
               setSubmissionNotes(loadedReport.issues || '');
-              await fetchLocalPhotos(loadedReport);
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
@@ -178,7 +152,7 @@ export default function ChecklistPage() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, toast, fetchLocalPhotos, router]);
+  }, [isAuthLoading, user, shiftKey, toast, router]);
   
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -205,39 +179,6 @@ export default function ChecklistPage() {
     setSubmissionNotes(notes);
      updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
   }, [updateLocalReport]);
-
-
-  const allPagePhotos = useMemo(() => {
-    if (!shift || !report) return [];
-
-    const findTaskText = (taskId: string): string => {
-        for (const section of shift.sections) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-             const combinedPhotos = [
-                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
-                ...(completion.photos || [])
-            ].filter((url): url is string => !!url);
-
-            for (const photoUrl of combinedPhotos) {
-                photos.push({
-                    src: photoUrl,
-                    description: `${taskText}`
-                });
-            }
-        }
-    }
-    return photos;
-  }, [shift, report, localPhotoUrls]);
 
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -309,9 +250,6 @@ export default function ChecklistPage() {
   const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
         if (!activeTask) return;
         
-        const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
-        setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
-        
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
 
@@ -350,13 +288,6 @@ export default function ChecklistPage() {
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
        if (isLocal) {
-          const photoUrl = localPhotoUrls.get(photoId);
-          if (photoUrl) URL.revokeObjectURL(photoUrl);
-          setLocalPhotoUrls(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(photoId);
-              return newMap;
-          });
           await photoStore.deletePhoto(photoId);
       } else {
           await dataStore.deletePhotoFromStorage(photoId);
@@ -403,10 +334,6 @@ export default function ChecklistPage() {
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
-        completionToDelete.photoIds.forEach(id => {
-             const photoUrl = localPhotoUrls.get(id);
-             if (photoUrl) URL.revokeObjectURL(photoUrl);
-        });
         await photoStore.deletePhotos(completionToDelete.photoIds);
       }
       if (completionToDelete.photos) {
@@ -445,7 +372,6 @@ export default function ChecklistPage() {
             await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
-            await fetchLocalPhotos(serverReport); 
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
@@ -477,7 +403,6 @@ export default function ChecklistPage() {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
         setSubmissionNotes(serverReport.issues || '');
-        await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
          toast({
@@ -527,12 +452,10 @@ export default function ChecklistPage() {
     });
   }, []);
 
-  const openLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+  const openLightbox = (photos: {src: string}[], startIndex: number) => {
+    setLightboxSlides(photos);
+    setLightboxIndex(startIndex);
+    setIsLightboxOpen(true);
   };
 
   const handleToggleAll = () => {
@@ -631,7 +554,6 @@ export default function ChecklistPage() {
                             isReadonly={isReadonly}
                             isExpanded={expandedTaskIds.has(task.id)}
                             isSingleCompletion={isSingleCompletionSection}
-                            localPhotoUrls={localPhotoUrls}
                             onPhotoAction={handlePhotoTaskAction}
                             onBooleanAction={handleBooleanTaskAction}
                             onOpinionAction={handleOpinionTaskAction}
@@ -724,7 +646,7 @@ export default function ChecklistPage() {
     <Lightbox
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
+        slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}
@@ -739,4 +661,4 @@ export default function ChecklistPage() {
   );
 }
 
-      
+    

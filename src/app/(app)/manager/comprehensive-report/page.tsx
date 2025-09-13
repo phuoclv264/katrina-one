@@ -56,10 +56,9 @@ export default function ComprehensiveReportPage() {
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   
-  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Initialize accordion to be all open by default
   useEffect(() => {
@@ -73,30 +72,6 @@ export default function ComprehensiveReportPage() {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
-
-  const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
-    if (!currentReport) return;
-
-    const allPhotoIds = new Set<string>();
-    for (const taskId in currentReport.completedTasks) {
-        for (const completion of currentReport.completedTasks[taskId]) {
-            if (completion.photoIds) {
-                completion.photoIds.forEach(id => {
-                    if (!localPhotoUrls.has(id)) {
-                        allPhotoIds.add(id);
-                    }
-                });
-            }
-        }
-    }
-
-    if (allPhotoIds.size === 0) {
-       return;
-    }
-
-    const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-    setLocalPhotoUrls(prevUrls => new Map([...prevUrls, ...urls]));
-  }, [localPhotoUrls]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,7 +95,6 @@ export default function ComprehensiveReportPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Quản lý', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
-              await fetchLocalPhotos(loadedReport);
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
@@ -147,39 +121,7 @@ export default function ComprehensiveReportPage() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, toast, router, fetchLocalPhotos]);
-
-  const allPagePhotos = useMemo(() => {
-    if (!tasks || !report) return [];
-
-    const findTaskText = (taskId: string): string => {
-        for (const section of tasks) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-            const combinedPhotos = [
-                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
-                ...(completion.photos || [])
-            ].filter((url): url is string => !!url);
-
-            for (const photoUrl of combinedPhotos) {
-                photos.push({
-                    src: photoUrl,
-                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                });
-            }
-        }
-    }
-    return photos;
-  }, [tasks, report, localPhotoUrls]);
+  }, [isAuthLoading, user, shiftKey, toast, router]);
 
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -275,9 +217,6 @@ export default function ComprehensiveReportPage() {
     const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
         if (!activeTask) return;
 
-        const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
-        setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
-        
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
 
@@ -313,13 +252,6 @@ export default function ComprehensiveReportPage() {
       if (!report) return;
       
        if (isLocal) {
-          const photoUrl = localPhotoUrls.get(photoId);
-          if (photoUrl) URL.revokeObjectURL(photoUrl);
-          setLocalPhotoUrls(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(photoId);
-              return newMap;
-          });
           await photoStore.deletePhoto(photoId);
       } else {
           await dataStore.deletePhotoFromStorage(photoId);
@@ -368,10 +300,6 @@ export default function ComprehensiveReportPage() {
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
-        completionToDelete.photoIds.forEach(id => {
-             const photoUrl = localPhotoUrls.get(id);
-             if (photoUrl) URL.revokeObjectURL(photoUrl);
-        });
         await photoStore.deletePhotos(completionToDelete.photoIds);
       }
       if (completionToDelete.photos) {
@@ -411,7 +339,6 @@ export default function ComprehensiveReportPage() {
             await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
-            await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
@@ -443,7 +370,6 @@ export default function ComprehensiveReportPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
-        await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
          toast({
@@ -475,12 +401,10 @@ export default function ComprehensiveReportPage() {
     });
   }, []);
     
-  const openLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+  const openLightbox = (photos: {src: string}[], startIndex: number) => {
+    setLightboxSlides(photos);
+    setLightboxIndex(startIndex);
+    setIsLightboxOpen(true);
   };
 
   const handleToggleAll = () => {
@@ -577,7 +501,6 @@ export default function ComprehensiveReportPage() {
                             isReadonly={isReadonly}
                             isSingleCompletion={false}
                             isExpanded={expandedTaskIds.has(task.id)}
-                            localPhotoUrls={localPhotoUrls}
                             onPhotoAction={handlePhotoTaskAction as (task: Task, completionIndex?: number | null) => void}
                             onBooleanAction={handleBooleanTaskAction}
                             onOpinionAction={handleOpinionTaskAction as (task: Task) => void}
@@ -671,7 +594,7 @@ export default function ComprehensiveReportPage() {
     <Lightbox
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
+        slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}
@@ -685,3 +608,5 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
+
+    

@@ -56,11 +56,9 @@ export default function HygieneReportPage() {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   
-  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Initialize accordion state to be all open by default
   useEffect(() => {
@@ -68,30 +66,6 @@ export default function HygieneReportPage() {
       setOpenAccordionItems(tasks.map(section => section.title));
     }
   }, [tasks]);
-
-    const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
-        if (!currentReport) return;
-
-        const allPhotoIds = new Set<string>();
-        for (const taskId in currentReport.completedTasks) {
-            for (const completion of currentReport.completedTasks[taskId]) {
-                if (completion.photoIds) {
-                    completion.photoIds.forEach(id => {
-                        if (!localPhotoUrls.has(id)) {
-                           allPhotoIds.add(id)
-                        }
-                    });
-                }
-            }
-        }
-
-        if (allPhotoIds.size === 0) {
-            return;
-        }
-
-        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-        setLocalPhotoUrls(prevUrls => new Map([...prevUrls, ...urls]));
-    }, [localPhotoUrls]);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -116,7 +90,6 @@ export default function HygieneReportPage() {
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             setReport(loadedReport);
-            await fetchLocalPhotos(loadedReport); // Fetch photos right after setting report
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
                 setShowSyncDialog(true);
@@ -137,39 +110,7 @@ export default function HygieneReportPage() {
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, toast, fetchLocalPhotos]);
-
-  const allPagePhotos = useMemo(() => {
-    if (!tasks || !report) return [];
-
-    const findTaskText = (taskId: string): string => {
-        for (const section of tasks) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-             const combinedPhotos = [
-                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
-                ...(completion.photos || [])
-            ].filter((url): url is string => !!url);
-
-            for(const photoUrl of combinedPhotos) {
-                 photos.push({
-                    src: photoUrl,
-                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                });
-            }
-        }
-    }
-    return photos;
-  }, [tasks, report, localPhotoUrls]);
+  }, [isAuthLoading, user, shiftKey, toast]);
 
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -256,9 +197,6 @@ export default function HygieneReportPage() {
 
     const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
         if (!activeTask) return;
-
-        const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
-        setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
         
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
@@ -290,13 +228,6 @@ export default function HygieneReportPage() {
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
        if (isLocal) {
-          const photoUrl = localPhotoUrls.get(photoId);
-          if (photoUrl) URL.revokeObjectURL(photoUrl);
-          setLocalPhotoUrls(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(photoId);
-              return newMap;
-          });
           await photoStore.deletePhoto(photoId);
       } else {
           await dataStore.deletePhotoFromStorage(photoId);
@@ -345,10 +276,6 @@ export default function HygieneReportPage() {
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
-        completionToDelete.photoIds.forEach(id => {
-             const photoUrl = localPhotoUrls.get(id);
-             if (photoUrl) URL.revokeObjectURL(photoUrl);
-        });
         await photoStore.deletePhotos(completionToDelete.photoIds);
       }
       if (completionToDelete.photos) {
@@ -388,7 +315,6 @@ export default function HygieneReportPage() {
             await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
-            await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
@@ -420,7 +346,6 @@ export default function HygieneReportPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
-        await fetchLocalPhotos(serverReport);
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
          toast({
@@ -470,12 +395,10 @@ export default function HygieneReportPage() {
     });
   }, []);
 
-  const openLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+  const openLightbox = (photos: {src: string}[], startIndex: number) => {
+    setLightboxSlides(photos);
+    setLightboxIndex(startIndex);
+    setIsLightboxOpen(true);
   };
 
   const handleToggleAll = () => {
@@ -582,7 +505,6 @@ export default function HygieneReportPage() {
                             isReadonly={isReadonly}
                             isSingleCompletion={false}
                             isExpanded={expandedTaskIds.has(task.id)}
-                            localPhotoUrls={localPhotoUrls}
                             onPhotoAction={handlePhotoTaskAction}
                             onBooleanAction={handleBooleanTaskAction}
                             onOpinionAction={handleOpinionTaskAction}
@@ -679,7 +601,7 @@ export default function HygieneReportPage() {
     <Lightbox
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
+        slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}

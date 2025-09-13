@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import type { Task, CompletionRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { photoStore } from '@/lib/photo-store';
+
 
 type TaskItemProps = {
   task: Task;
@@ -17,14 +19,13 @@ type TaskItemProps = {
   isReadonly: boolean;
   isExpanded: boolean;
   isSingleCompletion: boolean;
-  localPhotoUrls: Map<string, string>;
   onPhotoAction: (task: Task, completionIndex?: number | null) => void;
   onBooleanAction: (taskId: string, value: boolean) => void;
   onOpinionAction: (task: Task) => void;
   onDeleteCompletion: (taskId: string, completionIndex: number) => void;
   onDeletePhoto: (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => void;
   onToggleExpand: (taskId: string) => void;
-  onOpenLightbox: (photoUrl: string) => void;
+  onOpenLightbox: (photos: {src: string}[], startIndex: number) => void;
 };
 
 const TaskItemComponent = ({
@@ -33,7 +34,6 @@ const TaskItemComponent = ({
   isReadonly,
   isExpanded,
   isSingleCompletion,
-  localPhotoUrls,
   onPhotoAction,
   onBooleanAction,
   onOpinionAction,
@@ -44,6 +44,44 @@ const TaskItemComponent = ({
 }: TaskItemProps) => {
   const isCompletedOnce = completions.length > 0;
   const isDisabledForNew = (isSingleCompletion && isCompletedOnce && task.type !== 'opinion') || isReadonly;
+
+  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPhotos = async () => {
+      const allPhotoIds = new Set<string>();
+      completions.forEach(completion => {
+        if (completion.photoIds) {
+          completion.photoIds.forEach(id => {
+            if (!localPhotoUrls.has(id)) {
+              allPhotoIds.add(id);
+            }
+          });
+        }
+      });
+
+      if (allPhotoIds.size > 0) {
+        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
+        if (isMounted) {
+           setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
+        }
+      }
+    };
+    fetchPhotos();
+    return () => { isMounted = false; }
+  }, [completions, localPhotoUrls]);
+
+  const handleOpenLightbox = (allPhotosInTask: {src: string}[], currentPhotoUrl: string) => {
+      const startIndex = allPhotosInTask.findIndex(p => p.src === currentPhotoUrl);
+      onOpenLightbox(allPhotosInTask, startIndex >= 0 ? startIndex : 0);
+  };
+  
+  const allPhotosInTask = completions.flatMap(c => 
+    [...(c.photos || []), ...(c.photoIds || []).map(id => localPhotoUrls.get(id) || '')]
+    .filter(Boolean)
+    .map(url => ({ src: url }))
+  );
 
   return (
     <div className={cn('rounded-md border p-4 transition-colors', isCompletedOnce ? 'bg-accent/20' : '')}>
@@ -128,6 +166,7 @@ const TaskItemComponent = ({
                         </Tooltip>
                     </TooltipProvider>
                   )}
+                  {!isReadonly && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild disabled={isReadonly}>
                       <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10">
@@ -150,12 +189,13 @@ const TaskItemComponent = ({
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                 {(completion.photos || []).map((photoUrl, pIndex) => (
                   <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                    <button onClick={() => onOpenLightbox(photoUrl)} className="w-full h-full block">
+                    <button onClick={() => handleOpenLightbox(allPhotosInTask, photoUrl)} className="w-full h-full block">
                       <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
                     </button>
                   </div>
@@ -165,7 +205,7 @@ const TaskItemComponent = ({
                   if (!photoUrl) return null;
                   return (
                     <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                      <button onClick={() => onOpenLightbox(photoUrl)} className="w-full h-full block">
+                       <button onClick={() => handleOpenLightbox(allPhotosInTask, photoUrl)} className="w-full h-full block">
                         <Image src={photoUrl} alt={`Ảnh bằng chứng chưa gửi`} fill className="object-cover" />
                       </button>
                        {!isReadonly && (
@@ -202,3 +242,4 @@ const TaskItemComponent = ({
 
 export const TaskItem = React.memo(TaskItemComponent);
 
+    
