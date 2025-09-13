@@ -9,11 +9,11 @@ import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskS
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronsDownUp, MessageSquareWarning } from 'lucide-react';
+import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Lightbox from "yet-another-react-lightbox";
@@ -24,10 +24,11 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
+import { TaskItem } from '../../_components/task-item';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -248,7 +249,6 @@ export default function ChecklistPage() {
     setIsOpinionOpen(false);
     setActiveTask(null);
   }, []);
-
 
     const handlePhotoTaskAction = (task: Task, completionIndex: number | null = null) => {
         setActiveTask(task);
@@ -623,167 +623,24 @@ export default function ChecklistPage() {
                 </AccordionTrigger>
                 <AccordionContent className="border-t p-4">
                 <div className="space-y-4 pt-2">
-                    {section.tasks.map((task) => {
-                    const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-                    const isCompletedOnce = completions.length > 0;
-                    const isDisabledForNew = (isSingleCompletionSection && isCompletedOnce && task.type !== 'opinion') || isReadonly;
-                    const isExpanded = expandedTaskIds.has(task.id);
-                    
-                    return (
-                        <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                            <p className="font-semibold flex-1">
-                            {task.text}
-                            </p>
-                            <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
-                            {task.type === 'photo' && (
-                                <Button 
-                                size="sm" 
-                                className="w-full active:scale-95 transition-transform"
-                                onClick={() => handlePhotoTaskAction(task)}
-                                disabled={isDisabledForNew}
-                                >
-                                    <Camera className="mr-2 h-4 w-4"/>
-                                    Đã hoàn thành
-                                </Button>
-                            )}
-                            {task.type === 'boolean' && (
-                                <div className="flex flex-col sm:flex-row w-full gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant={"outline"}
-                                        className="w-full"
-                                        onClick={() => handleBooleanTaskAction(task.id, true)}
-                                        disabled={isDisabledForNew}
-                                    >
-                                        <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant={"outline"}
-                                        className="w-full"
-                                        onClick={() => handleBooleanTaskAction(task.id, false)}
-                                        disabled={isDisabledForNew}
-                                    >
-                                        <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
-                                    </Button>
-                                </div>
-                            )}
-                            {task.type === 'opinion' && (
-                                <Button
-                                    size="sm"
-                                    className="w-full"
-                                    onClick={() => handleOpinionTaskAction(task)}
-                                    disabled={isReadonly}
-                                >
-                                    <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
-                                </Button>
-                            )}
-                            </div>
-                        </div>
-                        
-                        {isCompletedOnce && (
-                            <div className="mt-4 space-y-3">
-                            {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                return (
-                                <div key={cIndex} className="rounded-md border bg-card p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="h-4 w-4 flex-shrink-0" />
-                                            <span>Thực hiện lúc: {completion.timestamp}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                        {completion.value !== undefined && (
-                                            <Badge variant={completion.value ? "default" : "destructive"}>
-                                            {completion.value ? "Đảm bảo" : "Không đảm bảo"}
-                                            </Badge>
-                                        )}
-                                        {!isReadonly && task.type === 'photo' && (
-                                            <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handlePhotoTaskAction(task, cIndex)}>
-                                                <FilePlus2 className="h-3 w-3" />
-                                            </Button>
-                                        )}
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild disabled={isReadonly}>
-                                                <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isReadonly}>
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle className="flex items-center gap-2">
-                                                            <AlertCircle className="text-destructive"/>
-                                                            Bạn có chắc chắn không?
-                                                        </AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa lần hoàn thành công việc này và tất cả các ảnh liên quan.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                    {(completion.photos || []).map((photoUrl, pIndex) => (
-                                        <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                        <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                            <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                        </button>
-                                        </div>
-                                    ))}
-                                    {(completion.photoIds || []).map((photoId, pIndex) => {
-                                        const photoUrl = localPhotoUrls.get(photoId);
-                                        if (!photoUrl) return null;
-                                        return (
-                                        <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                            <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                            <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                            </button>
-                                            <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
-                                                <UploadCloud className="h-3 w-3" />
-                                                </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Ảnh chưa được gửi</p>
-                                            </TooltipContent>
-                                            </Tooltip>
-                                            {!isReadonly && (
-                                            <Button 
-                                                variant="destructive"
-                                                size="icon"
-                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId, true); }}
-                                            >
-                                                <X className="h-3 w-3" />
-                                                <span className="sr-only">Xóa ảnh</span>
-                                            </Button>
-                                            )}
-                                        </div>
-                                        );
-                                    })}
-                                    </div>
-                                    {completion.opinion && (
-                                        <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
-                                    )}
-                                </div>
-                                )})}
-                                {completions.length > 1 && (
-                                    <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
-                                        {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1})`}
-                                        {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                        </div>
-                    )
-                    })}
+                    {section.tasks.map((task) => (
+                         <TaskItem
+                            key={task.id}
+                            task={task}
+                            completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
+                            isReadonly={isReadonly}
+                            isExpanded={expandedTaskIds.has(task.id)}
+                            isSingleCompletion={isSingleCompletionSection}
+                            localPhotoUrls={localPhotoUrls}
+                            onPhotoAction={handlePhotoTaskAction}
+                            onBooleanAction={handleBooleanTaskAction}
+                            onOpinionAction={handleOpinionTaskAction}
+                            onDeleteCompletion={handleDeleteCompletion}
+                            onDeletePhoto={handleDeletePhoto}
+                            onToggleExpand={toggleExpandTask}
+                            onOpenLightbox={openLightbox}
+                        />
+                    ))}
                 </div>
                 </AccordionContent>
             </AccordionItem>
