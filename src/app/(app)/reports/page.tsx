@@ -314,49 +314,62 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'Chủ nhà hàng') {
-        // Chủ nhà hàng can see everything
-        const unsubscribes: (()=>void)[] = [];
+    
+    const isOwner = user.role === 'Chủ nhà hàng';
+    const isManager = user.role === 'Quản lý';
+
+    const subscriptions: (() => void)[] = [];
+
+    const subscribe = (subscriptionFunc: () => () => void) => {
         try {
-            unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
-            unsubscribes.push(dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
-            unsubscribes.push(dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
-            unsubscribes.push(dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
-            unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports)));
-        } catch(error) {
+            subscriptions.push(subscriptionFunc());
+        } catch (error) {
             console.error("Error subscribing to data:", error);
             toast({
                 title: "Lỗi tải dữ liệu",
-                description: "Không thể tải được một số cấu hình công việc hoặc báo cáo.",
+                description: "Không thể tải được một số cấu hình.",
                 variant: "destructive",
             });
         }
+    };
 
-        return () => {
-          unsubscribes.forEach(unsub => unsub());
-        };
-    } else if (user.role === 'Quản lý') {
-        // Quản lý can only see shift reports for now
-        const unsubscribes: (()=>void)[] = [];
-        try {
-            unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
-            unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports.filter(r => 'shiftKey' in r))));
-        } catch(error) {
-            console.error("Error subscribing to data:", error);
-            toast({ title: "Lỗi tải dữ liệu", variant: "destructive" });
-        }
-        
-         return () => {
-          unsubscribes.forEach(unsub => unsub());
-        };
+    subscribe(() => dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
+    subscribe(() => dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
+    subscribe(() => dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
+
+    if (isOwner) {
+        subscribe(() => dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
+        subscribe(() => dataStore.subscribeToReports((reports) => setAllReports(reports)));
+    } else if (isManager) {
+        // Manager sees a subset of reports
+        subscribe(() => dataStore.subscribeToReports((reports) => {
+            const managerVisibleReports = reports.filter(r => {
+                if ('shiftKey' in r) {
+                    return r.shiftKey === 'bartender_hygiene' || (tasksByShift && tasksByShift[r.shiftKey]);
+                }
+                if ('stockLevels' in r) {
+                    return true;
+                }
+                return false;
+            });
+            setAllReports(managerVisibleReports);
+        }));
     }
 
-  }, [user, toast]);
+    Promise.all([
+        new Promise(resolve => onSnapshot(collection(db, 'reports'), () => resolve(true), { onlyOnce: true })),
+        new Promise(resolve => onSnapshot(doc(db, 'app-data', 'tasks'), () => resolve(true), { onlyOnce: true })),
+    ]).then(() => setIsLoading(false));
+
+    return () => {
+      subscriptions.forEach(unsub => unsub());
+    };
+}, [user, toast, tasksByShift]);
   
   useEffect(() => {
-      const dataLoaded = (user?.role === 'Quản lý' && tasksByShift && allReports) || 
-                         (user?.role === 'Chủ nhà hàng' && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports);
-
+      const dataLoaded = (user?.role === 'Quản lý' && tasksByShift && bartenderTasks && inventoryList && allReports.length >= 0) || 
+                         (user?.role === 'Chủ nhà hàng' && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports.length >= 0);
+      
       if (dataLoaded) {
           setIsLoading(false);
       }
@@ -421,25 +434,6 @@ export default function ReportsPage() {
     }, {} as GroupedReports);
   }, [allReports]);
   
-  const groupedShiftReports = useMemo(() => {
-    const shiftKeys = tasksByShift ? Object.keys(tasksByShift) : [];
-    return Object.fromEntries(Object.entries(groupedReports).map(([date, reportsByKey]) => 
-        [date, Object.fromEntries(Object.entries(reportsByKey).filter(([key]) => shiftKeys.includes(key)))]
-    ).filter(([_, reports]) => Object.keys(reports).length > 0));
-  }, [groupedReports, tasksByShift]);
-
-  const groupedBartenderReports = useMemo(() => {
-     return Object.fromEntries(Object.entries(groupedReports).map(([date, reportsByKey]) => 
-        [date, Object.fromEntries(Object.entries(reportsByKey).filter(([key]) => key === 'bartender_hygiene'))]
-    ).filter(([_, reports]) => Object.keys(reports).length > 0));
-  }, [groupedReports]);
-
-  const groupedManagerReports = useMemo(() => {
-     return Object.fromEntries(Object.entries(groupedReports).map(([date, reportsByKey]) => 
-        [date, Object.fromEntries(Object.entries(reportsByKey).filter(([key]) => key === 'manager_comprehensive' || key === 'inventory'))]
-    ).filter(([_, reports]) => Object.keys(reports).length > 0));
-  }, [groupedReports]);
-
 
   if(isLoading || authLoading || !user) {
       return (
@@ -466,7 +460,7 @@ export default function ReportsPage() {
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline">Báo cáo đã nộp</h1>
-        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ngày và ca.</p>
+        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ngày.</p>
       </header>
 
       <Card>
@@ -480,26 +474,7 @@ export default function ReportsPage() {
           {user.role === 'Chủ nhà hàng' && <CleanupDialog />}
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList>
-              <TabsTrigger value="all">Tất cả</TabsTrigger>
-              <TabsTrigger value="by-shift">Checklist Phục vụ</TabsTrigger>
-              <TabsTrigger value="bartender">Pha chế</TabsTrigger>
-              <TabsTrigger value="manager">Quản lý & Kho</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all" className="mt-4">
-                <ReportsTable groupedReports={groupedReports} getReportName={getReportName} getReportLink={getReportLink}/>
-            </TabsContent>
-            <TabsContent value="by-shift" className="mt-4">
-                 <ReportsTable groupedReports={groupedShiftReports} getReportName={getReportName} getReportLink={getReportLink}/>
-            </TabsContent>
-            <TabsContent value="bartender" className="mt-4">
-                <ReportsTable groupedReports={groupedBartenderReports} getReportName={getReportName} getReportLink={getReportLink}/>
-            </TabsContent>
-            <TabsContent value="manager" className="mt-4">
-                 <ReportsTable groupedReports={groupedManagerReports} getReportName={getReportName} getReportLink={getReportLink}/>
-            </TabsContent>
-          </Tabs>
+            <ReportsTable groupedReports={groupedReports} getReportName={getReportName} getReportLink={getReportLink}/>
         </CardContent>
       </Card>
     </div>

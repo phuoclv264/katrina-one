@@ -61,7 +61,7 @@ function HygieneReportView() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+    if (!authLoading && (!user || (user.role !== 'Chủ nhà hàng' && user.role !== 'Quản lý'))) {
         router.replace('/shifts');
         return;
     }
@@ -167,7 +167,7 @@ function HygieneReportView() {
   }
 
   const handleDeleteReport = async () => {
-    if (!report) return;
+    if (!report || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
     try {
         await dataStore.deleteShiftReport(report.id);
@@ -261,7 +261,7 @@ function HygieneReportView() {
                                 ))}
                             </SelectContent>
                         </Select>
-                         {selectedReportId && (
+                         {user?.role === 'Chủ nhà hàng' && selectedReportId && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" size="icon" disabled={isProcessing}>

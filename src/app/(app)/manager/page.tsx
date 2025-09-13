@@ -42,22 +42,10 @@ export default function ManagerDashboardPage() {
               Phiếu kiểm tra toàn diện
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/reports?defaultTab=by-shift">
+           <Button asChild size="lg" variant="outline">
+            <Link href="/reports">
               <CheckSquare className="mr-2" />
-              Xem Báo cáo Checklist
-            </Link>
-          </Button>
-           <Button asChild size="lg" variant="outline">
-            <Link href="/manager/hygiene-report">
-              <ClipboardList className="mr-2" />
-              Xem Báo cáo Vệ sinh
-            </Link>
-          </Button>
-           <Button asChild size="lg" variant="outline">
-            <Link href="/manager/inventory-report">
-              <Archive className="mr-2" />
-              Xem Báo cáo Tồn kho
+              Xem Báo cáo
             </Link>
           </Button>
           <Separator className="my-2" />

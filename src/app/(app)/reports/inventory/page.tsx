@@ -68,7 +68,7 @@ function InventoryReportView() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+    if (!authLoading && (!user || (user.role !== 'Chủ nhà hàng' && user.role !== 'Quản lý'))) {
       router.replace('/');
       return;
     }
@@ -201,6 +201,7 @@ function InventoryReportView() {
   };
   
     const handleDeleteReport = async (reportId: string) => {
+        if (user?.role !== 'Chủ nhà hàng') return;
         setIsProcessing(true);
         try {
             await dataStore.deleteInventoryReport(reportId);
@@ -321,7 +322,7 @@ function InventoryReportView() {
                                                             {photos.map((photo, index) => (
                                                                 <button
                                                                     key={index}
-                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
+                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
                                                                     className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                 >
                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
@@ -363,7 +364,7 @@ function InventoryReportView() {
                                                                             {photos.map((photo, index) => (
                                                                                 <button
                                                                                     key={index}
-                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
+                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
                                                                                     className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                                 >
                                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
@@ -499,25 +500,27 @@ function InventoryReportView() {
                                             >
                                                 Xem
                                             </Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
-                                                        <Trash2 className="h-4 w-4"/>
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteReport(report.id)}>Xóa vĩnh viễn</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                            {user?.role === 'Chủ nhà hàng' && (
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
+                                                            <Trash2 className="h-4 w-4"/>
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteReport(report.id)}>Xóa vĩnh viễn</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            )}
                                         </div>
                                     </li>
                                 ))}
