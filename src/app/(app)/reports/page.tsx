@@ -3,7 +3,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ReactMarkdown from 'react-markdown';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
 
 type ReportType = ShiftReport | InventoryReport;
 
@@ -225,86 +223,16 @@ function DailySummaryGenerator({
     )
 }
 
-function ReportsTable({
-  groupedReports,
-  getReportName,
-  getReportLink
-}: {
-  groupedReports: GroupedReports,
-  getReportName: (key: string) => string,
-  getReportLink: (date: string, key: string) => string,
-}) {
-    const router = useRouter();
-    const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-    
-    return (
-        <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
-            {sortedDates.map((date) => (
-                <AccordionItem value={date} key={date}>
-                    <AccordionTrigger className="text-lg font-medium hover:no-underline">
-                        <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                        <div className="space-y-4">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tên báo cáo</TableHead>
-                                        <TableHead>Nhân viên đã nộp</TableHead>
-                                        <TableHead className="text-right">Thời gian nộp</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
-                                        const reportName = getReportName(key);
-                                        const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
-                                        const latestSubmission = reportGroup.reduce((latest, current) => {
-                                            if (!latest.submittedAt) return current;
-                                            if (!current.submittedAt) return latest;
-                                            return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
-                                        });
-                                        const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
-
-                                        return (
-                                            <TableRow
-                                                key={`${date}-${key}`}
-                                                onClick={() => router.push(getReportLink(date, key))}
-                                                className="cursor-pointer select-none"
-                                            >
-                                                <TableCell className="font-semibold capitalize">{reportName}</TableCell>
-                                                <TableCell>
-                                                    <p className="text-sm text-muted-foreground">{staffNames}</p>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <p className="text-sm text-muted-foreground">{submissionTime}</p>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            ))}
-        </Accordion>
-    )
-}
-
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { toast } = useToast();
   
-  const [allReports, setAllReports] = useState<ReportType[]>([]);
+  const [allReports, setAllReports] = useState<ReportType[] | null>(null);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
   const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const defaultTab = searchParams.get('defaultTab') || 'all';
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng' && user?.role !== 'Quản lý') {
@@ -314,66 +242,65 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) return;
-    
-    const isOwner = user.role === 'Chủ nhà hàng';
-    const isManager = user.role === 'Quản lý';
 
     const subscriptions: (() => void)[] = [];
+    const dataPromises: Promise<any>[] = [];
 
-    const subscribe = (subscriptionFunc: () => () => void) => {
-        try {
-            subscriptions.push(subscriptionFunc());
-        } catch (error) {
-            console.error("Error subscribing to data:", error);
-            toast({
-                title: "Lỗi tải dữ liệu",
-                description: "Không thể tải được một số cấu hình.",
-                variant: "destructive",
+    const isOwner = user.role === 'Chủ nhà hàng';
+
+    // Helper to create a promise that resolves on the first data snapshot
+    const createDataPromise = <T,>(setter: React.Dispatch<React.SetStateAction<T | null>>, subFunction: (cb: (data: T) => void) => () => void) => {
+        return new Promise<void>((resolve) => {
+            const unsub = subFunction((data) => {
+                setter(data);
+                resolve();
+                unsub(); // Unsubscribe after first data load
             });
-        }
+            subscriptions.push(unsub); // Keep track to clean up on component unmount
+        });
     };
 
-    subscribe(() => dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
-    subscribe(() => dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
-    subscribe(() => dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
-
+    // Create promises for all necessary data fetches
+    dataPromises.push(createDataPromise(setTasksByShift, dataStore.subscribeToTasks));
+    dataPromises.push(createDataPromise(setBartenderTasks, dataStore.subscribeToBartenderTasks));
+    dataPromises.push(createDataPromise(setInventoryList, dataStore.subscribeToInventoryList));
     if (isOwner) {
-        subscribe(() => dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
-        subscribe(() => dataStore.subscribeToReports((reports) => setAllReports(reports)));
-    } else if (isManager) {
-        // Manager sees a subset of reports
-        subscribe(() => dataStore.subscribeToReports((reports) => {
-            const managerVisibleReports = reports.filter(r => {
-                if ('shiftKey' in r) {
-                    return r.shiftKey === 'bartender_hygiene' || (tasksByShift && tasksByShift[r.shiftKey]);
-                }
-                if ('stockLevels' in r) {
-                    return true;
-                }
-                return false;
-            });
-            setAllReports(managerVisibleReports);
-        }));
+        dataPromises.push(createDataPromise(setComprehensiveTasks, dataStore.subscribeToComprehensiveTasks));
     }
+    dataPromises.push(createDataPromise(setAllReports, cb => dataStore.subscribeToReports(reports => {
+        if (user.role === 'Chủ nhà hàng') {
+            cb(reports);
+        } else { // Manager
+            cb(reports.filter(r => {
+                if ('shiftKey' in r) return r.shiftKey !== 'manager_comprehensive';
+                return true;
+            }));
+        }
+    })));
 
-    Promise.all([
-        new Promise(resolve => onSnapshot(collection(db, 'reports'), () => resolve(true), { onlyOnce: true })),
-        new Promise(resolve => onSnapshot(doc(db, 'app-data', 'tasks'), () => resolve(true), { onlyOnce: true })),
-    ]).then(() => setIsLoading(false));
+    // Once all initial data is loaded, set loading to false
+    Promise.all(dataPromises).then(() => {
+        setIsLoading(false);
+    });
+
+    // Main subscription for real-time updates
+    const reportsUnsub = dataStore.subscribeToReports((reports) => {
+      if (user.role === 'Chủ nhà hàng') {
+        setAllReports(reports);
+      } else { // Manager
+        setAllReports(reports.filter(r => {
+          if ('shiftKey' in r) return r.shiftKey !== 'manager_comprehensive';
+          return true;
+        }));
+      }
+    });
+    subscriptions.push(reportsUnsub);
+
 
     return () => {
       subscriptions.forEach(unsub => unsub());
     };
-}, [user, toast, tasksByShift]);
-  
-  useEffect(() => {
-      const dataLoaded = (user?.role === 'Quản lý' && tasksByShift && bartenderTasks && inventoryList && allReports.length >= 0) || 
-                         (user?.role === 'Chủ nhà hàng' && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports.length >= 0);
-      
-      if (dataLoaded) {
-          setIsLoading(false);
-      }
-  }, [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList, allReports, user]);
+}, [user]);
 
   const getReportKey = (report: ReportType): string => {
     if ('shiftKey' in report) {
@@ -419,6 +346,7 @@ export default function ReportsPage() {
 
 
   const groupedReports: GroupedReports = useMemo(() => {
+    if (!allReports) return {};
     return allReports.reduce((acc, report) => {
       const date = report.date;
       const key = getReportKey(report);
@@ -434,6 +362,7 @@ export default function ReportsPage() {
     }, {} as GroupedReports);
   }, [allReports]);
   
+  const sortedDates = useMemo(() => Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedReports]);
 
   if(isLoading || authLoading || !user) {
       return (
@@ -467,14 +396,79 @@ export default function ReportsPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Báo cáo gần đây</CardTitle>
-            <CardDescription>
-              Hiển thị {allReports.length} báo cáo đã nộp gần nhất.
-            </CardDescription>
+            {allReports && <CardDescription>Hiển thị {allReports.length} báo cáo đã nộp gần nhất.</CardDescription>}
           </div>
           {user.role === 'Chủ nhà hàng' && <CleanupDialog />}
         </CardHeader>
         <CardContent>
-            <ReportsTable groupedReports={groupedReports} getReportName={getReportName} getReportLink={getReportLink}/>
+           {sortedDates.length === 0 ? (
+               <div className="text-center py-16 text-muted-foreground">Chưa có báo cáo nào được nộp.</div>
+           ) : (
+                <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
+                    {sortedDates.map((date) => (
+                        <AccordionItem value={date} key={date}>
+                            <AccordionTrigger className="text-lg font-medium hover:no-underline">
+                               <div className="flex justify-between items-center w-full pr-2">
+                                 <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                 {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
+                                     <DailySummaryGenerator 
+                                        date={date} 
+                                        reports={groupedReports[date] ? Object.values(groupedReports[date]).flat() : []}
+                                        taskDefinitions={{
+                                            serverTasks: tasksByShift,
+                                            bartenderTasks: bartenderTasks,
+                                            comprehensiveTasks: comprehensiveTasks,
+                                            inventoryItems: inventoryList,
+                                        }}
+                                    />
+                                 )}
+                               </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="space-y-4">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Tên báo cáo</TableHead>
+                                                <TableHead>Nhân viên đã nộp</TableHead>
+                                                <TableHead className="text-right">Thời gian nộp</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
+                                                const reportName = getReportName(key);
+                                                const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
+                                                const latestSubmission = reportGroup.reduce((latest, current) => {
+                                                    if (!latest.submittedAt) return current;
+                                                    if (!current.submittedAt) return latest;
+                                                    return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
+                                                });
+                                                const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+
+                                                return (
+                                                    <TableRow
+                                                        key={`${date}-${key}`}
+                                                        onClick={() => router.push(getReportLink(date, key))}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        <TableCell className="font-semibold capitalize">{reportName}</TableCell>
+                                                        <TableCell>
+                                                            <p className="text-sm text-muted-foreground">{staffNames}</p>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <p className="text-sm text-muted-foreground">{submissionTime}</p>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            )}
         </CardContent>
       </Card>
     </div>
