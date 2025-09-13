@@ -48,11 +48,10 @@ export function AppSidebar() {
           ];
           case 'Quản lý': return [
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
+            { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
+            { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
             { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
-            { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
-            { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
-            { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
             commonViolationMenu
           ];
           case 'Chủ nhà hàng': return [
