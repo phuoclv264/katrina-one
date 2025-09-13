@@ -658,8 +658,8 @@ export default function ScheduleView() {
 
                                                             return (
                                                                 <div key={template.id} className="p-3 border rounded-md bg-card">
-                                                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                                                        <div>
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <div className="flex-1">
                                                                             <p className="font-semibold">{template.label}</p>
                                                                             <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                                             <p className="text-xs text-muted-foreground">({template.role})</p>
@@ -669,10 +669,10 @@ export default function ScheduleView() {
                                                                             size="sm"
                                                                             onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                             disabled={!canEditSchedule}
-                                                                            className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900"
+                                                                            className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900 shrink-0 sm:size-auto sm:px-3 size-9 px-0"
                                                                         >
-                                                                            <UserPlus className="mr-2 h-4 w-4" />
-                                                                            Phân công
+                                                                            <UserPlus className="h-4 w-4 sm:mr-2" />
+                                                                            <span className="sr-only sm:not-sr-only">Phân công</span>
                                                                         </Button>
                                                                     </div>
                                                                      <div className="flex flex-wrap gap-1 mt-2">
