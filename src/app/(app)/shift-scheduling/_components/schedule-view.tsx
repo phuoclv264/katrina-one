@@ -43,7 +43,7 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
@@ -440,6 +440,16 @@ export default function ScheduleView() {
         setIsUserDetailsDialogOpen(true);
     };
 
+    const getRoleColor = (role: UserRole | 'Bất kỳ'): string => {
+        switch (role) {
+            case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200';
+            case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
+    };
+
+
     if (isLoading) {
         return (
             <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
@@ -550,12 +560,14 @@ export default function ScheduleView() {
                                                                         <span className="text-xs mt-1">Thêm</span>
                                                                     </div>
                                                                 ) : (
-                                                                     <div className="flex-grow space-y-1 py-1 w-full">
-                                                                        {shiftObject.assignedUsers.map(user => (
-                                                                            <Badge key={user.userId} variant="secondary" className="block text-xs text-center truncate w-full">
-                                                                                {user.userName}
+                                                                     <div className="flex-grow flex flex-col items-center space-y-1 py-1 w-full">
+                                                                        {shiftObject.assignedUsers.map(assignedUser => {
+                                                                            const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+                                                                            return (
+                                                                            <Badge key={assignedUser.userId} variant="outline" className={cn("block text-xs text-center w-full whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
+                                                                                {assignedUser.userName}
                                                                             </Badge>
-                                                                        ))}
+                                                                        )})}
                                                                     </div>
                                                                 )}
                                                             </Button>
