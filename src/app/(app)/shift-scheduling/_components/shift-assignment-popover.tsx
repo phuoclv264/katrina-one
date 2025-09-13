@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
@@ -62,6 +63,7 @@ export default function ShiftAssignmentDialog({
   passRequestingUser,
 }: ShiftAssignmentDialogProps) {
     
+  const { toast } = useToast();
   const isPassAssignmentMode = !!passRequestingUser;
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
