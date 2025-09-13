@@ -16,21 +16,6 @@ type TotalHoursTrackerProps = {
   onUserClick: (user: ManagedUser) => void;
 };
 
-// Helper function to abbreviate names
-const abbreviateName = (name: string): string => {
-  if (!name) return '';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length <= 1) {
-    return name;
-  }
-  const lastWord = parts[parts.length - 1];
-  const initials = parts
-    .slice(0, -1)
-    .map(part => `${part.charAt(0).toUpperCase()}.`)
-    .join('');
-  return `${initials}${lastWord}`;
-};
-
 const roleOrder: Record<UserRole, number> = {
   'Phục vụ': 1,
   'Pha chế': 2,
@@ -77,13 +62,6 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
     })
   }, [allUsers]);
 
-  const maxHours = useMemo(() => {
-    const allHours = Array.from(totalHoursByUser.values()).concat(Array.from(availableHoursByUser.values()));
-    if (allHours.length === 0) return 40;
-    return Math.max(...allHours, 40);
-  }, [totalHoursByUser, availableHoursByUser]);
-
-
   if (!schedule) {
       return (
         <Card>
@@ -108,7 +86,7 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
           Số giờ làm dự kiến của mỗi nhân viên dựa trên lịch đã xếp.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-4">
         {sortedUsers.map(user => {
             const workedHours = totalHoursByUser.get(user.uid) || 0;
             const availableHours = availableHoursByUser.get(user.uid) || 0;
@@ -123,15 +101,16 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
                 >
                     <div className="w-full">
                         <div className="flex justify-between mb-1 text-sm">
-                            <span className="font-medium truncate">
-                                <span className="sm:hidden lg:inline">{user.displayName}</span>
-                                <span className="hidden sm:inline lg:hidden">{abbreviateName(user.displayName)}</span>
-                            </span>
-                            <span className="text-muted-foreground whitespace-nowrap pl-2">
-                                {workedHours.toFixed(1)} / {availableHours.toFixed(1)} giờ
-                            </span>
+                            <span className="font-medium truncate">{user.displayName}</span>
                         </div>
-                        <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
+                        <div className="relative">
+                            <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xs font-bold text-primary-foreground drop-shadow-sm">
+                                    {workedHours.toFixed(1)} / {availableHours.toFixed(1)} giờ
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </Button>
             )
