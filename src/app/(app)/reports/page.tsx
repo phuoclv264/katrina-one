@@ -243,62 +243,59 @@ export default function ReportsPage() {
   useEffect(() => {
     if (!user) return;
 
+    let isMounted = true;
     const subscriptions: (() => void)[] = [];
-    const dataPromises: Promise<any>[] = [];
+    const dataPromises: Promise<void>[] = [];
 
     const isOwner = user.role === 'Chủ nhà hàng';
 
     // Helper to create a promise that resolves on the first data snapshot
-    const createDataPromise = <T,>(setter: React.Dispatch<React.SetStateAction<T | null>>, subFunction: (cb: (data: T) => void) => () => void) => {
+    const createDataPromise = <T,>(
+        setter: React.Dispatch<React.SetStateAction<T | null>>,
+        subFunction: (cb: (data: T) => void) => () => void
+    ) => {
         return new Promise<void>((resolve) => {
             const unsub = subFunction((data) => {
-                setter(data);
+                if (isMounted) setter(data);
                 resolve();
-                unsub(); // Unsubscribe after first data load
             });
-            subscriptions.push(unsub); // Keep track to clean up on component unmount
+            subscriptions.push(unsub);
         });
     };
 
-    // Create promises for all necessary data fetches
-    dataPromises.push(createDataPromise(setTasksByShift, dataStore.subscribeToTasks));
-    dataPromises.push(createDataPromise(setBartenderTasks, dataStore.subscribeToBartenderTasks));
-    dataPromises.push(createDataPromise(setInventoryList, dataStore.subscribeToInventoryList));
-    if (isOwner) {
-        dataPromises.push(createDataPromise(setComprehensiveTasks, dataStore.subscribeToComprehensiveTasks));
-    }
-    dataPromises.push(createDataPromise(setAllReports, cb => dataStore.subscribeToReports(reports => {
-        if (user.role === 'Chủ nhà hàng') {
-            cb(reports);
-        } else { // Manager
-            cb(reports.filter(r => {
-                if ('shiftKey' in r) return r.shiftKey !== 'manager_comprehensive';
-                return true;
-            }));
+    const loadInitialData = async () => {
+        // Create promises for all necessary data fetches
+        dataPromises.push(createDataPromise(setTasksByShift, dataStore.subscribeToTasks));
+        dataPromises.push(createDataPromise(setBartenderTasks, dataStore.subscribeToBartenderTasks));
+        dataPromises.push(createDataPromise(setInventoryList, dataStore.subscribeToInventoryList));
+        if (isOwner) {
+            dataPromises.push(createDataPromise(setComprehensiveTasks, dataStore.subscribeToComprehensiveTasks));
         }
-    })));
 
-    // Once all initial data is loaded, set loading to false
-    Promise.all(dataPromises).then(() => {
-        setIsLoading(false);
-    });
+        // Subscribe to reports in real-time
+        const reportsUnsub = dataStore.subscribeToReports(reports => {
+            if (!isMounted) return;
+            let filteredReports = reports;
+            if (user.role === 'Quản lý') {
+                filteredReports = reports.filter(r => {
+                    if ('shiftKey' in r) return r.shiftKey !== 'manager_comprehensive';
+                    return true;
+                });
+            }
+            setAllReports(filteredReports);
+        });
+        subscriptions.push(reportsUnsub);
 
-    // Main subscription for real-time updates
-    const reportsUnsub = dataStore.subscribeToReports((reports) => {
-      if (user.role === 'Chủ nhà hàng') {
-        setAllReports(reports);
-      } else { // Manager
-        setAllReports(reports.filter(r => {
-          if ('shiftKey' in r) return r.shiftKey !== 'manager_comprehensive';
-          return true;
-        }));
-      }
-    });
-    subscriptions.push(reportsUnsub);
+        await Promise.all(dataPromises);
+        
+        if (isMounted) setIsLoading(false);
+    };
 
+    loadInitialData();
 
     return () => {
-      subscriptions.forEach(unsub => unsub());
+        isMounted = false;
+        subscriptions.forEach(unsub => unsub());
     };
 }, [user]);
 
@@ -407,10 +404,11 @@ export default function ReportsPage() {
                 <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
                     {sortedDates.map((date) => (
                         <AccordionItem value={date} key={date}>
-                            <AccordionTrigger className="text-lg font-medium hover:no-underline">
-                               <div className="flex justify-between items-center w-full pr-2">
-                                 <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                                 {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
+                             <div className="flex items-center justify-between pr-4">
+                                <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-4">
+                                    Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                </AccordionTrigger>
+                                {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
                                      <DailySummaryGenerator 
                                         date={date} 
                                         reports={groupedReports[date] ? Object.values(groupedReports[date]).flat() : []}
@@ -422,8 +420,7 @@ export default function ReportsPage() {
                                         }}
                                     />
                                  )}
-                               </div>
-                            </AccordionTrigger>
+                            </div>
                             <AccordionContent>
                                 <div className="space-y-4">
                                     <Table>
@@ -474,3 +471,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
