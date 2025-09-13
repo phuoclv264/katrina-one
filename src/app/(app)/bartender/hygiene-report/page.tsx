@@ -61,34 +61,6 @@ export default function HygieneReportPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // --- Back button handling for Lightbox and Dialogs ---
-  useEffect(() => {
-    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || isSubmissionNotesOpen || showSyncDialog;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setIsLightboxOpen(false);
-        setIsCameraOpen(false);
-        setIsOpinionOpen(false);
-        setIsSubmissionNotesOpen(false);
-        setShowSyncDialog(false);
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-        window.removeEventListener('popstate', handler);
-        // If the component unmounts while a dialog is open, we might need to go back
-        // but it's tricky. The main goal is to prevent breaking browser navigation.
-    };
-  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, isSubmissionNotesOpen, showSyncDialog]);
-
-
-
   // Initialize accordion state to be all open by default
   useEffect(() => {
     if (tasks) {
@@ -103,19 +75,22 @@ export default function HygieneReportPage() {
         for (const taskId in currentReport.completedTasks) {
             for (const completion of currentReport.completedTasks[taskId]) {
                 if (completion.photoIds) {
-                    completion.photoIds.forEach(id => allPhotoIds.add(id));
+                    completion.photoIds.forEach(id => {
+                        if (!localPhotoUrls.has(id)) {
+                           allPhotoIds.add(id)
+                        }
+                    });
                 }
             }
         }
 
         if (allPhotoIds.size === 0) {
-            setLocalPhotoUrls(new Map());
             return;
         }
 
         const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-        setLocalPhotoUrls(urls);
-    }, []);
+        setLocalPhotoUrls(prevUrls => new Map([...prevUrls, ...urls]));
+    }, [localPhotoUrls]);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -195,19 +170,38 @@ export default function HygieneReportPage() {
     return photos;
   }, [tasks, report, localPhotoUrls]);
 
-  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
-      setReport(updatedReport);
-      await fetchLocalPhotos(updatedReport); // Refresh photo URLs after every local update
-      if (dataStore.isReportEmpty(updatedReport)) {
-        await dataStore.deleteLocalReport(updatedReport.id);
-        setSyncStatus('synced');
-        setHasUnsubmittedChanges(false);
-      } else {
-        await dataStore.saveLocalReport(updatedReport);
-        setSyncStatus('local-newer');
-        setHasUnsubmittedChanges(true);
-      }
+  const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
+    setReport(prevReport => {
+        if (!prevReport) return null;
+        const newReport = updater(prevReport);
+
+        (async () => {
+            await fetchLocalPhotos(newReport); // Refresh photo URLs after every local update
+            if (dataStore.isReportEmpty(newReport)) {
+                await dataStore.deleteLocalReport(newReport.id);
+                setSyncStatus('synced');
+                setHasUnsubmittedChanges(false);
+            } else {
+                await dataStore.saveLocalReport(newReport);
+                setSyncStatus('local-newer');
+                setHasUnsubmittedChanges(true);
+            }
+        })();
+
+        return newReport;
+    });
   }, [fetchLocalPhotos]);
+
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTask(null);
+    setActiveCompletionIndex(null);
+  }, []);
+
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTask(null);
+  }, []);
 
     const handlePhotoTaskAction = (task: Task, completionIndex: number | null = null) => {
         setActiveTask(task);
@@ -215,22 +209,20 @@ export default function HygieneReportPage() {
         setIsCameraOpen(true);
     };
     
-    const handleBooleanTaskAction = async (taskId: string, value: boolean) => {
-        if (!report) return;
+    const handleBooleanTaskAction = (taskId: string, value: boolean) => {
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[]) || []];
+            
+            const newCompletion: CompletionRecord = {
+                timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                value: value,
+            };
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        
-        const newCompletion: CompletionRecord = {
-            timestamp: formattedTime,
-            value: value,
-        };
-
-        taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[taskId] = taskCompletions;
-        await updateLocalReport(newReport);
+            taskCompletions.unshift(newCompletion);
+            newReport.completedTasks[taskId] = taskCompletions;
+            return newReport;
+        });
     };
 
     const handleOpinionTaskAction = (task: Task) => {
@@ -238,109 +230,132 @@ export default function HygieneReportPage() {
         setIsOpinionOpen(true);
     }
   
-    const handleSaveOpinion = async (opinionText: string) => {
-        if (!report || !activeTask) return;
+    const handleSaveOpinion = (opinionText: string) => {
+        if (!activeTask) return;
+        const taskId = activeTask.id;
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        
-        const newCompletion: CompletionRecord = {
-            timestamp: formattedTime,
-            opinion: opinionText.trim() || undefined,
-        };
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[]) || []];
+            
+            const newCompletion: CompletionRecord = {
+                timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                opinion: opinionText.trim() || undefined,
+            };
 
-        taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[activeTask.id] = taskCompletions;
-        await updateLocalReport(newReport);
+            taskCompletions.unshift(newCompletion);
+            newReport.completedTasks[taskId] = taskCompletions;
+            return newReport;
+        });
         
         handleOpinionClose();
     }
 
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeTask || !report) return;
+    const handleCapturePhotos = useCallback((photoIds: string[]) => {
+        if (!activeTask) return;
+        const taskId = activeTask.id;
+        const completionIndex = activeCompletionIndex;
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
 
-        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-            const completionToUpdate = taskCompletions[activeCompletionIndex];
-            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
-        } else {
-            const now = new Date();
-            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            taskCompletions.unshift({
-                timestamp: formattedTime,
-                photoIds: photoIds,
-                photos: [],
-            });
-        }
-        
-        newReport.completedTasks[activeTask.id] = taskCompletions;
-        await updateLocalReport(newReport);
+            if (completionIndex !== null && taskCompletions[completionIndex]) {
+                const completionToUpdate = { ...taskCompletions[completionIndex] };
+                completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+                taskCompletions[completionIndex] = completionToUpdate;
+            } else {
+                taskCompletions.unshift({
+                    timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                    photoIds: photoIds,
+                    photos: [],
+                });
+            }
+            
+            newReport.completedTasks[taskId] = taskCompletions;
+            return newReport;
+        });
         
         handleCameraClose();
-    }, [activeTask, activeCompletionIndex, report, updateLocalReport]);
+    }, [activeTask, activeCompletionIndex, updateLocalReport, handleCameraClose]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
-      if (!report) return;
-      
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      const completionToUpdate = taskCompletions[completionIndex];
-
-      if (!completionToUpdate) return;
-
-      if (isLocal) {
-          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+       if (isLocal) {
+          const photoUrl = localPhotoUrls.get(photoId);
+          if (photoUrl) URL.revokeObjectURL(photoUrl);
+          setLocalPhotoUrls(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(photoId);
+              return newMap;
+          });
           await photoStore.deletePhoto(photoId);
       } else {
-          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
           await dataStore.deletePhotoFromStorage(photoId);
       }
 
-      if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-           const taskDefinition = tasks?.flatMap(s => s.tasks).find(t => t.id === taskId);
-          if (taskDefinition?.type === 'photo') {
-              taskCompletions.splice(completionIndex, 1);
+      updateLocalReport(prevReport => {
+          const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+          const taskCompletions = [...(newReport.completedTasks[taskId] || [])];
+          if (!taskCompletions[completionIndex]) return prevReport;
+
+          const completionToUpdate = { ...taskCompletions[completionIndex] };
+
+          if (isLocal) {
+              completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+          } else {
+              completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
           }
-      }
-      
-      if (taskCompletions.length === 0) {
-          delete newReport.completedTasks[taskId];
-      } else {
-          newReport.completedTasks[taskId] = taskCompletions;
-      }
-      
-      await updateLocalReport(newReport);
+
+          if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
+              const taskDefinition = tasks?.flatMap(s => s.tasks).find(t => t.id === taskId);
+              if (taskDefinition?.type === 'photo') {
+                  taskCompletions.splice(completionIndex, 1);
+              } else {
+                  taskCompletions[completionIndex] = completionToUpdate;
+              }
+          } else {
+            taskCompletions[completionIndex] = completionToUpdate;
+          }
+          
+          if (taskCompletions.length === 0) {
+              delete newReport.completedTasks[taskId];
+          } else {
+              newReport.completedTasks[taskId] = taskCompletions;
+          }
+          
+          return newReport;
+      });
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
       
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      
-      const completionToDelete = taskCompletions[completionIndex];
+      const completionToDelete = report.completedTasks[taskId]?.[completionIndex];
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
+        completionToDelete.photoIds.forEach(id => {
+             const photoUrl = localPhotoUrls.get(id);
+             if (photoUrl) URL.revokeObjectURL(photoUrl);
+        });
         await photoStore.deletePhotos(completionToDelete.photoIds);
       }
       if (completionToDelete.photos) {
         await Promise.all(completionToDelete.photos.map(url => dataStore.deletePhotoFromStorage(url)));
       }
 
-      taskCompletions.splice(completionIndex, 1);
-      
-      if (taskCompletions.length > 0) {
-          newReport.completedTasks[taskId] = taskCompletions;
-      } else {
-          delete newReport.completedTasks[taskId];
-      }
-      
-      await updateLocalReport(newReport);
+      updateLocalReport(prevReport => {
+          const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+          const taskCompletions = [...(newReport.completedTasks[taskId] || [])];
+          taskCompletions.splice(completionIndex, 1);
+
+          if (taskCompletions.length > 0) {
+              newReport.completedTasks[taskId] = taskCompletions;
+          } else {
+              delete newReport.completedTasks[taskId];
+          }
+          return newReport;
+      });
   }
   
     const handleSubmitReport = async (notes: string) => {
@@ -411,17 +426,6 @@ export default function HygieneReportPage() {
         setIsSubmitting(false);
       }
   }
-    
-  const handleCameraClose = useCallback(() => {
-    setIsCameraOpen(false);
-    setActiveTask(null);
-    setActiveCompletionIndex(null);
-  }, []);
-
-  const handleOpinionClose = useCallback(() => {
-    setIsOpinionOpen(false);
-    setActiveTask(null);
-  }, []);
   
   const getSectionIcon = (title: string) => {
     switch(title) {

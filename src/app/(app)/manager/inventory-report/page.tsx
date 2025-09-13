@@ -44,28 +44,6 @@ function ManagerInventoryReportView() {
 
   const [openCategories, setOpenCategories] = useState<string[]>([]);
 
-  // --- Back button handling for Lightbox and Dialogs ---
-  useEffect(() => {
-    const dialogIsOpen = lightboxOpen || isHistoryOpen;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setLightboxOpen(false);
-        setIsHistoryOpen(false);
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [lightboxOpen, isHistoryOpen]);
-
-
   useEffect(() => {
     if (!authLoading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
       router.replace('/');

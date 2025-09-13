@@ -62,31 +62,6 @@ export default function PassRequestsDialog({
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
   const [showRevertConfirm, setShowRevertConfirm] = useState<Notification | null>(null);
 
-  // --- Back button handling ---
-  useEffect(() => {
-    const dialogIsOpen = isOpen || !!showCancelConfirm || !!showRevertConfirm;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setShowCancelConfirm(null);
-        setShowRevertConfirm(null);
-        if (isOpen && !showCancelConfirm && !showRevertConfirm) {
-          onClose();
-        }
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [isOpen, onClose, showCancelConfirm, showRevertConfirm]);
-
-
   const { pendingRequests, historicalRequests } = useMemo(() => {
     const pending: Notification[] = [];
     const historical: Notification[] = [];

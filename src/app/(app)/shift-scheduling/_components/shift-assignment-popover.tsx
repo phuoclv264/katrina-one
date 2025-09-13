@@ -77,30 +77,6 @@ export default function ShiftAssignmentDialog({
       setConflictError(null);
     }
   }, [isOpen, shift.assignedUsers, isPassAssignmentMode]);
-  
-  // --- Back button handling ---
-  useEffect(() => {
-    const dialogIsOpen = isOpen || !!conflictError;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setConflictError(null);
-        if (isOpen && !conflictError) {
-          onClose();
-        }
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [isOpen, onClose, conflictError]);
-
 
   const sortedUsers = useMemo(() => {
     const shiftRole = shift.role;

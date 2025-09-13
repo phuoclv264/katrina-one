@@ -28,26 +28,6 @@ const SubmissionNotesDialog = ({ isOpen, onClose, onSubmit, isSubmitting }: Subm
       setNotes(''); // Reset notes when dialog opens
     }
   }, [isOpen]);
-  
-  // --- Back button handling ---
-  useEffect(() => {
-    const handler = (e: PopStateEvent) => {
-      if (isOpen) {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [isOpen, onClose]);
-
 
   const handleSubmit = () => {
     onSubmit(notes);

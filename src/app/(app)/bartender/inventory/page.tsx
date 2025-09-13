@@ -50,26 +50,6 @@ export default function InventoryPage() {
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
-  // --- Back button handling for Dialogs ---
-  useEffect(() => {
-    const handler = (e: PopStateEvent) => {
-      if (isCameraOpen) {
-        e.preventDefault();
-        setIsCameraOpen(false);
-      }
-    };
-
-    if (isCameraOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [isCameraOpen]);
-
-
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
       router.replace('/');
@@ -115,16 +95,18 @@ export default function InventoryPage() {
     for (const itemId in currentReport.stockLevels) {
         const record = currentReport.stockLevels[itemId];
         if (record.photoIds) {
-            record.photoIds.forEach(id => allPhotoIds.add(id));
+            record.photoIds.forEach(id => {
+                if (!localPhotoUrls.has(id)) {
+                    allPhotoIds.add(id);
+                }
+            });
         }
     }
     if (allPhotoIds.size > 0) {
         const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-        setLocalPhotoUrls(urls);
-    } else {
-        setLocalPhotoUrls(new Map());
+        setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
     }
-  }, []);
+  }, [localPhotoUrls]);
 
   useEffect(() => {
     if (!user) return;
@@ -148,61 +130,80 @@ export default function InventoryPage() {
     loadReport();
   }, [user, fetchLocalPhotos]);
   
-  const handleLocalSave = useCallback(async (updatedReport: InventoryReport) => {
-      await dataStore.saveLocalInventoryReport(updatedReport);
-      setHasUnsubmittedChanges(true);
-      await fetchLocalPhotos(updatedReport);
+  const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport) => InventoryReport) => {
+    setReport(prevReport => {
+        if (!prevReport) return null;
+        const newReport = reportUpdater(prevReport);
+
+        (async () => {
+            await dataStore.saveLocalInventoryReport(newReport);
+            setHasUnsubmittedChanges(true);
+            await fetchLocalPhotos(newReport);
+        })();
+
+        return newReport;
+    });
   }, [fetchLocalPhotos]);
 
   const handleStockChange = (itemId: string, value: string) => {
-    if (!report) return;
-    
     const isNumeric = value.trim() !== '' && !isNaN(Number(value));
     const stockValue = isNumeric ? Number(value) : value;
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    const existingRecord = newReport.stockLevels[itemId] || {};
-    newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
-
-    setReport(newReport);
-    handleLocalSave(newReport);
+    handleLocalSave(prevReport => {
+        const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
+        const existingRecord = newReport.stockLevels[itemId] || {};
+        newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
+        return newReport;
+    });
   };
   
-  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-    if (!activeItemId || !report || photoIds.length === 0) return;
+  const handleCapturePhotos = useCallback((photoIds: string[]) => {
+    if (!activeItemId || photoIds.length === 0) return;
+    const itemId = activeItemId;
 
-    const newReport = { ...report, stockLevels: { ...report.stockLevels } };
-    const record = newReport.stockLevels[activeItemId] || { stock: '' };
-    
-    record.photoIds = [...(record.photoIds || []), ...photoIds];
-    newReport.stockLevels[activeItemId] = record;
-
-    setReport(newReport);
-    await handleLocalSave(newReport);
+    handleLocalSave(prevReport => {
+        const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
+        const record = { ...(newReport.stockLevels[itemId] || { stock: '' }) };
+        
+        record.photoIds = [...(record.photoIds || []), ...photoIds];
+        newReport.stockLevels[itemId] = record;
+        return newReport;
+    });
 
     setIsCameraOpen(false);
     setActiveItemId(null);
-  }, [activeItemId, report, handleLocalSave]);
+  }, [activeItemId, handleLocalSave]);
 
 
     const handleDeletePhoto = async (itemId: string, photoId: string, isLocal: boolean) => {
         if (!report) return;
-        const newReport = { ...report, stockLevels: { ...report.stockLevels } };
-        const record = newReport.stockLevels[itemId];
-
-        if (!record) return;
 
         if (isLocal) {
-            record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
+            const photoUrl = localPhotoUrls.get(photoId);
+            if (photoUrl) URL.revokeObjectURL(photoUrl);
+            setLocalPhotoUrls(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(photoId);
+                return newMap;
+            });
             await photoStore.deletePhoto(photoId);
         } else {
-            record.photos = (record.photos ?? []).filter(p => p !== photoId);
+            // This part is for photos already on server, which is not the primary use case here, but good to have
             await dataStore.deletePhotoFromStorage(photoId);
         }
 
-        newReport.stockLevels[itemId] = record;
-        setReport(newReport);
-        await handleLocalSave(newReport);
+        handleLocalSave(prevReport => {
+            const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
+            const record = { ...newReport.stockLevels[itemId] };
+
+            if (isLocal) {
+                record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
+            } else {
+                record.photos = (record.photos ?? []).filter(p => p !== photoId);
+            }
+            newReport.stockLevels[itemId] = record;
+            return newReport;
+        });
     };
 
   const handleGenerateSuggestions = async () => {
@@ -456,6 +457,7 @@ export default function InventoryPage() {
                                             const record = report.stockLevels[item.id];
                                             const stockValue = record?.stock ?? '';
                                             const photoIds = record?.photoIds || [];
+                                            const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
                                             return (
                                                 <div 
                                                     key={item.id} 
@@ -470,6 +472,32 @@ export default function InventoryPage() {
                                                             {item.name}
                                                         </p>
                                                         <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
+                                                        {item.requiresPhoto && (
+                                                            <div className="flex gap-2 items-center flex-wrap mt-2">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    className="h-9 w-9"
+                                                                    onClick={(e) => { e.stopPropagation(); setActiveItemId(item.id); setIsCameraOpen(true); }}
+                                                                    disabled={isProcessing}
+                                                                >
+                                                                    <Camera className="h-4 w-4" />
+                                                                </Button>
+                                                                 {photoUrls.map((photoUrl, index) => (
+                                                                    <div key={`${item.id}-photo-${index}`} className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
+                                                                        <Image src={photoUrl} alt="Inventory photo" fill className="object-cover" />
+                                                                        <Button
+                                                                            variant="destructive"
+                                                                            size="icon"
+                                                                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
+                                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, photoIds[index], true);}}
+                                                                        >
+                                                                            <X className="h-2 w-2" />
+                                                                        </Button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                         )}
                                                     </div>
                                                     <div className="col-span-1 flex flex-col items-end gap-2">
                                                         <Input
@@ -481,36 +509,6 @@ export default function InventoryPage() {
                                                             placeholder="Tồn kho..."
                                                             disabled={isProcessing}
                                                         />
-                                                         {item.requiresPhoto && (
-                                                            <div className="flex gap-2 items-center">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    className="h-9 w-9"
-                                                                    onClick={(e) => { e.stopPropagation(); setActiveItemId(item.id); setIsCameraOpen(true); }}
-                                                                    disabled={isProcessing}
-                                                                >
-                                                                    <Camera className="h-4 w-4" />
-                                                                </Button>
-                                                                 {photoIds.map((photoId) => {
-                                                                    const photoUrl = localPhotoUrls.get(photoId);
-                                                                    if (!photoUrl) return null;
-                                                                    return (
-                                                                        <div key={photoId} className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
-                                                                            <Image src={photoUrl} alt="Inventory photo" fill className="object-cover" />
-                                                                            <Button
-                                                                                variant="destructive"
-                                                                                size="icon"
-                                                                                className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
-                                                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, photoId, true);}}
-                                                                            >
-                                                                                <X className="h-2 w-2" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    )
-                                                                })}
-                                                            </div>
-                                                         )}
                                                     </div>
                                                 </div>
                                             )

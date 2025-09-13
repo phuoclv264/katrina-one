@@ -63,29 +63,6 @@ export default function ChecklistPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // --- Back button handling for Lightbox and Dialogs ---
-  useEffect(() => {
-    const dialogIsOpen = isLightboxOpen || isCameraOpen || isOpinionOpen || showSyncDialog;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setIsLightboxOpen(false);
-        setIsCameraOpen(false);
-        setIsOpinionOpen(false);
-        setShowSyncDialog(false);
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-        window.removeEventListener('popstate', handler);
-    };
-  }, [isLightboxOpen, isCameraOpen, isOpinionOpen, showSyncDialog]);
-
   // Initialize accordion state based on completion status
   useEffect(() => {
     if (shift && report) {
@@ -131,19 +108,23 @@ export default function ChecklistPage() {
     for (const taskId in currentReport.completedTasks) {
         for (const completion of currentReport.completedTasks[taskId]) {
             if (completion.photoIds) {
-                completion.photoIds.forEach(id => allPhotoIds.add(id));
+                completion.photoIds.forEach(id => {
+                    // Only add IDs that don't have a URL yet
+                    if (!localPhotoUrls.has(id)) {
+                        allPhotoIds.add(id);
+                    }
+                });
             }
         }
     }
 
     if (allPhotoIds.size === 0) {
-        setLocalPhotoUrls(new Map());
         return;
     }
 
     const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-    setLocalPhotoUrls(urls);
-  }, []);
+    setLocalPhotoUrls(prevUrls => new Map([...prevUrls, ...urls]));
+}, [localPhotoUrls]);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -199,27 +180,32 @@ export default function ChecklistPage() {
     return () => { isMounted = false; }
   }, [isAuthLoading, user, shiftKey, toast, fetchLocalPhotos, router]);
   
-  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
-      setReport(updatedReport);
-      await fetchLocalPhotos(updatedReport); // Refresh photo URLs after every local update
-      if (dataStore.isReportEmpty(updatedReport)) {
-        await dataStore.deleteLocalReport(updatedReport.id);
-        setSyncStatus('synced');
-        setHasUnsubmittedChanges(false);
-      } else {
-        await dataStore.saveLocalReport(updatedReport);
-        setSyncStatus('local-newer');
-        setHasUnsubmittedChanges(true);
-      }
+  const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
+    setReport(prevReport => {
+        if (!prevReport) return null;
+        const newReport = updater(prevReport);
+
+        (async () => {
+            await fetchLocalPhotos(newReport); // Refresh photo URLs after every local update
+            if (dataStore.isReportEmpty(newReport)) {
+                await dataStore.deleteLocalReport(newReport.id);
+                setSyncStatus('synced');
+                setHasUnsubmittedChanges(false);
+            } else {
+                await dataStore.saveLocalReport(newReport);
+                setSyncStatus('local-newer');
+                setHasUnsubmittedChanges(true);
+            }
+        })();
+
+        return newReport;
+    });
   }, [fetchLocalPhotos]);
 
   const handleNotesChange = useCallback((notes: string) => {
     setSubmissionNotes(notes);
-    if (report && report.issues !== notes) {
-        const newReport = { ...report, issues: notes };
-        updateLocalReport(newReport);
-    }
-  }, [report, updateLocalReport]);
+     updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
+  }, [updateLocalReport]);
 
 
   const allPagePhotos = useMemo(() => {
@@ -261,24 +247,27 @@ export default function ChecklistPage() {
     };
 
     const handleBooleanTaskAction = async (taskId: string, value: boolean) => {
-        if (!report) return;
+        updateLocalReport(prevReport => {
+            const newReport = {
+                ...prevReport,
+                completedTasks: { ...prevReport.completedTasks },
+            };
+            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+            
+            const newCompletion: CompletionRecord = {
+              timestamp: format(new Date(), 'HH:mm'),
+              value: value,
+            };
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
-        
-        const newCompletion: CompletionRecord = {
-          timestamp: format(new Date(), 'HH:mm'),
-          value: value,
-        };
+            taskCompletions.unshift(newCompletion);
+            newReport.completedTasks[taskId] = taskCompletions;
 
-        taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[taskId] = taskCompletions;
-        await updateLocalReport(newReport);
-
-        const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
-        if (section) {
-            collapseCompletedSection(section);
-        }
+            const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
+            if (section) {
+                collapseCompletedSection(section);
+            }
+            return newReport;
+        });
     };
 
     const handleOpinionTaskAction = (task: Task) => {
@@ -287,115 +276,139 @@ export default function ChecklistPage() {
     }
   
     const handleSaveOpinion = async (opinionText: string) => {
-        if (!report || !activeTask) return;
+        if (!activeTask) return;
+        const taskId = activeTask.id;
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
-        
-        const newCompletion: CompletionRecord = {
-          timestamp: format(new Date(), 'HH:mm'),
-          opinion: opinionText.trim() || undefined,
-        };
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+            
+            const newCompletion: CompletionRecord = {
+              timestamp: format(new Date(), 'HH:mm'),
+              opinion: opinionText.trim() || undefined,
+            };
 
-        taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[activeTask.id] = taskCompletions;
-        await updateLocalReport(newReport);
+            taskCompletions.unshift(newCompletion);
+            newReport.completedTasks[taskId] = taskCompletions;
+            return newReport;
+        });
         
         handleOpinionClose();
     }
   
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeTask || !report) return;
+    const handleCapturePhotos = useCallback((photoIds: string[]) => {
+        if (!activeTask) return;
+        const taskId = activeTask.id;
+        const completionIndex = activeCompletionIndex;
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
 
-        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-            // Add photos to an existing completion
-            const completionToUpdate = taskCompletions[activeCompletionIndex];
-            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
-        } else {
-            // Create a new completion record
-            taskCompletions.unshift({
-                timestamp: format(new Date(), 'HH:mm'),
-                photoIds: photoIds,
-                photos: [],
-            });
-        }
-        
-        newReport.completedTasks[activeTask.id] = taskCompletions;
-        await updateLocalReport(newReport);
-        
-        if (activeCompletionIndex === null) {
-            const section = shift?.sections.find(s => s.tasks.some(t => t.id === activeTask.id));
-            if (section) {
-                collapseCompletedSection(section);
+            if (completionIndex !== null && taskCompletions[completionIndex]) {
+                const completionToUpdate = { ...taskCompletions[completionIndex] };
+                completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+                taskCompletions[completionIndex] = completionToUpdate;
+            } else {
+                taskCompletions.unshift({
+                    timestamp: format(new Date(), 'HH:mm'),
+                    photoIds: photoIds,
+                    photos: [],
+                });
             }
-        }
+            
+            newReport.completedTasks[taskId] = taskCompletions;
 
-        setIsCameraOpen(false);
-        setActiveTask(null);
-        setActiveCompletionIndex(null);
-    }, [activeTask, activeCompletionIndex, report, updateLocalReport, shift, collapseCompletedSection]);
+            if (completionIndex === null) {
+                const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
+                if (section) {
+                    collapseCompletedSection(section);
+                }
+            }
+
+            return newReport;
+        });
+        
+        handleCameraClose();
+    }, [activeTask, activeCompletionIndex, shift, collapseCompletedSection, updateLocalReport, handleCameraClose]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
       
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      const completionToUpdate = taskCompletions[completionIndex];
-
-      if (!completionToUpdate) return;
-
-      if (isLocal) {
-          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+       if (isLocal) {
+          const photoUrl = localPhotoUrls.get(photoId);
+          if (photoUrl) URL.revokeObjectURL(photoUrl);
+          setLocalPhotoUrls(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(photoId);
+              return newMap;
+          });
           await photoStore.deletePhoto(photoId);
       } else {
-          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
           await dataStore.deletePhotoFromStorage(photoId);
       }
+      
+      updateLocalReport(prevReport => {
+        const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+        const taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+        const completionToUpdate = { ...taskCompletions[completionIndex] };
 
-      if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-           const taskDefinition = shift?.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
-          if (taskDefinition?.type === 'photo') {
-              taskCompletions.splice(completionIndex, 1);
-          }
-      }
-      
-      if (taskCompletions.length === 0) {
-          delete newReport.completedTasks[taskId];
-      } else {
-          newReport.completedTasks[taskId] = taskCompletions;
-      }
-      
-      await updateLocalReport(newReport);
+        if (!completionToUpdate) return prevReport;
+
+        if (isLocal) {
+            completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+        } else {
+            completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
+        }
+
+        if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
+             const taskDefinition = shift?.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
+            if (taskDefinition?.type === 'photo') {
+                taskCompletions.splice(completionIndex, 1);
+            }
+        } else {
+            taskCompletions[completionIndex] = completionToUpdate;
+        }
+        
+        if (taskCompletions.length === 0) {
+            delete newReport.completedTasks[taskId];
+        } else {
+            newReport.completedTasks[taskId] = taskCompletions;
+        }
+
+        return newReport;
+      });
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
       
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      
-      const completionToDelete = taskCompletions[completionIndex];
+      const completionToDelete = report.completedTasks[taskId]?.[completionIndex];
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
+        completionToDelete.photoIds.forEach(id => {
+             const photoUrl = localPhotoUrls.get(id);
+             if (photoUrl) URL.revokeObjectURL(photoUrl);
+        });
         await photoStore.deletePhotos(completionToDelete.photoIds);
       }
       if (completionToDelete.photos) {
         await Promise.all(completionToDelete.photos.map(url => dataStore.deletePhotoFromStorage(url)));
       }
       
-      taskCompletions.splice(completionIndex, 1);
-      
-      if (taskCompletions.length > 0) {
-          newReport.completedTasks[taskId] = taskCompletions;
-      } else {
-          delete newReport.completedTasks[taskId];
-      }
-      
-      await updateLocalReport(newReport);
+      updateLocalReport(prevReport => {
+         const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
+         const taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+         taskCompletions.splice(completionIndex, 1);
+         
+         if (taskCompletions.length > 0) {
+             newReport.completedTasks[taskId] = taskCompletions;
+         } else {
+             delete newReport.completedTasks[taskId];
+         }
+         return newReport;
+      });
   }
   
     const handleSubmitReport = async () => {

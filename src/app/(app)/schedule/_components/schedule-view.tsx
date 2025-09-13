@@ -66,28 +66,6 @@ export default function ScheduleView() {
 
     const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
 
-    // --- Back button handling ---
-    useEffect(() => {
-        const dialogIsOpen = isAvailabilityDialogOpen || isPassRequestsDialogOpen;
-        const handler = (e: PopStateEvent) => {
-        if (dialogIsOpen) {
-            e.preventDefault();
-            setIsAvailabilityDialogOpen(false);
-            setIsPassRequestsDialogOpen(false);
-        }
-        };
-
-        if (dialogIsOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handler);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handler);
-        };
-    }, [isAvailabilityDialogOpen, isPassRequestsDialogOpen]);
-
-
     useEffect(() => {
         if (authLoading) return;
         if (!user) {

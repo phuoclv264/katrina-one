@@ -85,28 +85,6 @@ function ViolationDialog({
     }
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
-  // --- Back button handling ---
-  useEffect(() => {
-    const dialogIsOpen = open || isCameraOpen;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setIsCameraOpen(false);
-        onOpenChange(false);
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [open, isCameraOpen, onOpenChange]);
-
-
   const handleSave = () => {
     if (!content || selectedUsers.length === 0 || !selectedCategory) {
       alert('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
@@ -232,29 +210,6 @@ export default function ViolationsPage() {
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
-
-
-  // --- Back button handling for Lightbox and Dialogs ---
-  useEffect(() => {
-    const dialogIsOpen = lightboxOpen || isPenaltyCameraOpen;
-    const handler = (e: PopStateEvent) => {
-      if (dialogIsOpen) {
-        e.preventDefault();
-        setLightboxOpen(false);
-        setIsPenaltyCameraOpen(false);
-      }
-    };
-
-    if (dialogIsOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handler);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handler);
-    };
-  }, [lightboxOpen, isPenaltyCameraOpen]);
-
 
   useEffect(() => {
     if (!authLoading && !user) {
