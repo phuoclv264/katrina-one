@@ -187,7 +187,6 @@ export default function ComprehensiveReportPage() {
         const newReport = updater(prevReport);
 
         (async () => {
-            await fetchLocalPhotos(newReport);
             if (dataStore.isReportEmpty(newReport)) {
                 await dataStore.deleteLocalReport(newReport.id);
                 setSyncStatus('synced');
@@ -201,7 +200,7 @@ export default function ComprehensiveReportPage() {
         
         return newReport;
     });
-  }, [fetchLocalPhotos]);
+  }, []);
 
   const handlePhotoTaskAction = (taskId: string, completionIndex: number | null = null) => {
     setActiveTaskId(taskId);
@@ -211,8 +210,9 @@ export default function ComprehensiveReportPage() {
   
   const handleBooleanTaskAction = (taskId: string, value: boolean) => {
      updateLocalReport(prevReport => {
-        const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-        let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        let taskCompletions = [...(newCompletedTasks[taskId] || [])];
         const now = new Date();
         const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
         
@@ -224,7 +224,8 @@ export default function ComprehensiveReportPage() {
         };
 
         taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[taskId] = taskCompletions;
+        newCompletedTasks[taskId] = taskCompletions;
+        newReport.completedTasks = newCompletedTasks;
         return newReport;
     });
   };
@@ -237,11 +238,11 @@ export default function ComprehensiveReportPage() {
 
   const handleSaveOpinion = (opinionText: string) => {
     if (!activeTaskId) return;
-    const taskId = activeTaskId;
     
     updateLocalReport(prevReport => {
-        const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-        let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        let taskCompletions = [...(newCompletedTasks[activeTaskId] || [])];
         const now = new Date();
         const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
         
@@ -253,21 +254,27 @@ export default function ComprehensiveReportPage() {
         };
 
         taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[taskId] = taskCompletions;
+        newCompletedTasks[activeTaskId] = taskCompletions;
+        newReport.completedTasks = newCompletedTasks;
         return newReport;
     });
     
     handleOpinionClose();
   }
 
-    const handleCapturePhotos = useCallback((photoIds: string[]) => {
+    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
         if (!activeTaskId) return;
+
+        const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
+        setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
+        
         const taskId = activeTaskId;
         const completionIndex = activeCompletionIndex;
 
         updateLocalReport(prevReport => {
-            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            let taskCompletions = [...(newCompletedTasks[taskId] || [])];
 
             if (completionIndex !== null && taskCompletions[completionIndex]) {
                 const completionToUpdate = { ...taskCompletions[completionIndex] };
@@ -284,7 +291,8 @@ export default function ComprehensiveReportPage() {
                 });
             }
 
-            newReport.completedTasks[taskId] = taskCompletions;
+            newCompletedTasks[taskId] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
             return newReport;
         });
 
@@ -308,8 +316,9 @@ export default function ComprehensiveReportPage() {
       }
       
       updateLocalReport(prevReport => {
-        const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-        const taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        const taskCompletions = [...(newCompletedTasks[taskId] || [])];
         const completionToUpdate = { ...taskCompletions[completionIndex] };
 
         if (!completionToUpdate) return prevReport;
@@ -332,11 +341,12 @@ export default function ComprehensiveReportPage() {
         }
         
         if (taskCompletions.length === 0) {
-            delete newReport.completedTasks[taskId];
+            delete newCompletedTasks[taskId];
         } else {
-            newReport.completedTasks[taskId] = taskCompletions;
+            newCompletedTasks[taskId] = taskCompletions;
         }
 
+        newReport.completedTasks = newCompletedTasks;
         return newReport;
       });
   };
@@ -359,15 +369,17 @@ export default function ComprehensiveReportPage() {
       }
       
       updateLocalReport(prevReport => {
-         const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-         const taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+         const newReport = { ...prevReport };
+         const newCompletedTasks = { ...newReport.completedTasks };
+         const taskCompletions = [...(newCompletedTasks[taskId] || [])];
          taskCompletions.splice(completionIndex, 1);
          
          if (taskCompletions.length > 0) {
-             newReport.completedTasks[taskId] = taskCompletions;
+             newCompletedTasks[taskId] = taskCompletions;
          } else {
-             delete newReport.completedTasks[taskId];
+             delete newCompletedTasks[taskId];
          }
+         newReport.completedTasks = newCompletedTasks;
          return newReport;
       });
   }
@@ -819,3 +831,4 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
+

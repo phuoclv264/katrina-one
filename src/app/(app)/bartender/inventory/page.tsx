@@ -138,35 +138,42 @@ export default function InventoryPage() {
         (async () => {
             await dataStore.saveLocalInventoryReport(newReport);
             setHasUnsubmittedChanges(true);
-            await fetchLocalPhotos(newReport);
         })();
 
         return newReport;
     });
-  }, [fetchLocalPhotos]);
+  }, []);
 
   const handleStockChange = (itemId: string, value: string) => {
     const isNumeric = value.trim() !== '' && !isNaN(Number(value));
     const stockValue = isNumeric ? Number(value) : value;
 
     handleLocalSave(prevReport => {
-        const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
-        const existingRecord = newReport.stockLevels[itemId] || {};
-        newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
+        const newReport = { ...prevReport };
+        const newStockLevels = { ...newReport.stockLevels };
+        const existingRecord = newStockLevels[itemId] || {};
+        newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
+        newReport.stockLevels = newStockLevels;
         return newReport;
     });
   };
   
-  const handleCapturePhotos = useCallback((photoIds: string[]) => {
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
     if (!activeItemId || photoIds.length === 0) return;
+    
+    const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
+    setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
+    
     const itemId = activeItemId;
 
     handleLocalSave(prevReport => {
-        const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
-        const record = { ...(newReport.stockLevels[itemId] || { stock: '' }) };
+        const newReport = { ...prevReport };
+        const newStockLevels = { ...newReport.stockLevels };
+        const record = { ...(newStockLevels[itemId] || { stock: '' }) };
         
         record.photoIds = [...(record.photoIds || []), ...photoIds];
-        newReport.stockLevels[itemId] = record;
+        newStockLevels[itemId] = record;
+        newReport.stockLevels = newStockLevels;
         return newReport;
     });
 
@@ -193,15 +200,17 @@ export default function InventoryPage() {
         }
 
         handleLocalSave(prevReport => {
-            const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
-            const record = { ...newReport.stockLevels[itemId] };
+            const newReport = { ...prevReport };
+            const newStockLevels = { ...newReport.stockLevels };
+            const record = { ...newStockLevels[itemId] };
 
             if (isLocal) {
                 record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
             } else {
                 record.photos = (record.photos ?? []).filter(p => p !== photoId);
             }
-            newReport.stockLevels[itemId] = record;
+            newStockLevels[itemId] = record;
+            newReport.stockLevels = newStockLevels;
             return newReport;
         });
     };
@@ -610,3 +619,4 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
+

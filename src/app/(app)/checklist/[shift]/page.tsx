@@ -109,7 +109,6 @@ export default function ChecklistPage() {
         for (const completion of currentReport.completedTasks[taskId]) {
             if (completion.photoIds) {
                 completion.photoIds.forEach(id => {
-                    // Only add IDs that don't have a URL yet
                     if (!localPhotoUrls.has(id)) {
                         allPhotoIds.add(id);
                     }
@@ -124,7 +123,7 @@ export default function ChecklistPage() {
 
     const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
     setLocalPhotoUrls(prevUrls => new Map([...prevUrls, ...urls]));
-}, [localPhotoUrls]);
+  }, [localPhotoUrls]);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -186,7 +185,6 @@ export default function ChecklistPage() {
         const newReport = updater(prevReport);
 
         (async () => {
-            await fetchLocalPhotos(newReport); // Refresh photo URLs after every local update
             if (dataStore.isReportEmpty(newReport)) {
                 await dataStore.deleteLocalReport(newReport.id);
                 setSyncStatus('synced');
@@ -200,7 +198,7 @@ export default function ChecklistPage() {
 
         return newReport;
     });
-  }, [fetchLocalPhotos]);
+  }, []);
 
   const handleNotesChange = useCallback((notes: string) => {
     setSubmissionNotes(notes);
@@ -240,6 +238,18 @@ export default function ChecklistPage() {
     return photos;
   }, [shift, report, localPhotoUrls]);
 
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTask(null);
+    setActiveCompletionIndex(null);
+  }, []);
+
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTask(null);
+  }, []);
+
+
     const handlePhotoTaskAction = (task: Task, completionIndex: number | null = null) => {
         setActiveTask(task);
         setActiveCompletionIndex(completionIndex);
@@ -248,11 +258,9 @@ export default function ChecklistPage() {
 
     const handleBooleanTaskAction = async (taskId: string, value: boolean) => {
         updateLocalReport(prevReport => {
-            const newReport = {
-                ...prevReport,
-                completedTasks: { ...prevReport.completedTasks },
-            };
-            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            const taskCompletions = [...(newCompletedTasks[taskId] || [])];
             
             const newCompletion: CompletionRecord = {
               timestamp: format(new Date(), 'HH:mm'),
@@ -260,7 +268,8 @@ export default function ChecklistPage() {
             };
 
             taskCompletions.unshift(newCompletion);
-            newReport.completedTasks[taskId] = taskCompletions;
+            newCompletedTasks[taskId] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
 
             const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
             if (section) {
@@ -277,44 +286,39 @@ export default function ChecklistPage() {
   
     const handleSaveOpinion = async (opinionText: string) => {
         if (!activeTask) return;
-        const taskId = activeTask.id;
-
+        
         updateLocalReport(prevReport => {
-            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
-            
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            const taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
+
             const newCompletion: CompletionRecord = {
               timestamp: format(new Date(), 'HH:mm'),
               opinion: opinionText.trim() || undefined,
             };
 
             taskCompletions.unshift(newCompletion);
-            newReport.completedTasks[taskId] = taskCompletions;
+            newCompletedTasks[activeTask.id] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
             return newReport;
         });
         
         handleOpinionClose();
     }
   
-  const handleCameraClose = useCallback(() => {
-    setIsCameraOpen(false);
-    setActiveTask(null);
-    setActiveCompletionIndex(null);
-  }, []);
-
-  const handleOpinionClose = useCallback(() => {
-    setIsOpinionOpen(false);
-    setActiveTask(null);
-  }, []);
-
-  const handleCapturePhotos = useCallback((photoIds: string[]) => {
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
         if (!activeTask) return;
+        
+        const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
+        setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
+        
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
 
         updateLocalReport(prevReport => {
-            const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-            let taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            const taskCompletions = [...(newCompletedTasks[taskId] || [])];
 
             if (completionIndex !== null && taskCompletions[completionIndex]) {
                 const completionToUpdate = { ...taskCompletions[completionIndex] };
@@ -328,7 +332,8 @@ export default function ChecklistPage() {
                 });
             }
             
-            newReport.completedTasks[taskId] = taskCompletions;
+            newCompletedTasks[taskId] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
 
             if (completionIndex === null) {
                 const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
@@ -344,8 +349,6 @@ export default function ChecklistPage() {
     }, [activeTask, activeCompletionIndex, shift, collapseCompletedSection, updateLocalReport, handleCameraClose]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
-      if (!report) return;
-      
        if (isLocal) {
           const photoUrl = localPhotoUrls.get(photoId);
           if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -360,8 +363,9 @@ export default function ChecklistPage() {
       }
       
       updateLocalReport(prevReport => {
-        const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-        const taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        const taskCompletions = [...(newCompletedTasks[taskId] || [])];
         const completionToUpdate = { ...taskCompletions[completionIndex] };
 
         if (!completionToUpdate) return prevReport;
@@ -382,11 +386,12 @@ export default function ChecklistPage() {
         }
         
         if (taskCompletions.length === 0) {
-            delete newReport.completedTasks[taskId];
+            delete newCompletedTasks[taskId];
         } else {
-            newReport.completedTasks[taskId] = taskCompletions;
+            newCompletedTasks[taskId] = taskCompletions;
         }
 
+        newReport.completedTasks = newCompletedTasks;
         return newReport;
       });
   };
@@ -409,15 +414,17 @@ export default function ChecklistPage() {
       }
       
       updateLocalReport(prevReport => {
-         const newReport = { ...prevReport, completedTasks: { ...prevReport.completedTasks } };
-         const taskCompletions = [...(newReport.completedTasks[taskId] as CompletionRecord[] || [])];
+         const newReport = { ...prevReport };
+         const newCompletedTasks = { ...newReport.completedTasks };
+         const taskCompletions = [...(newCompletedTasks[taskId] || [])];
          taskCompletions.splice(completionIndex, 1);
          
          if (taskCompletions.length > 0) {
-             newReport.completedTasks[taskId] = taskCompletions;
+             newCompletedTasks[taskId] = taskCompletions;
          } else {
-             delete newReport.completedTasks[taskId];
+             delete newCompletedTasks[taskId];
          }
+         newReport.completedTasks = newCompletedTasks;
          return newReport;
       });
   }
