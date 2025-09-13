@@ -52,26 +52,26 @@ const TaskItemComponent = ({
     const urlsToRevoke: string[] = [];
 
     const fetchLocalPhotos = async () => {
-      const allLocalPhotoIds: string[] = [];
-      completions.forEach(completion => {
-        if (completion.photoIds) {
-          completion.photoIds.forEach(id => {
-            if (!localPhotoUrls.has(id)) {
-              allLocalPhotoIds.push(id);
-            }
-          });
-        }
-      });
+      // Always get all photoIds from the current completions prop
+      const allLocalPhotoIds = completions.flatMap(c => c.photoIds || []);
   
       if (allLocalPhotoIds.length > 0) {
-        const urls = await photoStore.getPhotosAsUrls(allLocalPhotoIds);
+        const urlsMap = await photoStore.getPhotosAsUrls(allLocalPhotoIds);
         if (isMounted) {
-          urls.forEach(url => urlsToRevoke.push(url));
-          setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
+          // Create a new Map to ensure re-render
+          const newUrlMap = new Map(urlsMap);
+          setLocalPhotoUrls(newUrlMap);
+          // Collect all newly created URLs to be revoked on cleanup
+          newUrlMap.forEach(url => urlsToRevoke.push(url));
         } else {
             // If component unmounted before state update, revoke immediately
-            urls.forEach(url => URL.revokeObjectURL(url));
+            urlsMap.forEach(url => URL.revokeObjectURL(url));
         }
+      } else {
+         // If there are no local photos, clear the state
+         if(isMounted) {
+            setLocalPhotoUrls(new Map());
+         }
       }
     };
   
@@ -79,9 +79,12 @@ const TaskItemComponent = ({
     
     return () => { 
         isMounted = false; 
+        // Revoke all URLs that were created in this effect run
         urlsToRevoke.forEach(url => URL.revokeObjectURL(url));
+        // Also revoke any URLs currently in state to be safe
+        localPhotoUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [completions, localPhotoUrls]);
+  }, [completions]);
 
   const handleOpenLightbox = (allPhotosInTask: {src: string}[], currentPhotoUrl: string) => {
       const startIndex = allPhotosInTask.findIndex(p => p.src === currentPhotoUrl);
@@ -226,9 +229,6 @@ const TaskItemComponent = ({
                             className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
                             onClick={(e) => { 
                                 e.stopPropagation(); 
-                                if (photoUrl) {
-                                  URL.revokeObjectURL(photoUrl);
-                                }
                                 onDeletePhoto(task.id, cIndex, photoId, true); 
                             }}
                         >
