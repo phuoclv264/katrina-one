@@ -63,7 +63,7 @@ function ReportView() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+    if (!authLoading && (!user || (user.role !== 'Chủ nhà hàng' && user.role !== 'Quản lý'))) {
         router.replace('/shifts');
         return;
     }
@@ -211,7 +211,7 @@ function ReportView() {
   }
 
   const handleDeleteReport = async () => {
-    if (!reportToView || reportToView.id === 'summary') return;
+    if (!reportToView || reportToView.id === 'summary' || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
     try {
         await dataStore.deleteShiftReport(reportToView.id);
@@ -277,7 +277,7 @@ function ReportView() {
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <Button asChild variant="ghost" className="mb-4 -ml-4">
-            <Link href="/reports">
+            <Link href={user?.role === 'Quản lý' ? '/manager' : '/reports'}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại danh sách
             </Link>
@@ -306,7 +306,7 @@ function ReportView() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        {selectedReportId && selectedReportId !== 'summary' && (
+                        {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" size="icon" disabled={isProcessing}>

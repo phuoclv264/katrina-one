@@ -3,14 +3,13 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, Users, Wand2, Loader2, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
+import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ReactMarkdown from 'react-markdown';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 type ReportType = ShiftReport | InventoryReport;
@@ -225,10 +225,78 @@ function DailySummaryGenerator({
     )
 }
 
+function ReportsTable({
+  groupedReports,
+  getReportName,
+  getReportLink
+}: {
+  groupedReports: GroupedReports,
+  getReportName: (key: string) => string,
+  getReportLink: (date: string, key: string) => string,
+}) {
+    const router = useRouter();
+    const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    
+    return (
+        <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
+            {sortedDates.map((date) => (
+                <AccordionItem value={date} key={date}>
+                    <AccordionTrigger className="text-lg font-medium hover:no-underline">
+                        <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                        <div className="space-y-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tên báo cáo</TableHead>
+                                        <TableHead>Nhân viên đã nộp</TableHead>
+                                        <TableHead className="text-right">Thời gian nộp</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
+                                        const reportName = getReportName(key);
+                                        const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
+                                        const latestSubmission = reportGroup.reduce((latest, current) => {
+                                            if (!latest.submittedAt) return current;
+                                            if (!current.submittedAt) return latest;
+                                            return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
+                                        });
+                                        const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+
+                                        return (
+                                            <TableRow
+                                                key={`${date}-${key}`}
+                                                onClick={() => router.push(getReportLink(date, key))}
+                                                className="cursor-pointer select-none"
+                                            >
+                                                <TableCell className="font-semibold capitalize">{reportName}</TableCell>
+                                                <TableCell>
+                                                    <p className="text-sm text-muted-foreground">{staffNames}</p>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <p className="text-sm text-muted-foreground">{submissionTime}</p>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+    )
+}
+
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  
   const [allReports, setAllReports] = useState<ReportType[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
@@ -236,48 +304,68 @@ export default function ReportsPage() {
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const defaultTab = searchParams.get('defaultTab') || 'all';
+
   useEffect(() => {
-    if (!authLoading && user?.role !== 'Chủ nhà hàng') {
+    if (!authLoading && user?.role !== 'Chủ nhà hàng' && user?.role !== 'Quản lý') {
       router.replace('/shifts');
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user || user.role !== 'Chủ nhà hàng') return;
+    if (!user) return;
+    if (user.role === 'Chủ nhà hàng') {
+        // Chủ nhà hàng can see everything
+        const unsubscribes: (()=>void)[] = [];
+        try {
+            unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
+            unsubscribes.push(dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
+            unsubscribes.push(dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
+            unsubscribes.push(dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
+            unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports)));
+        } catch(error) {
+            console.error("Error subscribing to data:", error);
+            toast({
+                title: "Lỗi tải dữ liệu",
+                description: "Không thể tải được một số cấu hình công việc hoặc báo cáo.",
+                variant: "destructive",
+            });
+        }
 
-    const unsubscribes: (()=>void)[] = [];
-    
-    try {
-        unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
-        unsubscribes.push(dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
-        unsubscribes.push(dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
-        unsubscribes.push(dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
-        unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports)));
-    } catch(error) {
-         console.error("Error subscribing to data:", error);
-         toast({
-            title: "Lỗi tải dữ liệu",
-            description: "Không thể tải được một số cấu hình công việc hoặc báo cáo.",
-            variant: "destructive",
-        });
+        return () => {
+          unsubscribes.forEach(unsub => unsub());
+        };
+    } else if (user.role === 'Quản lý') {
+        // Quản lý can only see shift reports for now
+        const unsubscribes: (()=>void)[] = [];
+        try {
+            unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
+            unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports.filter(r => 'shiftKey' in r))));
+        } catch(error) {
+            console.error("Error subscribing to data:", error);
+            toast({ title: "Lỗi tải dữ liệu", variant: "destructive" });
+        }
+        
+         return () => {
+          unsubscribes.forEach(unsub => unsub());
+        };
     }
 
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
   }, [user, toast]);
   
   useEffect(() => {
-      if (tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports) {
+      const dataLoaded = (user?.role === 'Quản lý' && tasksByShift && allReports) || 
+                         (user?.role === 'Chủ nhà hàng' && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports);
+
+      if (dataLoaded) {
           setIsLoading(false);
       }
-  }, [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList, allReports]);
+  }, [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList, allReports, user]);
 
   const getReportKey = (report: ReportType): string => {
     if ('shiftKey' in report) {
       return report.shiftKey;
     }
-    // Simple way to identify inventory reports
     if ('stockLevels' in report) {
       return 'inventory';
     }
@@ -332,17 +420,28 @@ export default function ReportsPage() {
       return acc;
     }, {} as GroupedReports);
   }, [allReports]);
-
-  const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   
-  const taskDefinitions = useMemo(() => ({
-      serverTasks: tasksByShift,
-      bartenderTasks,
-      comprehensiveTasks,
-      inventoryItems: inventoryList,
-  }), [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList]);
+  const groupedShiftReports = useMemo(() => {
+    const shiftKeys = tasksByShift ? Object.keys(tasksByShift) : [];
+    return Object.fromEntries(Object.entries(groupedReports).map(([date, reportsByKey]) => 
+        [date, Object.fromEntries(Object.entries(reportsByKey).filter(([key]) => shiftKeys.includes(key)))]
+    ).filter(([_, reports]) => Object.keys(reports).length > 0));
+  }, [groupedReports, tasksByShift]);
 
-  if(isLoading || authLoading || user?.role !== 'Chủ nhà hàng') {
+  const groupedBartenderReports = useMemo(() => {
+     return Object.fromEntries(Object.entries(groupedReports).map(([date, reportsByKey]) => 
+        [date, Object.fromEntries(Object.entries(reportsByKey).filter(([key]) => key === 'bartender_hygiene'))]
+    ).filter(([_, reports]) => Object.keys(reports).length > 0));
+  }, [groupedReports]);
+
+  const groupedManagerReports = useMemo(() => {
+     return Object.fromEntries(Object.entries(groupedReports).map(([date, reportsByKey]) => 
+        [date, Object.fromEntries(Object.entries(reportsByKey).filter(([key]) => key === 'manager_comprehensive' || key === 'inventory'))]
+    ).filter(([_, reports]) => Object.keys(reports).length > 0));
+  }, [groupedReports]);
+
+
+  if(isLoading || authLoading || !user) {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -375,78 +474,32 @@ export default function ReportsPage() {
           <div>
             <CardTitle>Báo cáo gần đây</CardTitle>
             <CardDescription>
-              Hiển thị {allReports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày.
+              Hiển thị {allReports.length} báo cáo đã nộp gần nhất.
             </CardDescription>
           </div>
-          <CleanupDialog />
+          {user.role === 'Chủ nhà hàng' && <CleanupDialog />}
         </CardHeader>
         <CardContent>
-          {sortedDates.length > 0 ? (
-            <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
-              {sortedDates.map((date) => {
-                const reportsForDate = Object.values(groupedReports[date]).flat();
-                return (
-                  <AccordionItem value={date} key={date}>
-                    <AccordionTrigger className="text-lg font-medium hover:no-underline">
-                        <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        <div className="flex justify-end pr-4">
-                            <DailySummaryGenerator 
-                                date={date} 
-                                reports={reportsForDate}
-                                taskDefinitions={taskDefinitions}
-                            />
-                        </div>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Tên báo cáo</TableHead>
-                              <TableHead>Nhân viên đã nộp</TableHead>
-                              <TableHead className="text-right">Thời gian nộp</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
-                              const reportName = getReportName(key);
-                              const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
-                              const latestSubmission = reportGroup.reduce((latest, current) => {
-                                  if (!latest.submittedAt) return current;
-                                  if (!current.submittedAt) return latest;
-                                  return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
-                              });
-                              const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
-
-                              return (
-                                <TableRow 
-                                  key={`${date}-${key}`} 
-                                  onClick={() => router.push(getReportLink(date, key))}
-                                  className="cursor-pointer select-none"
-                                >
-                                  <TableCell className="font-semibold capitalize">{reportName}</TableCell>
-                                  <TableCell>
-                                    <p className="text-sm text-muted-foreground">{staffNames}</p>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <p className="text-sm text-muted-foreground">{submissionTime}</p>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )
-              })}
-            </Accordion>
-          ) : (
-             <div className="text-center text-muted-foreground py-8">
-                <p>Không có báo cáo nào được nộp.</p>
-             </div>
-          )}
+          <Tabs defaultValue={defaultTab} className="w-full">
+            <TabsList>
+              <TabsTrigger value="all">Tất cả</TabsTrigger>
+              <TabsTrigger value="by-shift">Checklist Phục vụ</TabsTrigger>
+              <TabsTrigger value="bartender">Pha chế</TabsTrigger>
+              <TabsTrigger value="manager">Quản lý & Kho</TabsTrigger>
+            </TabsList>
+            <TabsContent value="all" className="mt-4">
+                <ReportsTable groupedReports={groupedReports} getReportName={getReportName} getReportLink={getReportLink}/>
+            </TabsContent>
+            <TabsContent value="by-shift" className="mt-4">
+                 <ReportsTable groupedReports={groupedShiftReports} getReportName={getReportName} getReportLink={getReportLink}/>
+            </TabsContent>
+            <TabsContent value="bartender" className="mt-4">
+                <ReportsTable groupedReports={groupedBartenderReports} getReportName={getReportName} getReportLink={getReportLink}/>
+            </TabsContent>
+            <TabsContent value="manager" className="mt-4">
+                 <ReportsTable groupedReports={groupedManagerReports} getReportName={getReportName} getReportLink={getReportLink}/>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
