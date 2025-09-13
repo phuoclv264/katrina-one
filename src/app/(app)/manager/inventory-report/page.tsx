@@ -185,6 +185,7 @@ function ManagerInventoryReportView() {
                     description: "Báo cáo này không có dữ liệu tồn kho hợp lệ để tạo đề xuất.",
                     variant: "destructive"
                 });
+                setIsGenerating(false);
                 return;
             }
 
@@ -404,7 +405,7 @@ function ManagerInventoryReportView() {
                         <div className="flex items-center gap-1">
                             {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
                                 <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
-                                    <Copy className="mr-2 h-4 w-4"/> Sao chép
+                                    <Copy className="mr-2 h-4 w-4"/>
                                 </Button>
                             )}
                             <Button size="icon" variant="ghost" onClick={handleRegenerateSuggestions} disabled={isGenerating}>
@@ -533,3 +534,5 @@ export default function ManagerInventoryReportPage() {
         </Suspense>
     )
 }
+
+    
