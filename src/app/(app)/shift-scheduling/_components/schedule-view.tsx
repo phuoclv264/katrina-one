@@ -637,10 +637,34 @@ export default function ScheduleView() {
                                         }).filter(Boolean) as AssignedShift[];
                                         
                                         return (
-                                            <AccordionItem value={dateKey} key={dateKey} className="border-b">
-                                                <AccordionTrigger className="font-semibold text-base p-4 bg-muted/30 rounded-t-md">
-                                                     <div className="flex flex-col items-start text-left w-full">
-                                                        <span>{format(day, 'eeee, dd/MM', { locale: vi })}</span>
+                                            <AccordionItem value={dateKey} key={dateKey} className="border-b group">
+                                                <AccordionTrigger className="font-semibold text-base p-4 bg-muted/30 rounded-t-md hover:no-underline">
+                                                     <div className="flex flex-col items-start text-left w-full gap-2">
+                                                        <span className="text-lg">{format(day, 'eeee, dd/MM', { locale: vi })}</span>
+                                                        <div className="w-full space-y-2 group-data-[state=open]:hidden">
+                                                            {shiftsForDay.map(shiftObject => {
+                                                                if (!shiftObject || shiftObject.assignedUsers.length === 0) return null;
+                                                                const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
+                                                                    const userA = allUsers.find(u => u.uid === a.userId);
+                                                                    const userB = allUsers.find(u => u.uid === b.userId);
+                                                                    if (!userA || !userB) return 0;
+                                                                    return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                                });
+                                                                return (
+                                                                    <div key={shiftObject.id} className="flex items-center gap-2 flex-wrap text-sm font-normal">
+                                                                        <span className="font-semibold">{shiftObject.label}:</span>
+                                                                        {sortedAssignedUsers.map(assignedUser => {
+                                                                            const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+                                                                            return (
+                                                                                <Badge key={assignedUser.userId} className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
+                                                                                    {abbreviateName(assignedUser.userName)}
+                                                                                </Badge>
+                                                                            )
+                                                                        })}
+                                                                    </div>
+                                                                )
+                                                            })}
+                                                        </div>
                                                      </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent className="pt-2">
