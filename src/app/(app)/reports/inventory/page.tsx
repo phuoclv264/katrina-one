@@ -411,7 +411,7 @@ function InventoryReportView() {
                                                                         {item.name}
                                                                     </div>
                                                                     {item.requiresPhoto && photos.length > 0 && (
-                                                                        <div className="flex gap-2 flex-wrap pl-6">
+                                                                        <div className="flex gap-2 flex-wrap pl-6 mt-2">
                                                                             {photos.map((photo, index) => (
                                                                                 <button
                                                                                     key={index}
