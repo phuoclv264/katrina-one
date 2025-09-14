@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -517,7 +518,7 @@ export default function ViolationsPage() {
             isProcessing={isProcessing}
             violationToEdit={violationToEdit}
             reporter={user}
-            isSelfConfessMode={isSelfConfessMode}
+            isSelfConfession={isSelfConfessMode}
             categories={categories}
             onCategoriesChange={handleCategoriesChange}
             canManageCategories={user.role === 'Chủ nhà hàng'}
