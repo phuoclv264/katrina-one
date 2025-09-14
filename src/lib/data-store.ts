@@ -24,7 +24,7 @@ import {
   or,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -160,7 +160,49 @@ export const dataStore = {
         const docRef = doc(db, 'schedules', weekId);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
-                callback(docSnap.data() as Schedule);
+                const scheduleData = docSnap.data() as Schedule;
+
+                // Merge overlapping/adjacent availability slots upon loading
+                if (scheduleData.availability) {
+                    const availabilityByUser = new Map<string, Availability[]>();
+                    scheduleData.availability.forEach(avail => {
+                        const key = `${avail.userId}-${avail.date}`;
+                        if (!availabilityByUser.has(key)) {
+                            availabilityByUser.set(key, []);
+                        }
+                        availabilityByUser.get(key)!.push(avail);
+                    });
+                    
+                    const mergedAvailability: Availability[] = [];
+                    availabilityByUser.forEach((userAvailsForDate) => {
+                        if (userAvailsForDate.length > 0) {
+                            const baseAvail = userAvailsForDate[0];
+                            const allSlots = userAvailsForDate.flatMap(a => a.availableSlots);
+                            
+                            if (allSlots.length > 1) {
+                                const sortedSlots = [...allSlots].sort((a, b) => a.start.localeCompare(b.start));
+                                const result: TimeSlot[] = [sortedSlots[0]];
+                                
+                                for (let i = 1; i < sortedSlots.length; i++) {
+                                    const lastMerged = result[result.length - 1];
+                                    const current = sortedSlots[i];
+                                    if (current.start <= lastMerged.end) {
+                                        lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
+                                    } else {
+                                        result.push(current);
+                                    }
+                                }
+                                baseAvail.availableSlots = result;
+                            } else {
+                                baseAvail.availableSlots = allSlots;
+                            }
+                            mergedAvailability.push(baseAvail);
+                        }
+                    });
+                    scheduleData.availability = mergedAvailability;
+                }
+
+                callback(scheduleData);
             } else {
                 callback(null);
             }
@@ -241,6 +283,7 @@ export const dataStore = {
                         label: template.label,
                         role: template.role,
                         timeSlot: template.timeSlot,
+                        minUsers: template.minUsers ?? 0,
                         assignedUsers: [],
                     });
                 }
@@ -1484,3 +1527,4 @@ export const dataStore = {
 };
 
       
+
