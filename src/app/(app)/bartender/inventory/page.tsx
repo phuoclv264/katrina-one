@@ -148,16 +148,29 @@ export default function InventoryPage() {
     });
   }, []);
 
-  const handleStockChange = (itemId: string, value: string | number) => {
+  const handleStockChange = useCallback((itemId: string, value: string) => {
     handleLocalSave(prevReport => {
         const newReport = { ...prevReport };
         const newStockLevels = { ...newReport.stockLevels };
+        
+        const itemDefinition = inventoryList.find(i => i.id === itemId);
+        let stockValue: string | number = value;
+
+        if (itemDefinition?.dataType === 'number') {
+            if (value.trim() === '') {
+                stockValue = ''; 
+            } else {
+                const numValue = parseFloat(value);
+                stockValue = isNaN(numValue) ? '' : numValue;
+            }
+        }
+
         const existingRecord = newStockLevels[itemId] || {};
-        newStockLevels[itemId] = { ...existingRecord, stock: value };
+        newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
         newReport.stockLevels = newStockLevels;
         return newReport;
     });
-  };
+}, [handleLocalSave, inventoryList]);
   
   const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
     if (!activeItemId || photoIds.length === 0) return;
@@ -227,8 +240,7 @@ export default function InventoryPage() {
         } else { // 'list' type
             const stockString = String(stockValue).toLowerCase();
             if (stockString.includes('hết')) return 'out';
-            if (stockString.includes('gần hết')) return 'low';
-            if (stockString.includes('còn đủ')) return 'ok';
+            if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
             if (stockString.includes('dư')) return 'ok';
             return 'ok';
         }
@@ -249,10 +261,10 @@ export default function InventoryPage() {
                 }
 
                 let quantityToOrder = item.orderSuggestion;
-                const isNumericSuggestion = /^\d+$/.test(item.orderSuggestion);
+                const isNumericSuggestion = /^\d+(\.\d+)?$/.test(item.orderSuggestion);
 
                 if (isNumericSuggestion) {
-                    quantityToOrder = `${item.orderSuggestion}${item.unit}`;
+                    quantityToOrder = `${item.orderSuggestion} ${item.unit}`;
                 }
 
                 ordersBySupplier[item.supplier].push({

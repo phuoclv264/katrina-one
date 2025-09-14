@@ -215,7 +215,7 @@ function InventoryReportView() {
                 const isNumericSuggestion = /^\d+(\.\d+)?$/.test(item.orderSuggestion);
 
                 if (isNumericSuggestion) {
-                    quantityToOrder = `${item.orderSuggestion}${item.unit}`;
+                    quantityToOrder = `${item.orderSuggestion} ${item.unit}`;
                 }
 
                 ordersBySupplier[item.supplier].push({
