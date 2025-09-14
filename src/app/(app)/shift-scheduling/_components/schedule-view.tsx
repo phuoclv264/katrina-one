@@ -259,7 +259,7 @@ export default function ScheduleView() {
                             role: template.role,
                             timeSlot: template.timeSlot,
                             assignedUsers: [],
-                            minUsers: template.minUsers ?? 0,
+                            minUsers: template.minUsers,
                         });
                     }
                 }
@@ -368,7 +368,7 @@ export default function ScheduleView() {
             role: template.role,
             timeSlot: template.timeSlot,
             assignedUsers: [],
-            minUsers: template.minUsers ?? 0,
+            minUsers: template.minUsers,
         };
     };
     

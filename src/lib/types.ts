@@ -208,7 +208,7 @@ export type ShiftTemplate = {
   role: UserRole | 'Bất kỳ';
   timeSlot: TimeSlot;
   applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
-  minUsers?: number;
+  minUsers: number;
 };
 
 export type AssignedUser = {
@@ -224,7 +224,7 @@ export type AssignedShift = {
   role: UserRole | 'Bất kỳ';
   timeSlot: TimeSlot;
   assignedUsers: AssignedUser[];
-  minUsers?: number;
+  minUsers: number;
 };
 
 export type Schedule = {
