@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRef } from 'react';
@@ -118,7 +119,7 @@ export function InventoryItemRow({
                         type="number"
                         value={stockValue}
                         onChange={handleNumericChange}
-                        className="text-center h-9 w-24"
+                        className="text-center h-9 w-20"
                         placeholder="Số lượng..."
                         disabled={isProcessing}
                     />
