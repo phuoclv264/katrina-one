@@ -24,7 +24,7 @@ import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import { UserMultiSelect } from '@/components/user-multi-select';
-import { collection, doc, getDocs } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -226,7 +226,7 @@ export default function ViolationsPage() {
     Promise.all([
         getDocs(collection(db, 'violations')),
         getDocs(collection(db, 'users')),
-        getDocs(doc(db, 'app-data', 'violationCategories')),
+        getDoc(doc(db, 'app-data', 'violationCategories')),
     ]).then(() => setIsLoading(false));
         
     return () => {
@@ -538,5 +538,7 @@ export default function ViolationsPage() {
     </>
   );
 }
+
+    
 
     
