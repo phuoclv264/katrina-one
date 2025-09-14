@@ -63,7 +63,7 @@ export function UserMultiSelect({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between h-auto"
-            onClick={() => setOpen(!open)}
+            onClick={() => !disabled && setOpen(!open)}
             disabled={disabled}
           >
             <div className="flex gap-1 flex-wrap">
@@ -85,7 +85,7 @@ export function UserMultiSelect({
           </Button>
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper">
         <Command>
           <CommandInput placeholder="Tìm nhân viên..." />
           <CommandList>
