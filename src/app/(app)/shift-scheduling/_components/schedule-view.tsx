@@ -142,7 +142,7 @@ export default function ScheduleView() {
     
     const [showPublishConfirm, setShowPublishConfirm] = useState(false);
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);
-    const [showRevertProposedConfirm, setShowRevertProposedConfirm] = useState(false);
+    const [showAdminActionConfirm, setShowAdminActionConfirm] = useState(false);
 
     // --- Back button handling ---
     useEffect(() => {
@@ -156,7 +156,7 @@ export default function ScheduleView() {
                 setIsPassRequestsDialogOpen(false);
                 setShowPublishConfirm(false);
                 setShowRevertConfirm(false);
-                setShowRevertProposedConfirm(false);
+                setShowAdminActionConfirm(false);
                 setIsUserDetailsDialogOpen(false);
             }
         };
@@ -169,7 +169,7 @@ export default function ScheduleView() {
         return () => {
             window.removeEventListener('popstate', handler);
         };
-    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm, showRevertProposedConfirm, isUserDetailsDialogOpen]);
+    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm, showAdminActionConfirm, isUserDetailsDialogOpen]);
 
 
     useEffect(() => {
@@ -406,7 +406,7 @@ export default function ScheduleView() {
     
         setShowPublishConfirm(false);
         setShowRevertConfirm(false);
-        setShowRevertProposedConfirm(false);
+        setShowAdminActionConfirm(false);
         setIsSubmitting(true);
     
         try {
@@ -771,21 +771,21 @@ export default function ScheduleView() {
                             </div>
                             <div className="flex-1" />
                              <div className="flex items-center justify-end gap-4 flex-wrap">
-                                 {user?.role === 'Chủ nhà hàng' && (localSchedule?.status === 'proposed' || !localSchedule) && !hasUnsavedChanges && (
-                                     <AlertDialog open={showRevertProposedConfirm} onOpenChange={setShowRevertProposedConfirm}>
+                                 {user?.role === 'Chủ nhà hàng' && (!localSchedule || !localSchedule.status || localSchedule.status === 'proposed') && !hasUnsavedChanges && (
+                                     <AlertDialog open={showAdminActionConfirm} onOpenChange={setShowAdminActionConfirm}>
                                          <AlertDialogTrigger asChild>
                                              <Button variant="destructive" disabled={isSubmitting}>
                                                  <FileX2 className="mr-2 h-4 w-4"/>
-                                                 {localSchedule ? 'Trả về bản nháp' : 'Tạo bản nháp'}
+                                                 {localSchedule?.status === 'proposed' ? 'Trả về bản nháp' : 'Tạo bản nháp'}
                                              </Button>
                                          </AlertDialogTrigger>
                                          <AlertDialogContent>
                                              <AlertDialogHeader>
                                                  <AlertDialogTitle>
-                                                     {localSchedule ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
+                                                     {localSchedule?.status === 'proposed' ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
                                                  </AlertDialogTitle>
                                                  <AlertDialogDescription>
-                                                     {localSchedule 
+                                                     {localSchedule?.status === 'proposed' 
                                                          ? "Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa."
                                                          : "Tuần này chưa có lịch. Hành động này sẽ tạo một lịch nháp mới dựa trên các mẫu ca hiện có."
                                                      }
@@ -794,7 +794,7 @@ export default function ScheduleView() {
                                              <AlertDialogFooter>
                                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
                                                  <AlertDialogAction onClick={() => {
-                                                     if (localSchedule) {
+                                                     if (localSchedule?.status === 'proposed') {
                                                          handleUpdateStatus('draft');
                                                      } else {
                                                          handleCreateDraft();
