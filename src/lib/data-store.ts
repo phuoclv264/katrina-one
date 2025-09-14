@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays } from 'date-fns';
@@ -1330,7 +1330,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = new Date(b.submittedAt as string).getTime();
+          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -1379,7 +1379,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = new Date(b.submittedAt as string).getTime();
+          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -1527,5 +1527,6 @@ export const dataStore = {
 };
 
       
+
 
 
