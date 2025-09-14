@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import type { InventoryItem, InventoryStockRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,6 @@ type InventoryItemRowProps = {
     onStockChange: (itemId: string, value: string) => void;
     onOpenCamera: (itemId: string) => void;
     onDeletePhoto: (itemId: string, photoId: string, isLocal: boolean) => void;
-    inputRef: (el: HTMLInputElement | null) => void;
     rowRef: (el: HTMLDivElement | null) => void;
 };
 
@@ -37,9 +37,9 @@ export function InventoryItemRow({
     onStockChange,
     onOpenCamera,
     onDeletePhoto,
-    inputRef,
     rowRef,
 }: InventoryItemRowProps) {
+    const localInputRef = useRef<HTMLInputElement>(null);
     const stockValue = record?.stock ?? '';
     const photoIds = record?.photoIds || [];
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
@@ -60,7 +60,7 @@ export function InventoryItemRow({
             ref={rowRef}
             tabIndex={-1}
             className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
-            onClick={() => (inputRef as any)?.focus()}
+            onClick={() => localInputRef.current?.focus()}
         >
             <div className="col-span-1">
                 <p className="font-semibold flex items-center gap-2">
@@ -97,7 +97,7 @@ export function InventoryItemRow({
             </div>
             <div className="col-span-1 flex flex-col items-end gap-2">
                 <Input
-                    ref={inputRef}
+                    ref={localInputRef}
                     type="text"
                     value={stockValue}
                     onChange={e => onStockChange(item.id, e.target.value)}

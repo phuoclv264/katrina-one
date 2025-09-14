@@ -35,7 +35,6 @@ export default function InventoryPage() {
   const router = useRouter();
   const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
-  const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
   const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -453,7 +452,6 @@ export default function InventoryPage() {
                                                 onStockChange={handleStockChange}
                                                 onOpenCamera={(itemId) => { setActiveItemId(itemId); setIsCameraOpen(true); }}
                                                 onDeletePhoto={handleDeletePhoto}
-                                                inputRef={(el) => inputRefs.current.set(item.id, el)}
                                                 rowRef={(el) => itemRowRefs.current.set(item.id, el)}
                                             />
                                         ))}
