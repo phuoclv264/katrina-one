@@ -108,6 +108,8 @@ export type InventoryItem = {
     minStock: number;
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
+    dataType: 'number' | 'list';
+    listOptions?: string[];
 };
 
 export type Suppliers = string[];

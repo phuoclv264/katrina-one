@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -6,7 +7,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star, Pencil } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star, Pencil, Type } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -24,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SupplierCombobox } from '@/components/supplier-combobox';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 function AiAssistant({
@@ -107,7 +109,8 @@ function AiAssistant({
                 } else {
                     generatedNewItems.push({
                          ...item,
-                        id: `item-${Date.now()}-${Math.random()}`
+                        id: `item-${Date.now()}-${Math.random()}`,
+                        dataType: 'number', // Default new items to number
                     });
                 }
             });
@@ -567,7 +570,7 @@ export default function InventoryManagementPage() {
   }, []);
 
 
-  const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number | boolean) => {
+  const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number | boolean | string[]) => {
     if (!inventoryList) return;
     const newList = inventoryList.map(item =>
       item.id === id ? { ...item, [field]: value } : item
@@ -619,7 +622,8 @@ export default function InventoryManagementPage() {
       supplier: 'Chưa xác định',
       unit: 'cái',
       minStock: 1,
-      orderSuggestion: '1'
+      orderSuggestion: '1',
+      dataType: 'number',
     };
     const newList = [...inventoryList, newItem];
     handleUpdateAndSave(newList);
@@ -869,8 +873,8 @@ export default function InventoryManagementPage() {
                                 <CardContent className="p-4 space-y-4">
                                   <div className="flex items-start justify-between">
                                     <div className="space-y-2 flex-1">
-                                        <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
-                                        <Input id={`name-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
+                                        <Label htmlFor={`name-m-${item.id}`}>Tên mặt hàng</Label>
+                                        <Input id={`name-m-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                     </div>
                                     <div className="flex flex-col items-center pl-4">
                                       <Label htmlFor={`photo-m-${item.id}`} className="text-xs mb-2">Y/c ảnh</Label>
@@ -893,18 +897,34 @@ export default function InventoryManagementPage() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                      <Label htmlFor={`unit-${item.id}`}>Đơn vị</Label>
-                                      <Input id={`unit-${item.id}`} defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
+                                      <Label htmlFor={`unit-m-${item.id}`}>Đơn vị</Label>
+                                      <Input id={`unit-m-${item.id}`} defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
                                     </div>
                                     <div className="space-y-2">
-                                      <Label htmlFor={`minStock-${item.id}`}>Tồn tối thiểu</Label>
-                                      <Input id={`minStock-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                      <Label htmlFor={`minStock-m-${item.id}`}>Tồn tối thiểu</Label>
+                                      <Input id={`minStock-m-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                     </div>
                                   </div>
                                   <div className="space-y-2">
-                                    <Label htmlFor={`orderSuggestion-${item.id}`}>Gợi ý đặt hàng</Label>
-                                    <Input id={`orderSuggestion-${item.id}`} defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                    <Label htmlFor={`orderSuggestion-m-${item.id}`}>Gợi ý đặt hàng</Label>
+                                    <Input id={`orderSuggestion-m-${item.id}`} defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
                                   </div>
+                                   <div className="space-y-2">
+                                        <Label htmlFor={`dataType-m-${item.id}`}>Loại dữ liệu</Label>
+                                        <Select value={item.dataType} onValueChange={(v) => handleUpdate(item.id, 'dataType', v)}>
+                                            <SelectTrigger><SelectValue/></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="number">Dạng số</SelectItem>
+                                                <SelectItem value="list">Dạng danh sách</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                  </div>
+                                   {item.dataType === 'list' && (
+                                     <div className="space-y-2">
+                                        <Label htmlFor={`listOptions-m-${item.id}`}>Tùy chọn cho danh sách</Label>
+                                        <Input id={`listOptions-m-${item.id}`} defaultValue={(item.listOptions || []).join(', ')} onBlur={e => handleUpdate(item.id, 'listOptions', e.target.value.split(',').map(s => s.trim()))} />
+                                      </div>
+                                   )}
 
                                   <div className="flex items-center justify-end gap-0 border-t pt-4">
                                     {isSorting ? (
@@ -938,6 +958,7 @@ export default function InventoryManagementPage() {
                                         <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
                                         <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
                                         <TableHead className="text-center">Y/c ảnh</TableHead>
+                                        <TableHead className="min-w-[200px]">Loại dữ liệu</TableHead>
                                         <TableHead className="text-right w-[50px] whitespace-nowrap">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -975,6 +996,24 @@ export default function InventoryManagementPage() {
                                                     onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
                                                     disabled={isSorting}
                                                 />
+                                            </TableCell>
+                                            <TableCell>
+                                                 <div className="flex flex-col gap-2">
+                                                    <Select value={item.dataType} onValueChange={(v) => handleUpdate(item.id, 'dataType', v)}>
+                                                        <SelectTrigger><SelectValue/></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="number">Dạng số</SelectItem>
+                                                            <SelectItem value="list">Dạng danh sách</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {item.dataType === 'list' && (
+                                                        <Input 
+                                                            placeholder="VD: hết,còn ít,đủ"
+                                                            defaultValue={(item.listOptions || []).join(',')} 
+                                                            onBlur={e => handleUpdate(item.id, 'listOptions', e.target.value.split(',').map(s => s.trim()))} 
+                                                        />
+                                                    )}
+                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right w-[50px]">
                                                 <div className="flex items-center justify-end gap-0">

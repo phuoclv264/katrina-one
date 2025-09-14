@@ -782,6 +782,8 @@ export const dataStore = {
           ...item,
           supplier: item.supplier ?? 'Chưa xác định',
           category: item.category ?? 'CHƯA PHÂN LOẠI',
+          dataType: item.dataType || 'number',
+          listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
         }));
         callback(sanitizedItems);
       } else {
@@ -1522,6 +1524,7 @@ export const dataStore = {
 };
 
       
+
 
 
 

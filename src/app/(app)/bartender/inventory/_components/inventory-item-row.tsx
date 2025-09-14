@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Star, Camera, X } from 'lucide-react';
 import Image from 'next/image';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -55,12 +57,19 @@ export function InventoryItemRow({
 
     const status = getItemStatus(stockValue, item.minStock);
 
+    const handleContainerClick = () => {
+        if (item.dataType === 'number' && localInputRef.current) {
+            localInputRef.current.focus();
+        }
+        // For 'list' type, the focus is handled by the SelectTrigger itself.
+    };
+
     return (
         <div 
             ref={rowRef}
             tabIndex={-1}
             className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
-            onClick={() => localInputRef.current?.focus()}
+            onClick={handleContainerClick}
         >
             <div className="col-span-1">
                 <p className="font-semibold flex items-center gap-2">
@@ -96,15 +105,28 @@ export function InventoryItemRow({
                 )}
             </div>
             <div className="col-span-1 flex flex-col items-end gap-2">
-                <Input
-                    ref={localInputRef}
-                    type="text"
-                    value={stockValue}
-                    onChange={e => onStockChange(item.id, e.target.value)}
-                    className="text-center h-9 w-24"
-                    placeholder="Tồn kho..."
-                    disabled={isProcessing}
-                />
+               {item.dataType === 'number' ? (
+                     <Input
+                        ref={localInputRef}
+                        type="text"
+                        value={stockValue}
+                        onChange={e => onStockChange(item.id, e.target.value)}
+                        className="text-center h-9 w-24"
+                        placeholder="Số lượng..."
+                        disabled={isProcessing}
+                    />
+               ) : (
+                    <Select value={String(stockValue)} onValueChange={(v) => onStockChange(item.id, v)} disabled={isProcessing}>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Chọn..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài']).map(option => (
+                                <SelectItem key={option} value={option}>{option}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+               )}
             </div>
         </div>
     );
