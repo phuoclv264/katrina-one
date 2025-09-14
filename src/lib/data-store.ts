@@ -910,12 +910,7 @@ export const dataStore = {
     }
 
     reportToSubmit.lastUpdated = serverTimestamp();
-    
-    if (report.status === 'submitted') {
-        reportToSubmit.submittedAt = serverTimestamp();
-    } else {
-        delete reportToSubmit.submittedAt;
-    }
+    reportToSubmit.submittedAt = serverTimestamp();
     
     delete reportToSubmit.id;
 
@@ -1527,6 +1522,7 @@ export const dataStore = {
 };
 
       
+
 
 
 

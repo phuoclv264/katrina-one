@@ -317,11 +317,10 @@ export default function InventoryPage() {
             ...report, 
             suggestions: generatedSuggestions,
             status: 'submitted' as const, 
-            submittedAt: new Date().toISOString() 
         };
         
         await dataStore.saveInventoryReport(finalReport);
-        setReport(finalReport);
+        setReport(prev => prev ? { ...prev, ...finalReport, submittedAt: new Date().toISOString() } : null);
         setHasUnsubmittedChanges(false);
 
         const endTime = Date.now();
