@@ -150,8 +150,18 @@ export default function InventoryPage() {
   }, []);
 
   const handleStockChange = (itemId: string, value: string) => {
-    const isNumeric = value.trim() !== '' && !isNaN(Number(value));
-    const stockValue = isNumeric ? Number(value) : value;
+    const itemDefinition = inventoryList.find(i => i.id === itemId);
+    if (!itemDefinition) return;
+
+    let stockValue: number | string = value;
+    if (itemDefinition.dataType === 'number') {
+        if (value.trim() === '') {
+            stockValue = ''; // Keep it as an empty string to clear the input
+        } else {
+            const numValue = parseFloat(value);
+            stockValue = isNaN(numValue) ? '' : numValue;
+        }
+    }
 
     handleLocalSave(prevReport => {
         const newReport = { ...prevReport };

@@ -47,7 +47,7 @@ export function InventoryItemRow({
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
 
     const getItemStatus = (stock: number | string, minStock: number): ItemStatus => {
-      if (typeof stock !== 'number') {
+      if (typeof stock !== 'number' || isNaN(stock)) {
         return 'ok';
       }
       if (stock <= 0) return 'out';
@@ -55,13 +55,20 @@ export function InventoryItemRow({
       return 'ok';
     };
 
-    const status = getItemStatus(stockValue, item.minStock);
+    const status = getItemStatus(stockValue as number, item.minStock);
 
     const handleContainerClick = () => {
         if (item.dataType === 'number' && localInputRef.current) {
             localInputRef.current.focus();
         }
         // For 'list' type, the focus is handled by the SelectTrigger itself.
+    };
+    
+    const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        // Allow only numbers and a single decimal point
+        const sanitizedValue = value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+        onStockChange(item.id, sanitizedValue);
     };
 
     return (
@@ -108,19 +115,20 @@ export function InventoryItemRow({
                {item.dataType === 'number' ? (
                      <Input
                         ref={localInputRef}
-                        type="text"
+                        type="number"
                         value={stockValue}
-                        onChange={e => onStockChange(item.id, e.target.value)}
+                        onChange={handleNumericChange}
                         className="text-center h-9 w-24"
                         placeholder="Số lượng..."
                         disabled={isProcessing}
                     />
                ) : (
                     <Select value={String(stockValue)} onValueChange={(v) => onStockChange(item.id, v)} disabled={isProcessing}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal [&>span]:flex [&>span]:items-center [&>span]:justify-end [&>span]:text-right">
                             <SelectValue placeholder="Chọn..." />
                         </SelectTrigger>
                         <SelectContent>
+                             <SelectItem value="">Bỏ chọn</SelectItem>
                             {(item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài']).map(option => (
                                 <SelectItem key={option} value={option}>{option}</SelectItem>
                             ))}
