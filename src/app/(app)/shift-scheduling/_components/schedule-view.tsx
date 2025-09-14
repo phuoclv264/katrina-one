@@ -774,7 +774,7 @@ export default function ScheduleView() {
                                  {user?.role === 'Chủ nhà hàng' && (localSchedule?.status === 'proposed' || !localSchedule) && !hasUnsavedChanges && (
                                      <AlertDialog open={showRevertProposedConfirm} onOpenChange={setShowRevertProposedConfirm}>
                                          <AlertDialogTrigger asChild>
-                                             <Button variant="destructive" disabled={isSubmitting || !localSchedule}>
+                                             <Button variant="destructive" disabled={isSubmitting}>
                                                  <FileX2 className="mr-2 h-4 w-4"/>
                                                  {localSchedule ? 'Trả về bản nháp' : 'Tạo bản nháp'}
                                              </Button>
