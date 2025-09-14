@@ -91,22 +91,25 @@ export default function InventoryPage() {
   
   const fetchLocalPhotos = useCallback(async (currentReport: InventoryReport | null) => {
     if (!currentReport) return;
-    const allPhotoIds = new Set<string>();
+    
+    const allPhotoIdsInReport = new Set<string>();
     for (const itemId in currentReport.stockLevels) {
         const record = currentReport.stockLevels[itemId];
         if (record.photoIds) {
-            record.photoIds.forEach(id => {
-                if (!localPhotoUrls.has(id)) {
-                    allPhotoIds.add(id);
-                }
-            });
+            record.photoIds.forEach(id => allPhotoIdsInReport.add(id));
         }
     }
-    if (allPhotoIds.size > 0) {
-        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-        setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
+
+    if (allPhotoIdsInReport.size > 0) {
+        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIdsInReport));
+        setLocalPhotoUrls(prev => {
+            const newMap = new Map(prev);
+            urls.forEach((url, id) => newMap.set(id, url));
+            return newMap;
+        });
     }
-  }, [localPhotoUrls]);
+  }, []);
+
 
   useEffect(() => {
     if (!user) return;
@@ -128,7 +131,9 @@ export default function InventoryPage() {
     };
 
     loadReport();
-  }, [user, fetchLocalPhotos]);
+  // The dependency array is correct. We only want this to run when the user changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
   
   const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport) => InventoryReport) => {
     setReport(prevReport => {
