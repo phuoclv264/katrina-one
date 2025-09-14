@@ -130,20 +130,28 @@ function InventoryReportView() {
   }, [categorizedList]);
 
 
-  const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-    const stockValue = reportToView?.stockLevels[itemId]?.stock;
-    if (stockValue === undefined || stockValue === null || typeof stockValue !== 'number') {
+  const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+    if (stockValue === undefined || stockValue === '') return 'ok'; // No color if no data
+    if (item.dataType === 'number') {
+      const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+      if (isNaN(stock)) return 'ok';
+      if (stock < item.minStock * 0.3) return 'out';
+      if (stock < item.minStock) return 'low';
+      return 'ok';
+    } else { // 'list' type
+      const stockString = String(stockValue).toLowerCase();
+      if (stockString.includes('hết')) return 'out';
+      if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+      if (stockString.includes('dư')) return 'ok';
       return 'ok';
     }
-    if (stockValue <= 0) return 'out';
-    if (stockValue < minStock) return 'low';
-    return 'ok';
   };
 
   const getStatusColorClass = (status: ItemStatus) => {
     switch (status) {
       case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
       case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
+      case 'ok': return 'bg-green-100/40 dark:bg-green-900/20'; // Green for 'ok'
       default: return 'bg-transparent';
     }
   };
@@ -353,12 +361,11 @@ function InventoryReportView() {
                                      {/* Mobile View: Cards */}
                                      <div className="md:hidden space-y-3">
                                         {items.map(item => {
-                                            const status = getItemStatus(item.id, item.minStock);
-                                            const record = reportToView.stockLevels[item.id];
-                                            const stockValue = record?.stock ?? 'N/A';
-                                            const photos = record?.photos ?? [];
+                                            const stockValue = reportToView.stockLevels[item.id]?.stock;
+                                            const status = getItemStatus(item, stockValue);
+                                            const photos = reportToView.stockLevels[item.id]?.photos ?? [];
                                             return (
-                                                <div key={item.id} className={`rounded-lg border p-3 ${getStatusColorClass(status)}`}>
+                                                <div key={item.id} className={`rounded-lg border p-3 ${stockValue !== undefined && stockValue !== '' ? getStatusColorClass(status) : ''}`}>
                                                     <div className="flex items-center gap-2 font-semibold">
                                                         {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                                         <p>{item.name}</p>
@@ -366,7 +373,7 @@ function InventoryReportView() {
                                                     <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                                                         <div className="text-muted-foreground">Đơn vị: <span className="font-medium text-foreground">{item.unit}</span></div>
                                                         <div className="text-muted-foreground">Tối thiểu: <span className="font-medium text-foreground">{item.minStock}</span></div>
-                                                        <div className="text-muted-foreground">Thực tế: <span className="font-bold text-lg text-primary">{stockValue}</span></div>
+                                                        <div className="text-muted-foreground">Thực tế: <span className="font-bold text-lg text-primary">{stockValue ?? 'N/A'}</span></div>
                                                     </div>
                                                     {item.requiresPhoto && photos.length > 0 && (
                                                         <div className="mt-2 flex gap-2 flex-wrap">
@@ -398,12 +405,11 @@ function InventoryReportView() {
                                             </TableHeader>
                                             <TableBody>
                                                 {items.map(item => {
-                                                    const status = getItemStatus(item.id, item.minStock);
-                                                    const record = reportToView.stockLevels[item.id];
-                                                    const stockValue = record?.stock ?? 'N/A';
-                                                    const photos = record?.photos ?? [];
+                                                    const stockValue = reportToView.stockLevels[item.id]?.stock;
+                                                    const status = getItemStatus(item, stockValue);
+                                                    const photos = reportToView.stockLevels[item.id]?.photos ?? [];
                                                     return (
-                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
+                                                        <TableRow key={item.id} className={`${stockValue !== undefined && stockValue !== '' ? getStatusColorClass(status) : ''}`}>
                                                             <TableCell className="font-medium align-top">
                                                                 <div className="flex flex-col gap-2">
                                                                     <div className="flex items-center gap-2">
@@ -428,7 +434,7 @@ function InventoryReportView() {
                                                             <TableCell className="align-top">{item.unit}</TableCell>
                                                             <TableCell className="align-top">{item.minStock}</TableCell>
                                                             <TableCell className="text-right font-medium align-top">
-                                                                {stockValue}
+                                                                {stockValue ?? 'N/A'}
                                                             </TableCell>
                                                         </TableRow>
                                                     )

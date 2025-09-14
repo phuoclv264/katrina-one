@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRef } from 'react';
@@ -17,7 +16,7 @@ const getStatusColorClass = (status: ItemStatus) => {
     switch(status) {
         case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
         case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
-        default: return 'bg-transparent';
+        default: return 'bg-green-100/40 dark:bg-green-900/20'; // Green for 'ok'
     }
 }
 
@@ -47,16 +46,25 @@ export function InventoryItemRow({
     const photoIds = record?.photoIds || [];
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
 
-    const getItemStatus = (stock: number | string, minStock: number): ItemStatus => {
-      if (typeof stock !== 'number' || isNaN(stock)) {
-        return 'ok';
-      }
-      if (stock <= 0) return 'out';
-      if (stock < minStock) return 'low';
-      return 'ok';
+     const getItemStatus = (item: InventoryItem, stockValue: number | string): ItemStatus => {
+        if (item.dataType === 'number') {
+            const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+            if (isNaN(stock)) return 'ok'; // Default to ok if not a number
+            if (stock < item.minStock * 0.3) return 'out';
+            if (stock < item.minStock) return 'low';
+            return 'ok';
+        } else { // 'list' type
+            const stockString = String(stockValue).toLowerCase();
+            if (stockString.includes('hết')) return 'out';
+            if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+            if (stockString.includes('dư')) return 'ok';
+            return 'ok'; // Default
+        }
     };
 
-    const status = getItemStatus(stockValue as number, item.minStock);
+    const status = getItemStatus(item, stockValue);
+    const showBackground = stockValue !== '' && stockValue !== undefined;
+
 
     const handleContainerClick = () => {
         if (item.dataType === 'number' && localInputRef.current) {
@@ -76,7 +84,7 @@ export function InventoryItemRow({
         <div 
             ref={rowRef}
             tabIndex={-1}
-            className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
+            className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${showBackground ? getStatusColorClass(status) : ''} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
             onClick={handleContainerClick}
         >
             <div className="col-span-1">
