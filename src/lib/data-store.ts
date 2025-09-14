@@ -401,17 +401,20 @@ export const dataStore = {
             if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
 
             // --- Conflict Check ---
-            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`);
-            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`);
-            const hasConflict = scheduleData.shifts.some(existingShift => {
-                if (existingShift.id === shiftToUpdate.id || existingShift.date !== shiftToUpdate.date) return false;
-                const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId);
-                if (!isUserAssigned) return false;
-                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`);
-                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`);
-                return shiftStartTime < existingEndTime && shiftEndTime > existingStartTime;
-            });
+            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`).getTime();
+            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`).getTime();
 
+            const existingUserShifts = scheduleData.shifts.filter(existingShift =>
+                existingShift.date === shiftToUpdate.date && existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId)
+            );
+
+            const hasConflict = existingUserShifts.some(existingShift => {
+                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`).getTime();
+                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`).getTime();
+                // Overlap exists if (StartA < EndB) and (StartB < EndA)
+                return shiftStartTime < existingEndTime && existingStartTime < shiftEndTime;
+            });
+            
             if (hasConflict) throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
             // --- End Conflict Check ---
 
@@ -1524,6 +1527,7 @@ export const dataStore = {
 };
 
       
+
 
 
 

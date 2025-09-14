@@ -47,9 +47,9 @@ export function hasTimeConflict(
   const startA = parseTime(shiftToAdd.timeSlot.start);
   const endA = parseTime(shiftToAdd.timeSlot.end);
 
-  // 1. Get all other shifts the user is already assigned to on that day.
+  // 1. Get all shifts the user is already assigned to on that day.
   const existingUserShifts = allShiftsOnDay.filter(s =>
-    s.id !== shiftToAdd.id && s.assignedUsers.some(u => u.userId === userId)
+    s.assignedUsers.some(u => u.userId === userId)
   );
 
   // 2. Check for time overlap against each existing shift.
