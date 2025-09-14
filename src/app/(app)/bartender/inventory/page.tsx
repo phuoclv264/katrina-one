@@ -19,8 +19,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
+import { InventoryItemRow } from './_components/inventory-item-row';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -337,26 +338,7 @@ export default function InventoryPage() {
         setIsSubmitting(false);
     }
   }
-  
-  const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-      const stockValue = report?.stockLevels[itemId]?.stock;
 
-      if (typeof stockValue !== 'number') {
-        return 'ok';
-      }
-
-      if (stockValue <= 0) return 'out';
-      if (stockValue < minStock) return 'low';
-      return 'ok';
-  }
-  const getStatusColorClass = (status: ItemStatus) => {
-      switch(status) {
-          case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
-          case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
-          default: return 'bg-transparent';
-      }
-  }
-  
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
       setOpenCategories([]);
@@ -461,67 +443,20 @@ export default function InventoryPage() {
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
                                      <div className="space-y-3">
-                                        {items.map(item => {
-                                            const status = getItemStatus(item.id, item.minStock);
-                                            const record = report.stockLevels[item.id];
-                                            const stockValue = record?.stock ?? '';
-                                            const photoIds = record?.photoIds || [];
-                                            const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
-                                            return (
-                                                <div 
-                                                    key={item.id} 
-                                                    ref={(el) => itemRowRefs.current.set(item.id, el)}
-                                                    tabIndex={-1}
-                                                    className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
-                                                    onClick={() => inputRefs.current.get(item.id)?.focus()}
-                                                >
-                                                    <div className="col-span-1">
-                                                        <p className="font-semibold flex items-center gap-2">
-                                                            {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                            {item.name}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
-                                                        {item.requiresPhoto && (
-                                                            <div className="flex gap-2 items-center flex-wrap mt-2">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    className="h-9 w-9"
-                                                                    onClick={(e) => { e.stopPropagation(); setActiveItemId(item.id); setIsCameraOpen(true); }}
-                                                                    disabled={isProcessing}
-                                                                >
-                                                                    <Camera className="h-4 w-4" />
-                                                                </Button>
-                                                                 {photoUrls.map((photoUrl, index) => (
-                                                                    <div key={`${item.id}-photo-${index}`} className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
-                                                                        <Image src={photoUrl} alt="Inventory photo" fill className="object-cover" />
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            size="icon"
-                                                                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
-                                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, photoIds[index], true);}}
-                                                                        >
-                                                                            <X className="h-2 w-2" />
-                                                                        </Button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                         )}
-                                                    </div>
-                                                    <div className="col-span-1 flex flex-col items-end gap-2">
-                                                        <Input
-                                                            ref={el => inputRefs.current.set(item.id, el)}
-                                                            type="text"
-                                                            value={stockValue}
-                                                            onChange={e => handleStockChange(item.id, e.target.value)}
-                                                            className="text-center h-9 w-24"
-                                                            placeholder="Tồn kho..."
-                                                            disabled={isProcessing}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
+                                        {items.map(item => (
+                                            <InventoryItemRow
+                                                key={item.id}
+                                                item={item}
+                                                record={report.stockLevels[item.id]}
+                                                localPhotoUrls={localPhotoUrls}
+                                                isProcessing={isProcessing}
+                                                onStockChange={handleStockChange}
+                                                onOpenCamera={(itemId) => { setActiveItemId(itemId); setIsCameraOpen(true); }}
+                                                onDeletePhoto={handleDeletePhoto}
+                                                inputRef={(el) => inputRefs.current.set(item.id, el)}
+                                                rowRef={(el) => itemRowRefs.current.set(item.id, el)}
+                                            />
+                                        ))}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -619,4 +554,3 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
-
