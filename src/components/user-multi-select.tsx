@@ -102,7 +102,7 @@ export function UserMultiSelect({
                   </Badge>
                 ))
               ) : (
-                <span className="text-muted-foreground">Chọn nhân viên...</span>
+                <span className="font-normal">Chọn nhân viên...</span>
               )}
             </div>
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />

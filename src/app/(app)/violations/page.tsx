@@ -123,7 +123,7 @@ function ViolationDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          {!isSelfConfession && (
+          {!isSelfConfession ? (
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="user" className="text-right pt-2">
                 Nhân viên
@@ -136,8 +136,7 @@ function ViolationDialog({
                   className="col-span-3"
               />
             </div>
-          )}
-           {isSelfConfession && (
+          ) : (
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Nhân viên</Label>
                     <div className="col-span-3">
@@ -576,3 +575,4 @@ export default function ViolationsPage() {
     
 
     
+
