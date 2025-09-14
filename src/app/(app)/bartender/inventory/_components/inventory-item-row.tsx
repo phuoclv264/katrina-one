@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import type { InventoryItem, InventoryStockRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -42,14 +42,22 @@ export function InventoryItemRow({
     rowRef,
 }: InventoryItemRowProps) {
     const localInputRef = useRef<HTMLInputElement>(null);
+    const [localStock, setLocalStock] = useState<string | number>(record?.stock ?? '');
+
+    useEffect(() => {
+        // Sync local state when the parent record changes
+        setLocalStock(record?.stock ?? '');
+    }, [record?.stock]);
+
     const stockValue = record?.stock ?? '';
     const photoIds = record?.photoIds || [];
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
 
      const getItemStatus = (item: InventoryItem, stockValue: number | string): ItemStatus => {
+        if (stockValue === '' || stockValue === undefined) return 'ok'; // Default to ok if no value
         if (item.dataType === 'number') {
             const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
-            if (isNaN(stock)) return 'ok'; // Default to ok if not a number
+            if (isNaN(stock)) return 'ok';
             if (stock < item.minStock * 0.3) return 'out';
             if (stock < item.minStock) return 'low';
             return 'ok';
@@ -70,14 +78,19 @@ export function InventoryItemRow({
         if (item.dataType === 'number' && localInputRef.current) {
             localInputRef.current.focus();
         }
-        // For 'list' type, the focus is handled by the SelectTrigger itself.
     };
     
     const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        // Allow only numbers and a single decimal point
         const sanitizedValue = value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
-        onStockChange(item.id, sanitizedValue);
+        setLocalStock(sanitizedValue);
+    };
+
+    const handleBlur = () => {
+        // Only call the parent's onStockChange when the input loses focus
+        if (String(localStock) !== String(record?.stock ?? '')) {
+             onStockChange(item.id, String(localStock));
+        }
     };
 
     return (
@@ -125,8 +138,9 @@ export function InventoryItemRow({
                      <Input
                         ref={localInputRef}
                         type="number"
-                        value={stockValue}
+                        value={localStock}
                         onChange={handleNumericChange}
+                        onBlur={handleBlur}
                         className="text-center h-9 w-20"
                         placeholder="Số lượng..."
                         disabled={isProcessing}
