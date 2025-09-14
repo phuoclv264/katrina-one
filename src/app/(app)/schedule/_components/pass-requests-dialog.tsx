@@ -57,7 +57,7 @@ export default function PassRequestsDialog({
   onAssign,
 }: PassRequestsDialogProps) {
   
-  const canManage = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
+  const canManage = currentUser.role === 'Chủ nhà hàng';
 
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
   const [showRevertConfirm, setShowRevertConfirm] = useState<Notification | null>(null);
