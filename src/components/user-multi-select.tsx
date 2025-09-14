@@ -59,15 +59,23 @@ export function UserMultiSelect({
     onChange(selectedUsers.filter((selected) => selected.uid !== user.uid))
   }
   
-  const selectableUsers = users
-    .filter(u => u.role !== 'Chủ nhà hàng')
-    .sort((a, b) => {
-        const roleComparison = (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
-        if (roleComparison !== 0) {
-            return roleComparison;
-        }
-        return a.displayName.localeCompare(b.displayName, 'vi');
-    });
+  const selectableUsers = React.useMemo(() => {
+      return users
+          .filter(u => u.role !== 'Chủ nhà hàng')
+          .sort((a, b) => {
+              const aIsSelected = selectedUsers.some(su => su.uid === a.uid);
+              const bIsSelected = selectedUsers.some(su => su.uid === b.uid);
+
+              if (aIsSelected && !bIsSelected) return -1;
+              if (!aIsSelected && bIsSelected) return 1;
+
+              const roleComparison = (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+              if (roleComparison !== 0) {
+                  return roleComparison;
+              }
+              return a.displayName.localeCompare(b.displayName, 'vi');
+          });
+  }, [users, selectedUsers]);
 
 
   return (
