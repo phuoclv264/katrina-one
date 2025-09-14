@@ -123,12 +123,16 @@ export function InventoryItemRow({
                         disabled={isProcessing}
                     />
                ) : (
-                    <Select value={String(stockValue)} onValueChange={(v) => onStockChange(item.id, v)} disabled={isProcessing}>
+                    <Select 
+                        value={String(stockValue)} 
+                        onValueChange={(v) => onStockChange(item.id, v === '_clear_' ? '' : v)} 
+                        disabled={isProcessing}
+                    >
                         <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal [&>span]:flex [&>span]:items-center [&>span]:justify-end [&>span]:text-right">
                             <SelectValue placeholder="Chọn..." />
                         </SelectTrigger>
                         <SelectContent>
-                             <SelectItem value="">Bỏ chọn</SelectItem>
+                             <SelectItem value="_clear_">Bỏ chọn</SelectItem>
                             {(item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài']).map(option => (
                                 <SelectItem key={option} value={option}>{option}</SelectItem>
                             ))}
