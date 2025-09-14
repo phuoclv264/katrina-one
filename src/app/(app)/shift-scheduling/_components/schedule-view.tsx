@@ -234,46 +234,46 @@ export default function ScheduleView() {
         });
     }, [serverSchedule, weekId]);
 
-    // Auto-populate shifts from templates
+    // Auto-populate shifts from templates, refreshing them from the latest templates.
     useEffect(() => {
         if (localSchedule?.status === 'published' || !shiftTemplates.length) return;
-
+    
         const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
         
-        const shiftsToAdd: AssignedShift[] = [];
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
         
+        const newShiftsFromTemplates: AssignedShift[] = [];
         daysInWeek.forEach(day => {
             const dayOfWeek = getDay(day);
             const dateKey = format(day, 'yyyy-MM-dd');
-
+    
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
-                    const doesShiftExist = baseSchedule.shifts.some(s => s.date === dateKey && s.templateId === template.id);
-                    if (!doesShiftExist) {
-                        shiftsToAdd.push({
-                            id: `shift_${dateKey}_${template.id}`,
-                            templateId: template.id,
-                            date: dateKey,
-                            label: template.label,
-                            role: template.role,
-                            timeSlot: template.timeSlot,
-                            assignedUsers: [],
-                            minUsers: template.minUsers,
-                        });
-                    }
+                    // Find existing assignments for this shift, if any
+                    const existingShift = baseSchedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                    
+                    newShiftsFromTemplates.push({
+                        id: `shift_${dateKey}_${template.id}`,
+                        templateId: template.id,
+                        date: dateKey,
+                        label: template.label,
+                        role: template.role,
+                        timeSlot: template.timeSlot,
+                        minUsers: template.minUsers ?? 0, // Ensure minUsers is always set
+                        assignedUsers: existingShift ? existingShift.assignedUsers : [],
+                    });
                 }
             });
         });
+    
+        // Only update if the generated shifts are different from the current local shifts (ignoring array order)
+        const sortedNewShifts = newShiftsFromTemplates.sort((a,b) => a.id.localeCompare(b.id));
+        const sortedLocalShifts = [...baseSchedule.shifts].sort((a,b) => a.id.localeCompare(b.id));
 
-        if (shiftsToAdd.length > 0) {
-            const updatedShifts = [...baseSchedule.shifts, ...shiftsToAdd].sort((a, b) => {
-                if (a.date < b.date) return -1;
-                if (a.date > b.date) return 1;
-                return a.timeSlot.start.localeCompare(b.timeSlot.start);
-            });
-            handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
+        if (!isEqual(sortedNewShifts, sortedLocalShifts)) {
+             handleLocalScheduleUpdate({ ...baseSchedule, shifts: newShiftsFromTemplates });
         }
+    
     }, [localSchedule, shiftTemplates, weekId, currentDate, handleLocalScheduleUpdate]);
 
 
