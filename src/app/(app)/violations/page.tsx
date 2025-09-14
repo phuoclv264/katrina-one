@@ -122,18 +122,20 @@ function ViolationDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="user" className="text-right pt-2">
-              Nhân viên
-            </Label>
-             <UserMultiSelect
-                users={users}
-                selectedUsers={selectedUsers}
-                onChange={setSelectedUsers}
-                disabled={isSelfConfession}
-                className="col-span-3"
-            />
-          </div>
+          {!isSelfConfession && (
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="user" className="text-right pt-2">
+                Nhân viên
+              </Label>
+              <UserMultiSelect
+                  users={users}
+                  selectedUsers={selectedUsers}
+                  onChange={setSelectedUsers}
+                  disabled={isSelfConfession}
+                  className="col-span-3"
+              />
+            </div>
+          )}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="category" className="text-right">
               Loại vi phạm
@@ -543,3 +545,4 @@ export default function ViolationsPage() {
     
 
     
+
