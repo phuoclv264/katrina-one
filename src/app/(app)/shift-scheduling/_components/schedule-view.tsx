@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -893,7 +894,7 @@ export default function ScheduleView() {
                     isOpen={isUserDetailsDialogOpen}
                     onClose={() => setIsUserDetailsDialogOpen(false)}
                     user={selectedUserForDetails}
-                    weekAvailability={localSchedule?.availability.filter(a => a.userId === selectedUserForDetails.uid) || []}
+                    weekAvailability={(localSchedule?.availability || []).filter(a => a.userId === selectedUserForDetails.uid)}
                 />
             )}
 
