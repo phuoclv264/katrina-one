@@ -131,14 +131,14 @@ export type InventoryStockLevels = {
     [itemId: string]: InventoryStockRecord;
 };
 
-export type InventoryOrderItem = {
+export type OrderItem = {
     itemId: string;
     quantityToOrder: string;
 };
 
 export type OrderBySupplier = {
   supplier: string;
-  itemsToOrder: InventoryOrderItem[];
+  itemsToOrder: OrderItem[];
 }
 
 export type InventoryOrderSuggestion = {
@@ -189,6 +189,7 @@ export type Violation = {
   lastModified?: string | Timestamp;
   penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
+  isFlagged?: boolean;
 };
 
 // --- Summary Types ---

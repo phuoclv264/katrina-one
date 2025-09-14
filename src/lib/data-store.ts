@@ -1493,6 +1493,13 @@ export const dataStore = {
     const violationRef = doc(db, 'violations', violationId);
     await deleteDoc(violationRef);
   },
+
+  async toggleViolationFlag(violationId: string, currentState: boolean): Promise<void> {
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      isFlagged: !currentState
+    });
+  },
   
   async submitPenaltyProof(violationId: string, photoIds: string[]): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {
@@ -1527,6 +1534,7 @@ export const dataStore = {
 };
 
       
+
 
 
 

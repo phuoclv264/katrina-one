@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2 } from 'lucide-react';
+import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
@@ -27,6 +27,7 @@ import { ViolationCategoryCombobox } from '@/components/violation-category-combo
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { cn } from '@/lib/utils';
 
 
 function ViolationDialog({
@@ -136,6 +137,14 @@ function ViolationDialog({
               />
             </div>
           )}
+           {isSelfConfession && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Nhân viên</Label>
+                    <div className="col-span-3">
+                        <Badge variant="secondary">{reporter.displayName}</Badge>
+                    </div>
+                </div>
+            )}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="category" className="text-right">
               Loại vi phạm
@@ -270,6 +279,23 @@ export default function ViolationsPage() {
         setIsProcessing(false);
     }
   };
+
+    const handleToggleFlag = async (violation: Violation) => {
+        if (user?.role !== 'Chủ nhà hàng') return;
+        setIsProcessing(true);
+        try {
+            await dataStore.toggleViolationFlag(violation.id, !!violation.isFlagged);
+            toast({
+                title: 'Thành công',
+                description: violation.isFlagged ? 'Đã bỏ gắn cờ vi phạm.' : 'Đã gắn cờ vi phạm.',
+            });
+        } catch (error) {
+            console.error("Failed to toggle flag:", error);
+            toast({ title: 'Lỗi', description: 'Không thể thay đổi trạng thái gắn cờ.', variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
   
     const handlePenaltySubmit = async (photoIds: string[]) => {
         setIsPenaltyCameraOpen(false);
@@ -333,6 +359,7 @@ export default function ViolationsPage() {
   }, [filteredViolations]);
 
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+  const isOwner = user?.role === 'Chủ nhà hàng';
   const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
   const openAddDialog = (isSelfConfession: boolean) => {
@@ -422,7 +449,7 @@ export default function ViolationsPage() {
                                 const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
 
                                 return (
-                                <div key={v.id} className="border rounded-lg p-4 relative">
+                                <div key={v.id} className={cn("border rounded-lg p-4 relative transition-colors", v.isFlagged && "bg-red-500/10 border-red-500/30")}>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
@@ -431,27 +458,31 @@ export default function ViolationsPage() {
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
                                         </div>
-                                        {canManage && (
-                                            <div className="flex gap-1">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
-                                                    <Edit className="h-4 w-4" />
+                                         <div className="flex gap-1 self-end sm:self-start">
+                                            {isOwner && (
+                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)}>
+                                                    <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-muted-foreground")} />
                                                 </Button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader><AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteViolation(v)}>Xóa</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </div>
-                                        )}
+                                            )}
+                                            {canManage && (
+                                                <>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteViolation(v)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                     <p className="text-sm text-muted-foreground mt-1">
                                         Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
@@ -545,4 +576,3 @@ export default function ViolationsPage() {
     
 
     
-
