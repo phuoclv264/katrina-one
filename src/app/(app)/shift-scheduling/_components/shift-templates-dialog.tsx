@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Edit, Loader2, Check } from 'lucide-react';
+import { Trash2, Plus, Edit, Loader2, Check, Users } from 'lucide-react';
 import type { ShiftTemplate, UserRole } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,7 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
       role: 'Bất kỳ' as const,
       timeSlot: { start: '08:00', end: '12:00' },
       applicableDays: [1,2,3,4,5,6,0], // Default to all days
+      minUsers: 0,
     };
     setIsEditing(newTemplate.id);
     setCurrentTemplate(newTemplate);
@@ -124,7 +125,7 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                 const isCurrentEditing = isEditing === template.id;
                 const item = isCurrentEditing ? currentTemplate : template;
                 return (
-                 <div key={template.id} className="flex items-center gap-2 p-4 border rounded-md">
+                 <div key={template.id} className="flex items-start gap-2 p-4 border rounded-md">
                     {isCurrentEditing ? (
                         <div className="w-full space-y-4">
                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -145,13 +146,19 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                                     </Select>
                                 </div>
                            </div>
-                           <div className="space-y-2">
+                           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
                                <Label>Khung giờ</Label>
                                 <div className="flex items-center gap-2">
                                      <Input type="time" value={item.timeSlot?.start} onChange={(e) => handleTimeChange('start', e.target.value)} />
                                      <span>-</span>
                                      <Input type="time" value={item.timeSlot?.end} onChange={(e) => handleTimeChange('end', e.target.value)} />
                                 </div>
+                           </div>
+                             <div className="space-y-2">
+                                <Label htmlFor={`minUsers-${item.id}`}>Số người tối thiểu</Label>
+                                <Input id={`minUsers-${item.id}`} type="number" value={item.minUsers ?? 0} onChange={(e) => handleFieldChange('minUsers', parseInt(e.target.value, 10) || 0)} min="0" />
+                            </div>
                            </div>
                            <div className="space-y-2">
                                <Label>Ngày áp dụng</Label>
@@ -178,8 +185,11 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                         <>
                             <div className="flex-1">
                                 <p className="font-semibold">{template.label}</p>
-                                <p className="text-sm text-muted-foreground">{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</p>
-                                <div className="flex gap-1 mt-1">
+                                <div className="text-sm text-muted-foreground flex items-center gap-4">
+                                  <span>{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</span>
+                                  <span className="flex items-center gap-1"><Users className="h-3 w-3"/> Tối thiểu: {template.minUsers ?? 0}</span>
+                                </div>
+                                <div className="flex gap-1 mt-2">
                                     {weekDays.map(day => (
                                         <Badge key={day.value} variant={(template.applicableDays || []).includes(day.value) ? 'default' : 'outline'}>{day.label}</Badge>
                                     ))}

@@ -27,6 +27,7 @@ import {
     UserPlus,
     Loader2,
     FileX2,
+    AlertTriangle,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -258,6 +259,7 @@ export default function ScheduleView() {
                             role: template.role,
                             timeSlot: template.timeSlot,
                             assignedUsers: [],
+                            minUsers: template.minUsers ?? 0,
                         });
                     }
                 }
@@ -366,6 +368,7 @@ export default function ScheduleView() {
             role: template.role,
             timeSlot: template.timeSlot,
             assignedUsers: [],
+            minUsers: template.minUsers ?? 0,
         };
     };
     
@@ -578,6 +581,9 @@ export default function ScheduleView() {
                                                     const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
                                                     if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30 border-l" />;
+                                                    
+                                                    const minUsers = shiftObject.minUsers ?? 0;
+                                                    const isUnderstaffed = minUsers > 0 && shiftObject.assignedUsers.length < minUsers;
 
                                                     const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
                                                         const userA = allUsers.find(u => u.uid === a.userId);
@@ -587,13 +593,14 @@ export default function ScheduleView() {
                                                     });
 
                                                     return (
-                                                        <TableCell key={template.id} className="p-1 align-top h-28 text-center border-l">
+                                                        <TableCell key={template.id} className={cn("p-1 align-top h-28 text-center border-l", isUnderstaffed && "bg-destructive/10")}>
                                                             <Button 
                                                                 variant="ghost" 
                                                                 className="h-full w-full flex flex-col items-center justify-center p-1 group"
                                                                 onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                 disabled={!canEditSchedule}
                                                             >
+                                                                 {isUnderstaffed && <AlertTriangle className="w-4 h-4 text-destructive absolute top-1.5 right-1.5" />}
                                                                 {shiftObject.assignedUsers.length === 0 ? (
                                                                     <div className="text-muted-foreground group-hover:text-primary">
                                                                         <UserPlus className="h-6 w-6 mx-auto" />
@@ -672,6 +679,9 @@ export default function ScheduleView() {
                                                         {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
                                                             const shiftObject = shiftsForDay.find(s => s.templateId === template.id);
                                                             if (!shiftObject) return null;
+
+                                                            const minUsers = shiftObject.minUsers ?? 0;
+                                                            const isUnderstaffed = minUsers > 0 && shiftObject.assignedUsers.length < minUsers;
                                                             
                                                              const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
                                                                 const userA = allUsers.find(u => u.uid === a.userId);
@@ -681,12 +691,12 @@ export default function ScheduleView() {
                                                             });
 
                                                             return (
-                                                                <div key={template.id} className="p-3 border rounded-md bg-card">
+                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card", isUnderstaffed && "border-destructive bg-destructive/10")}>
                                                                     <div className="flex items-center justify-between gap-2">
                                                                         <div className="flex-1">
                                                                             <p className="font-semibold">{template.label}</p>
                                                                             <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
-                                                                            <p className="text-xs text-muted-foreground">({template.role})</p>
+                                                                            <p className="text-xs text-muted-foreground">({template.role} | Min: {minUsers})</p>
                                                                         </div>
                                                                         <Button 
                                                                             variant="secondary"
