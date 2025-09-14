@@ -39,6 +39,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import isEqual from 'lodash.isequal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { hasTimeConflict } from '@/lib/schedule-utils';
 
 
 export default function ScheduleView() {
@@ -222,6 +223,30 @@ export default function ScheduleView() {
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
+
+        const { payload } = notification;
+        const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+        const shiftToTake: AssignedShift = {
+            id: payload.shiftId,
+            templateId: '', // not needed for conflict check
+            date: payload.shiftDate,
+            label: payload.shiftLabel,
+            role: payload.shiftRole,
+            timeSlot: payload.shiftTimeSlot,
+            assignedUsers: [],
+            minUsers: 0,
+        };
+
+        const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
+        if (conflict) {
+            toast({
+                title: 'Không thể nhận ca',
+                description: `Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`,
+                variant: 'destructive',
+                duration: 7000,
+            });
+            return;
+        }
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
@@ -508,3 +533,4 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
