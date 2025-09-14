@@ -638,35 +638,35 @@ export default function ScheduleView() {
                                         
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey} className="border-b group">
-                                                <AccordionTrigger className="font-semibold text-base p-4 bg-muted/30 rounded-t-md hover:no-underline">
-                                                     <div className="flex flex-col items-start text-left w-full gap-2">
+                                                <div className="p-4 bg-muted/30 rounded-t-md">
+                                                    <AccordionTrigger className="font-semibold text-base hover:no-underline p-0">
                                                         <span className="text-lg">{format(day, 'eeee, dd/MM', { locale: vi })}</span>
-                                                        <div className="w-full space-y-2 group-data-[state=open]:hidden">
-                                                            {shiftsForDay.map(shiftObject => {
-                                                                if (!shiftObject || shiftObject.assignedUsers.length === 0) return null;
-                                                                const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
-                                                                    const userA = allUsers.find(u => u.uid === a.userId);
-                                                                    const userB = allUsers.find(u => u.uid === b.userId);
-                                                                    if (!userA || !userB) return 0;
-                                                                    return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
-                                                                });
-                                                                return (
-                                                                    <div key={shiftObject.id} className="flex items-center gap-2 flex-wrap text-sm font-normal">
-                                                                        <span className="font-semibold">{shiftObject.label}:</span>
-                                                                        {sortedAssignedUsers.map(assignedUser => {
-                                                                            const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
-                                                                            return (
-                                                                                <Badge key={assignedUser.userId} className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
-                                                                                    {abbreviateName(assignedUser.userName)}
-                                                                                </Badge>
-                                                                            )
-                                                                        })}
-                                                                    </div>
-                                                                )
-                                                            })}
-                                                        </div>
-                                                     </div>
-                                                </AccordionTrigger>
+                                                    </AccordionTrigger>
+                                                    <div className="w-full space-y-2 mt-2 group-data-[state=open]:hidden">
+                                                        {shiftsForDay.map(shiftObject => {
+                                                            if (!shiftObject || shiftObject.assignedUsers.length === 0) return null;
+                                                            const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
+                                                                const userA = allUsers.find(u => u.uid === a.userId);
+                                                                const userB = allUsers.find(u => u.uid === b.userId);
+                                                                if (!userA || !userB) return 0;
+                                                                return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                            });
+                                                            return (
+                                                                <div key={shiftObject.id} className="flex items-center gap-2 flex-wrap text-sm font-normal">
+                                                                    <span className="font-semibold">{shiftObject.label}:</span>
+                                                                    {sortedAssignedUsers.map(assignedUser => {
+                                                                        const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+                                                                        return (
+                                                                            <Badge key={assignedUser.userId} className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
+                                                                                {abbreviateName(assignedUser.userName)}
+                                                                            </Badge>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
                                                 <AccordionContent className="pt-2">
                                                     <div className="space-y-3 p-2 border border-t-0 rounded-b-md">
                                                         {applicableTemplates.length > 0 ? applicableTemplates.map(template => {
@@ -690,7 +690,6 @@ export default function ScheduleView() {
                                                                         </div>
                                                                         <Button 
                                                                             variant="secondary"
-                                                                            size="sm"
                                                                             onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                             disabled={!canEditSchedule}
                                                                             className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900 shrink-0 sm:size-auto sm:px-3 size-9 px-0"
