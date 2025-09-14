@@ -24,7 +24,7 @@ import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import { UserMultiSelect } from '@/components/user-multi-select';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -223,11 +223,10 @@ export default function ViolationsPage() {
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
     const unsubCategories = dataStore.subscribeToViolationCategories(setCategories);
     
-    // A simple way to wait for all subscriptions to load initial data
     Promise.all([
-        new Promise(resolve => onSnapshot(collection(db, 'violations'), () => resolve(true), { onlyOnce: true })),
-        new Promise(resolve => onSnapshot(collection(db, 'users'), () => resolve(true), { onlyOnce: true })),
-        new Promise(resolve => onSnapshot(doc(db, 'app-data', 'violationCategories'), () => resolve(true), { onlyOnce: true })),
+        getDocs(collection(db, 'violations')),
+        getDocs(collection(db, 'users')),
+        getDocs(doc(db, 'app-data', 'violationCategories')),
     ]).then(() => setIsLoading(false));
         
     return () => {
@@ -539,3 +538,5 @@ export default function ViolationsPage() {
     </>
   );
 }
+
+    
