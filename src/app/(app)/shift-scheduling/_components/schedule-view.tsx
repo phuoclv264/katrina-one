@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -176,10 +177,10 @@ export default function ScheduleView() {
 
         setIsLoading(true);
         const unsubSchedule = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
-            const fullSchedule = newSchedule ?? null;
-            setServerSchedule(fullSchedule);
-            setLocalSchedule(fullSchedule);
+            setServerSchedule(newSchedule);
+            setLocalSchedule(newSchedule);
             setHasUnsavedChanges(false);
+            setIsLoading(false);
         });
 
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
@@ -189,11 +190,6 @@ export default function ScheduleView() {
         });
 
         const unsubNotifications = dataStore.subscribeToAllNotifications(setNotifications);
-
-
-        Promise.all([
-            new Promise(resolve => setTimeout(() => resolve(true), 500)) 
-        ]).then(() => setIsLoading(false));
 
 
         return () => {
@@ -235,9 +231,9 @@ export default function ScheduleView() {
 
     // Auto-populate shifts from templates, refreshing them from the latest templates.
     useEffect(() => {
-        if (localSchedule?.status === 'published' || !shiftTemplates.length) return;
+        if (!localSchedule || localSchedule.status === 'published' || !shiftTemplates.length) return;
     
-        const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+        const baseSchedule = localSchedule;
         
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
         
@@ -274,7 +270,7 @@ export default function ScheduleView() {
              setHasUnsavedChanges(false);
         }
     
-    }, [localSchedule, shiftTemplates, weekId, currentDate, handleLocalScheduleUpdate]);
+    }, [localSchedule, shiftTemplates, weekId, currentDate]);
 
 
     const handleDateChange = (direction: 'next' | 'prev') => {
@@ -512,7 +508,7 @@ export default function ScheduleView() {
         fabIcon = <Send className="h-6 w-6" />;
         fabLabel = 'Đề xuất lịch';
         isFabVisible = true;
-    } else if (user?.role === 'Chủ nhà hàng' && localSchedule?.status !== 'published') {
+    } else if (user?.role === 'Chủ nhà hàng' && (localSchedule?.status === 'draft' || localSchedule?.status === 'proposed')) {
         fabAction = () => setShowPublishConfirm(true);
         fabIcon = <CheckCircle className="h-6 w-6" />;
         fabLabel = 'Công bố lịch';
@@ -751,7 +747,7 @@ export default function ScheduleView() {
                             </div>
                             <div className="flex-1" />
                              <div className="flex items-center justify-end gap-4 flex-wrap">
-                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'proposed' && !hasUnsavedChanges && (
+                                 {user?.role === 'Chủ nhà hàng' && (localSchedule?.status === 'proposed' || localSchedule === null) && !hasUnsavedChanges && (
                                      <AlertDialog open={showRevertProposedConfirm} onOpenChange={setShowRevertProposedConfirm}>
                                          <AlertDialogTrigger asChild>
                                              <Button variant="destructive" disabled={isSubmitting}>
