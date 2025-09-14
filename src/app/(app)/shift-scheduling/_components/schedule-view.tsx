@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -230,7 +228,6 @@ export default function ScheduleView() {
                 shifts: [],
             };
             const newSchedule = { ...baseSchedule, ...data };
-            // Only compare the `shifts` array for changes.
             setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
             return newSchedule;
         });
@@ -251,7 +248,6 @@ export default function ScheduleView() {
     
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
-                    // Find existing assignments for this shift, if any
                     const existingShift = baseSchedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                     
                     newShiftsFromTemplates.push({
@@ -261,19 +257,21 @@ export default function ScheduleView() {
                         label: template.label,
                         role: template.role,
                         timeSlot: template.timeSlot,
-                        minUsers: template.minUsers ?? 0, // Ensure minUsers is always set
+                        minUsers: template.minUsers ?? 0,
                         assignedUsers: existingShift ? existingShift.assignedUsers : [],
                     });
                 }
             });
         });
     
-        // Only update if the generated shifts are different from the current local shifts (ignoring array order)
         const sortedNewShifts = newShiftsFromTemplates.sort((a,b) => a.id.localeCompare(b.id));
         const sortedLocalShifts = [...baseSchedule.shifts].sort((a,b) => a.id.localeCompare(b.id));
 
         if (!isEqual(sortedNewShifts, sortedLocalShifts)) {
-             handleLocalScheduleUpdate({ ...baseSchedule, shifts: newShiftsFromTemplates });
+             const newFullSchedule = { ...baseSchedule, shifts: newShiftsFromTemplates };
+             setLocalSchedule(newFullSchedule);
+             setServerSchedule(newFullSchedule);
+             setHasUnsavedChanges(false);
         }
     
     }, [localSchedule, shiftTemplates, weekId, currentDate, handleLocalScheduleUpdate]);
@@ -310,14 +308,11 @@ export default function ScheduleView() {
                     setIsSubmitting(false);
                     setActiveNotification(null);
                 }
-                // The onSnapshot listener will update the local state automatically, no need for local update here.
                 return; 
             }
-             // If the assignment was cleared, do nothing for now.
             setActiveNotification(null);
         }
         
-        // Normal shift assignment update
         let updatedShifts;
         const shiftExists = baseSchedule.shifts.some(s => s.id === shiftId);
 
@@ -400,7 +395,6 @@ export default function ScheduleView() {
             toast({ title: 'Thành công!', description: `Đã cập nhật trạng thái lịch thành: ${newStatus}` });
             setHasUnsavedChanges(false);
     
-            // If publishing as owner, create next week's draft
             if (newStatus === 'published' && user.role === 'Chủ nhà hàng') {
                 const nextWeekDate = addDays(currentDate, 7);
                 await dataStore.createDraftScheduleForNextWeek(nextWeekDate, shiftTemplates);
