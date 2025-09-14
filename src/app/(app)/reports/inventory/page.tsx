@@ -10,7 +10,7 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport, InventoryStockRecord } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,6 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
-import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
@@ -131,19 +130,19 @@ function InventoryReportView() {
 
 
   const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
-    if (stockValue === undefined || stockValue === '') return 'ok'; // No color if no data
+    if (stockValue === undefined || stockValue === '') return 'ok'; 
     if (item.dataType === 'number') {
-      const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
-      if (isNaN(stock)) return 'ok';
-      if (stock < item.minStock * 0.3) return 'out';
-      if (stock < item.minStock) return 'low';
-      return 'ok';
+        const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+        if (isNaN(stock)) return 'ok';
+        if (stock < item.minStock * 0.3) return 'out';
+        if (stock < item.minStock) return 'low';
+        return 'ok';
     } else { // 'list' type
-      const stockString = String(stockValue).toLowerCase();
-      if (stockString.includes('hết')) return 'out';
-      if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
-      if (stockString.includes('dư')) return 'ok';
-      return 'ok';
+        const stockString = String(stockValue).toLowerCase();
+        if (stockString.includes('hết')) return 'out';
+        if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+        if (stockString.includes('dư')) return 'ok';
+        return 'ok';
     }
   };
 
@@ -198,38 +197,63 @@ function InventoryReportView() {
         });
     };
 
+    const generateSuggestionsFromLogic = (): OrderBySupplier[] => {
+        if (!reportToView) return [];
+
+        const ordersBySupplier: { [supplier: string]: OrderItem[] } = {};
+
+        inventoryList.forEach(item => {
+            const stockRecord = reportToView.stockLevels[item.id];
+            const status = getItemStatus(item, stockRecord?.stock);
+
+            if (status === 'low' || status === 'out') {
+                if (!ordersBySupplier[item.supplier]) {
+                    ordersBySupplier[item.supplier] = [];
+                }
+
+                let quantityToOrder = item.orderSuggestion;
+                const isNumericSuggestion = /^\d+(\.\d+)?$/.test(item.orderSuggestion);
+
+                if (isNumericSuggestion) {
+                    quantityToOrder = `${item.orderSuggestion}${item.unit}`;
+                }
+
+                ordersBySupplier[item.supplier].push({
+                    itemId: item.id,
+                    quantityToOrder: quantityToOrder,
+                });
+            }
+        });
+        
+        return Object.entries(ordersBySupplier).map(([supplier, itemsToOrder]) => ({
+            supplier,
+            itemsToOrder,
+        }));
+    };
+
     const handleRegenerateSuggestions = async () => {
         if (!reportToView) return;
         setIsGenerating(true);
         toast({
             title: "Đang tạo lại đề xuất...",
-            description: "AI đang phân tích lại dữ liệu tồn kho."
+            description: "Hệ thống đang phân tích lại dữ liệu tồn kho."
         });
 
         try {
-            const itemsWithCurrentStock = inventoryList
-                .map(item => ({
-                    ...item,
-                    currentStock: reportToView.stockLevels[item.id] || { stock: 0 } as InventoryStockRecord
-                }))
-                .filter(({ currentStock }) => currentStock && (currentStock.stock !== undefined && String(currentStock.stock).trim() !== ''));
+            const orders = generateSuggestionsFromLogic();
+            const totalItemsToOrder = orders.reduce((acc, curr) => acc + curr.itemsToOrder.length, 0);
+            const totalSuppliers = orders.length;
 
-            if (itemsWithCurrentStock.length === 0) {
-                 toast({
-                    title: "Không có dữ liệu",
-                    description: "Báo cáo này không có dữ liệu tồn kho hợp lệ để tạo đề xuất.",
-                    variant: "destructive"
-                });
-                setIsGenerating(false); // Reset generating state
-                return;
-            }
-
-            const result = await generateInventoryOrderSuggestion({ items: itemsWithCurrentStock });
+            const summary = totalItemsToOrder > 0
+                ? `Cần đặt ${totalItemsToOrder} mặt hàng từ ${totalSuppliers} nhà cung cấp.`
+                : 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.';
             
-            await dataStore.updateInventoryReportSuggestions(reportToView.id, result);
+            const newSuggestions = { summary, ordersBySupplier: orders };
+            
+            await dataStore.updateInventoryReportSuggestions(reportToView.id, newSuggestions);
 
             // Optimistically update local state to reflect the change
-            setSelectedReport(prev => prev ? { ...prev, suggestions: result } : null);
+            setSelectedReport(prev => prev ? { ...prev, suggestions: newSuggestions } : null);
 
             toast({
                 title: "Thành công!",
@@ -453,7 +477,7 @@ function InventoryReportView() {
             <Card className="sticky top-4">
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                        <span className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</span>
+                        <span className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</span>
                         <div className="flex items-center gap-1">
                             {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
                                 <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
