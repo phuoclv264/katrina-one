@@ -23,6 +23,7 @@ import {
   runTransaction,
   or,
   arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment } from './types';
@@ -1530,6 +1531,55 @@ export const dataStore = {
     // 4. Clean up local photos
     await photoStore.deletePhotos(photoIds);
   },
+
+    async editCommentInViolation(violationId: string, commentId: string, newText: string): Promise<void> {
+        const violationRef = doc(db, 'violations', violationId);
+        await runTransaction(db, async (transaction) => {
+            const violationDoc = await transaction.get(violationRef);
+            if (!violationDoc.exists()) {
+                throw new Error("Violation not found.");
+            }
+            const violation = violationDoc.data() as Violation;
+            const comments = violation.comments || [];
+            const commentIndex = comments.findIndex(c => c.id === commentId);
+
+            if (commentIndex === -1) {
+                throw new Error("Comment not found.");
+            }
+            
+            const updatedComments = [...comments];
+            updatedComments[commentIndex].text = newText;
+
+            transaction.update(violationRef, { comments: updatedComments });
+        });
+    },
+
+    async deleteCommentInViolation(violationId: string, commentId: string): Promise<void> {
+        const violationRef = doc(db, 'violations', violationId);
+        await runTransaction(db, async (transaction) => {
+            const violationDoc = await transaction.get(violationRef);
+            if (!violationDoc.exists()) {
+                throw new Error("Violation not found.");
+            }
+            const violation = violationDoc.data() as Violation;
+            const comments = violation.comments || [];
+            const commentToDelete = comments.find(c => c.id === commentId);
+
+            if (!commentToDelete) {
+                // Comment might have already been deleted.
+                return;
+            }
+
+            // Delete associated photos from storage first
+            if (commentToDelete.photos && commentToDelete.photos.length > 0) {
+                await Promise.all(commentToDelete.photos.map(url => this.deletePhotoFromStorage(url)));
+            }
+
+            // Update the comments array in Firestore
+            const updatedComments = comments.filter(c => c.id !== commentId);
+            transaction.update(violationRef, { comments: updatedComments });
+        });
+    },
   
   async submitPenaltyProof(violationId: string, photoIds: string[]): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {
@@ -1562,14 +1612,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-      
-
-
-
-
-
-
-
-
-
