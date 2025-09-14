@@ -1,5 +1,4 @@
 
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type Staff = {
@@ -177,6 +176,15 @@ export type ViolationUser = {
   name: string;
 }
 
+export type ViolationComment = {
+  id: string;
+  commenterId: string;
+  commenterName: string;
+  text: string;
+  photos: string[];
+  createdAt: string | Timestamp;
+}
+
 export type Violation = {
   id: string;
   content: string;
@@ -190,6 +198,7 @@ export type Violation = {
   penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
   isFlagged?: boolean;
+  comments?: ViolationComment[];
 };
 
 // --- Summary Types ---

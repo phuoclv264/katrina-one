@@ -22,9 +22,10 @@ import {
   writeBatch,
   runTransaction,
   or,
+  arrayUnion,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -1500,6 +1501,35 @@ export const dataStore = {
       isFlagged: !currentState
     });
   },
+
+  async addCommentToViolation(violationId: string, comment: Omit<ViolationComment, 'id' | 'createdAt' | 'photos'>, photoIds: string[]): Promise<void> {
+    // 1. Upload photos
+    const uploadPromises = photoIds.map(async (photoId) => {
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) return null;
+        const storageRef = ref(storage, `violations/${violationId}/comments/${uuidv4()}.jpg`);
+        await uploadBytes(storageRef, photoBlob);
+        return getDownloadURL(storageRef);
+    });
+    const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+
+    // 2. Create the full comment object
+    const newComment: ViolationComment = {
+      ...comment,
+      id: uuidv4(),
+      photos: photoUrls,
+      createdAt: serverTimestamp(),
+    };
+
+    // 3. Update the violation document
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      comments: arrayUnion(newComment)
+    });
+    
+    // 4. Clean up local photos
+    await photoStore.deletePhotos(photoIds);
+  },
   
   async submitPenaltyProof(violationId: string, photoIds: string[]): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {
@@ -1534,6 +1564,7 @@ export const dataStore = {
 };
 
       
+
 
 
 

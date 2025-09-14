@@ -15,8 +15,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser } from '@/lib/types';
+import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send } from 'lucide-react';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -28,6 +28,7 @@ import { UserMultiSelect } from '@/components/user-multi-select';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 
 function ViolationDialog({
@@ -199,6 +200,92 @@ function ViolationDialog({
   );
 }
 
+function CommentSection({
+  violation,
+  currentUser,
+  onCommentSubmit,
+  isProcessing,
+}: {
+  violation: Violation;
+  currentUser: AuthUser;
+  onCommentSubmit: (violationId: string, commentText: string, photoIds: string[]) => void;
+  isProcessing: boolean;
+}) {
+  const [commentText, setCommentText] = useState('');
+  const [commentPhotoIds, setCommentPhotoIds] = useState<string[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const handleSubmit = () => {
+    if (!commentText.trim() && commentPhotoIds.length === 0) return;
+    onCommentSubmit(violation.id, commentText, commentPhotoIds);
+    setCommentText('');
+    setCommentPhotoIds([]);
+  };
+
+  const handleCapturePhotos = (capturedPhotoIds: string[]) => {
+    setCommentPhotoIds(prev => [...prev, ...capturedPhotoIds]);
+    setIsCameraOpen(false);
+  };
+  
+   const handleDeletePreviewPhoto = (photoId: string) => {
+    setCommentPhotoIds(prev => prev.filter(id => id !== photoId));
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-dashed">
+      <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><MessageSquare />Bình luận</h4>
+      {/* Existing Comments */}
+      <div className="space-y-3 mb-4">
+        {(violation.comments || []).map(comment => (
+          <div key={comment.id} className="bg-muted/50 p-3 rounded-md">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+              <span className="font-bold text-foreground">{comment.commenterName}</span>
+              <span>{new Date(comment.createdAt as string).toLocaleString('vi-VN')}</span>
+            </div>
+            <p className="text-sm">{comment.text}</p>
+            {comment.photos && comment.photos.length > 0 && (
+              <div className="mt-2 flex gap-2 flex-wrap">
+                {comment.photos.map((photo, index) => (
+                  <div key={index} className="relative w-16 h-16 rounded-md overflow-hidden">
+                    <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* New Comment Form */}
+      <div className="space-y-2">
+        <Textarea
+          placeholder="Nhập bình luận của bạn..."
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          disabled={isProcessing}
+        />
+        {commentPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{commentPhotoIds.length} ảnh đã được chọn để đính kèm.</p>}
+        <div className="flex justify-between items-center">
+            <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} disabled={isProcessing}>
+                <Camera className="mr-2 h-4 w-4" /> Đính kèm ảnh
+            </Button>
+            <Button onClick={handleSubmit} disabled={isProcessing || (!commentText.trim() && commentPhotoIds.length === 0)}>
+                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                Gửi
+            </Button>
+        </div>
+      </div>
+      
+      <CameraDialog
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onSubmit={handleCapturePhotos}
+      />
+    </div>
+  );
+}
+
+
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -209,6 +296,7 @@ export default function ViolationsPage() {
   const [categories, setCategories] = useState<ViolationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingViolationId, setProcessingViolationId] = useState<string | null>(null);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
@@ -281,7 +369,7 @@ export default function ViolationsPage() {
 
     const handleToggleFlag = async (violation: Violation) => {
         if (user?.role !== 'Chủ nhà hàng') return;
-        setIsProcessing(true);
+        setProcessingViolationId(violation.id);
         try {
             await dataStore.toggleViolationFlag(violation.id, !!violation.isFlagged);
             toast({
@@ -292,8 +380,27 @@ export default function ViolationsPage() {
             console.error("Failed to toggle flag:", error);
             toast({ title: 'Lỗi', description: 'Không thể thay đổi trạng thái gắn cờ.', variant: 'destructive' });
         } finally {
-            setIsProcessing(false);
+            setProcessingViolationId(null);
         }
+    };
+    
+    const handleCommentSubmit = async (violationId: string, commentText: string, photoIds: string[]) => {
+      if (!user) return;
+      setProcessingViolationId(violationId);
+      try {
+        const commentData = {
+          commenterId: user.uid,
+          commenterName: user.displayName,
+          text: commentText,
+        };
+        await dataStore.addCommentToViolation(violationId, commentData, photoIds);
+        toast({ title: 'Đã gửi bình luận' });
+      } catch (error) {
+        console.error("Failed to submit comment:", error);
+        toast({ title: 'Lỗi', description: 'Không thể gửi bình luận.', variant: 'destructive' });
+      } finally {
+        setProcessingViolationId(null);
+      }
     };
   
     const handlePenaltySubmit = async (photoIds: string[]) => {
@@ -302,14 +409,13 @@ export default function ViolationsPage() {
             return;
         }
         
-        setIsProcessing(true);
+        setProcessingViolationId(activeViolationForPenalty.id);
         const violationId = activeViolationForPenalty.id;
         toast({ title: 'Đang xử lý...', description: 'Bằng chứng nộp phạt đang được tải lên.' });
 
         try {
             const newPhotoUrls = await dataStore.submitPenaltyProof(violationId, photoIds);
             
-            // Optimistic UI update
             setViolations(prevViolations => 
                 prevViolations.map(v => {
                     if (v.id === violationId) {
@@ -330,7 +436,7 @@ export default function ViolationsPage() {
             console.error("Failed to submit penalty proof:", error);
             toast({ title: 'Lỗi', description: 'Không thể gửi bằng chứng nộp phạt.', variant: 'destructive' });
         } finally {
-            setIsProcessing(false);
+            setProcessingViolationId(null);
             setActiveViolationForPenalty(null);
         }
     };
@@ -446,6 +552,7 @@ export default function ViolationsPage() {
                             {violationsInMonth.map(v => {
                                 const canSubmitPenalty = canManage || (v.users && v.users.some(vu => vu.id === user.uid));
                                 const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
+                                const isItemProcessing = processingViolationId === v.id;
 
                                 return (
                                 <div key={v.id} className={cn("border rounded-lg p-4 relative transition-colors", v.isFlagged && "bg-red-500/10 border-red-500/30")}>
@@ -459,7 +566,7 @@ export default function ViolationsPage() {
                                         </div>
                                          <div className="flex gap-1 self-end sm:self-start">
                                             {isOwner && (
-                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)}>
+                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
                                                     <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-muted-foreground")} />
                                                 </Button>
                                             )}
@@ -490,7 +597,7 @@ export default function ViolationsPage() {
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
                                             {v.photos.map((photo, index) => (
-                                                <button key={index} onClick={() => { setLightboxSlides(v.photos.map(p => ({ src: p }))); setLightboxOpen(true); }} className="relative w-20 h-20 rounded-md overflow-hidden">
+                                                <button key={index} onClick={() => { setLightboxSlides(v.photos!.map(p => ({ src: p }))); setLightboxOpen(true); }} className="relative w-20 h-20 rounded-md overflow-hidden">
                                                     <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
                                                 </button>
                                             ))}
@@ -524,7 +631,15 @@ export default function ViolationsPage() {
                                             )
                                         )}
                                     </div>
-                                    {isProcessing && activeViolationForPenalty?.id === v.id && (
+                                    {isOwner && (
+                                      <CommentSection 
+                                        violation={v}
+                                        currentUser={user}
+                                        onCommentSubmit={handleCommentSubmit}
+                                        isProcessing={isItemProcessing}
+                                      />
+                                    )}
+                                    {isItemProcessing && (
                                         <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
                                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                                         </div>
@@ -575,4 +690,5 @@ export default function ViolationsPage() {
     
 
     
+
 
