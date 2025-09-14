@@ -224,6 +224,7 @@ export default function ScheduleView() {
                 shifts: [],
             };
             const newSchedule = { ...baseSchedule, ...data };
+            // Only compare the shifts array for unsaved changes
             setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
             return newSchedule;
         });
@@ -231,9 +232,9 @@ export default function ScheduleView() {
 
     // Auto-populate shifts from templates, refreshing them from the latest templates.
     useEffect(() => {
-        if (!localSchedule || localSchedule.status === 'published' || !shiftTemplates.length) return;
+        if (!shiftTemplates.length || localSchedule?.status === 'published') return;
     
-        const baseSchedule = localSchedule;
+        const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
         
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
         
@@ -244,6 +245,7 @@ export default function ScheduleView() {
     
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
+                    // Try to find an existing shift in the current local schedule
                     const existingShift = baseSchedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                     
                     newShiftsFromTemplates.push({
@@ -260,11 +262,12 @@ export default function ScheduleView() {
             });
         });
     
-        const sortedNewShifts = newShiftsFromTemplates.sort((a,b) => a.id.localeCompare(b.id));
+        const sortedNewShifts = [...newShiftsFromTemplates].sort((a,b) => a.id.localeCompare(b.id));
         const sortedLocalShifts = [...baseSchedule.shifts].sort((a,b) => a.id.localeCompare(b.id));
 
         if (!isEqual(sortedNewShifts, sortedLocalShifts)) {
              const newFullSchedule = { ...baseSchedule, shifts: newShiftsFromTemplates };
+             // This syncs up both local and "server" state after auto-population, preventing false "unsaved changes" flags.
              setLocalSchedule(newFullSchedule);
              setServerSchedule(newFullSchedule);
              setHasUnsavedChanges(false);
@@ -343,6 +346,27 @@ export default function ScheduleView() {
             setIsSubmitting(false);
         }
     };
+    
+    const handleCreateDraft = async () => {
+        if (!user) return;
+        setIsSubmitting(true);
+        try {
+            const newSchedule: Schedule = {
+                weekId,
+                status: 'draft',
+                availability: [],
+                shifts: [], // It will be populated by the useEffect for templates
+            };
+            await dataStore.updateSchedule(weekId, newSchedule);
+            // The onSnapshot listener will then pick up this new schedule and update the state.
+            toast({ title: 'Thành công', description: 'Đã tạo lịch nháp mới cho tuần.' });
+        } catch (error) {
+            console.error("Failed to create draft schedule:", error);
+            toast({ title: 'Lỗi', description: 'Không thể tạo lịch nháp.', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
 
     const createShiftFromId = (shiftId: string): AssignedShift | null => {
         const parts = shiftId.split('_');
@@ -526,7 +550,7 @@ export default function ScheduleView() {
                         <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                              <div>
                                 <CardTitle>Lịch tuần: {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}</CardTitle>
-                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'Chưa có lịch (bản nháp mới)'}</span></CardDescription>
+                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'Chưa có lịch'}</span></CardDescription>
                             </div>
                              <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
@@ -747,23 +771,37 @@ export default function ScheduleView() {
                             </div>
                             <div className="flex-1" />
                              <div className="flex items-center justify-end gap-4 flex-wrap">
-                                 {user?.role === 'Chủ nhà hàng' && (localSchedule?.status === 'proposed' || localSchedule === null) && !hasUnsavedChanges && (
+                                 {user?.role === 'Chủ nhà hàng' && (localSchedule?.status === 'proposed' || !localSchedule) && !hasUnsavedChanges && (
                                      <AlertDialog open={showRevertProposedConfirm} onOpenChange={setShowRevertProposedConfirm}>
                                          <AlertDialogTrigger asChild>
-                                             <Button variant="destructive" disabled={isSubmitting}>
-                                                 <FileX2 className="mr-2 h-4 w-4"/> Trả về bản nháp
+                                             <Button variant="destructive" disabled={isSubmitting || !localSchedule}>
+                                                 <FileX2 className="mr-2 h-4 w-4"/>
+                                                 {localSchedule ? 'Trả về bản nháp' : 'Tạo bản nháp'}
                                              </Button>
                                          </AlertDialogTrigger>
                                          <AlertDialogContent>
                                              <AlertDialogHeader>
-                                                 <AlertDialogTitle>Từ chối lịch đề xuất?</AlertDialogTitle>
+                                                 <AlertDialogTitle>
+                                                     {localSchedule ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
+                                                 </AlertDialogTitle>
                                                  <AlertDialogDescription>
-                                                     Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa.
+                                                     {localSchedule 
+                                                         ? "Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa."
+                                                         : "Tuần này chưa có lịch. Hành động này sẽ tạo một lịch nháp mới dựa trên các mẫu ca hiện có."
+                                                     }
                                                  </AlertDialogDescription>
                                              </AlertDialogHeader>
                                              <AlertDialogFooter>
                                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                 <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận</AlertDialogAction>
+                                                 <AlertDialogAction onClick={() => {
+                                                     if (localSchedule) {
+                                                         handleUpdateStatus('draft');
+                                                     } else {
+                                                         handleCreateDraft();
+                                                     }
+                                                 }}>
+                                                     Xác nhận
+                                                 </AlertDialogAction>
                                              </AlertDialogFooter>
                                          </AlertDialogContent>
                                      </AlertDialog>
