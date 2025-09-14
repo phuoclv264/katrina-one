@@ -57,7 +57,7 @@ export function ViolationCategoryCombobox({
 
   const handleAddNew = () => {
     if (inputValue && !categories.find(c => c.toLowerCase() === inputValue.toLowerCase())) {
-        const newCategories = [...categories, inputValue];
+        const newCategories = [...categories, inputValue].sort((a, b) => a.localeCompare(b, 'vi'));
         onCategoriesChange(newCategories);
         onChange(inputValue);
     }
@@ -75,6 +75,8 @@ export function ViolationCategoryCombobox({
   }
 
   const displayValue = value ? categories.find((cat) => cat === value) || placeholder : placeholder;
+  
+  const sortedCategories = React.useMemo(() => [...categories].sort((a,b) => a.localeCompare(b, 'vi')), [categories]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -122,7 +124,7 @@ export function ViolationCategoryCombobox({
                     />
                     Tất cả loại vi phạm
                 </CommandItem>
-              {categories.map((category) => (
+              {sortedCategories.map((category) => (
                 <CommandItem
                   key={category}
                   value={category}
