@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
@@ -149,25 +148,12 @@ export default function InventoryPage() {
     });
   }, []);
 
-  const handleStockChange = (itemId: string, value: string) => {
-    const itemDefinition = inventoryList.find(i => i.id === itemId);
-    if (!itemDefinition) return;
-
-    let stockValue: number | string = value;
-    if (itemDefinition.dataType === 'number') {
-        if (value === null || value.trim() === '') {
-            stockValue = ''; 
-        } else {
-            const numValue = parseFloat(value);
-            stockValue = isNaN(numValue) ? '' : numValue;
-        }
-    }
-
+  const handleStockChange = (itemId: string, value: string | number) => {
     handleLocalSave(prevReport => {
         const newReport = { ...prevReport };
         const newStockLevels = { ...newReport.stockLevels };
         const existingRecord = newStockLevels[itemId] || {};
-        newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
+        newStockLevels[itemId] = { ...existingRecord, stock: value };
         newReport.stockLevels = newStockLevels;
         return newReport;
     });
@@ -230,28 +216,78 @@ export default function InventoryPage() {
         });
     };
 
-  const handleGenerateSuggestions = async () => {
-      if(!report || !user) return null;
+    const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+        if (stockValue === undefined || stockValue === '') return 'ok'; 
+        if (item.dataType === 'number') {
+            const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+            if (isNaN(stock)) return 'ok';
+            if (stock < item.minStock * 0.3) return 'out';
+            if (stock < item.minStock) return 'low';
+            return 'ok';
+        } else { // 'list' type
+            const stockString = String(stockValue).toLowerCase();
+            if (stockString.includes('hết')) return 'out';
+            if (stockString.includes('gần hết')) return 'low';
+            if (stockString.includes('còn đủ')) return 'ok';
+            if (stockString.includes('dư')) return 'ok';
+            return 'ok';
+        }
+    };
+
+    const generateSuggestionsFromLogic = (): InventoryOrderSuggestion => {
+        if (!report) return { summary: 'Không có báo cáo để xử lý.', ordersBySupplier: [] };
+
+        const ordersBySupplier: { [supplier: string]: OrderItem[] } = {};
+
+        inventoryList.forEach(item => {
+            const stockRecord = report.stockLevels[item.id];
+            const status = getItemStatus(item, stockRecord?.stock);
+
+            if (status === 'low' || status === 'out') {
+                if (!ordersBySupplier[item.supplier]) {
+                    ordersBySupplier[item.supplier] = [];
+                }
+
+                let quantityToOrder = item.orderSuggestion;
+                const isNumericSuggestion = /^\d+$/.test(item.orderSuggestion);
+
+                if (isNumericSuggestion) {
+                    quantityToOrder = `${item.orderSuggestion}${item.unit}`;
+                }
+
+                ordersBySupplier[item.supplier].push({
+                    itemId: item.id,
+                    quantityToOrder: quantityToOrder,
+                });
+            }
+        });
+        
+        const finalOrders: OrderBySupplier[] = Object.entries(ordersBySupplier).map(([supplier, itemsToOrder]) => ({
+            supplier,
+            itemsToOrder,
+        }));
+        
+        const totalItemsToOrder = finalOrders.reduce((acc, curr) => acc + curr.itemsToOrder.length, 0);
+        const totalSuppliers = finalOrders.length;
+        
+        const summary = totalItemsToOrder > 0
+            ? `Cần đặt ${totalItemsToOrder} mặt hàng từ ${totalSuppliers} nhà cung cấp.`
+            : 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.';
+
+        return { summary, ordersBySupplier: finalOrders };
+    };
+
+    const handleGenerateSuggestions = async () => {
       setIsGenerating(true);
       
       try {
         toast({
-            title: "Đang phân tích tồn kho...",
-            description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
+            title: "Đang tính toán đề xuất...",
+            description: "Hệ thống đang tính toán các mặt hàng cần đặt."
         });
 
-        const itemsWithCurrentStock = inventoryList
-            .map(item => ({ item, stockRecord: report.stockLevels[item.id] }))
-            .filter(({ stockRecord }) => stockRecord && (stockRecord.stock !== undefined && String(stockRecord.stock).trim() !== ''))
-            .map(({ item, stockRecord }) => ({ ...item, currentStock: stockRecord! }));
-
-        if (itemsWithCurrentStock.length === 0) {
-            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê hợp lệ.', ordersBySupplier: [] };
-            setSuggestions(noItemsSuggestion);
-            return noItemsSuggestion;
-        }
-        
-        const result = await generateInventoryOrderSuggestion({ items: itemsWithCurrentStock });
+        // Use the local logic function instead of an AI call
+        const result = generateSuggestionsFromLogic();
         
         setSuggestions(result);
         
@@ -483,13 +519,13 @@ export default function InventoryPage() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isProcessing && !suggestions && (
+                    {isGenerating && !suggestions && (
                         <div className="space-y-2 p-4 text-center">
                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground"/>
-                            <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
+                            <p className="text-sm text-muted-foreground">Đang tính toán...</p>
                         </div>
                     )}
-                    {!isProcessing && hasSuggestions && (
+                    {!isGenerating && hasSuggestions && (
                         <div className="space-y-4">
                              <div className="flex justify-between items-center">
                                 <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
@@ -525,12 +561,12 @@ export default function InventoryPage() {
                             </Accordion>
                         </div>
                     )}
-                    {!isProcessing && suggestions && !hasSuggestions && (
+                    {!isGenerating && suggestions && !hasSuggestions && (
                         <p className="text-center text-sm text-muted-foreground py-4">{suggestions.summary || 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.'}</p>
                     )}
-                    {!isProcessing && !suggestions &&(
+                    {!isGenerating && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
-                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất từ AI.</p>
+                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất.</p>
                         </div>
                     )}
                 </CardContent>
