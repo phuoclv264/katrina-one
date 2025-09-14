@@ -1519,7 +1519,7 @@ export const dataStore = {
       ...comment,
       id: uuidv4(),
       photos: photoUrls,
-      createdAt: serverTimestamp(),
+      createdAt: new Date().toISOString(), // Use client-side timestamp
     };
 
     // 3. Update the violation document
