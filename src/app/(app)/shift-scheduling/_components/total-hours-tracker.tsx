@@ -106,7 +106,7 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
                         <div className="relative">
                             <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-xs font-bold text-primary-foreground drop-shadow-sm">
+                                <span className="text-xs font-bold text-[#6cff04] drop-shadow-sm">
                                     {workedHours.toFixed(1)} / {availableHours.toFixed(1)} giờ
                                 </span>
                             </div>
