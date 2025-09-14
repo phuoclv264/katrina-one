@@ -230,7 +230,8 @@ export default function ScheduleView() {
                 shifts: [],
             };
             const newSchedule = { ...baseSchedule, ...data };
-            setHasUnsavedChanges(!isEqual(newSchedule, serverSchedule));
+            // Only compare the `shifts` array for changes.
+            setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
             return newSchedule;
         });
     }, [serverSchedule, weekId]);
