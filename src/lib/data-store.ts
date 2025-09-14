@@ -164,19 +164,19 @@ export const dataStore = {
 
                 // Merge overlapping/adjacent availability slots upon loading
                 if (scheduleData.availability) {
-                    const availabilityByUser = new Map<string, Availability[]>();
+                    const availabilityByUserAndDate = new Map<string, Availability[]>();
                     scheduleData.availability.forEach(avail => {
                         const key = `${avail.userId}-${avail.date}`;
-                        if (!availabilityByUser.has(key)) {
-                            availabilityByUser.set(key, []);
+                        if (!availabilityByUserAndDate.has(key)) {
+                            availabilityByUserAndDate.set(key, []);
                         }
-                        availabilityByUser.get(key)!.push(avail);
+                        availabilityByUserAndDate.get(key)!.push(avail);
                     });
                     
                     const mergedAvailability: Availability[] = [];
-                    availabilityByUser.forEach((userAvailsForDate) => {
-                        if (userAvailsForDate.length > 0) {
-                            const baseAvail = userAvailsForDate[0];
+                    availabilityByUserAndDate.forEach((userAvailsForDate) => {
+                         if (userAvailsForDate.length > 0) {
+                            const baseAvail = { ...userAvailsForDate[0] };
                             const allSlots = userAvailsForDate.flatMap(a => a.availableSlots);
                             
                             if (allSlots.length > 1) {
@@ -1527,4 +1527,5 @@ export const dataStore = {
 };
 
       
+
 
