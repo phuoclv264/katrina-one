@@ -53,8 +53,8 @@ export function InventoryItemRow({
     const photoIds = record?.photoIds || [];
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
 
-     const getItemStatus = (item: InventoryItem, stockValue: number | string): ItemStatus => {
-        if (stockValue === '' || stockValue === undefined) return 'ok'; // Default to ok if no value
+     const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+        if (stockValue === undefined || stockValue === '') return 'ok'; 
         if (item.dataType === 'number') {
             const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
             if (isNaN(stock)) return 'ok';
@@ -66,7 +66,7 @@ export function InventoryItemRow({
             if (stockString.includes('hết')) return 'out';
             if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
             if (stockString.includes('dư')) return 'ok';
-            return 'ok'; // Default
+            return 'ok';
         }
     };
 
@@ -77,13 +77,16 @@ export function InventoryItemRow({
     const handleContainerClick = () => {
         if (item.dataType === 'number' && localInputRef.current) {
             localInputRef.current.focus();
+            localInputRef.current.select();
         }
     };
     
     const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        const sanitizedValue = value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
-        setLocalStock(sanitizedValue);
+        // Allow empty string, numbers, and a single decimal point
+        if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+            setLocalStock(value);
+        }
     };
 
     const handleBlur = () => {
@@ -144,6 +147,7 @@ export function InventoryItemRow({
                         className="text-center h-9 w-20"
                         placeholder="Số lượng..."
                         disabled={isProcessing}
+                        onClick={(e) => e.stopPropagation()}
                     />
                ) : (
                     <Select 
