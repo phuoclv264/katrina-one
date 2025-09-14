@@ -46,10 +46,10 @@ export function hasTimeConflict(
 ): AssignedShift | null {
   const startA = parseTime(shiftToAdd.timeSlot.start);
   const endA = parseTime(shiftToAdd.timeSlot.end);
-  
+
   // Find a shift that this user is already in, which conflicts with the new shift.
   const conflictingShift = allShiftsOnDay.find(existingShift => {
-    // Don't compare the shift with itself
+    // Don't compare the shift with itself. This is crucial.
     if (existingShift.id === shiftToAdd.id) return false;
     
     // Check if the user is assigned to this existing shift
@@ -92,4 +92,3 @@ function parseTime(time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   return hours + (minutes / 60);
 }
-

@@ -1,5 +1,3 @@
-
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -223,21 +221,24 @@ export default function ScheduleView() {
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
-
+    
         const { payload } = notification;
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+        
+        // Construct a temporary shift object representing the one to be taken
         const shiftToTake: AssignedShift = {
             id: payload.shiftId,
-            templateId: '', // not needed for conflict check
+            templateId: '', // Not needed for conflict check
             date: payload.shiftDate,
             label: payload.shiftLabel,
             role: payload.shiftRole,
             timeSlot: payload.shiftTimeSlot,
-            assignedUsers: [],
-            minUsers: 0,
+            assignedUsers: [], // Not relevant for this check
+            minUsers: 0,       // Not relevant for this check
         };
-
+    
         const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
+        
         if (conflict) {
             toast({
                 title: 'Không thể nhận ca',
@@ -254,6 +255,7 @@ export default function ScheduleView() {
             toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
+            // The error from dataStore (server-side check) will be more specific
             toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
         }
     }
@@ -533,4 +535,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
