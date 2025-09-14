@@ -155,8 +155,8 @@ export default function InventoryPage() {
 
     let stockValue: number | string = value;
     if (itemDefinition.dataType === 'number') {
-        if (value.trim() === '') {
-            stockValue = ''; // Keep it as an empty string to clear the input
+        if (value === null || value.trim() === '') {
+            stockValue = ''; 
         } else {
             const numValue = parseFloat(value);
             stockValue = isNaN(numValue) ? '' : numValue;

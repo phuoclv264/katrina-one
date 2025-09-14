@@ -14,9 +14,10 @@ type ItemStatus = 'ok' | 'low' | 'out';
 
 const getStatusColorClass = (status: ItemStatus) => {
     switch(status) {
-        case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
         case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
-        default: return 'bg-green-100/40 dark:bg-green-900/20'; // Green for 'ok'
+        case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
+        case 'ok': return 'bg-green-100/40 dark:bg-green-900/20';
+        default: return 'bg-transparent';
     }
 }
 
@@ -42,12 +43,6 @@ export function InventoryItemRow({
     rowRef,
 }: InventoryItemRowProps) {
     const localInputRef = useRef<HTMLInputElement>(null);
-    const [localStock, setLocalStock] = useState<string | number>(record?.stock ?? '');
-
-    useEffect(() => {
-        // Sync local state when the parent record changes
-        setLocalStock(record?.stock ?? '');
-    }, [record?.stock]);
 
     const stockValue = record?.stock ?? '';
     const photoIds = record?.photoIds || [];
@@ -83,16 +78,8 @@ export function InventoryItemRow({
     
     const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        // Allow empty string, numbers, and a single decimal point
         if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
-            setLocalStock(value);
-        }
-    };
-
-    const handleBlur = () => {
-        // Only call the parent's onStockChange when the input loses focus
-        if (String(localStock) !== String(record?.stock ?? '')) {
-             onStockChange(item.id, String(localStock));
+            onStockChange(item.id, value);
         }
     };
 
@@ -141,9 +128,8 @@ export function InventoryItemRow({
                      <Input
                         ref={localInputRef}
                         type="number"
-                        value={localStock}
+                        value={stockValue}
                         onChange={handleNumericChange}
-                        onBlur={handleBlur}
                         className="text-center h-9 w-20"
                         placeholder="Số lượng..."
                         disabled={isProcessing}
