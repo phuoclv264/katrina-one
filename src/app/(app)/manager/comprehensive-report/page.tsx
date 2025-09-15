@@ -17,7 +17,6 @@ import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -28,6 +27,8 @@ import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TaskItem } from '../../_components/task-item';
+import SubmissionNotesSection from '../../checklist/_components/submission-notes-section';
+import { format } from 'date-fns';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -44,7 +45,7 @@ export default function ComprehensiveReportPage() {
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
+  const [submissionNotes, setSubmissionNotes] = useState('');
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -95,6 +96,7 @@ export default function ComprehensiveReportPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Quản lý', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
+              setSubmissionNotes(loadedReport.issues || '');
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
@@ -144,6 +146,11 @@ export default function ComprehensiveReportPage() {
     });
   }, []);
 
+  const handleNotesChange = useCallback((notes: string) => {
+    setSubmissionNotes(notes);
+    updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
+  }, [updateLocalReport]);
+
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTask(null);
@@ -166,11 +173,9 @@ export default function ComprehensiveReportPage() {
         const newReport = { ...prevReport };
         const newCompletedTasks = { ...newReport.completedTasks };
         let taskCompletions = [...(newCompletedTasks[taskId] || [])];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
         
         const newCompletion: CompletionRecord = {
-          timestamp: formattedTime,
+          timestamp: format(new Date(), 'HH:mm'),
           photos: [],
           photoIds: [],
           value: value,
@@ -195,11 +200,9 @@ export default function ComprehensiveReportPage() {
         const newReport = { ...prevReport };
         const newCompletedTasks = { ...newReport.completedTasks };
         let taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
         
         const newCompletion: CompletionRecord = {
-          timestamp: formattedTime,
+          timestamp: format(new Date(), 'HH:mm'),
           photos: [],
           photoIds: [],
           opinion: opinionText.trim() || undefined,
@@ -230,11 +233,8 @@ export default function ComprehensiveReportPage() {
                 completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
                 taskCompletions[completionIndex] = completionToUpdate;
             } else {
-                const now = new Date();
-                const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-                
                 taskCompletions.unshift({
-                    timestamp: formattedTime,
+                    timestamp: format(new Date(), 'HH:mm'),
                     photos: [],
                     photoIds: photoIds
                 });
@@ -322,18 +322,17 @@ export default function ComprehensiveReportPage() {
       });
   }
   
-    const handleSubmitReport = async (notes: string) => {
+    const handleSubmitReport = async () => {
         if (!report) return;
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        setIsSubmissionNotesOpen(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
-        const finalReport = { ...report, issues: notes || null };
+        const finalReport = { ...report, issues: submissionNotes || null };
 
         try {
             await dataStore.submitReport(finalReport);
@@ -370,6 +369,7 @@ export default function ComprehensiveReportPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
          toast({
@@ -515,6 +515,11 @@ export default function ComprehensiveReportPage() {
             </AccordionItem>
             ))}
         </Accordion>
+         <SubmissionNotesSection 
+            initialNotes={submissionNotes}
+            onNotesChange={handleNotesChange}
+            isReadonly={isReadonly}
+        />
       </div>
     </div>
     
@@ -523,7 +528,7 @@ export default function ComprehensiveReportPage() {
             <Button
               size="lg"
               className="rounded-full shadow-lg h-16 w-16"
-              onClick={() => setIsSubmissionNotesOpen(true)}
+              onClick={handleSubmitReport}
               disabled={isReadonly || syncStatus === 'server-newer'}
               aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
           >
@@ -551,13 +556,6 @@ export default function ComprehensiveReportPage() {
         taskText={activeTask?.text || ''}
     />
 
-    <SubmissionNotesDialog
-        isOpen={isSubmissionNotesOpen}
-        onClose={() => setIsSubmissionNotesOpen(false)}
-        onSubmit={handleSubmitReport}
-        isSubmitting={isSubmitting}
-    />
-    
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -570,7 +568,7 @@ export default function ComprehensiveReportPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
@@ -608,5 +606,7 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
+
+    
 
     
