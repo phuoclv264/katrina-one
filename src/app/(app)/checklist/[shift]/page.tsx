@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -38,6 +38,7 @@ export default function ChecklistPage() {
   const params = useParams();
   const router = useRouter();
   const shiftKey = params.shift as string;
+  const notesSectionRef = useRef<HTMLDivElement>(null);
   
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,6 +48,7 @@ export default function ChecklistPage() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [submissionNotes, setSubmissionNotes] = useState('');
+  const [notesError, setNotesError] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -196,9 +198,12 @@ export default function ChecklistPage() {
   }, []);
 
   const handleNotesChange = useCallback((notes: string) => {
+    if (notesError) {
+      setNotesError(false);
+    }
     setSubmissionNotes(notes);
      updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
-  }, [updateLocalReport]);
+  }, [updateLocalReport, notesError]);
 
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -393,6 +398,8 @@ export default function ChecklistPage() {
                     description: "Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.",
                     variant: "destructive",
                 });
+                setNotesError(true);
+                notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
         }
@@ -610,9 +617,11 @@ export default function ChecklistPage() {
             })}
         </Accordion>
         <SubmissionNotesSection 
+            ref={notesSectionRef}
             initialNotes={submissionNotes}
             onNotesChange={handleNotesChange}
             isReadonly={isReadonly}
+            isHighlighted={notesError}
         />
       </div>
     </div>
