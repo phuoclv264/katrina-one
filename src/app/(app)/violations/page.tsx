@@ -669,7 +669,7 @@ export default function ViolationsPage() {
                                 const isItemProcessing = processingViolationId === v.id;
 
                                 return (
-                                <div key={v.id} className={cn("border rounded-lg p-4 relative transition-colors", v.isFlagged && "bg-red-500/10 border-red-500/30")}>
+                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative transition-colors shadow-sm", v.isFlagged && "bg-red-500/10 border-red-500/30")}>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
@@ -746,23 +746,23 @@ export default function ViolationsPage() {
                                         )}
                                     </div>
                                     
-                                    <div className="mt-4 border-t pt-4">
-                                        <Button variant="ghost" onClick={() => toggleCommentSection(v.id)} className="w-full justify-start px-2">
+                                     <div className="mt-4 border-t pt-2 flex justify-end">
+                                        <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
                                             <MessageSquare className="mr-2 h-4 w-4"/>
-                                            {openCommentSectionId === v.id ? 'Đóng bình luận' : `Bình luận (${(v.comments || []).length})`}
+                                            {openCommentSectionId === v.id ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
                                         </Button>
-                                        {openCommentSectionId === v.id && (
-                                            <CommentSection
-                                                violation={v}
-                                                currentUser={user}
-                                                onCommentSubmit={handleCommentSubmit}
-                                                onCommentEdit={handleCommentEdit}
-                                                onCommentDelete={handleCommentDelete}
-                                                onOpenLightbox={openLightbox}
-                                                isProcessing={isItemProcessing}
-                                            />
-                                        )}
                                     </div>
+                                    {openCommentSectionId === v.id && (
+                                        <CommentSection
+                                            violation={v}
+                                            currentUser={user}
+                                            onCommentSubmit={handleCommentSubmit}
+                                            onCommentEdit={handleCommentEdit}
+                                            onCommentDelete={handleCommentDelete}
+                                            onOpenLightbox={openLightbox}
+                                            isProcessing={isItemProcessing}
+                                        />
+                                    )}
 
                                     {isItemProcessing && (
                                         <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
