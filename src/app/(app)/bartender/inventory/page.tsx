@@ -21,6 +21,8 @@ import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { InventoryItemRow } from './_components/inventory-item-row';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -48,6 +50,9 @@ export default function InventoryPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
+
+  const [showUncheckedWarning, setShowUncheckedWarning] = useState(false);
+  const [uncheckedItems, setUncheckedItems] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
@@ -322,45 +327,8 @@ export default function InventoryPage() {
       }
   }
 
-  const handleSubmit = async () => {
+  const proceedToSubmit = async () => {
     if (!report || !user) return;
-    
-    // --- Validation for required fields and photos ---
-    for (const item of inventoryList) {
-        const record = report.stockLevels[item.id];
-        const stockValue = record?.stock;
-        const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
-
-        if (item.isImportant && !hasStockValue) {
-            toast({
-                title: "Thiếu thông tin tồn kho",
-                description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
-                variant: "destructive",
-            });
-            const element = itemRowRefs.current.get(item.id);
-            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            element?.focus();
-            return;
-        }
-
-        if (item.requiresPhoto) {
-            const hasLocalPhoto = record?.photoIds && record.photoIds.length > 0;
-            const hasServerPhoto = record?.photos && record.photos.length > 0;
-            if (!hasLocalPhoto && !hasServerPhoto) {
-                toast({
-                    title: "Thiếu ảnh bằng chứng",
-                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
-                const element = itemRowRefs.current.get(item.id);
-                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element?.focus();
-                return;
-            }
-        }
-    }
-    // --- End Validation ---
-
     const startTime = Date.now();
     setIsSubmitting(true);
     toast({
@@ -399,6 +367,60 @@ export default function InventoryPage() {
         setIsSubmitting(false);
     }
   }
+  
+  const handleSubmit = async () => {
+    if (!report) return;
+
+    const unEnteredItems: InventoryItem[] = [];
+    
+    // --- Validation for required fields and photos ---
+    for (const item of inventoryList) {
+        const record = report.stockLevels[item.id];
+        const stockValue = record?.stock;
+        const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
+
+        if (item.isImportant && !hasStockValue) {
+            toast({
+                title: "Thiếu thông tin tồn kho",
+                description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
+                variant: "destructive",
+            });
+            const element = itemRowRefs.current.get(item.id);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element?.focus();
+            return;
+        }
+
+        if (item.requiresPhoto) {
+            const hasLocalPhoto = record?.photoIds && record.photoIds.length > 0;
+            const hasServerPhoto = record?.photos && record.photos.length > 0;
+            if (!hasLocalPhoto && !hasServerPhoto) {
+                toast({
+                    title: "Thiếu ảnh bằng chứng",
+                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
+                    variant: "destructive",
+                });
+                const element = itemRowRefs.current.get(item.id);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element?.focus();
+                return;
+            }
+        }
+
+        if (!item.isImportant && !hasStockValue) {
+            unEnteredItems.push(item);
+        }
+    }
+    // --- End Validation ---
+    
+    if (unEnteredItems.length > 0) {
+        setUncheckedItems(unEnteredItems);
+        setShowUncheckedWarning(true);
+    } else {
+        await proceedToSubmit();
+    }
+  }
+
 
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
@@ -610,7 +632,41 @@ export default function InventoryPage() {
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
       />
+      <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Cảnh báo: Còn mặt hàng chưa kiểm kê</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. Bạn vẫn muốn tiếp tục gửi báo cáo?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <ScrollArea className="max-h-60 w-full rounded-md border p-4">
+                <div className="space-y-2">
+                    {uncheckedItems.map(item => (
+                        <button
+                            key={item.id}
+                            className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
+                            onClick={() => {
+                                const element = itemRowRefs.current.get(item.id);
+                                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                element?.focus();
+                                setShowUncheckedWarning(false);
+                            }}
+                        >
+                            {item.name}
+                        </button>
+                    ))}
+                </div>
+            </ScrollArea>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={proceedToSubmit}>Bỏ qua và gửi</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     </TooltipProvider>
   );
 }
+
+    
