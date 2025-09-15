@@ -315,7 +315,7 @@ function CommentSection({
                   {comment.photos && comment.photos.length > 0 && (
                     <div className="mt-2 flex gap-2 flex-wrap">
                       {comment.photos.map((photo, index) => (
-                         <button key={index} onClick={() => handleOpenCommentLightbox(comment.photos, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
+                         <button key={index} onClick={() => handleOpenCommentLightbox(comment.photos!, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
                             <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
                         </button>
                       ))}
@@ -670,7 +670,7 @@ export default function ViolationsPage() {
                                 const isItemProcessing = processingViolationId === v.id;
 
                                 return (
-                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative transition-colors shadow-sm", v.isFlagged && "bg-red-500/10 border-red-500/30")}>
+                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", v.isFlagged ? "bg-red-500/10 border-red-500/30" : "bg-card")}>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
@@ -719,30 +719,32 @@ export default function ViolationsPage() {
                                         </div>
                                     )}
                                      <div className="mt-4 pt-4 border-t flex items-center justify-between gap-2 flex-wrap">
-                                        {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
-                                                    <CheckCircle className="h-4 w-4" />
-                                                    <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
-                                                </div>
-                                                <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
-                                                    <Eye className="mr-2 h-4 w-4" />
-                                                    Xem ({v.penaltyPhotos.length})
-                                                </Button>
-                                                {canSubmitPenalty && (
-                                                    <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                        <FilePlus2 className="mr-2 h-4 w-4" />
-                                                        Bổ sung
+                                        <div>
+                                            {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
+                                                        <CheckCircle className="h-4 w-4" />
+                                                        <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
+                                                    </div>
+                                                    <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
+                                                        <Eye className="mr-2 h-4 w-4" />
+                                                        Xem ({v.penaltyPhotos.length})
                                                     </Button>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            canSubmitPenalty && (
-                                                <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                    Nộp phạt
-                                                </Button>
-                                            )
-                                        )}
+                                                    {canSubmitPenalty && (
+                                                        <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                            <FilePlus2 className="mr-2 h-4 w-4" />
+                                                            Bổ sung
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                canSubmitPenalty && (
+                                                    <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                        Nộp phạt
+                                                    </Button>
+                                                )
+                                            )}
+                                        </div>
                                         <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
                                             <MessageSquare className="mr-2 h-4 w-4"/>
                                             {openCommentSectionId === v.id ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
