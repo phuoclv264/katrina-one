@@ -9,7 +9,7 @@ import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskS
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning } from 'lucide-react';
+import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning, ShieldAlert } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
@@ -25,12 +25,19 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { format } from 'date-fns';
+import { format, set } from 'date-fns';
 import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
 import { TaskItem } from '../../_components/task-item';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
+
+const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
+  sang: { start: '05:30', end: '12:00' },
+  trua: { start: '12:00', end: '17:00' },
+  toi: { start: '17:00', end: '22:30' },
+};
 
 export default function ChecklistPage() {
   const { toast } = useToast();
@@ -64,6 +71,53 @@ export default function ChecklistPage() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  
+  const isReadonly = useMemo(() => {
+    if (isSubmitting || !shiftKey || !shiftTimeFrames[shiftKey]) {
+      return isSubmitting;
+    }
+    const now = new Date();
+    const [startHour, startMinute] = shiftTimeFrames[shiftKey].start.split(':').map(Number);
+    const [endHour, endMinute] = shiftTimeFrames[shiftKey].end.split(':').map(Number);
+
+    const validStartTime = set(now, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
+    validStartTime.setHours(validStartTime.getHours() - 1); // 1 hour before
+
+    const validEndTime = set(now, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
+    validEndTime.setHours(validEndTime.getHours() + 1); // 1 hour after
+
+    return now < validStartTime || now > validEndTime;
+  }, [isSubmitting, shiftKey]);
+
+  useEffect(() => {
+    if (isReadonly && report?.id) {
+        const hasLocalPhotos = Object.values(report.completedTasks).some(
+            completions => completions.some(c => c.photoIds && c.photoIds.length > 0)
+        );
+        if (hasLocalPhotos) {
+            const allLocalPhotoIds = Object.values(report.completedTasks).flatMap(
+                completions => completions.flatMap(c => c.photoIds || [])
+            );
+            photoStore.deletePhotos(allLocalPhotoIds).then(() => {
+                const newReport = JSON.parse(JSON.stringify(report));
+                for (const taskId in newReport.completedTasks) {
+                    newReport.completedTasks[taskId].forEach((c: CompletionRecord) => {
+                        if (c.photoIds) c.photoIds = [];
+                    });
+                }
+                setReport(newReport);
+                toast({
+                    title: "Chế độ chỉ xem",
+                    description: "Các ảnh chưa được gửi đã bị xóa vì đã hết phiên làm việc.",
+                    variant: 'destructive'
+                });
+            });
+        }
+    }
+  // We only want this to run when readonly status is determined
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReadonly]);
+
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
@@ -514,8 +568,6 @@ export default function ChecklistPage() {
     }
   };
 
-  const isReadonly = isSubmitting;
-
   if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
@@ -560,7 +612,7 @@ export default function ChecklistPage() {
             <Button asChild variant="ghost" className="-ml-4">
                 <Link href="/shifts">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại Ca làm việc
+                    Quay lại
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
@@ -578,6 +630,16 @@ export default function ChecklistPage() {
             </Button>
         </div>
       </header>
+
+      {isReadonly && (
+        <Alert variant="destructive" className="mb-6">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Chế độ chỉ xem</AlertTitle>
+            <AlertDescription>
+                Đã hết thời gian làm việc cho ca này. Bạn không thể thực hiện thêm thay đổi nào.
+            </AlertDescription>
+        </Alert>
+      )}
 
       <div className="space-y-4">
          <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
@@ -626,25 +688,27 @@ export default function ChecklistPage() {
       </div>
     </div>
     
-    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
-      <div className="relative">
-        <Button
-            size="lg"
-            className="rounded-full shadow-lg h-16 w-16"
-            onClick={handleSubmitReport}
-            disabled={isReadonly || syncStatus === 'server-newer'}
-            aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
-        >
-            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
-        </Button>
-        {hasUnsubmittedChanges && (
-            <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
-            </div>
-        )}
-      </div>
-    </div>
+    {!isReadonly && (
+        <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+        <div className="relative">
+            <Button
+                size="lg"
+                className="rounded-full shadow-lg h-16 w-16"
+                onClick={handleSubmitReport}
+                disabled={isReadonly || isSubmitting || syncStatus === 'server-newer'}
+                aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
+            >
+                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+            </Button>
+            {hasUnsubmittedChanges && (
+                <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                </div>
+            )}
+        </div>
+        </div>
+    )}
 
     <CameraDialog 
         isOpen={isCameraOpen}
@@ -709,3 +773,4 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
+
