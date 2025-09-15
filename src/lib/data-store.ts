@@ -42,19 +42,8 @@ const getTodaysDateKey = () => {
     return `${year}-${month}-${day}`;
 };
 
-const cleanupOldLocalStorage = () => {
-    if (typeof window === 'undefined') return;
-    const todayKey = getTodaysDateKey();
-    Object.keys(localStorage).forEach(key => {
-        if ((key.startsWith('report-') || key.startsWith('inventory-report-')) && !key.includes(todayKey)) {
-            localStorage.removeItem(key);
-        }
-    });
-};
-
-// Run cleanup when the app loads
-cleanupOldLocalStorage();
 // Also clean up old photos from IndexedDB
+// This will run when the app first loads the dataStore file.
 photoStore.cleanupOldPhotos();
 
 
@@ -997,7 +986,7 @@ export const dataStore = {
         }
 
         if (!localReport && serverDoc.exists()) {
-             const serverReport = await this.overwriteLocalReport(reportId);
+             const serverReport = await this.overwriteLocalReport(userId, shiftKey);
              return { report: serverReport, status: 'synced' };
         }
         
@@ -1176,26 +1165,15 @@ export const dataStore = {
     await setDoc(firestoreRef, reportToSubmit);
   
     await photoStore.deletePhotos(Array.from(photoIdsToUpload));
-    
-    const savedDoc = await getDoc(firestoreRef);
-    const savedData = savedDoc.data();
-    if(savedData) {
-        const finalReport: ShiftReport = {
-            ...report, 
-            ...savedData,
-            id: savedDoc.id,
-            startedAt: (savedData.startedAt as Timestamp).toDate().toISOString(),
-            submittedAt: (savedData.submittedAt as Timestamp).toDate().toISOString(),
-            lastUpdated: (savedData.lastUpdated as Timestamp).toDate().toISOString(),
-        } as ShiftReport;
-    
-        await this.saveLocalReport(finalReport);
-    }
   },
-
-  async overwriteLocalReport(reportId: string): Promise<ShiftReport> {
+  
+  async overwriteLocalReport(userId: string, shiftKey: string): Promise<ShiftReport> {
     if (typeof window === 'undefined') throw new Error("Cannot overwrite local report from server.");
+    
+    const date = getTodaysDateKey();
+    const reportId = `report-${userId}-${shiftKey}-${date}`;
     const firestoreRef = doc(db, 'reports', reportId);
+    
     const serverDoc = await getDoc(firestoreRef);
 
     if (!serverDoc.exists()) {
