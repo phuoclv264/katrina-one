@@ -53,6 +53,7 @@ export default function InventoryPage() {
 
   const [showUncheckedWarning, setShowUncheckedWarning] = useState(false);
   const [uncheckedItems, setUncheckedItems] = useState<InventoryItem[]>([]);
+  const [openUncheckedCategories, setOpenUncheckedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
@@ -653,30 +654,34 @@ export default function InventoryPage() {
                     Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. Bạn vẫn muốn tiếp tục gửi báo cáo?
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <ScrollArea className="max-h-60 w-full rounded-md border p-4">
-                <div className="space-y-4">
+            <ScrollArea className="max-h-60 w-full rounded-md border bg-background p-4">
+                 <Accordion type="multiple" value={openUncheckedCategories} onValueChange={setOpenUncheckedCategories} className="w-full space-y-2">
                     {categorizedUncheckedItems.map(({ category, items }) => (
-                        <div key={category}>
-                            <h4 className="font-semibold text-primary mb-2 pb-1 border-b">{category}</h4>
-                            <div className="space-y-2">
-                                {items.map(item => (
-                                     <button
-                                        key={item.id}
-                                        className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
-                                        onClick={() => {
-                                            const element = itemRowRefs.current.get(item.id);
-                                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                            element?.focus();
-                                            setShowUncheckedWarning(false);
-                                        }}
-                                    >
-                                        {item.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        <AccordionItem value={category} key={category} className="border-b-0">
+                            <AccordionTrigger className="text-base font-semibold hover:no-underline p-2 bg-muted rounded-md">
+                                {category} ({items.length})
+                            </AccordionTrigger>
+                            <AccordionContent className="p-0 pt-2">
+                                <div className="space-y-2">
+                                    {items.map(item => (
+                                        <button
+                                            key={item.id}
+                                            className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
+                                            onClick={() => {
+                                                const element = itemRowRefs.current.get(item.id);
+                                                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                element?.focus();
+                                                setShowUncheckedWarning(false);
+                                            }}
+                                        >
+                                            {item.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
                     ))}
-                </div>
+                 </Accordion>
             </ScrollArea>
             <AlertDialogFooter>
                 <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -688,6 +693,8 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
+
+    
 
     
 
