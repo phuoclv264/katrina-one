@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Camera, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -327,27 +327,27 @@ export default function InventoryPage() {
     
     // --- Validation for required fields and photos ---
     for (const item of inventoryList) {
-        if (item.requiresPhoto) {
-            const record = report.stockLevels[item.id];
-            const stockValue = record?.stock;
-            const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
-            
-            if (!hasStockValue) {
-                 toast({
-                    title: "Thiếu thông tin tồn kho",
-                    description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
-                const element = itemRowRefs.current.get(item.id);
-                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element?.focus();
-                return;
-            }
+        const record = report.stockLevels[item.id];
+        const stockValue = record?.stock;
+        const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
 
-            const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
-            const hasServerPhoto = record.photos && record.photos.length > 0;
+        if (item.isImportant && !hasStockValue) {
+            toast({
+                title: "Thiếu thông tin tồn kho",
+                description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
+                variant: "destructive",
+            });
+            const element = itemRowRefs.current.get(item.id);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element?.focus();
+            return;
+        }
+
+        if (item.requiresPhoto) {
+            const hasLocalPhoto = record?.photoIds && record.photoIds.length > 0;
+            const hasServerPhoto = record?.photos && record.photos.length > 0;
             if (!hasLocalPhoto && !hasServerPhoto) {
-                 toast({
+                toast({
                     title: "Thiếu ảnh bằng chứng",
                     description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
                     variant: "destructive",
@@ -485,7 +485,7 @@ export default function InventoryPage() {
                     <div>
                         <CardTitle>Danh sách nguyên vật liệu</CardTitle>
                         <CardDescription>
-                            Trạng thái sẽ tự động cập nhật khi bạn nhập số lượng tồn kho.
+                            Các mục có <AlertTriangle className="inline-block h-4 w-4 text-destructive" /> là bắt buộc nhập số lượng.
                         </CardDescription>
                     </div>
                     {categorizedList.length > 0 && (

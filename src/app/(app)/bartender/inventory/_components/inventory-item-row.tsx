@@ -5,7 +5,7 @@ import type { InventoryItem, InventoryStockRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Star, Camera, X } from 'lucide-react';
+import { Camera, X, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -92,7 +92,7 @@ export function InventoryItemRow({
         >
             <div className="col-span-1">
                 <p className="font-semibold flex items-center gap-2">
-                    {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                     {item.isImportant && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
                     {item.name}
                 </p>
                 <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>

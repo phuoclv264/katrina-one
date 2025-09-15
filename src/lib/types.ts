@@ -108,6 +108,7 @@ export type InventoryItem = {
     minStock: number;
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
+    isImportant?: boolean; // New field for required stock input
     dataType: 'number' | 'list';
     listOptions?: string[];
 };

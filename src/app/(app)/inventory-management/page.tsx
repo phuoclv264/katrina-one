@@ -7,7 +7,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star, Pencil, Type } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -110,6 +110,8 @@ function AiAssistant({
                     generatedNewItems.push({
                          ...item,
                         id: `item-${Date.now()}-${Math.random()}`,
+                        isImportant: item.isImportant ?? false,
+                        requiresPhoto: item.requiresPhoto ?? false,
                         dataType: 'number', // Default new items to number
                     });
                 }
@@ -624,6 +626,8 @@ export default function InventoryManagementPage() {
       minStock: 1,
       orderSuggestion: '1',
       dataType: 'number',
+      isImportant: false,
+      requiresPhoto: false,
     };
     const newList = [...inventoryList, newItem];
     handleUpdateAndSave(newList);
@@ -734,9 +738,9 @@ export default function InventoryManagementPage() {
         let textToCopy = '';
         if (type === 'table') {
             // Create TSV (Tab-Separated Values) string for easy pasting into Excel
-            const headers = ['Tên mặt hàng', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh'];
+            const headers = ['Tên mặt hàng', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
             const rows = inventoryList.map(item => 
-                [item.name, item.category, item.supplier, item.unit, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG'].join('\t')
+                [item.name, item.category, item.supplier, item.unit, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('\t')
             );
             textToCopy = [headers.join('\t'), ...rows].join('\n');
         } else if (type === 'text') {
@@ -876,11 +880,20 @@ export default function InventoryManagementPage() {
                                         <Label htmlFor={`name-m-${item.id}`}>Tên mặt hàng</Label>
                                         <Input id={`name-m-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                     </div>
-                                    <div className="flex flex-col items-center pl-4">
+                                     <div className="flex flex-col items-center pl-2">
+                                      <Label htmlFor={`important-m-${item.id}`} className="text-xs mb-2">Bắt buộc</Label>
+                                      <Switch
+                                          id={`important-m-${item.id}`}
+                                          checked={!!item.isImportant}
+                                          onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
+                                          disabled={isSorting}
+                                      />
+                                    </div>
+                                    <div className="flex flex-col items-center pl-2">
                                       <Label htmlFor={`photo-m-${item.id}`} className="text-xs mb-2">Y/c ảnh</Label>
                                       <Switch
                                           id={`photo-m-${item.id}`}
-                                          checked={item.requiresPhoto}
+                                          checked={!!item.requiresPhoto}
                                           onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
                                           disabled={isSorting}
                                       />
@@ -957,6 +970,7 @@ export default function InventoryManagementPage() {
                                         <TableHead className="min-w-[100px] whitespace-nowrap">Đơn vị</TableHead>
                                         <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
                                         <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-center">Bắt buộc nhập</TableHead>
                                         <TableHead className="text-center">Y/c ảnh</TableHead>
                                         <TableHead className="min-w-[200px]">Loại dữ liệu</TableHead>
                                         <TableHead className="text-right w-[50px] whitespace-nowrap">Hành động</TableHead>
@@ -969,7 +983,6 @@ export default function InventoryManagementPage() {
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                <div className="flex items-center gap-2">
-                                                 {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                                  <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" />
                                                </div>
                                             </TableCell>
@@ -989,6 +1002,13 @@ export default function InventoryManagementPage() {
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                            </TableCell>
+                                            <TableCell className="text-center w-[120px]">
+                                                <Switch
+                                                    checked={!!item.isImportant}
+                                                    onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
+                                                    disabled={isSorting}
+                                                />
                                             </TableCell>
                                              <TableCell className="text-center w-[100px]">
                                                 <Switch
