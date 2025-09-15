@@ -387,6 +387,25 @@ export default function ViolationsPage() {
 
   const [openCommentSectionId, setOpenCommentSectionId] = useState<string | null>(null);
 
+  // --- Back button handling for Lightbox ---
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (lightboxOpen) {
+        event.preventDefault();
+        setLightboxOpen(false);
+      }
+    };
+
+    if (lightboxOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [lightboxOpen]);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
