@@ -16,6 +16,7 @@ import type { TimeSlot, ShiftTemplate } from '@/lib/types';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
+import { Badge } from '@/components/ui/badge';
 
 type AvailabilityDialogProps = {
   isOpen: boolean;
