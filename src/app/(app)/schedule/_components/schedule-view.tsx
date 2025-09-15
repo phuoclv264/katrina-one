@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -517,6 +518,7 @@ export default function ScheduleView() {
                 onSave={handleSaveAvailability}
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
+                shiftTemplates={shiftTemplates}
             />
 
             <PassRequestsDialog 
