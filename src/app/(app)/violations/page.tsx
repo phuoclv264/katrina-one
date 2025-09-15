@@ -668,6 +668,7 @@ export default function ViolationsPage() {
                                 const canSubmitPenalty = canManage || (v.users && v.users.some(vu => vu.id === user.uid));
                                 const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
                                 const isItemProcessing = processingViolationId === v.id;
+                                const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
 
                                 return (
                                 <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", v.isFlagged ? "bg-red-500/10 border-red-500/30" : "bg-card")}>
@@ -745,10 +746,12 @@ export default function ViolationsPage() {
                                                 )
                                             )}
                                         </div>
-                                        <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
-                                            <MessageSquare className="mr-2 h-4 w-4"/>
-                                            {openCommentSectionId === v.id ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
-                                        </Button>
+                                        {showCommentButton && (
+                                            <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
+                                                <MessageSquare className="mr-2 h-4 w-4"/>
+                                                {openCommentSectionId === v.id ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
+                                            </Button>
+                                        )}
                                     </div>
                                     {openCommentSectionId === v.id && (
                                         <CommentSection
