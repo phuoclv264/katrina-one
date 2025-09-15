@@ -180,7 +180,7 @@ function DailySummaryGenerator({
 
     return (
         <>
-            <Button onClick={handleClick} variant="outline" size="sm">
+            <Button onClick={handleClick} variant="outline" size="sm" className="w-full sm:w-auto">
                 <Wand2 className="mr-2 h-4 w-4" />
                 Tóm tắt bằng AI
             </Button>
@@ -404,7 +404,7 @@ export default function ReportsPage() {
                 <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
                     {sortedDates.map((date) => (
                         <AccordionItem value={date} key={date}>
-                             <div className="flex items-center justify-between pr-4">
+                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pr-4 gap-2 sm:gap-0">
                                 <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-4">
                                     Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
                                 </AccordionTrigger>
@@ -471,4 +471,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
 
