@@ -180,7 +180,7 @@ function DailySummaryGenerator({
 
     return (
         <>
-            <Button onClick={handleClick} variant="outline" size="sm" className="w-full sm:w-auto">
+            <Button onClick={handleClick} variant="ghost" className="w-full justify-center py-2">
                 <Wand2 className="mr-2 h-4 w-4" />
                 Tóm tắt bằng AI
             </Button>
@@ -404,25 +404,25 @@ export default function ReportsPage() {
                 <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
                     {sortedDates.map((date) => (
                         <AccordionItem value={date} key={date}>
-                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pr-4 gap-2 sm:gap-0">
-                                <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-4">
-                                    Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                </AccordionTrigger>
-                                {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
-                                     <DailySummaryGenerator 
-                                        date={date} 
-                                        reports={groupedReports[date] ? Object.values(groupedReports[date]).flat() : []}
-                                        taskDefinitions={{
-                                            serverTasks: tasksByShift,
-                                            bartenderTasks: bartenderTasks,
-                                            comprehensiveTasks: comprehensiveTasks,
-                                            inventoryItems: inventoryList,
-                                        }}
-                                    />
-                                 )}
-                            </div>
+                            <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-4">
+                                Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                            </AccordionTrigger>
                             <AccordionContent>
                                 <div className="space-y-4">
+                                    {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
+                                        <div className="my-2 border-b pb-4">
+                                            <DailySummaryGenerator 
+                                                date={date} 
+                                                reports={groupedReports[date] ? Object.values(groupedReports[date]).flat() : []}
+                                                taskDefinitions={{
+                                                    serverTasks: tasksByShift,
+                                                    bartenderTasks: bartenderTasks,
+                                                    comprehensiveTasks: comprehensiveTasks,
+                                                    inventoryItems: inventoryList,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -471,5 +471,6 @@ export default function ReportsPage() {
     </div>
   );
 }
+
 
 
