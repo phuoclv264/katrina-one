@@ -84,7 +84,6 @@ function InventoryReportView() {
         if(isMounted) {
             setAllReports(reports);
             if (reports.length > 0) {
-                 // If the currently selected report is deleted, select the newest one.
                 if (selectedReport && !reports.some(r => r.id === selectedReport.id)) {
                     setSelectedReport(reports[0]);
                 } else if (!selectedReport) {
@@ -101,14 +100,26 @@ function InventoryReportView() {
   }, [selectedReport])
   
   const reportToView = selectedReport;
-  
-  const categorizedList = useMemo((): CategorizedList => {
-      if (!inventoryList) return [];
-      
+
+  const { checkedItems, uncheckedItems } = useMemo(() => {
+    if (!inventoryList || !reportToView) return { checkedItems: [], uncheckedItems: [] };
+    const checked: InventoryItem[] = [];
+    const unchecked: InventoryItem[] = [];
+    inventoryList.forEach(item => {
+        const record = reportToView.stockLevels[item.id];
+        if (record && (record.stock !== undefined && record.stock !== '')) {
+            checked.push(item);
+        } else {
+            unchecked.push(item);
+        }
+    });
+    return { checkedItems: checked, uncheckedItems: unchecked };
+  }, [inventoryList, reportToView]);
+
+  const categorizedCheckedList = useMemo((): CategorizedList => {
       const categoryOrder: string[] = [];
       const grouped: { [key: string]: InventoryItem[] } = {};
-
-      inventoryList.forEach(item => {
+      checkedItems.forEach(item => {
           const category = item.category || 'CHƯA PHÂN LOẠI';
           if (!grouped[category]) {
               grouped[category] = [];
@@ -116,17 +127,28 @@ function InventoryReportView() {
           }
           grouped[category].push(item);
       });
-      
       return categoryOrder.map(category => ({ category, items: grouped[category] }));
+  }, [checkedItems]);
+  
+  const categorizedUncheckedList = useMemo((): CategorizedList => {
+      const categoryOrder: string[] = [];
+      const grouped: { [key: string]: InventoryItem[] } = {};
+      uncheckedItems.forEach(item => {
+          const category = item.category || 'CHƯA PHÂN LOẠI';
+          if (!grouped[category]) {
+              grouped[category] = [];
+              categoryOrder.push(category);
+          }
+          grouped[category].push(item);
+      });
+      return categoryOrder.map(category => ({ category, items: grouped[category] }));
+  }, [uncheckedItems]);
 
-  }, [inventoryList]);
-
-  // Set accordion to open all by default
   useEffect(() => {
-      if (categorizedList.length > 0) {
-          setOpenCategories(categorizedList.map(c => c.category));
+      if (categorizedCheckedList.length > 0 && openCategories.length === 0) {
+          setOpenCategories(categorizedCheckedList.map(c => c.category));
       }
-  }, [categorizedList]);
+  }, [categorizedCheckedList, openCategories.length]);
 
 
   const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
@@ -150,7 +172,7 @@ function InventoryReportView() {
     switch (status) {
       case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
       case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
-      case 'ok': return 'bg-green-100/40 dark:bg-green-900/20'; // Green for 'ok'
+      case 'ok': return 'bg-green-100/40 dark:bg-green-900/20';
       default: return 'bg-transparent';
     }
   };
@@ -252,7 +274,6 @@ function InventoryReportView() {
             
             await dataStore.updateInventoryReportSuggestions(reportToView.id, newSuggestions);
 
-            // Optimistically update local state to reflect the change
             setSelectedReport(prev => prev ? { ...prev, suggestions: newSuggestions } : null);
 
             toast({
@@ -272,10 +293,10 @@ function InventoryReportView() {
     };
 
   const handleToggleAll = () => {
-    if (openCategories.length === categorizedList.length) {
+    if (openCategories.length === categorizedCheckedList.length) {
       setOpenCategories([]);
     } else {
-      setOpenCategories(categorizedList.map(c => c.category));
+      setOpenCategories(categorizedCheckedList.map(c => c.category));
     }
   };
 
@@ -323,7 +344,7 @@ function InventoryReportView() {
     );
   }
 
-  const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
+  const areAllCategoriesOpen = categorizedCheckedList.length > 0 && openCategories.length === categorizedCheckedList.length;
 
   return (
     <>
@@ -354,7 +375,7 @@ function InventoryReportView() {
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                         <div>
-                            <CardTitle>Báo cáo chi tiết</CardTitle>
+                            <CardTitle>Báo cáo chi tiết ({checkedItems.length} mặt hàng đã kiểm kê)</CardTitle>
                             <CardDescription className="mt-2 flex items-center gap-4 text-sm">
                                 <span className="flex items-center gap-1.5"><User className="h-4 w-4"/> {reportToView.staffName}</span>
                                 <span className="flex items-center gap-1.5"><Clock className="h-4 w-4"/> {format(new Date(reportToView.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span>
@@ -365,7 +386,7 @@ function InventoryReportView() {
                                 <History className="mr-2 h-4 w-4"/>
                                 Xem lịch sử
                             </Button>
-                             {categorizedList.length > 0 && (
+                             {categorizedCheckedList.length > 0 && (
                                 <Button variant="outline" onClick={handleToggleAll} size="sm" className="w-full">
                                     <ChevronsDownUp className="mr-2 h-4 w-4"/>
                                     {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
@@ -376,13 +397,12 @@ function InventoryReportView() {
                 </CardHeader>
                 <CardContent>
                     <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="w-full space-y-4">
-                         {categorizedList.map(({ category, items }) => (
+                         {categorizedCheckedList.map(({ category, items }) => (
                             <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
                                 <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
                                     {category}
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
-                                     {/* Mobile View: Cards */}
                                      <div className="md:hidden space-y-3">
                                         {items.map(item => {
                                             const stockValue = reportToView.stockLevels[item.id]?.stock;
@@ -416,7 +436,6 @@ function InventoryReportView() {
                                             )
                                         })}
                                      </div>
-                                    {/* Desktop View: Table */}
                                     <div className="overflow-x-auto hidden md:block">
                                         <Table>
                                             <TableHeader>
@@ -472,6 +491,29 @@ function InventoryReportView() {
                     </Accordion>
                 </CardContent>
             </Card>
+
+            {uncheckedItems.length > 0 && (
+                <Accordion type="single" collapsible className="w-full mt-4">
+                    <AccordionItem value="unchecked-items" className="border-2 rounded-lg border-muted">
+                        <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
+                            Xem {uncheckedItems.length} mặt hàng chưa được kiểm kê
+                        </AccordionTrigger>
+                        <AccordionContent className="p-4 border-t">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6">
+                                {categorizedUncheckedList.map(({category, items}) => (
+                                    <div key={category}>
+                                        <h4 className="font-semibold text-primary mb-2 pb-1 border-b">{category}</h4>
+                                        <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                                            {items.map(item => <li key={item.id}>{item.name}</li>)}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            )}
+
         </div>
         <div className="lg:col-span-1 space-y-8" ref={suggestionsCardRef}>
             <Card className="sticky top-4">
@@ -634,3 +676,4 @@ export default function InventoryReportPage() {
         </Suspense>
     )
 }
+
