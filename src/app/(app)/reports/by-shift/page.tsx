@@ -213,12 +213,14 @@ function ReportView() {
   const handleDeleteReport = async () => {
     if (!reportToView || reportToView.id === 'summary' || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
+    const reportNameToDelete = reportToView.staffName;
     try {
         await dataStore.deleteShiftReport(reportToView.id);
         toast({
             title: "Đã xóa báo cáo",
-            description: `Báo cáo của ${reportToView.staffName} đã được xóa thành công.`,
+            description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
         });
+        // The useEffect will handle the state update and re-selection
     } catch(error) {
         console.error("Error deleting report:", error);
         toast({

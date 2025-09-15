@@ -78,10 +78,17 @@ function HygieneReportView() {
         if(isMounted) setTaskSections(tasks);
     });
 
-    dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
-        if(isMounted) {
+    const unsubscribeReports = dataStore.onSnapshot(query(collection(db, "reports"), where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted')), (querySnapshot) => {
+        if (isMounted) {
+            const fetchedReports: ShiftReport[] = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                submittedAt: (doc.data().submittedAt as Timestamp)?.toDate().toISOString(),
+            } as ShiftReport));
+
             setReports(fetchedReports);
-             if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId)) {
+
+            if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId)) {
                 setSelectedReportId(fetchedReports.length > 0 ? fetchedReports[0].id : null);
             } else if (!selectedReportId && fetchedReports.length > 0) {
                 setSelectedReportId(fetchedReports[0].id);
@@ -90,22 +97,14 @@ function HygieneReportView() {
             }
             setIsLoading(false);
         }
-    }).catch(error => {
-        console.error("Error loading hygiene report data:", error);
-        toast({
-            title: "Lỗi tải dữ liệu",
-            description: "Không thể tải báo cáo vệ sinh. Đang chuyển hướng bạn về trang chính.",
-            variant: "destructive",
-        });
-        if(isMounted) router.replace('/reports');
     });
 
     return () => {
         isMounted = false;
         unsubscribeTasks();
+        unsubscribeReports(); // Assuming this is how you unsubscribe from snapshots
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, toast, router]);
+  }, [date, selectedReportId]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
@@ -169,11 +168,12 @@ function HygieneReportView() {
   const handleDeleteReport = async () => {
     if (!report || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
+    const reportNameToDelete = report.staffName;
     try {
         await dataStore.deleteShiftReport(report.id);
         toast({
             title: "Đã xóa báo cáo",
-            description: `Báo cáo của ${report.staffName} đã được xóa thành công.`,
+            description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
         });
     } catch(error) {
         console.error("Error deleting report:", error);
