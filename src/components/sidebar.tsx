@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -33,27 +33,30 @@ export function AppSidebar() {
       const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
       const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
+      const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
 
       switch(user?.role) {
           case 'Phục vụ': return [
             { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
+            commonScheduleMenu,
             commonViolationMenu
           ];
           case 'Pha chế': return [
             { href: '/bartender', label: 'Danh mục Báo cáo', icon: Coffee },
-            { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList },
-            { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive },
+            commonScheduleMenu,
             commonViolationMenu
           ];
           case 'Quản lý': return [
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
             { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
-            { href: '/manager/hygiene-report', label: 'Xem Báo cáo Vệ sinh', icon: ClipboardList },
-            { href: '/manager/inventory-report', label: 'Xem Báo cáo Tồn kho', icon: Archive },
+            { href: '/reports', label: 'Xem báo cáo', icon: FileText },
+            commonScheduleMenu,
+            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
             commonViolationMenu
           ];
           case 'Chủ nhà hàng': return [
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
+            { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
             { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },

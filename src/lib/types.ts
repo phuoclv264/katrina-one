@@ -1,5 +1,4 @@
 
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type Staff = {
@@ -108,6 +107,8 @@ export type InventoryItem = {
     minStock: number;
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
+    dataType: 'number' | 'list';
+    listOptions?: string[];
 };
 
 export type Suppliers = string[];
@@ -129,14 +130,14 @@ export type InventoryStockLevels = {
     [itemId: string]: InventoryStockRecord;
 };
 
-export type InventoryOrderItem = {
+export type OrderItem = {
     itemId: string;
     quantityToOrder: string;
 };
 
 export type OrderBySupplier = {
   supplier: string;
-  itemsToOrder: InventoryOrderItem[];
+  itemsToOrder: OrderItem[];
 }
 
 export type InventoryOrderSuggestion = {
@@ -175,6 +176,15 @@ export type ViolationUser = {
   name: string;
 }
 
+export type ViolationComment = {
+  id: string;
+  commenterId: string;
+  commenterName: string;
+  text: string;
+  photos: string[];
+  createdAt: string | Timestamp;
+}
+
 export type Violation = {
   id: string;
   content: string;
@@ -187,6 +197,8 @@ export type Violation = {
   lastModified?: string | Timestamp;
   penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
+  isFlagged?: boolean;
+  comments?: ViolationComment[];
 };
 
 // --- Summary Types ---
@@ -194,4 +206,82 @@ export type DailySummary = {
     id?: string; // date YYYY-MM-DD
     summary: string;
     generatedAt: string | Timestamp;
+}
+
+// --- Schedule Types ---
+export type TimeSlot = {
+  start: string; // "HH:mm"
+  end: string;
+};
+
+export type ShiftTemplate = {
+  id: string;
+  label: string;
+  role: UserRole | 'Bất kỳ';
+  timeSlot: TimeSlot;
+  applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
+  minUsers: number;
+};
+
+export type AssignedUser = {
+  userId: string;
+  userName: string;
+};
+
+export type AssignedShift = {
+  id: string; // Unique ID for this specific shift instance in the schedule
+  templateId: string;
+  date: string; // YYYY-MM-DD
+  label: string;
+  role: UserRole | 'Bất kỳ';
+  timeSlot: TimeSlot;
+  assignedUsers: AssignedUser[];
+  minUsers: number;
+};
+
+export type Schedule = {
+  weekId: string; // e.g., "2024-W28"
+  status: 'draft' | 'proposed' | 'published';
+  availability: Availability[];
+  shifts: AssignedShift[];
+};
+
+export type Availability = {
+  userId: string;
+  userName: string;
+  date: string; // YYYY-MM-DD
+  availableSlots: TimeSlot[];
+};
+
+
+// --- Notification System Types ---
+
+export type NotificationStatus = 'pending' | 'resolved' | 'cancelled';
+export type NotificationType = 'pass_request';
+
+export type PassRequestPayload = {
+  weekId: string;
+  shiftId: string;
+  shiftLabel: string;
+  shiftDate: string;
+  shiftTimeSlot: TimeSlot;
+  shiftRole: UserRole | 'Bất kỳ';
+  requestingUser: AssignedUser;
+  takenBy?: AssignedUser; // The user who took over the shift
+  declinedBy?: string[]; // Array of user IDs who declined
+}
+
+export type Notification = {
+    id: string;
+    type: NotificationType;
+    status: NotificationStatus;
+    payload: PassRequestPayload;
+    createdAt: string | Timestamp;
+    resolvedAt?: string | Timestamp;
+};
+
+
+export interface AuthUser extends User {
+  displayName: string;
+  role: UserRole;
 }

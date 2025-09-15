@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection, ComprehensiveTask } from '@/lib/types';
+import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection, ComprehensiveTask, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,6 @@ import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -27,6 +26,9 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TaskItem } from '../../_components/task-item';
+import SubmissionNotesSection from '../../checklist/_components/submission-notes-section';
+import { format } from 'date-fns';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -43,12 +45,11 @@ export default function ComprehensiveReportPage() {
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
+  const [submissionNotes, setSubmissionNotes] = useState('');
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [activeTaskText, setActiveTaskText] = useState('');
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
   
   const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
@@ -56,10 +57,9 @@ export default function ComprehensiveReportPage() {
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   
-  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
@@ -94,27 +94,6 @@ export default function ComprehensiveReportPage() {
     }
   }, [isAuthLoading, user, router]);
 
-  const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
-    if (!currentReport) return;
-
-    const allPhotoIds = new Set<string>();
-    for (const taskId in currentReport.completedTasks) {
-        for (const completion of currentReport.completedTasks[taskId]) {
-            if (completion.photoIds) {
-                completion.photoIds.forEach(id => allPhotoIds.add(id));
-            }
-        }
-    }
-
-    if (allPhotoIds.size === 0) {
-        setLocalPhotoUrls(new Map());
-        return;
-    }
-
-    const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-    setLocalPhotoUrls(urls);
-  }, []);
-
   useEffect(() => {
     let isMounted = true;
     const unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((managerTasks) => {
@@ -137,7 +116,7 @@ export default function ComprehensiveReportPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Quản lý', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
-              await fetchLocalPhotos(loadedReport);
+              setSubmissionNotes(loadedReport.issues || '');
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
@@ -164,181 +143,180 @@ export default function ComprehensiveReportPage() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, toast, router, fetchLocalPhotos]);
+  }, [isAuthLoading, user, shiftKey, toast, router]);
 
-  const allPagePhotos = useMemo(() => {
-    if (!tasks || !report) return [];
+  const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
+    setReport(prevReport => {
+        if (!prevReport) return null;
+        const newReport = updater(prevReport);
 
-    const findTaskText = (taskId: string): string => {
-        for (const section of tasks) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-            const combinedPhotos = [
-                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
-                ...(completion.photos || [])
-            ].filter((url): url is string => !!url);
-
-            for (const photoUrl of combinedPhotos) {
-                photos.push({
-                    src: photoUrl,
-                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                });
+        (async () => {
+            if (dataStore.isReportEmpty(newReport)) {
+                await dataStore.deleteLocalReport(newReport.id);
+                setSyncStatus('synced');
+                setHasUnsubmittedChanges(false);
+            } else {
+                await dataStore.saveLocalReport(newReport);
+                setSyncStatus('local-newer');
+                setHasUnsubmittedChanges(true);
             }
-        }
-    }
-    return photos;
-  }, [tasks, report, localPhotoUrls]);
+        })();
+        
+        return newReport;
+    });
+  }, []);
 
-  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
-      setReport(updatedReport);
-      await fetchLocalPhotos(updatedReport);
-      if (dataStore.isReportEmpty(updatedReport)) {
-        await dataStore.deleteLocalReport(updatedReport.id);
-        setSyncStatus('synced');
-        setHasUnsubmittedChanges(false);
-      } else {
-        await dataStore.saveLocalReport(updatedReport);
-        setSyncStatus('local-newer');
-        setHasUnsubmittedChanges(true);
-      }
-  }, [fetchLocalPhotos]);
+  const handleNotesChange = useCallback((notes: string) => {
+    setSubmissionNotes(notes);
+    updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
+  }, [updateLocalReport]);
 
-  const handlePhotoTaskAction = (taskId: string, completionIndex: number | null = null) => {
-    setActiveTaskId(taskId);
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTask(null);
+    setActiveCompletionIndex(null);
+  }, []);
+  
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTask(null);
+  }, []);
+
+  const handlePhotoTaskAction = (task: Task, completionIndex: number | null = null) => {
+    setActiveTask(task);
     setActiveCompletionIndex(completionIndex);
     setIsCameraOpen(true);
   };
   
-  const handleBooleanTaskAction = async (taskId: string, value: boolean) => {
-    if (!report) return;
+  const handleBooleanTaskAction = (taskId: string, value: boolean) => {
+     updateLocalReport(prevReport => {
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        let taskCompletions = [...(newCompletedTasks[taskId] || [])];
+        
+        const newCompletion: CompletionRecord = {
+          timestamp: format(new Date(), 'HH:mm'),
+          photos: [],
+          photoIds: [],
+          value: value,
+        };
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    
-    const newCompletion: CompletionRecord = {
-      timestamp: formattedTime,
-      photos: [],
-      photoIds: [],
-      value: value,
-    };
-
-    taskCompletions.unshift(newCompletion);
-    newReport.completedTasks[taskId] = taskCompletions;
-    await updateLocalReport(newReport);
+        taskCompletions.unshift(newCompletion);
+        newCompletedTasks[taskId] = taskCompletions;
+        newReport.completedTasks = newCompletedTasks;
+        return newReport;
+    });
   };
   
-  const handleOpinionTaskAction = (taskId: string, taskText: string) => {
-      setActiveTaskId(taskId);
-      setActiveTaskText(taskText);
+  const handleOpinionTaskAction = (task: Task) => {
+      setActiveTask(task);
       setIsOpinionOpen(true);
   }
 
-  const handleSaveOpinion = async (opinionText: string) => {
-    if (!report || !activeTaskId) return;
-
-    const newReport = JSON.parse(JSON.stringify(report));
-    let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const handleSaveOpinion = (opinionText: string) => {
+    if (!activeTask) return;
     
-    const newCompletion: CompletionRecord = {
-      timestamp: formattedTime,
-      photos: [],
-      photoIds: [],
-      opinion: opinionText.trim() || undefined,
-    };
+    updateLocalReport(prevReport => {
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        let taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
+        
+        const newCompletion: CompletionRecord = {
+          timestamp: format(new Date(), 'HH:mm'),
+          photos: [],
+          photoIds: [],
+          opinion: opinionText.trim() || undefined,
+        };
 
-    taskCompletions.unshift(newCompletion);
-    newReport.completedTasks[activeTaskId] = taskCompletions;
-    await updateLocalReport(newReport);
+        taskCompletions.unshift(newCompletion);
+        newCompletedTasks[activeTask.id] = taskCompletions;
+        newReport.completedTasks = newCompletedTasks;
+        return newReport;
+    });
     
     handleOpinionClose();
   }
 
     const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeTaskId || !report) return;
+        if (!activeTask) return;
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTaskId] as CompletionRecord[]) || [];
+        const taskId = activeTask.id;
+        const completionIndex = activeCompletionIndex;
 
-        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-            // Add photos to an existing completion record that is of type 'photo'
-            const completionToUpdate = taskCompletions[activeCompletionIndex];
-            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
-        } else {
-            // Create a new completion record
-            const now = new Date();
-            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            
-            const newCompletion: CompletionRecord = {
-                timestamp: formattedTime,
-                photos: [],
-                photoIds: photoIds
-            };
-        
-            taskCompletions.unshift(newCompletion);
-        }
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            let taskCompletions = [...(newCompletedTasks[taskId] || [])];
 
-        newReport.completedTasks[activeTaskId] = taskCompletions;
-        await updateLocalReport(newReport);
+            if (completionIndex !== null && taskCompletions[completionIndex]) {
+                const completionToUpdate = { ...taskCompletions[completionIndex] };
+                completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+                taskCompletions[completionIndex] = completionToUpdate;
+            } else {
+                taskCompletions.unshift({
+                    timestamp: format(new Date(), 'HH:mm'),
+                    photos: [],
+                    photoIds: photoIds
+                });
+            }
 
-        setIsCameraOpen(false);
-        setActiveTaskId(null);
-        setActiveCompletionIndex(null);
-    }, [activeTaskId, activeCompletionIndex, report, updateLocalReport]);
+            newCompletedTasks[taskId] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
+            return newReport;
+        });
+
+        handleCameraClose();
+    }, [activeTask, activeCompletionIndex, updateLocalReport, handleCameraClose]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
       if (!report) return;
       
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      const completionToUpdate = taskCompletions[completionIndex];
-
-      if (!completionToUpdate) return;
-      
-      if (isLocal) {
-          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+       if (isLocal) {
           await photoStore.deletePhoto(photoId);
       } else {
-          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
           await dataStore.deletePhotoFromStorage(photoId);
       }
+      
+      updateLocalReport(prevReport => {
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        const taskCompletions = [...(newCompletedTasks[taskId] || [])];
+        const completionToUpdate = { ...taskCompletions[completionIndex] };
 
-      if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-          // If the task type is 'photo' and it has no more photos, delete the completion.
-          const taskDefinition = tasks?.flatMap(s => s.tasks).find(t => t.id === taskId);
-          if (taskDefinition?.type === 'photo') {
-              taskCompletions.splice(completionIndex, 1);
-          }
-      }
-      
-      if (taskCompletions.length === 0) {
-          delete newReport.completedTasks[taskId];
-      } else {
-          newReport.completedTasks[taskId] = taskCompletions;
-      }
-      
-      await updateLocalReport(newReport);
+        if (!completionToUpdate) return prevReport;
+
+        if (isLocal) {
+            completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+        } else {
+            completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
+        }
+
+        if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
+            const taskDefinition = tasks?.flatMap(s => s.tasks).find(t => t.id === taskId);
+            if (taskDefinition?.type === 'photo') {
+                taskCompletions.splice(completionIndex, 1);
+            } else {
+                taskCompletions[completionIndex] = completionToUpdate;
+            }
+        } else {
+            taskCompletions[completionIndex] = completionToUpdate;
+        }
+        
+        if (taskCompletions.length === 0) {
+            delete newCompletedTasks[taskId];
+        } else {
+            newCompletedTasks[taskId] = taskCompletions;
+        }
+
+        newReport.completedTasks = newCompletedTasks;
+        return newReport;
+      });
   };
   
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
       
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      
-      const completionToDelete = taskCompletions[completionIndex];
+      const completionToDelete = report.completedTasks[taskId]?.[completionIndex];
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
@@ -348,35 +326,38 @@ export default function ComprehensiveReportPage() {
         await Promise.all(completionToDelete.photos.map(url => dataStore.deletePhotoFromStorage(url)));
       }
       
-      taskCompletions.splice(completionIndex, 1);
-      
-      if (taskCompletions.length > 0) {
-          newReport.completedTasks[taskId] = taskCompletions;
-      } else {
-          delete newReport.completedTasks[taskId];
-      }
-      
-      await updateLocalReport(newReport);
+      updateLocalReport(prevReport => {
+         const newReport = { ...prevReport };
+         const newCompletedTasks = { ...newReport.completedTasks };
+         const taskCompletions = [...(newCompletedTasks[taskId] || [])];
+         taskCompletions.splice(completionIndex, 1);
+         
+         if (taskCompletions.length > 0) {
+             newCompletedTasks[taskId] = taskCompletions;
+         } else {
+             delete newCompletedTasks[taskId];
+         }
+         newReport.completedTasks = newCompletedTasks;
+         return newReport;
+      });
   }
   
-    const handleSubmitReport = async (notes: string) => {
+    const handleSubmitReport = async () => {
         if (!report) return;
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        setIsSubmissionNotesOpen(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
-        const finalReport = { ...report, issues: notes || null };
+        const finalReport = { ...report, issues: submissionNotes || null };
 
         try {
             await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
-            await fetchLocalPhotos(serverReport);
             setSyncStatus('synced');
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
@@ -408,7 +389,7 @@ export default function ComprehensiveReportPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
-        await fetchLocalPhotos(serverReport);
+        setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
          toast({
@@ -440,24 +421,10 @@ export default function ComprehensiveReportPage() {
     });
   }, []);
     
-  const handleCameraClose = useCallback(() => {
-    setIsCameraOpen(false);
-    setActiveTaskId(null);
-    setActiveCompletionIndex(null);
-  }, []);
-  
-  const handleOpinionClose = useCallback(() => {
-    setIsOpinionOpen(false);
-    setActiveTaskId(null);
-    setActiveTaskText('');
-  }, []);
-  
-  const openLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+  const openLightbox = (photos: {src: string}[], startIndex: number) => {
+    setLightboxSlides(photos);
+    setLightboxIndex(startIndex);
+    setIsLightboxOpen(true);
   };
 
   const handleToggleAll = () => {
@@ -546,173 +513,33 @@ export default function ComprehensiveReportPage() {
                 </AccordionTrigger>
                 <AccordionContent className="border-t p-4">
                 <div className="space-y-4 pt-2">
-                    {section.tasks.map((task) => {
-                    const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-                    const isTaskCompleted = completions.length > 0;
-                    const isExpanded = expandedTaskIds.has(task.id);
-
-                    return (
-                        <div key={task.id} className={`rounded-md border p-4 transition-colors ${isTaskCompleted ? 'bg-accent/20' : ''}`}>
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                            <p className="font-semibold flex-1">
-                            {task.text}
-                            </p>
-                            <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
-                            {task.type === 'photo' && (
-                                <Button 
-                                size="sm" 
-                                className="w-full active:scale-95 transition-transform"
-                                onClick={() => handlePhotoTaskAction(task.id)}
-                                disabled={isReadonly}
-                                >
-                                    <Camera className="mr-2 h-4 w-4"/>
-                                    Chụp ảnh
-                                </Button>
-                            )}
-                            {task.type === 'boolean' && (
-                                <div className="flex flex-col sm:flex-row w-full gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant={"outline"}
-                                        className="w-full"
-                                        onClick={() => handleBooleanTaskAction(task.id, true)}
-                                        disabled={isReadonly}
-                                    >
-                                        <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant={"outline"}
-                                        className="w-full"
-                                        onClick={() => handleBooleanTaskAction(task.id, false)}
-                                        disabled={isReadonly}
-                                    >
-                                        <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
-                                    </Button>
-                                </div>
-                            )}
-                            {task.type === 'opinion' && (
-                                <Button
-                                    size="sm"
-                                    className="w-full"
-                                    onClick={() => handleOpinionTaskAction(task.id, task.text)}
-                                    disabled={isReadonly}
-                                >
-                                    <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
-                                </Button>
-                            )}
-                            </div>
-                        </div>
-                        
-                        {isTaskCompleted && (
-                            <div className="mt-4 space-y-3">
-                                {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                    return (
-                                    <div key={cIndex} className="rounded-md border bg-card p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Clock className="h-4 w-4 flex-shrink-0" />
-                                        <span>Kiểm tra lúc: {completion.timestamp}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                        {completion.value !== undefined && (
-                                            <Badge variant={completion.value ? "default" : "destructive"}>
-                                            {completion.value ? "Đảm bảo" : "Không đảm bảo"}
-                                            </Badge>
-                                        )}
-                                        {!isReadonly && task.type === 'photo' && (
-                                            <Button size="icon" variant="ghost" className="text-primary h-7 w-7" onClick={() => handlePhotoTaskAction(task.id, cIndex)}>
-                                                <FilePlus2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                        {!isReadonly && (
-                                            <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button size="icon" variant="ghost" className="text-destructive h-7 w-7">
-                                                <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                <AlertDialogTitle>Bạn có chắc không?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Hành động này sẽ xóa lần kiểm tra này.
-                                                </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                            </AlertDialog>
-                                        )}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                        {(completion.photos || []).map((photoUrl, pIndex) => (
-                                            <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                                    <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {(completion.photoIds || []).map((photoId, pIndex) => {
-                                            const photoUrl = localPhotoUrls.get(photoId);
-                                            if (!photoUrl) return null;
-                                            return (
-                                                <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                                    <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                                        <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                                    </button>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
-                                                                <UploadCloud className="h-3 w-3" />
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Ảnh chưa được gửi</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    {!isReadonly && (
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="icon"
-                                                            className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId, true); }}
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                            <span className="sr-only">Xóa ảnh</span>
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {completion.opinion && (
-                                        <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
-                                    )}
-                                    </div>
-                                )}
-                                )}
-                                {completions.length > 1 && (
-                                    <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
-                                    {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1} lần)`}
-                                    {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                        </div>
-                    )
-                    })}
+                    {section.tasks.map((task) => (
+                        <TaskItem
+                            key={task.id}
+                            task={task as unknown as Task}
+                            completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
+                            isReadonly={isReadonly}
+                            isSingleCompletion={false}
+                            isExpanded={expandedTaskIds.has(task.id)}
+                            onPhotoAction={handlePhotoTaskAction as (task: Task, completionIndex?: number | null) => void}
+                            onBooleanAction={handleBooleanTaskAction}
+                            onOpinionAction={handleOpinionTaskAction as (task: Task) => void}
+                            onDeleteCompletion={handleDeleteCompletion}
+                            onDeletePhoto={handleDeletePhoto}
+                            onToggleExpand={toggleExpandTask}
+                            onOpenLightbox={openLightbox}
+                        />
+                    ))}
                 </div>
                 </AccordionContent>
             </AccordionItem>
             ))}
         </Accordion>
+         <SubmissionNotesSection 
+            initialNotes={submissionNotes}
+            onNotesChange={handleNotesChange}
+            isReadonly={isReadonly}
+        />
       </div>
     </div>
     
@@ -721,7 +548,7 @@ export default function ComprehensiveReportPage() {
             <Button
               size="lg"
               className="rounded-full shadow-lg h-16 w-16"
-              onClick={() => setIsSubmissionNotesOpen(true)}
+              onClick={handleSubmitReport}
               disabled={isReadonly || syncStatus === 'server-newer'}
               aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
           >
@@ -746,16 +573,9 @@ export default function ComprehensiveReportPage() {
         isOpen={isOpinionOpen}
         onClose={handleOpinionClose}
         onSubmit={handleSaveOpinion}
-        taskText={activeTaskText}
+        taskText={activeTask?.text || ''}
     />
 
-    <SubmissionNotesDialog
-        isOpen={isSubmissionNotesOpen}
-        onClose={() => setIsSubmissionNotesOpen(false)}
-        onSubmit={handleSubmitReport}
-        isSubmitting={isSubmitting}
-    />
-    
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -768,7 +588,7 @@ export default function ComprehensiveReportPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
@@ -792,7 +612,7 @@ export default function ComprehensiveReportPage() {
     <Lightbox
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
+        slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}
@@ -806,3 +626,7 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
+
+    
+
+    

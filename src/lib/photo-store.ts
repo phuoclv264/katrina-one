@@ -58,9 +58,11 @@ export const photoStore = {
     const results = await Promise.all(ids.map(id => store.get(id)));
     
     const urlMap = new Map<string, string>();
+    
     results.forEach(result => {
-        if(result) {
-            urlMap.set(result.id, URL.createObjectURL(result.blob));
+        if (result) {
+            const url = URL.createObjectURL(result.blob);
+            urlMap.set(result.id, url);
         }
     });
 

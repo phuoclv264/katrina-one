@@ -63,7 +63,7 @@ function ReportView() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+    if (!authLoading && (!user || (user.role !== 'Chủ nhà hàng' && user.role !== 'Quản lý'))) {
         router.replace('/shifts');
         return;
     }
@@ -211,14 +211,16 @@ function ReportView() {
   }
 
   const handleDeleteReport = async () => {
-    if (!reportToView || reportToView.id === 'summary') return;
+    if (!reportToView || reportToView.id === 'summary' || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
+    const reportNameToDelete = reportToView.staffName;
     try {
         await dataStore.deleteShiftReport(reportToView.id);
         toast({
             title: "Đã xóa báo cáo",
-            description: `Báo cáo của ${reportToView.staffName} đã được xóa thành công.`,
+            description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
         });
+        // The useEffect will handle the state update and re-selection
     } catch(error) {
         console.error("Error deleting report:", error);
         toast({
@@ -277,7 +279,7 @@ function ReportView() {
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <Button asChild variant="ghost" className="mb-4 -ml-4">
-            <Link href="/reports">
+            <Link href={user?.role === 'Quản lý' ? '/reports' : '/manager'}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại danh sách
             </Link>
@@ -306,7 +308,7 @@ function ReportView() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        {selectedReportId && selectedReportId !== 'summary' && (
+                        {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" size="icon" disabled={isProcessing}>
@@ -348,7 +350,7 @@ function ReportView() {
                <CardDescription>
                 {selectedReportId === 'summary' 
                     ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
-                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN')}.`
+                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}.`
                 }
                 </CardDescription>
             </CardHeader>

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { db, storage } from './firebase';
+import { db, auth, storage } from './firebase';
 import {
   collection,
   doc,
@@ -20,12 +20,18 @@ import {
   deleteDoc,
   limit,
   writeBatch,
+  runTransaction,
+  or,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject, uploadBytes } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays } from 'date-fns';
+
 
 const getTodaysDateKey = () => {
     const now = new Date();
@@ -53,6 +59,435 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+     // --- Notifications ---
+    subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
+        const notificationsCollection = collection(db, 'notifications');
+        const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const notifications: Notification[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            notifications.push({
+            id: doc.id,
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification);
+        });
+        callback(notifications);
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
+            callback([]);
+        });
+
+        return unsubscribe;
+    },
+
+    subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
+        const notificationsCollection = collection(db, 'notifications');
+        
+        // Query for user's own requests
+        const myRequestsQuery = query(
+            notificationsCollection,
+            where('payload.requestingUser.userId', '==', userId),
+            orderBy('createdAt', 'desc')
+        );
+
+        // Query for pending requests from others
+        const otherRequestsQuery = query(
+            notificationsCollection,
+            where('status', '==', 'pending'),
+             where('payload.requestingUser.userId', '!=', userId)
+        );
+
+        const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
+            const combined = new Map<string, Notification>();
+
+            // Add my requests first
+            myRequests.forEach(n => combined.set(n.id, n));
+
+            // Add other eligible requests
+            otherRequests.forEach(n => {
+                const payload = n.payload;
+                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
+                const hasDeclined = (payload.declinedBy || []).includes(userId);
+                if (!isDifferentRole && !hasDeclined) {
+                    combined.set(n.id, n);
+                }
+            });
+
+            const finalNotifications = Array.from(combined.values())
+                .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+                
+            callback(finalNotifications);
+        };
+
+        let myRequestsCache: Notification[] = [];
+        let otherRequestsCache: Notification[] = [];
+        
+        const unsubMyRequests = onSnapshot(myRequestsQuery, (snapshot) => {
+            myRequestsCache = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                resolvedAt: (doc.data().resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification));
+            processResults(myRequestsCache, otherRequestsCache);
+        }, (error) => console.error("Error fetching my pass requests:", error));
+        
+        const unsubOtherRequests = onSnapshot(otherRequestsQuery, (snapshot) => {
+            otherRequestsCache = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                resolvedAt: (doc.data().resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification));
+            processResults(myRequestsCache, otherRequestsCache);
+        }, (error) => console.error("Error fetching other pass requests:", error));
+        
+        return () => {
+            unsubMyRequests();
+            unsubOtherRequests();
+        };
+    },
+
+    async updateNotificationStatus(notificationId: string, status: Notification['status']): Promise<void> {
+        const docRef = doc(db, 'notifications', notificationId);
+        await updateDoc(docRef, { status, resolvedAt: serverTimestamp() });
+    },
+
+    // --- Schedule ---
+    subscribeToSchedule(weekId: string, callback: (schedule: Schedule | null) => void): () => void {
+        const docRef = doc(db, 'schedules', weekId);
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const scheduleData = docSnap.data() as Schedule;
+
+                // Merge overlapping/adjacent availability slots upon loading
+                if (scheduleData.availability) {
+                    const availabilityByUserAndDate = new Map<string, Availability[]>();
+                    scheduleData.availability.forEach(avail => {
+                        const key = `${avail.userId}-${avail.date}`;
+                        if (!availabilityByUserAndDate.has(key)) {
+                            availabilityByUserAndDate.set(key, []);
+                        }
+                        availabilityByUserAndDate.get(key)!.push(avail);
+                    });
+                    
+                    const mergedAvailability: Availability[] = [];
+                    availabilityByUserAndDate.forEach((userAvailsForDate) => {
+                         if (userAvailsForDate.length > 0) {
+                            const baseAvail = { ...userAvailsForDate[0] };
+                            const allSlots = userAvailsForDate.flatMap(a => a.availableSlots);
+                            
+                            if (allSlots.length > 1) {
+                                const sortedSlots = [...allSlots].sort((a, b) => a.start.localeCompare(b.start));
+                                const result: TimeSlot[] = [sortedSlots[0]];
+                                
+                                for (let i = 1; i < sortedSlots.length; i++) {
+                                    const lastMerged = result[result.length - 1];
+                                    const current = sortedSlots[i];
+                                    if (current.start <= lastMerged.end) {
+                                        lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
+                                    } else {
+                                        result.push(current);
+                                    }
+                                }
+                                baseAvail.availableSlots = result;
+                            } else {
+                                baseAvail.availableSlots = allSlots;
+                            }
+                            mergedAvailability.push(baseAvail);
+                        }
+                    });
+                    scheduleData.availability = mergedAvailability;
+                }
+
+                callback(scheduleData);
+            } else {
+                callback(null);
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read schedule for ${weekId}: ${error.code}`);
+            callback(null);
+        });
+        return unsubscribe;
+    },
+
+    subscribeToAllSchedules(callback: (schedules: Schedule[]) => void): () => void {
+        const q = query(collection(db, 'schedules'), orderBy('weekId', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+            callback(schedules);
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read all schedules: ${error.code}`);
+            callback([]);
+        });
+        return unsubscribe;
+    },
+
+    async getSchedulesForMonth(date: Date): Promise<Schedule[]> {
+        const monthStart = startOfMonth(date);
+        const monthEnd = endOfMonth(date);
+
+        const weeks = eachWeekOfInterval({
+            start: monthStart,
+            end: monthEnd,
+        }, { weekStartsOn: 1 });
+
+        const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+
+        const schedulePromises = weekIds.map(weekId => getDoc(doc(db, 'schedules', weekId)));
+        const scheduleDocs = await Promise.all(schedulePromises);
+
+        return scheduleDocs
+            .filter(docSnap => docSnap.exists())
+            .map(docSnap => ({...docSnap.data(), weekId: docSnap.id} as Schedule));
+    },
+
+    async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
+        const docRef = doc(db, 'schedules', weekId);
+        await setDoc(docRef, data, { merge: true });
+    },
+
+    async createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
+        const nextWeekDate = addDays(currentDate, 7);
+        const nextWeekId = `${nextWeekDate.getFullYear()}-W${getISOWeek(nextWeekDate)}`;
+    
+        const scheduleRef = doc(db, 'schedules', nextWeekId);
+        const scheduleSnap = await getDoc(scheduleRef);
+    
+        if (scheduleSnap.exists()) {
+            const scheduleData = scheduleSnap.data() as Schedule;
+            const validStatus: Schedule['status'][] = ['draft', 'proposed', 'published'];
+            if (!scheduleData.status || !validStatus.includes(scheduleData.status)) {
+                await updateDoc(scheduleRef, { status: 'draft' });
+            }
+            return;
+        }
+    
+        const startOfNextWeek = startOfWeek(nextWeekDate, { weekStartsOn: 1 });
+        const endOfNextWeek = endOfWeek(nextWeekDate, { weekStartsOn: 1 });
+        const daysInNextWeek = eachDayOfInterval({ start: startOfNextWeek, end: endOfNextWeek });
+    
+        const newShifts: AssignedShift[] = [];
+        daysInNextWeek.forEach(day => {
+            const dayOfWeek = getDay(day);
+            const dateKey = format(day, 'yyyy-MM-dd');
+    
+            shiftTemplates.forEach(template => {
+                if ((template.applicableDays || []).includes(dayOfWeek)) {
+                    newShifts.push({
+                        id: `shift_${dateKey}_${template.id}`,
+                        templateId: template.id,
+                        date: dateKey,
+                        label: template.label,
+                        role: template.role,
+                        timeSlot: template.timeSlot,
+                        minUsers: template.minUsers ?? 0,
+                        assignedUsers: [],
+                    });
+                }
+            });
+        });
+    
+        const newSchedule: Schedule = {
+            weekId: nextWeekId,
+            status: 'draft',
+            availability: [],
+            shifts: newShifts.sort((a, b) => {
+                if (a.date < b.date) return -1;
+                if (a.date > b.date) return 1;
+                return a.timeSlot.start.localeCompare(b.timeSlot.start);
+            }),
+        };
+    
+        await setDoc(scheduleRef, newSchedule);
+    },
+    
+    subscribeToShiftTemplates(callback: (templates: ShiftTemplate[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'shiftTemplates');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().templates as ShiftTemplate[]);
+            } else {
+                try {
+                    await setDoc(docRef, { templates: [] });
+                    callback([]);
+                } catch(e) {
+                    console.error("Permission denied to create default shift templates.", e);
+                    callback([]);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read shift templates: ${error.code}`);
+            callback([]);
+        });
+        return unsubscribe;
+    },
+    
+    async updateShiftTemplates(templates: ShiftTemplate[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'shiftTemplates');
+        await setDoc(docRef, { templates });
+    },
+    
+    async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
+        const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+        const newNotification: Omit<Notification, 'id'> = {
+            type: 'pass_request',
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            payload: {
+                weekId: weekId,
+                shiftId: shiftToPass.id,
+                shiftLabel: shiftToPass.label,
+                shiftDate: shiftToPass.date,
+                shiftTimeSlot: shiftToPass.timeSlot,
+                shiftRole: shiftToPass.role,
+                requestingUser: {
+                    userId: requestingUser.uid,
+                    userName: requestingUser.displayName
+                },
+                declinedBy: [],
+            }
+        };
+        await addDoc(collection(db, "notifications"), newNotification);
+    },
+
+    async revertPassRequest(notification: Notification): Promise<void> {
+        const { payload } = notification;
+        const scheduleRef = doc(db, "schedules", payload.weekId);
+
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+
+            // 1. Revert assigned users in schedule
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === payload.shiftId) {
+                    let updatedAssignedUsers = [...s.assignedUsers];
+                    if (payload.takenBy) {
+                        updatedAssignedUsers = updatedAssignedUsers.filter(u => u.userId !== payload.takenBy!.userId);
+                    }
+                    if (!updatedAssignedUsers.some(u => u.userId === payload.requestingUser.userId)) {
+                        updatedAssignedUsers.push(payload.requestingUser);
+                    }
+                    return { ...s, assignedUsers: updatedAssignedUsers };
+                }
+                return s;
+            });
+             transaction.update(scheduleRef, { shifts: updatedShifts });
+
+            // 2. Revert notification status
+            const notificationRef = doc(db, "notifications", notification.id);
+            transaction.update(notificationRef, {
+                status: 'pending',
+                'payload.takenBy': null,
+                resolvedAt: null,
+            });
+        });
+    },
+
+    async acceptPassShift(notification: Notification, acceptingUser: AssignedUser): Promise<void> {
+        const scheduleRef = doc(db, "schedules", notification.payload.weekId);
+        const notificationRef = doc(db, "notifications", notification.id);
+
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+            
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
+            if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
+
+            // --- Conflict Check ---
+            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`).getTime();
+            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`).getTime();
+
+            const existingUserShifts = scheduleData.shifts.filter(existingShift =>
+                existingShift.date === shiftToUpdate.date && existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId)
+            );
+
+            const hasConflict = existingUserShifts.some(existingShift => {
+                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`).getTime();
+                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`).getTime();
+                // Overlap exists if (StartA < EndB) and (StartB < EndA)
+                return shiftStartTime < existingEndTime && existingStartTime < shiftEndTime;
+            });
+            
+            if (hasConflict) throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
+            // --- End Conflict Check ---
+
+            // 1. Update Schedule
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === shiftToUpdate.id) {
+                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
+                    if (!newAssignedUsers.some(u => u.userId === acceptingUser.userId)) {
+                        newAssignedUsers.push(acceptingUser);
+                    }
+                    return { ...s, assignedUsers: newAssignedUsers };
+                }
+                return s;
+            });
+             transaction.update(scheduleRef, { shifts: updatedShifts });
+            
+            // 2. Update Notification
+            transaction.update(notificationRef, {
+                status: 'resolved',
+                'payload.takenBy': acceptingUser,
+                resolvedAt: serverTimestamp(),
+            });
+        });
+    },
+
+    async declinePassShift(notificationId: string, decliningUserId: string): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
+        await runTransaction(db, async (transaction) => {
+            const notificationDoc = await transaction.get(notificationRef);
+            if (!notificationDoc.exists()) throw new Error("Notification not found");
+            const existingDeclined = notificationDoc.data().payload.declinedBy || [];
+            const newDeclined = Array.from(new Set([...existingDeclined, decliningUserId]));
+            transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
+        });
+    },
+
+    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser): Promise<void> {
+        const scheduleRef = doc(db, "schedules", notification.payload.weekId);
+        const notificationRef = doc(db, "notifications", notification.id);
+
+        await runTransaction(db, async (transaction) => {
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) {
+                throw new Error("Không tìm thấy lịch làm việc.");
+            }
+
+            // 1. Update Schedule
+            const scheduleData = scheduleDoc.data() as Schedule;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (s.id === notification.payload.shiftId) {
+                    // Replace the requesting user with the newly assigned user
+                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
+                    if (!newAssignedUsers.some(u => u.userId === assignedUser.userId)) {
+                        newAssignedUsers.push(assignedUser);
+                    }
+                    return { ...s, assignedUsers: newAssignedUsers };
+                }
+                return s;
+            });
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+
+            // 2. Update Notification
+            transaction.update(notificationRef, {
+                status: 'resolved',
+                'payload.takenBy': assignedUser,
+                resolvedAt: serverTimestamp(),
+            });
+        });
+    },
+    
+    // --- End Schedule ---
     async cleanupOldReports(daysToKeep: number): Promise<number> {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
@@ -352,6 +787,8 @@ export const dataStore = {
           ...item,
           supplier: item.supplier ?? 'Chưa xác định',
           category: item.category ?? 'CHƯA PHÂN LOẠI',
+          dataType: item.dataType || 'number',
+          listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
         }));
         callback(sanitizedItems);
       } else {
@@ -480,12 +917,7 @@ export const dataStore = {
     }
 
     reportToSubmit.lastUpdated = serverTimestamp();
-    
-    if (report.status === 'submitted') {
-        reportToSubmit.submittedAt = serverTimestamp();
-    } else {
-        delete reportToSubmit.submittedAt;
-    }
+    reportToSubmit.submittedAt = serverTimestamp();
     
     delete reportToSubmit.id;
 
@@ -496,6 +928,14 @@ export const dataStore = {
      if (typeof window !== 'undefined') {
        localStorage.removeItem(report.id);
     }
+  },
+
+  async updateInventoryReportSuggestions(reportId: string, suggestions: InventoryOrderSuggestion): Promise<void> {
+    const reportRef = doc(db, 'inventory-reports', reportId);
+    await updateDoc(reportRef, {
+        suggestions: suggestions,
+        lastUpdated: serverTimestamp(),
+    });
   },
 
   async deleteInventoryReport(reportId: string): Promise<void> {
@@ -892,7 +1332,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = new Date(b.submittedAt as string).getTime();
+          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -941,7 +1381,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = new Date(b.submittedAt as string).getTime();
+          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -963,7 +1403,7 @@ export const dataStore = {
           id: doc.id,
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate().toISOString(),
+          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
         } as Violation);
       });
       callback(violations);
@@ -1046,15 +1486,115 @@ export const dataStore = {
     await photoStore.deletePhotos(photosToUpload);
   },
   
-  async deleteViolation(violationId: string, photoUrls: string[]): Promise<void> {
-    if (photoUrls && photoUrls.length > 0) {
-      const deletePhotoPromises = photoUrls.map(url => this.deletePhotoFromStorage(url));
+  async deleteViolation(violation: Violation): Promise<void> {
+    const allPhotoUrls: string[] = [];
+    if (violation.photos) {
+      allPhotoUrls.push(...violation.photos);
+    }
+    if (violation.penaltyPhotos) {
+      allPhotoUrls.push(...violation.penaltyPhotos);
+    }
+    if (violation.comments) {
+      violation.comments.forEach(comment => {
+        if (comment.photos) {
+          allPhotoUrls.push(...comment.photos);
+        }
+      });
+    }
+
+    if (allPhotoUrls.length > 0) {
+      const deletePhotoPromises = allPhotoUrls.map(url => this.deletePhotoFromStorage(url));
       await Promise.all(deletePhotoPromises);
     }
     
-    const violationRef = doc(db, 'violations', violationId);
+    const violationRef = doc(db, 'violations', violation.id);
     await deleteDoc(violationRef);
   },
+
+  async toggleViolationFlag(violationId: string, currentState: boolean): Promise<void> {
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      isFlagged: !currentState
+    });
+  },
+
+  async addCommentToViolation(violationId: string, comment: Omit<ViolationComment, 'id' | 'createdAt' | 'photos'>, photoIds: string[]): Promise<void> {
+    // 1. Upload photos
+    const uploadPromises = photoIds.map(async (photoId) => {
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) return null;
+        const storageRef = ref(storage, `violations/${violationId}/comments/${uuidv4()}.jpg`);
+        await uploadBytes(storageRef, photoBlob);
+        return getDownloadURL(storageRef);
+    });
+    const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+
+    // 2. Create the full comment object
+    const newComment: ViolationComment = {
+      ...comment,
+      id: uuidv4(),
+      photos: photoUrls,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 3. Update the violation document
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      comments: arrayUnion(newComment)
+    });
+    
+    // 4. Clean up local photos
+    await photoStore.deletePhotos(photoIds);
+  },
+
+    async editCommentInViolation(violationId: string, commentId: string, newText: string): Promise<void> {
+        const violationRef = doc(db, 'violations', violationId);
+        await runTransaction(db, async (transaction) => {
+            const violationDoc = await transaction.get(violationRef);
+            if (!violationDoc.exists()) {
+                throw new Error("Violation not found.");
+            }
+            const violation = violationDoc.data() as Violation;
+            const comments = violation.comments || [];
+            const commentIndex = comments.findIndex(c => c.id === commentId);
+
+            if (commentIndex === -1) {
+                throw new Error("Comment not found.");
+            }
+            
+            const updatedComments = [...comments];
+            updatedComments[commentIndex].text = newText;
+
+            transaction.update(violationRef, { comments: updatedComments });
+        });
+    },
+
+    async deleteCommentInViolation(violationId: string, commentId: string): Promise<void> {
+        const violationRef = doc(db, 'violations', violationId);
+        await runTransaction(db, async (transaction) => {
+            const violationDoc = await transaction.get(violationRef);
+            if (!violationDoc.exists()) {
+                throw new Error("Violation not found.");
+            }
+            const violation = violationDoc.data() as Violation;
+            const comments = violation.comments || [];
+            const commentToDelete = comments.find(c => c.id === commentId);
+
+            if (!commentToDelete) {
+                // Comment might have already been deleted.
+                return;
+            }
+
+            // Delete associated photos from storage first
+            if (commentToDelete.photos && commentToDelete.photos.length > 0) {
+                await Promise.all(commentToDelete.photos.map(url => this.deletePhotoFromStorage(url)));
+            }
+
+            // Update the comments array in Firestore
+            const updatedComments = comments.filter(c => c.id !== commentId);
+            transaction.update(violationRef, { comments: updatedComments });
+        });
+    },
   
   async submitPenaltyProof(violationId: string, photoIds: string[]): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {

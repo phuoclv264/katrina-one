@@ -1,23 +1,21 @@
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Sunrise, Sunset, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronsDownUp } from 'lucide-react';
+import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -26,7 +24,11 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { format } from 'date-fns';
+import SubmissionNotesSection from '../_components/submission-notes-section';
+import { cn } from '@/lib/utils';
+import { TaskItem } from '../../_components/task-item';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -36,6 +38,7 @@ export default function ChecklistPage() {
   const params = useParams();
   const router = useRouter();
   const shiftKey = params.shift as string;
+  const notesSectionRef = useRef<HTMLDivElement>(null);
   
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +47,8 @@ export default function ChecklistPage() {
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
+  const [submissionNotes, setSubmissionNotes] = useState('');
+  const [notesError, setNotesError] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -57,10 +61,9 @@ export default function ChecklistPage() {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
-  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
@@ -106,8 +109,9 @@ export default function ChecklistPage() {
   }, [shift, report]);
 
   const collapseCompletedSection = useCallback((section: TaskSection) => {
+    if (!report) return;
     const isCollapsible = section.title === 'Đầu ca' || section.title === 'Cuối ca';
-    if (!isCollapsible || !report) return;
+    if (!isCollapsible) return;
 
     const allTasksCompleted = section.tasks.every(task => {
         const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
@@ -119,30 +123,9 @@ export default function ChecklistPage() {
     }
   }, [report]);
 
-  const fetchLocalPhotos = useCallback(async (currentReport: ShiftReport | null) => {
-    if (!currentReport) return;
-
-    const allPhotoIds = new Set<string>();
-    for (const taskId in currentReport.completedTasks) {
-        for (const completion of currentReport.completedTasks[taskId]) {
-            if (completion.photoIds) {
-                completion.photoIds.forEach(id => allPhotoIds.add(id));
-            }
-        }
-    }
-
-    if (allPhotoIds.size === 0) {
-        setLocalPhotoUrls(new Map());
-        return;
-    }
-
-    const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-    setLocalPhotoUrls(urls);
-  }, []);
-
   // --- Data Loading and Initialization ---
   useEffect(() => {
-    if (!isAuthLoading && !user) {
+    if (!isAuthLoading && (!user || user.role !== 'Phục vụ')) {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
@@ -165,7 +148,7 @@ export default function ChecklistPage() {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             if(isMounted) {
               setReport(loadedReport);
-              await fetchLocalPhotos(loadedReport);
+              setSubmissionNotes(loadedReport.issues || '');
               setSyncStatus(status);
               if (status === 'local-newer' || status === 'server-newer') {
                   setShowSyncDialog(true);
@@ -191,53 +174,47 @@ export default function ChecklistPage() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, toast, fetchLocalPhotos, router]);
+  }, [isAuthLoading, user, shiftKey, toast, router]);
   
-  const updateLocalReport = useCallback(async (updatedReport: ShiftReport) => {
-      setReport(updatedReport);
-      await fetchLocalPhotos(updatedReport); // Refresh photo URLs after every local update
-      if (dataStore.isReportEmpty(updatedReport)) {
-        await dataStore.deleteLocalReport(updatedReport.id);
-        setSyncStatus('synced');
-        setHasUnsubmittedChanges(false);
-      } else {
-        await dataStore.saveLocalReport(updatedReport);
-        setSyncStatus('local-newer');
-        setHasUnsubmittedChanges(true);
-      }
-  }, [fetchLocalPhotos]);
+  const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
+    setReport(prevReport => {
+        if (!prevReport) return null;
+        const newReport = updater(prevReport);
 
-  const allPagePhotos = useMemo(() => {
-    if (!shift || !report) return [];
-
-    const findTaskText = (taskId: string): string => {
-        for (const section of shift.sections) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-             const combinedPhotos = [
-                ...(completion.photoIds || []).map(id => localPhotoUrls.get(id)),
-                ...(completion.photos || [])
-            ].filter((url): url is string => !!url);
-
-            for (const photoUrl of combinedPhotos) {
-                photos.push({
-                    src: photoUrl,
-                    description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
-                });
+        (async () => {
+            if (dataStore.isReportEmpty(newReport)) {
+                await dataStore.deleteLocalReport(newReport.id);
+                setSyncStatus('synced');
+                setHasUnsubmittedChanges(false);
+            } else {
+                await dataStore.saveLocalReport(newReport);
+                setSyncStatus('local-newer');
+                setHasUnsubmittedChanges(true);
             }
-        }
+        })();
+
+        return newReport;
+    });
+  }, []);
+
+  const handleNotesChange = useCallback((notes: string) => {
+    if (notesError) {
+      setNotesError(false);
     }
-    return photos;
-  }, [shift, report, localPhotoUrls]);
+    setSubmissionNotes(notes);
+     updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
+  }, [updateLocalReport, notesError]);
+
+  const handleCameraClose = useCallback(() => {
+    setIsCameraOpen(false);
+    setActiveTask(null);
+    setActiveCompletionIndex(null);
+  }, []);
+
+  const handleOpinionClose = useCallback(() => {
+    setIsOpinionOpen(false);
+    setActiveTask(null);
+  }, []);
 
     const handlePhotoTaskAction = (task: Task, completionIndex: number | null = null) => {
         setActiveTask(task);
@@ -246,26 +223,26 @@ export default function ChecklistPage() {
     };
 
     const handleBooleanTaskAction = async (taskId: string, value: boolean) => {
-        if (!report) return;
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            const taskCompletions = [...(newCompletedTasks[taskId] || [])];
+            
+            const newCompletion: CompletionRecord = {
+              timestamp: format(new Date(), 'HH:mm'),
+              value: value,
+            };
 
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[taskId] as CompletionRecord[]) || [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        
-        const newCompletion: CompletionRecord = {
-        timestamp: formattedTime,
-        value: value,
-        };
+            taskCompletions.unshift(newCompletion);
+            newCompletedTasks[taskId] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
 
-        taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[taskId] = taskCompletions;
-        await updateLocalReport(newReport);
-
-        const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
-        if (section) {
-            collapseCompletedSection(section);
-        }
+            const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
+            if (section) {
+                collapseCompletedSection(section);
+            }
+            return newReport;
+        });
     };
 
     const handleOpinionTaskAction = (task: Task) => {
@@ -274,101 +251,111 @@ export default function ChecklistPage() {
     }
   
     const handleSaveOpinion = async (opinionText: string) => {
-        if (!report || !activeTask) return;
-
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        if (!activeTask) return;
         
-        const newCompletion: CompletionRecord = {
-        timestamp: formattedTime,
-        opinion: opinionText.trim() || undefined,
-        };
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            const taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
 
-        taskCompletions.unshift(newCompletion);
-        newReport.completedTasks[activeTask.id] = taskCompletions;
-        await updateLocalReport(newReport);
+            const newCompletion: CompletionRecord = {
+              timestamp: format(new Date(), 'HH:mm'),
+              opinion: opinionText.trim() || undefined,
+            };
+
+            taskCompletions.unshift(newCompletion);
+            newCompletedTasks[activeTask.id] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
+            return newReport;
+        });
         
         handleOpinionClose();
     }
   
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeTask || !report) return;
-
-        const newReport = JSON.parse(JSON.stringify(report));
-        let taskCompletions = (newReport.completedTasks[activeTask.id] as CompletionRecord[]) || [];
-
-        if (activeCompletionIndex !== null && taskCompletions[activeCompletionIndex]) {
-            // Add photos to an existing completion
-            const completionToUpdate = taskCompletions[activeCompletionIndex];
-            completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
-        } else {
-            // Create a new completion record
-            const now = new Date();
-            const formattedTime = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            taskCompletions.unshift({
-                timestamp: formattedTime,
-                photoIds: photoIds,
-                photos: [],
-            });
-        }
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+        if (!activeTask) return;
         
-        newReport.completedTasks[activeTask.id] = taskCompletions;
-        await updateLocalReport(newReport);
-        
-        if (activeCompletionIndex === null) {
-            const section = shift?.sections.find(s => s.tasks.some(t => t.id === activeTask.id));
-            if (section) {
-                collapseCompletedSection(section);
+        const taskId = activeTask.id;
+        const completionIndex = activeCompletionIndex;
+
+        updateLocalReport(prevReport => {
+            const newReport = { ...prevReport };
+            const newCompletedTasks = { ...newReport.completedTasks };
+            const taskCompletions = [...(newCompletedTasks[taskId] || [])];
+
+            if (completionIndex !== null && taskCompletions[completionIndex]) {
+                const completionToUpdate = { ...taskCompletions[completionIndex] };
+                completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+                taskCompletions[completionIndex] = completionToUpdate;
+            } else {
+                taskCompletions.unshift({
+                    timestamp: format(new Date(), 'HH:mm'),
+                    photoIds: photoIds,
+                    photos: [],
+                });
             }
-        }
+            
+            newCompletedTasks[taskId] = taskCompletions;
+            newReport.completedTasks = newCompletedTasks;
 
-        setIsCameraOpen(false);
-        setActiveTask(null);
-        setActiveCompletionIndex(null);
-    }, [activeTask, activeCompletionIndex, report, updateLocalReport, shift, collapseCompletedSection]);
+            if (completionIndex === null) {
+                const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
+                if (section) {
+                    collapseCompletedSection(section);
+                }
+            }
+
+            return newReport;
+        });
+        
+        handleCameraClose();
+    }, [activeTask, activeCompletionIndex, shift, collapseCompletedSection, updateLocalReport, handleCameraClose]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
-      if (!report) return;
-      
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      const completionToUpdate = taskCompletions[completionIndex];
-
-      if (!completionToUpdate) return;
-
-      if (isLocal) {
-          completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+       if (isLocal) {
           await photoStore.deletePhoto(photoId);
       } else {
-          completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
           await dataStore.deletePhotoFromStorage(photoId);
       }
+      
+      updateLocalReport(prevReport => {
+        const newReport = { ...prevReport };
+        const newCompletedTasks = { ...newReport.completedTasks };
+        const taskCompletions = [...(newCompletedTasks[taskId] || [])];
+        const completionToUpdate = { ...taskCompletions[completionIndex] };
 
-      if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-           const taskDefinition = shift?.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
-          if (taskDefinition?.type === 'photo') {
-              taskCompletions.splice(completionIndex, 1);
-          }
-      }
-      
-      if (taskCompletions.length === 0) {
-          delete newReport.completedTasks[taskId];
-      } else {
-          newReport.completedTasks[taskId] = taskCompletions;
-      }
-      
-      await updateLocalReport(newReport);
+        if (!completionToUpdate) return prevReport;
+
+        if (isLocal) {
+            completionToUpdate.photoIds = (completionToUpdate.photoIds ?? []).filter((p:string) => p !== photoId);
+        } else {
+            completionToUpdate.photos = (completionToUpdate.photos ?? []).filter((p: string) => p !== photoId);
+        }
+
+        if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
+             const taskDefinition = shift?.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
+            if (taskDefinition?.type === 'photo') {
+                taskCompletions.splice(completionIndex, 1);
+            }
+        } else {
+            taskCompletions[completionIndex] = completionToUpdate;
+        }
+        
+        if (taskCompletions.length === 0) {
+            delete newCompletedTasks[taskId];
+        } else {
+            newCompletedTasks[taskId] = taskCompletions;
+        }
+
+        newReport.completedTasks = newCompletedTasks;
+        return newReport;
+      });
   };
 
   const handleDeleteCompletion = async (taskId: string, completionIndex: number) => {
       if (!report) return;
       
-      const newReport = JSON.parse(JSON.stringify(report));
-      const taskCompletions = newReport.completedTasks[taskId] as CompletionRecord[];
-      
-      const completionToDelete = taskCompletions[completionIndex];
+      const completionToDelete = report.completedTasks[taskId]?.[completionIndex];
       if (!completionToDelete) return;
 
       if(completionToDelete.photoIds) {
@@ -378,36 +365,60 @@ export default function ChecklistPage() {
         await Promise.all(completionToDelete.photos.map(url => dataStore.deletePhotoFromStorage(url)));
       }
       
-      taskCompletions.splice(completionIndex, 1);
-      
-      if (taskCompletions.length > 0) {
-          newReport.completedTasks[taskId] = taskCompletions;
-      } else {
-          delete newReport.completedTasks[taskId];
-      }
-      
-      await updateLocalReport(newReport);
+      updateLocalReport(prevReport => {
+         const newReport = { ...prevReport };
+         const newCompletedTasks = { ...newReport.completedTasks };
+         const taskCompletions = [...(newCompletedTasks[taskId] || [])];
+         taskCompletions.splice(completionIndex, 1);
+         
+         if (taskCompletions.length > 0) {
+             newCompletedTasks[taskId] = taskCompletions;
+         } else {
+             delete newCompletedTasks[taskId];
+         }
+         newReport.completedTasks = newCompletedTasks;
+         return newReport;
+      });
   }
   
-    const handleSubmitReport = async (notes: string) => {
-        if (!report) return;
+    const handleSubmitReport = async () => {
+        if (!report || !shift) return;
+
+        // --- Validation for end-of-shift notes ---
+        const endOfShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
+        if (endOfShiftSection) {
+            const endOfShiftTaskIds = new Set(endOfShiftSection.tasks.map(t => t.id));
+            const hasCompletedEndOfShiftTask = Object.keys(report.completedTasks).some(
+                taskId => endOfShiftTaskIds.has(taskId) && report.completedTasks[taskId].length > 0
+            );
+
+            if (hasCompletedEndOfShiftTask && (!submissionNotes || submissionNotes.trim() === '')) {
+                toast({
+                    title: "Thiếu thông tin",
+                    description: "Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.",
+                    variant: "destructive",
+                });
+                setNotesError(true);
+                notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+        }
+        // --- End Validation ---
+
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        setIsSubmissionNotesOpen(false);
         toast({
             title: "Đang gửi báo cáo...",
             description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
         });
 
-        const finalReport = { ...report, issues: notes || null };
+        const finalReport = { ...report, issues: submissionNotes || null };
 
         try {
             await dataStore.submitReport(finalReport);
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
-            await fetchLocalPhotos(serverReport); 
-            setSyncStatus('synced');
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
@@ -438,7 +449,7 @@ export default function ChecklistPage() {
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
-        await fetchLocalPhotos(serverReport);
+        setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
          toast({
@@ -458,17 +469,6 @@ export default function ChecklistPage() {
       }
   }
     
-  const handleCameraClose = useCallback(() => {
-    setIsCameraOpen(false);
-    setActiveTask(null);
-    setActiveCompletionIndex(null);
-  }, []);
-
-  const handleOpinionClose = useCallback(() => {
-    setIsOpinionOpen(false);
-    setActiveTask(null);
-  }, []);
-  
   const getSectionIcon = (title: string) => {
     switch(title) {
         case 'Đầu ca': return <Sunrise className="mr-3 h-5 w-5 text-yellow-500" />;
@@ -499,12 +499,10 @@ export default function ChecklistPage() {
     });
   }, []);
 
-  const openLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+  const openLightbox = (photos: {src: string}[], startIndex: number) => {
+    setLightboxSlides(photos);
+    setLightboxIndex(startIndex);
+    setIsLightboxOpen(true);
   };
 
   const handleToggleAll = () => {
@@ -586,7 +584,7 @@ export default function ChecklistPage() {
             {shift.sections.map((section) => {
             const isSingleCompletionSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
             return (
-            <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
+            <AccordionItem value={section.title} key={section.title} className={cn('rounded-lg border-[3px] bg-card', getSectionBorderColor(section.title))}>
                 <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
                     <div className="flex items-center">
                     {getSectionIcon(section.title)}
@@ -595,173 +593,36 @@ export default function ChecklistPage() {
                 </AccordionTrigger>
                 <AccordionContent className="border-t p-4">
                 <div className="space-y-4 pt-2">
-                    {section.tasks.map((task) => {
-                    const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-                    const isCompletedOnce = completions.length > 0;
-                    const isDisabledForNew = (isSingleCompletionSection && isCompletedOnce && task.type !== 'opinion') || isReadonly;
-                    const isExpanded = expandedTaskIds.has(task.id);
-                    
-                    return (
-                        <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompletedOnce ? 'bg-accent/20' : ''}`}>
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                            <p className="font-semibold flex-1">
-                            {task.text}
-                            </p>
-                            <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
-                            {task.type === 'photo' && (
-                                <Button 
-                                size="sm" 
-                                className="w-full active:scale-95 transition-transform"
-                                onClick={() => handlePhotoTaskAction(task)}
-                                disabled={isDisabledForNew}
-                                >
-                                    <Camera className="mr-2 h-4 w-4"/>
-                                    Đã hoàn thành
-                                </Button>
-                            )}
-                            {task.type === 'boolean' && (
-                                <div className="flex flex-col sm:flex-row w-full gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant={"outline"}
-                                        className="w-full"
-                                        onClick={() => handleBooleanTaskAction(task.id, true)}
-                                        disabled={isDisabledForNew}
-                                    >
-                                        <ThumbsUp className="mr-2 h-4 w-4"/> Đảm bảo
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant={"outline"}
-                                        className="w-full"
-                                        onClick={() => handleBooleanTaskAction(task.id, false)}
-                                        disabled={isDisabledForNew}
-                                    >
-                                        <ThumbsDown className="mr-2 h-4 w-4"/> Không đảm bảo
-                                    </Button>
-                                </div>
-                            )}
-                            {task.type === 'opinion' && (
-                                <Button
-                                    size="sm"
-                                    className="w-full"
-                                    onClick={() => handleOpinionTaskAction(task)}
-                                    disabled={isReadonly}
-                                >
-                                    <FilePen className="mr-2 h-4 w-4"/> Ghi nhận ý kiến
-                                </Button>
-                            )}
-                            </div>
-                        </div>
-                        
-                        {isCompletedOnce && (
-                            <div className="mt-4 space-y-3">
-                            {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => {
-                                return (
-                                <div key={cIndex} className="rounded-md border bg-card p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="h-4 w-4 flex-shrink-0" />
-                                            <span>Thực hiện lúc: {completion.timestamp}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                        {completion.value !== undefined && (
-                                            <Badge variant={completion.value ? "default" : "destructive"}>
-                                            {completion.value ? "Đảm bảo" : "Không đảm bảo"}
-                                            </Badge>
-                                        )}
-                                        {!isReadonly && task.type === 'photo' && (
-                                            <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => handlePhotoTaskAction(task, cIndex)}>
-                                                <FilePlus2 className="h-3 w-3" />
-                                            </Button>
-                                        )}
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild disabled={isReadonly}>
-                                                <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10" disabled={isReadonly}>
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle className="flex items-center gap-2">
-                                                            <AlertCircle className="text-destructive"/>
-                                                            Bạn có chắc chắn không?
-                                                        </AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa lần hoàn thành công việc này và tất cả các ảnh liên quan.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteCompletion(task.id, cIndex)}>Xóa</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                    {(completion.photos || []).map((photoUrl, pIndex) => (
-                                        <div key={photoUrl} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                        <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                            <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                        </button>
-                                        </div>
-                                    ))}
-                                    {(completion.photoIds || []).map((photoId, pIndex) => {
-                                        const photoUrl = localPhotoUrls.get(photoId);
-                                        if (!photoUrl) return null;
-                                        return (
-                                        <div key={photoId} className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted">
-                                            <button onClick={() => openLightbox(photoUrl)} className="w-full h-full block">
-                                            <Image src={photoUrl} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                            </button>
-                                            <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <div className="absolute top-1 left-1 bg-blue-500/80 text-white rounded-full p-0.5 z-20">
-                                                <UploadCloud className="h-3 w-3" />
-                                                </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Ảnh chưa được gửi</p>
-                                            </TooltipContent>
-                                            </Tooltip>
-                                            {!isReadonly && (
-                                            <Button 
-                                                variant="destructive"
-                                                size="icon"
-                                                className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full z-10"
-                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(task.id, cIndex, photoId, true); }}
-                                            >
-                                                <X className="h-3 w-3" />
-                                                <span className="sr-only">Xóa ảnh</span>
-                                            </Button>
-                                            )}
-                                        </div>
-                                        );
-                                    })}
-                                    </div>
-                                    {completion.opinion && (
-                                        <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
-                                    )}
-                                </div>
-                                )})}
-                                {completions.length > 1 && (
-                                    <Button variant="link" size="sm" onClick={() => toggleExpandTask(task.id)} className="w-full text-muted-foreground">
-                                        {isExpanded ? 'Thu gọn' : `Xem thêm (${completions.length - 1})`}
-                                        {isExpanded ? <ChevronUp className="ml-1.5 h-4 w-4" /> : <ChevronDown className="ml-1.5 h-4 w-4" />}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                        </div>
-                    )
-                    })}
+                    {section.tasks.map((task) => (
+                         <TaskItem
+                            key={task.id}
+                            task={task}
+                            completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
+                            isReadonly={isReadonly}
+                            isExpanded={expandedTaskIds.has(task.id)}
+                            isSingleCompletion={isSingleCompletionSection}
+                            onPhotoAction={handlePhotoTaskAction}
+                            onBooleanAction={handleBooleanTaskAction}
+                            onOpinionAction={handleOpinionTaskAction}
+                            onDeleteCompletion={handleDeleteCompletion}
+                            onDeletePhoto={handleDeletePhoto}
+                            onToggleExpand={toggleExpandTask}
+                            onOpenLightbox={openLightbox}
+                        />
+                    ))}
                 </div>
                 </AccordionContent>
             </AccordionItem>
             )
             })}
         </Accordion>
+        <SubmissionNotesSection 
+            ref={notesSectionRef}
+            initialNotes={submissionNotes}
+            onNotesChange={handleNotesChange}
+            isReadonly={isReadonly}
+            isHighlighted={notesError}
+        />
       </div>
     </div>
     
@@ -770,11 +631,11 @@ export default function ChecklistPage() {
         <Button
             size="lg"
             className="rounded-full shadow-lg h-16 w-16"
-            onClick={() => setIsSubmissionNotesOpen(true)} 
+            onClick={handleSubmitReport}
             disabled={isReadonly || syncStatus === 'server-newer'}
             aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
         >
-            <Send className="h-6 w-6" />
+            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
         </Button>
         {hasUnsubmittedChanges && (
             <div className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -798,13 +659,6 @@ export default function ChecklistPage() {
         taskText={activeTask?.text || ''}
     />
     
-    <SubmissionNotesDialog
-      isOpen={isSubmissionNotesOpen}
-      onClose={() => setIsSubmissionNotesOpen(false)}
-      onSubmit={handleSubmitReport}
-      isSubmitting={isSubmitting}
-    />
-    
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -817,7 +671,7 @@ export default function ChecklistPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
@@ -841,7 +695,7 @@ export default function ChecklistPage() {
     <Lightbox
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
+        slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
         zoom={{ maxZoomPixelRatio: 4 }}

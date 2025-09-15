@@ -1,7 +1,8 @@
 
-import type { ShiftReport, Task, TasksByShift, Staff, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
 
-export const staff: Staff[] = [
+import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
+
+export const staff: { pin: string, name: string }[] = [
   { pin: '0001', name: 'Phước' },
   { pin: '0002', name: 'Thảo' },
 ];
@@ -180,51 +181,51 @@ export const comprehensiveTasks: ComprehensiveTaskSection[] = [
 
 
 export const inventoryList: InventoryItem[] = [
-    { id: 'item-1', name: 'Đào Ngâm Thái Lan Dedu (12 hộp/thùng, 820gram/hộp)', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'lon', minStock: 1, orderSuggestion: '4', requiresPhoto: true },
-    { id: 'item-2', name: 'Hạt nổ củ năng Hồng dạng hũ', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'hộp', minStock: 2, orderSuggestion: '5' },
-    { id: 'item-3', name: 'Hạt Nổ Củ Năng Trắng Dedu (12 hộp/thùng, 900gram/hộp)', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'hộp', minStock: 1, orderSuggestion: '2' },
-    { id: 'item-4', name: 'Thạch Nha đam Trendy 1000GR', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'gói', minStock: 1, orderSuggestion: '2' },
-    { id: 'item-5', name: 'Trân châu đen Trendy 1000GR', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'túi', minStock: 2, orderSuggestion: '2' },
-    { id: 'item-6', name: 'Vải ngâm Fresko 565GR', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'hộp', minStock: 2, orderSuggestion: '4' },
-    { id: 'item-7', name: 'Vụn Dừa Nướng 1Kg - Coconut Jinnija', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'gói', minStock: 1, orderSuggestion: '1' },
-    { id: 'item-8', name: 'Xí muội', category: 'TOPPING', supplier: 'Chợ', unit: 'gói', minStock: 1, orderSuggestion: '1' },
-    { id: 'item-9', name: 'Bơ cấp đông', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '5kg' },
-    { id: 'item-10', name: 'Cà rốt', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 5, orderSuggestion: '5kg' },
-    { id: 'item-11', name: 'Cam décor', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 2, orderSuggestion: '2kg' },
-    { id: 'item-12', name: 'Cam xanh', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 20, orderSuggestion: '10kg', requiresPhoto: true },
-    { id: 'item-13', name: 'Chanh dây', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 10, orderSuggestion: '1-2kg' },
-    { id: 'item-14', name: 'Chanh décor', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 4, orderSuggestion: '1kg' },
-    { id: 'item-15', name: 'Cóc non', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'gr', minStock: 1, orderSuggestion: '3kg' },
-    { id: 'item-16', name: 'Gừng', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'củ', minStock: 1, orderSuggestion: '2' },
-    { id: 'item-17', name: 'Khổ qua', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 1, orderSuggestion: '1' },
-    { id: 'item-18', name: 'Ổi trắng', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 10, orderSuggestion: '5kg' },
-    { id: 'item-19', name: 'Sả', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'cây', minStock: 10, orderSuggestion: '1 bó' },
-    { id: 'item-20', name: 'Thanh long đỏ', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 1, orderSuggestion: '1' },
-    { id: 'item-21', name: 'Thơm', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 2, orderSuggestion: '5' },
-    { id: 'item-22', name: 'Xoài cấp đông', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '1-2kg' },
-    { id: 'item-23', name: 'Lá dứa', category: 'DECOR', supplier: 'Chợ', unit: 'bó', minStock: 0.5, orderSuggestion: '1' },
-    { id: 'item-24', name: 'Lá húng', category: 'DECOR', supplier: 'Chợ', unit: 'bó', minStock: 0.5, orderSuggestion: '1' },
-    { id: 'item-25', name: 'Nụ hồng khô 50gram', category: 'DECOR', supplier: 'Thiên Phước', unit: 'gói', minStock: 0.2, orderSuggestion: '1' },
-    { id: 'item-26', name: 'Đường ăn kiêng', category: 'GIA VỊ', supplier: 'Siêu thị', unit: 'hộp', minStock: 0.5, orderSuggestion: '1' },
-    { id: 'item-27', name: 'Đường que Biên Hòa', category: 'GIA VỊ', supplier: 'Thiên Phước', unit: 'gói', minStock: 2, orderSuggestion: '5' },
-    { id: 'item-28', name: 'Long nhãn khô', category: 'GIA VỊ', supplier: 'Chợ', unit: 'gr', minStock: 100, orderSuggestion: '100' },
-    { id: 'item-29', name: 'Muối tinh', category: 'GIA VỊ', supplier: 'Siêu thị', unit: 'gói', minStock: 0.3, orderSuggestion: '1' },
-    { id: 'item-30', name: 'Hạt dưa', category: 'THỨC ĂN', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '40' },
-    { id: 'item-31', name: 'Hạt hướng dương', category: 'THỨC ĂN', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '40' },
-    { id: 'item-32', name: 'Ly giấy 270ml (không được hết, chú ý kiểm tra thường xuyên)', category: 'LY', supplier: 'Ly Giấy Việt', unit: 'cây', minStock: 5, orderSuggestion: '5' },
-    { id: 'item-33', name: 'Ly nhựa 350ml (không được hết, chú ý kiểm tra thường xuyên)', category: 'LY', supplier: 'Ly Giấy Việt', unit: 'cây', minStock: 10, orderSuggestion: '10' },
-    { id: 'item-34', name: 'Ly nhựa 500ml (không được hết, chú ý kiểm tra thường xuyên)', category: 'LY', supplier: 'Ly Giấy Việt', unit: 'cây', minStock: 10, orderSuggestion: '10' },
-    { id: 'item-35', name: 'Dĩa sứ lớn', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'dĩa', minStock: 0, orderSuggestion: '0' },
-    { id: 'item-36', name: 'Dĩa sứ nhỏ', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'dĩa', minStock: 0, orderSuggestion: '0' },
-    { id: 'item-37', name: 'Ly đựng sữa', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'ly', minStock: 0, orderSuggestion: '0' },
-    { id: 'item-38', name: 'Ly sứ 200ml', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'ly', minStock: 0, orderSuggestion: '0' },
-    { id: 'item-39', name: 'Ly sứ 90ml', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'ly', minStock: 0, orderSuggestion: '0' },
-    { id: 'item-40', name: 'Ly thuỷ tinh 90ml', category: 'CCDC', supplier: 'Ocean', unit: 'ly', minStock: 0, orderSuggestion: '0' },
-    { id: 'item-41', name: 'Ly trà inox 1 lớp 350ml', category: 'CCDC', supplier: 'Inox Kim Hằng', unit: 'ly', minStock: 35, orderSuggestion: '35' },
-    { id: 'item-42', name: 'Ly trà inox 2 lớp 170ml', category: 'CCDC', supplier: 'Inox Kim Hằng', unit: 'ly', minStock: 150, orderSuggestion: '150' },
-    { id: 'item-43', name: 'Chổi quét sân', category: 'DCVS', supplier: 'Tạp hóa', unit: 'cây', minStock: 1, orderSuggestion: '1' },
-    { id: 'item-44', name: 'Giấy ăn Gumi', category: 'DCVS', supplier: 'Tạp hóa', unit: 'gói', minStock: 20, orderSuggestion: '20' },
-    { id: 'item-45', name: 'Giấy vệ sinh cuộn lớn', category: 'DCVS', supplier: 'Tạp hóa', unit: 'cuộn', minStock: 5, orderSuggestion: '5' },
+    { id: 'item-1', name: 'Đào Ngâm Thái Lan Dedu (12 hộp/thùng, 820gram/hộp)', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'lon', minStock: 1, orderSuggestion: '4', requiresPhoto: true, dataType: 'number' },
+    { id: 'item-2', name: 'Hạt nổ củ năng Hồng dạng hũ', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'hộp', minStock: 2, orderSuggestion: '5', dataType: 'number' },
+    { id: 'item-3', name: 'Hạt Nổ Củ Năng Trắng Dedu (12 hộp/thùng, 900gram/hộp)', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'hộp', minStock: 1, orderSuggestion: '2', dataType: 'number' },
+    { id: 'item-4', name: 'Thạch Nha đam Trendy 1000GR', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'gói', minStock: 1, orderSuggestion: '2', dataType: 'number' },
+    { id: 'item-5', name: 'Trân châu đen Trendy 1000GR', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'túi', minStock: 2, orderSuggestion: '2', dataType: 'number' },
+    { id: 'item-6', name: 'Vải ngâm Fresko 565GR', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'hộp', minStock: 2, orderSuggestion: '4', dataType: 'number' },
+    { id: 'item-7', name: 'Vụn Dừa Nướng 1Kg - Coconut Jinnija', category: 'TOPPING', supplier: 'Thiên Phước', unit: 'gói', minStock: 1, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-8', name: 'Xí muội', category: 'TOPPING', supplier: 'Chợ', unit: 'gói', minStock: 1, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-9', name: 'Bơ cấp đông', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '5kg', dataType: 'number' },
+    { id: 'item-10', name: 'Cà rốt', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 5, orderSuggestion: '5kg', dataType: 'number' },
+    { id: 'item-11', name: 'Cam décor', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 2, orderSuggestion: '2kg', dataType: 'number' },
+    { id: 'item-12', name: 'Cam xanh', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 20, orderSuggestion: '10kg', requiresPhoto: true, dataType: 'number' },
+    { id: 'item-13', name: 'Chanh dây', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 10, orderSuggestion: '1-2kg', dataType: 'number' },
+    { id: 'item-14', name: 'Chanh décor', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 4, orderSuggestion: '1kg', dataType: 'number' },
+    { id: 'item-15', name: 'Cóc non', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'gr', minStock: 1, orderSuggestion: '3kg', dataType: 'number' },
+    { id: 'item-16', name: 'Gừng', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'củ', minStock: 1, orderSuggestion: '2', dataType: 'number' },
+    { id: 'item-17', name: 'Khổ qua', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 1, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-18', name: 'Ổi trắng', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 10, orderSuggestion: '5kg', dataType: 'number' },
+    { id: 'item-19', name: 'Sả', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'cây', minStock: 10, orderSuggestion: '1 bó', dataType: 'number' },
+    { id: 'item-20', name: 'Thanh long đỏ', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 1, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-21', name: 'Thơm', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'trái', minStock: 2, orderSuggestion: '5', dataType: 'number' },
+    { id: 'item-22', name: 'Xoài cấp đông', category: 'TRÁI CÂY', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '1-2kg', dataType: 'number' },
+    { id: 'item-23', name: 'Lá dứa', category: 'DECOR', supplier: 'Chợ', unit: 'bó', minStock: 0.5, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-24', name: 'Lá húng', category: 'DECOR', supplier: 'Chợ', unit: 'bó', minStock: 0.5, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-25', name: 'Nụ hồng khô 50gram', category: 'DECOR', supplier: 'Thiên Phước', unit: 'gói', minStock: 0.2, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-26', name: 'Đường ăn kiêng', category: 'GIA VỊ', supplier: 'Siêu thị', unit: 'hộp', minStock: 0.5, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-27', name: 'Đường que Biên Hòa', category: 'GIA VỊ', supplier: 'Thiên Phước', unit: 'gói', minStock: 2, orderSuggestion: '5', dataType: 'number' },
+    { id: 'item-28', name: 'Long nhãn khô', category: 'GIA VỊ', supplier: 'Chợ', unit: 'gr', minStock: 100, orderSuggestion: '100', dataType: 'number' },
+    { id: 'item-29', name: 'Muối tinh', category: 'GIA VỊ', supplier: 'Siêu thị', unit: 'gói', minStock: 0.3, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-30', name: 'Hạt dưa', category: 'THỨC ĂN', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '40', dataType: 'number' },
+    { id: 'item-31', name: 'Hạt hướng dương', category: 'THỨC ĂN', supplier: 'Chợ', unit: 'gói', minStock: 10, orderSuggestion: '40', dataType: 'number' },
+    { id: 'item-32', name: 'Ly giấy 270ml (không được hết, chú ý kiểm tra thường xuyên)', category: 'LY', supplier: 'Ly Giấy Việt', unit: 'cây', minStock: 5, orderSuggestion: '5', dataType: 'number' },
+    { id: 'item-33', name: 'Ly nhựa 350ml (không được hết, chú ý kiểm tra thường xuyên)', category: 'LY', supplier: 'Ly Giấy Việt', unit: 'cây', minStock: 10, orderSuggestion: '10', dataType: 'number' },
+    { id: 'item-34', name: 'Ly nhựa 500ml (không được hết, chú ý kiểm tra thường xuyên)', category: 'LY', supplier: 'Ly Giấy Việt', unit: 'cây', minStock: 10, orderSuggestion: '10', dataType: 'number' },
+    { id: 'item-35', name: 'Dĩa sứ lớn', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'dĩa', minStock: 0, orderSuggestion: '0', dataType: 'number' },
+    { id: 'item-36', name: 'Dĩa sứ nhỏ', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'dĩa', minStock: 0, orderSuggestion: '0', dataType: 'number' },
+    { id: 'item-37', name: 'Ly đựng sữa', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'ly', minStock: 0, orderSuggestion: '0', dataType: 'number' },
+    { id: 'item-38', name: 'Ly sứ 200ml', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'ly', minStock: 0, orderSuggestion: '0', dataType: 'number' },
+    { id: 'item-39', name: 'Ly sứ 90ml', category: 'CCDC', supplier: 'Gốm sứ Minh Long', unit: 'ly', minStock: 0, orderSuggestion: '0', dataType: 'number' },
+    { id: 'item-40', name: 'Ly thuỷ tinh 90ml', category: 'CCDC', supplier: 'Ocean', unit: 'ly', minStock: 0, orderSuggestion: '0', dataType: 'number' },
+    { id: 'item-41', name: 'Ly trà inox 1 lớp 350ml', category: 'CCDC', supplier: 'Inox Kim Hằng', unit: 'ly', minStock: 35, orderSuggestion: '35', dataType: 'number' },
+    { id: 'item-42', name: 'Ly trà inox 2 lớp 170ml', category: 'CCDC', supplier: 'Inox Kim Hằng', unit: 'ly', minStock: 150, orderSuggestion: '150', dataType: 'number' },
+    { id: 'item-43', name: 'Chổi quét sân', category: 'DCVS', supplier: 'Tạp hóa', unit: 'cây', minStock: 1, orderSuggestion: '1', dataType: 'number' },
+    { id: 'item-44', name: 'Giấy ăn Gumi', category: 'DCVS', supplier: 'Tạp hóa', unit: 'gói', minStock: 20, orderSuggestion: '20', dataType: 'number' },
+    { id: 'item-45', name: 'Giấy vệ sinh cuộn lớn', category: 'DCVS', supplier: 'Tạp hóa', unit: 'cuộn', minStock: 5, orderSuggestion: '5', dataType: 'number' },
 ];
 
 export const suppliers: Suppliers = [
@@ -246,5 +247,10 @@ export const initialViolationCategories: ViolationCategory[] = [
     "Khác"
 ];
 
+export const defaultTimeSlots: TimeSlot[] = [
+    { start: '05:30', end: '12:00' },
+    { start: '12:00', end: '17:00' },
+    { start: '17:00', end: '23:00' },
+];
 
     

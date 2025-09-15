@@ -44,6 +44,11 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
     }
   }, []);
 
+  const handleDialogClose = useCallback(() => {
+    if (!isStarting && !isSubmitting) {
+        onClose();
+    }
+  },[isStarting, isSubmitting, onClose]);
 
   const startCamera = useCallback(async () => {
     if (isStarting || (streamRef.current && streamRef.current.active)) return;
@@ -106,7 +111,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
 
         // 2. Add timestamp overlay
         const now = new Date();
-        const timestamp = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+        const timestamp = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) 
                         + ' ' 
                         + now.toLocaleDateString('vi-VN');
         
@@ -183,11 +188,6 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
     }
   };
   
-  const handleDialogClose = () => {
-    if (!isStarting && !isSubmitting) {
-        onClose();
-    }
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleDialogClose(); }}>

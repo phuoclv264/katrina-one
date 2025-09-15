@@ -10,9 +10,9 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
@@ -39,6 +39,7 @@ function InventoryReportView() {
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -68,7 +69,7 @@ function InventoryReportView() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+    if (!authLoading && (!user || (user.role !== 'Chủ nhà hàng' && user.role !== 'Quản lý'))) {
       router.replace('/');
       return;
     }
@@ -128,20 +129,28 @@ function InventoryReportView() {
   }, [categorizedList]);
 
 
-  const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-    const stockValue = reportToView?.stockLevels[itemId]?.stock;
-    if (stockValue === undefined || stockValue === null || typeof stockValue !== 'number') {
-      return 'ok';
+  const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+    if (stockValue === undefined || stockValue === '') return 'ok'; 
+    if (item.dataType === 'number') {
+        const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+        if (isNaN(stock)) return 'ok';
+        if (stock < item.minStock * 0.3) return 'out';
+        if (stock < item.minStock) return 'low';
+        return 'ok';
+    } else { // 'list' type
+        const stockString = String(stockValue).toLowerCase();
+        if (stockString.includes('hết')) return 'out';
+        if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+        if (stockString.includes('dư')) return 'ok';
+        return 'ok';
     }
-    if (stockValue <= 0) return 'out';
-    if (stockValue < minStock) return 'low';
-    return 'ok';
   };
 
   const getStatusColorClass = (status: ItemStatus) => {
     switch (status) {
       case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
       case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
+      case 'ok': return 'bg-green-100/40 dark:bg-green-900/20'; // Green for 'ok'
       default: return 'bg-transparent';
     }
   };
@@ -188,6 +197,80 @@ function InventoryReportView() {
         });
     };
 
+    const generateSuggestionsFromLogic = (): OrderBySupplier[] => {
+        if (!reportToView) return [];
+
+        const ordersBySupplier: { [supplier: string]: OrderItem[] } = {};
+
+        inventoryList.forEach(item => {
+            const stockRecord = reportToView.stockLevels[item.id];
+            const status = getItemStatus(item, stockRecord?.stock);
+
+            if (status === 'low' || status === 'out') {
+                if (!ordersBySupplier[item.supplier]) {
+                    ordersBySupplier[item.supplier] = [];
+                }
+
+                let quantityToOrder = item.orderSuggestion;
+                const isNumericSuggestion = /^\d+(\.\d+)?$/.test(item.orderSuggestion);
+
+                if (isNumericSuggestion) {
+                    quantityToOrder = `${item.orderSuggestion} ${item.unit}`;
+                }
+
+                ordersBySupplier[item.supplier].push({
+                    itemId: item.id,
+                    quantityToOrder: quantityToOrder,
+                });
+            }
+        });
+        
+        return Object.entries(ordersBySupplier).map(([supplier, itemsToOrder]) => ({
+            supplier,
+            itemsToOrder,
+        }));
+    };
+
+    const handleRegenerateSuggestions = async () => {
+        if (!reportToView) return;
+        setIsGenerating(true);
+        toast({
+            title: "Đang tạo lại đề xuất...",
+            description: "Hệ thống đang phân tích lại dữ liệu tồn kho."
+        });
+
+        try {
+            const orders = generateSuggestionsFromLogic();
+            const totalItemsToOrder = orders.reduce((acc, curr) => acc + curr.itemsToOrder.length, 0);
+            const totalSuppliers = orders.length;
+
+            const summary = totalItemsToOrder > 0
+                ? `Cần đặt ${totalItemsToOrder} mặt hàng từ ${totalSuppliers} nhà cung cấp.`
+                : 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.';
+            
+            const newSuggestions = { summary, ordersBySupplier: orders };
+            
+            await dataStore.updateInventoryReportSuggestions(reportToView.id, newSuggestions);
+
+            // Optimistically update local state to reflect the change
+            setSelectedReport(prev => prev ? { ...prev, suggestions: newSuggestions } : null);
+
+            toast({
+                title: "Thành công!",
+                description: "Đã tạo lại và cập nhật đề xuất đặt hàng."
+            });
+        } catch (error) {
+            console.error("Error regenerating suggestions:", error);
+            toast({
+                title: "Lỗi",
+                description: "Không thể tạo lại đề xuất. Vui lòng thử lại.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
       setOpenCategories([]);
@@ -201,6 +284,7 @@ function InventoryReportView() {
   };
   
     const handleDeleteReport = async (reportId: string) => {
+        if (user?.role !== 'Chủ nhà hàng') return;
         setIsProcessing(true);
         try {
             await dataStore.deleteInventoryReport(reportId);
@@ -301,12 +385,11 @@ function InventoryReportView() {
                                      {/* Mobile View: Cards */}
                                      <div className="md:hidden space-y-3">
                                         {items.map(item => {
-                                            const status = getItemStatus(item.id, item.minStock);
-                                            const record = reportToView.stockLevels[item.id];
-                                            const stockValue = record?.stock ?? 'N/A';
-                                            const photos = record?.photos ?? [];
+                                            const stockValue = reportToView.stockLevels[item.id]?.stock;
+                                            const status = getItemStatus(item, stockValue);
+                                            const photos = reportToView.stockLevels[item.id]?.photos ?? [];
                                             return (
-                                                <div key={item.id} className={`rounded-lg border p-3 ${getStatusColorClass(status)}`}>
+                                                <div key={item.id} className={`rounded-lg border p-3 ${stockValue !== undefined && stockValue !== '' ? getStatusColorClass(status) : ''}`}>
                                                     <div className="flex items-center gap-2 font-semibold">
                                                         {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                                         <p>{item.name}</p>
@@ -314,14 +397,14 @@ function InventoryReportView() {
                                                     <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                                                         <div className="text-muted-foreground">Đơn vị: <span className="font-medium text-foreground">{item.unit}</span></div>
                                                         <div className="text-muted-foreground">Tối thiểu: <span className="font-medium text-foreground">{item.minStock}</span></div>
-                                                        <div className="text-muted-foreground">Thực tế: <span className="font-bold text-lg text-primary">{stockValue}</span></div>
+                                                        <div className="text-muted-foreground">Thực tế: <span className="font-bold text-lg text-primary">{stockValue ?? 'N/A'}</span></div>
                                                     </div>
                                                     {item.requiresPhoto && photos.length > 0 && (
                                                         <div className="mt-2 flex gap-2 flex-wrap">
                                                             {photos.map((photo, index) => (
                                                                 <button
                                                                     key={index}
-                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
+                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
                                                                     className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                 >
                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
@@ -346,12 +429,11 @@ function InventoryReportView() {
                                             </TableHeader>
                                             <TableBody>
                                                 {items.map(item => {
-                                                    const status = getItemStatus(item.id, item.minStock);
-                                                    const record = reportToView.stockLevels[item.id];
-                                                    const stockValue = record?.stock ?? 'N/A';
-                                                    const photos = record?.photos ?? [];
+                                                    const stockValue = reportToView.stockLevels[item.id]?.stock;
+                                                    const status = getItemStatus(item, stockValue);
+                                                    const photos = reportToView.stockLevels[item.id]?.photos ?? [];
                                                     return (
-                                                        <TableRow key={item.id} className={getStatusColorClass(status)}>
+                                                        <TableRow key={item.id} className={`${stockValue !== undefined && stockValue !== '' ? getStatusColorClass(status) : ''}`}>
                                                             <TableCell className="font-medium align-top">
                                                                 <div className="flex flex-col gap-2">
                                                                     <div className="flex items-center gap-2">
@@ -359,11 +441,11 @@ function InventoryReportView() {
                                                                         {item.name}
                                                                     </div>
                                                                     {item.requiresPhoto && photos.length > 0 && (
-                                                                        <div className="flex gap-2 flex-wrap pl-6">
+                                                                        <div className="flex gap-2 flex-wrap pl-6 mt-2">
                                                                             {photos.map((photo, index) => (
                                                                                 <button
                                                                                     key={index}
-                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({src: p}))); setLightboxOpen(true); }}
+                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
                                                                                     className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                                 >
                                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
@@ -376,7 +458,7 @@ function InventoryReportView() {
                                                             <TableCell className="align-top">{item.unit}</TableCell>
                                                             <TableCell className="align-top">{item.minStock}</TableCell>
                                                             <TableCell className="text-right font-medium align-top">
-                                                                {stockValue}
+                                                                {stockValue ?? 'N/A'}
                                                             </TableCell>
                                                         </TableRow>
                                                     )
@@ -395,13 +477,17 @@ function InventoryReportView() {
             <Card className="sticky top-4">
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                        <span className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng của AI</span>
-                        {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
-                            <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
-                                <Copy className="mr-2 h-4 w-4"/>
-                                Sao chép
+                        <span className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</span>
+                        <div className="flex items-center gap-1">
+                            {reportToView.suggestions && reportToView.suggestions.ordersBySupplier && reportToView.suggestions.ordersBySupplier.length > 0 && (
+                                <Button size="sm" variant="ghost" onClick={handleCopySuggestions}>
+                                    <Copy className="mr-2 h-4 w-4"/> Sao chép
+                                </Button>
+                            )}
+                            <Button size="icon" variant="ghost" onClick={handleRegenerateSuggestions} disabled={isGenerating}>
+                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
                             </Button>
-                        )}
+                        </div>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -499,25 +585,27 @@ function InventoryReportView() {
                                             >
                                                 Xem
                                             </Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
-                                                        <Trash2 className="h-4 w-4"/>
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteReport(report.id)}>Xóa vĩnh viễn</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                            {user?.role === 'Chủ nhà hàng' && (
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
+                                                            <Trash2 className="h-4 w-4"/>
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteReport(report.id)}>Xóa vĩnh viễn</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            )}
                                         </div>
                                     </li>
                                 ))}

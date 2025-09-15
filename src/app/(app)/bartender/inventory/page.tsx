@@ -9,18 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
+import { InventoryItemRow } from './_components/inventory-item-row';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -34,7 +34,6 @@ export default function InventoryPage() {
   const router = useRouter();
   const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
-  const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
   const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -49,7 +48,6 @@ export default function InventoryPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
@@ -92,20 +90,25 @@ export default function InventoryPage() {
   
   const fetchLocalPhotos = useCallback(async (currentReport: InventoryReport | null) => {
     if (!currentReport) return;
-    const allPhotoIds = new Set<string>();
+    
+    const allPhotoIdsInReport = new Set<string>();
     for (const itemId in currentReport.stockLevels) {
         const record = currentReport.stockLevels[itemId];
         if (record.photoIds) {
-            record.photoIds.forEach(id => allPhotoIds.add(id));
+            record.photoIds.forEach(id => allPhotoIdsInReport.add(id));
         }
     }
-    if (allPhotoIds.size > 0) {
-        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-        setLocalPhotoUrls(urls);
-    } else {
-        setLocalPhotoUrls(new Map());
+
+    if (allPhotoIdsInReport.size > 0) {
+        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIdsInReport));
+        setLocalPhotoUrls(prev => {
+            const newMap = new Map(prev);
+            urls.forEach((url, id) => newMap.set(id, url));
+            return newMap;
+        });
     }
   }, []);
+
 
   useEffect(() => {
     if (!user) return;
@@ -127,89 +130,176 @@ export default function InventoryPage() {
     };
 
     loadReport();
-  }, [user, fetchLocalPhotos]);
+  // The dependency array is correct. We only want this to run when the user changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
   
-  const handleLocalSave = useCallback(async (updatedReport: InventoryReport) => {
-      await dataStore.saveLocalInventoryReport(updatedReport);
-      setHasUnsubmittedChanges(true);
-      await fetchLocalPhotos(updatedReport);
-  }, [fetchLocalPhotos]);
+  const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport) => InventoryReport) => {
+    setReport(prevReport => {
+        if (!prevReport) return null;
+        const newReport = reportUpdater(prevReport);
 
-  const handleStockChange = (itemId: string, value: string) => {
-    if (!report) return;
+        (async () => {
+            await dataStore.saveLocalInventoryReport(newReport);
+            setHasUnsubmittedChanges(true);
+        })();
+
+        return newReport;
+    });
+  }, []);
+
+  const handleStockChange = useCallback((itemId: string, value: string) => {
+    handleLocalSave(prevReport => {
+        const newReport = { ...prevReport };
+        const newStockLevels = { ...newReport.stockLevels };
+        
+        const itemDefinition = inventoryList.find(i => i.id === itemId);
+        let stockValue: string | number = value;
+
+        if (itemDefinition?.dataType === 'number') {
+            if (value.trim() === '') {
+                stockValue = ''; 
+            } else {
+                const numValue = parseFloat(value);
+                stockValue = isNaN(numValue) ? '' : numValue;
+            }
+        }
+
+        const existingRecord = newStockLevels[itemId] || {};
+        newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
+        newReport.stockLevels = newStockLevels;
+        return newReport;
+    });
+}, [handleLocalSave, inventoryList]);
+  
+  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+    if (!activeItemId || photoIds.length === 0) return;
     
-    const isNumeric = value.trim() !== '' && !isNaN(Number(value));
-    const stockValue = isNumeric ? Number(value) : value;
+    const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
+    setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
+    
+    const itemId = activeItemId;
 
-    const newReport = JSON.parse(JSON.stringify(report));
-    const existingRecord = newReport.stockLevels[itemId] || {};
-    newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
-
-    setReport(newReport);
-    handleLocalSave(newReport);
-  };
-  
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
-        if (!activeItemId || !report || photoIds.length === 0) return;
+    handleLocalSave(prevReport => {
+        const newReport = { ...prevReport };
+        const newStockLevels = { ...newReport.stockLevels };
+        const record = { ...(newStockLevels[itemId] || { stock: '' }) };
         
-        const newPhotoId = photoIds[0]; // We only care about the latest photo
+        record.photoIds = [...(record.photoIds || []), ...photoIds];
+        newStockLevels[itemId] = record;
+        newReport.stockLevels = newStockLevels;
+        return newReport;
+    });
 
-        const newReport = { ...report, stockLevels: { ...report.stockLevels } };
-        const record = newReport.stockLevels[activeItemId] || { stock: '' };
-        
-        // Replace old photoId with the new one
-        record.photoIds = [newPhotoId]; 
-        newReport.stockLevels[activeItemId] = record;
+    setIsCameraOpen(false);
+    setActiveItemId(null);
+  }, [activeItemId, handleLocalSave]);
 
-        setReport(newReport);
-        await handleLocalSave(newReport);
-
-        setIsCameraOpen(false);
-        setActiveItemId(null);
-    }, [activeItemId, report, handleLocalSave]);
 
     const handleDeletePhoto = async (itemId: string, photoId: string, isLocal: boolean) => {
         if (!report) return;
-        const newReport = { ...report, stockLevels: { ...report.stockLevels } };
-        const record = newReport.stockLevels[itemId];
-
-        if (!record) return;
 
         if (isLocal) {
-            record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
+            const photoUrl = localPhotoUrls.get(photoId);
+            if (photoUrl) URL.revokeObjectURL(photoUrl);
+            setLocalPhotoUrls(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(photoId);
+                return newMap;
+            });
             await photoStore.deletePhoto(photoId);
         } else {
-            record.photos = (record.photos ?? []).filter(p => p !== photoId);
+            // This part is for photos already on server, which is not the primary use case here, but good to have
             await dataStore.deletePhotoFromStorage(photoId);
         }
 
-        newReport.stockLevels[itemId] = record;
-        setReport(newReport);
-        await handleLocalSave(newReport);
+        handleLocalSave(prevReport => {
+            const newReport = { ...prevReport };
+            const newStockLevels = { ...newReport.stockLevels };
+            const record = { ...newStockLevels[itemId] };
+
+            if (isLocal) {
+                record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
+            } else {
+                record.photos = (record.photos ?? []).filter(p => p !== photoId);
+            }
+            newStockLevels[itemId] = record;
+            newReport.stockLevels = newStockLevels;
+            return newReport;
+        });
     };
 
-  const handleGenerateSuggestions = async () => {
-      if(!report || !user) return null;
+    const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+        if (stockValue === undefined || stockValue === '') return 'ok'; 
+        if (item.dataType === 'number') {
+            const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+            if (isNaN(stock)) return 'ok';
+            if (stock < item.minStock * 0.3) return 'out';
+            if (stock < item.minStock) return 'low';
+            return 'ok';
+        } else { // 'list' type
+            const stockString = String(stockValue).toLowerCase();
+            if (stockString.includes('hết')) return 'out';
+            if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+            if (stockString.includes('dư')) return 'ok';
+            return 'ok';
+        }
+    };
+
+    const generateSuggestionsFromLogic = (): InventoryOrderSuggestion => {
+        if (!report) return { summary: 'Không có báo cáo để xử lý.', ordersBySupplier: [] };
+
+        const ordersBySupplier: { [supplier: string]: OrderItem[] } = {};
+
+        inventoryList.forEach(item => {
+            const stockRecord = report.stockLevels[item.id];
+            const status = getItemStatus(item, stockRecord?.stock);
+
+            if (status === 'low' || status === 'out') {
+                if (!ordersBySupplier[item.supplier]) {
+                    ordersBySupplier[item.supplier] = [];
+                }
+
+                let quantityToOrder = item.orderSuggestion;
+                const isNumericSuggestion = /^\d+(\.\d+)?$/.test(item.orderSuggestion);
+
+                if (isNumericSuggestion) {
+                    quantityToOrder = `${item.orderSuggestion} ${item.unit}`;
+                }
+
+                ordersBySupplier[item.supplier].push({
+                    itemId: item.id,
+                    quantityToOrder: quantityToOrder,
+                });
+            }
+        });
+        
+        const finalOrders: OrderBySupplier[] = Object.entries(ordersBySupplier).map(([supplier, itemsToOrder]) => ({
+            supplier,
+            itemsToOrder,
+        }));
+        
+        const totalItemsToOrder = finalOrders.reduce((acc, curr) => acc + curr.itemsToOrder.length, 0);
+        const totalSuppliers = finalOrders.length;
+        
+        const summary = totalItemsToOrder > 0
+            ? `Cần đặt ${totalItemsToOrder} mặt hàng từ ${totalSuppliers} nhà cung cấp.`
+            : 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.';
+
+        return { summary, ordersBySupplier: finalOrders };
+    };
+
+    const handleGenerateSuggestions = async () => {
       setIsGenerating(true);
       
       try {
         toast({
-            title: "Đang phân tích tồn kho...",
-            description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
+            title: "Đang tính toán đề xuất...",
+            description: "Hệ thống đang tính toán các mặt hàng cần đặt."
         });
 
-        const itemsWithCurrentStock = inventoryList
-            .map(item => ({ item, stockRecord: report.stockLevels[item.id] }))
-            .filter(({ stockRecord }) => stockRecord && (stockRecord.stock !== undefined && String(stockRecord.stock).trim() !== ''))
-            .map(({ item, stockRecord }) => ({ ...item, currentStock: stockRecord! }));
-
-        if (itemsWithCurrentStock.length === 0) {
-            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê hợp lệ.', ordersBySupplier: [] };
-            setSuggestions(noItemsSuggestion);
-            return noItemsSuggestion;
-        }
-        
-        const result = await generateInventoryOrderSuggestion({ items: itemsWithCurrentStock });
+        // Use the local logic function instead of an AI call
+        const result = generateSuggestionsFromLogic();
         
         setSuggestions(result);
         
@@ -255,7 +345,8 @@ export default function InventoryPage() {
             }
 
             const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
-            if (!hasLocalPhoto) {
+            const hasServerPhoto = record.photos && record.photos.length > 0;
+            if (!hasLocalPhoto && !hasServerPhoto) {
                  toast({
                     title: "Thiếu ảnh bằng chứng",
                     description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
@@ -284,11 +375,10 @@ export default function InventoryPage() {
             ...report, 
             suggestions: generatedSuggestions,
             status: 'submitted' as const, 
-            submittedAt: new Date().toISOString() 
         };
         
         await dataStore.saveInventoryReport(finalReport);
-        setReport(finalReport);
+        setReport(prev => prev ? { ...prev, ...finalReport, submittedAt: new Date().toISOString() } : null);
         setHasUnsubmittedChanges(false);
 
         const endTime = Date.now();
@@ -309,26 +399,7 @@ export default function InventoryPage() {
         setIsSubmitting(false);
     }
   }
-  
-  const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-      const stockValue = report?.stockLevels[itemId]?.stock;
 
-      if (typeof stockValue !== 'number') {
-        return 'ok';
-      }
-
-      if (stockValue <= 0) return 'out';
-      if (stockValue < minStock) return 'low';
-      return 'ok';
-  }
-  const getStatusColorClass = (status: ItemStatus) => {
-      switch(status) {
-          case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
-          case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
-          default: return 'bg-transparent';
-      }
-  }
-  
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
       setOpenCategories([]);
@@ -433,66 +504,19 @@ export default function InventoryPage() {
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
                                      <div className="space-y-3">
-                                        {items.map(item => {
-                                            const status = getItemStatus(item.id, item.minStock);
-                                            const record = report.stockLevels[item.id];
-                                            const stockValue = record?.stock ?? '';
-                                            const latestPhotoId = record?.photoIds?.[record.photoIds.length - 1];
-                                            return (
-                                                <div 
-                                                    key={item.id} 
-                                                    ref={(el) => itemRowRefs.current.set(item.id, el)}
-                                                    tabIndex={-1}
-                                                    className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
-                                                    onClick={() => inputRefs.current.get(item.id)?.focus()}
-                                                >
-                                                    <div className="col-span-1">
-                                                        <p className="font-semibold flex items-center gap-2">
-                                                            {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                            {item.name}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
-                                                    </div>
-                                                    <div className="col-span-1 flex flex-col items-end gap-2">
-                                                        <Input
-                                                            ref={el => inputRefs.current.set(item.id, el)}
-                                                            type="text"
-                                                            value={stockValue}
-                                                            onChange={e => handleStockChange(item.id, e.target.value)}
-                                                            className="text-center h-9 w-24"
-                                                            placeholder="Tồn kho..."
-                                                            disabled={isProcessing}
-                                                        />
-                                                         {item.requiresPhoto && (
-                                                            <div className="flex gap-2 items-center">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    className="h-9 w-9"
-                                                                    onClick={(e) => { e.stopPropagation(); setActiveItemId(item.id); setIsCameraOpen(true); }}
-                                                                    disabled={isProcessing}
-                                                                >
-                                                                    <Camera className="h-4 w-4" />
-                                                                </Button>
-                                                                {latestPhotoId && localPhotoUrls.get(latestPhotoId) && (
-                                                                    <div className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
-                                                                        <Image src={localPhotoUrls.get(latestPhotoId)!} alt="Inventory photo" fill className="object-cover" />
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            size="icon"
-                                                                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
-                                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, latestPhotoId, true);}}
-                                                                        >
-                                                                            <X className="h-2 w-2" />
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                         )}
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
+                                        {items.map(item => (
+                                            <InventoryItemRow
+                                                key={item.id}
+                                                item={item}
+                                                record={report.stockLevels[item.id]}
+                                                localPhotoUrls={localPhotoUrls}
+                                                isProcessing={isProcessing}
+                                                onStockChange={handleStockChange}
+                                                onOpenCamera={(itemId) => { setActiveItemId(itemId); setIsCameraOpen(true); }}
+                                                onDeletePhoto={handleDeletePhoto}
+                                                rowRef={(el) => itemRowRefs.current.set(item.id, el)}
+                                            />
+                                        ))}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -507,13 +531,13 @@ export default function InventoryPage() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isProcessing && !suggestions && (
+                    {isGenerating && !suggestions && (
                         <div className="space-y-2 p-4 text-center">
                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground"/>
-                            <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
+                            <p className="text-sm text-muted-foreground">Đang tính toán...</p>
                         </div>
                     )}
-                    {!isProcessing && hasSuggestions && (
+                    {!isGenerating && hasSuggestions && (
                         <div className="space-y-4">
                              <div className="flex justify-between items-center">
                                 <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
@@ -549,12 +573,12 @@ export default function InventoryPage() {
                             </Accordion>
                         </div>
                     )}
-                    {!isProcessing && suggestions && !hasSuggestions && (
+                    {!isGenerating && suggestions && !hasSuggestions && (
                         <p className="text-center text-sm text-muted-foreground py-4">{suggestions.summary || 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.'}</p>
                     )}
-                    {!isProcessing && !suggestions &&(
+                    {!isGenerating && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
-                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất từ AI.</p>
+                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất.</p>
                         </div>
                     )}
                 </CardContent>
@@ -585,7 +609,6 @@ export default function InventoryPage() {
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
-        singlePhotoMode={true}
       />
     </div>
     </TooltipProvider>

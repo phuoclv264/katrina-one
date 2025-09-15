@@ -23,6 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Timestamp } from 'firebase/firestore';
 
 
 function ComprehensiveReportView() {
@@ -80,34 +83,34 @@ function ComprehensiveReportView() {
         if(isMounted) setTaskSections(tasks);
     });
 
-    dataStore.getHygieneReportForDate(date, shiftKey).then(fetchedReports => {
-        if(isMounted) {
-            setReports(fetchedReports);
-            if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId)) {
-                setSelectedReportId(fetchedReports.length > 0 ? fetchedReports[0].id : null);
-            } else if (!selectedReportId && fetchedReports.length > 0) {
-                setSelectedReportId(fetchedReports[0].id);
-            } else if (fetchedReports.length === 0) {
-                setSelectedReportId(null);
-            }
-            setIsLoading(false);
+    const reportsQuery = query(collection(db, "reports"), where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted'));
+    const unsubscribeReports = onSnapshot(reportsQuery, (querySnapshot) => {
+      if (isMounted) {
+        const fetchedReports: ShiftReport[] = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            submittedAt: (doc.data().submittedAt as Timestamp)?.toDate().toISOString(),
+        } as ShiftReport));
+
+        setReports(fetchedReports);
+
+        if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId)) {
+            setSelectedReportId(fetchedReports.length > 0 ? fetchedReports[0].id : null);
+        } else if (!selectedReportId && fetchedReports.length > 0) {
+            setSelectedReportId(fetchedReports[0].id);
+        } else if (fetchedReports.length === 0) {
+            setSelectedReportId(null);
         }
-    }).catch(error => {
-        console.error("Error loading comprehensive report data:", error);
-        toast({
-            title: "Lỗi tải dữ liệu",
-            description: "Không thể tải báo cáo. Đang chuyển hướng bạn về trang chính.",
-            variant: "destructive",
-        });
-        if(isMounted) router.replace('/reports');
+        setIsLoading(false);
+      }
     });
 
     return () => {
         isMounted = false;
         unsubscribeTasks();
+        unsubscribeReports();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, toast, router]);
+  }, [date, selectedReportId]);
 
   const report = useMemo(() => {
     return reports.find(r => r.id === selectedReportId) || null;
@@ -153,11 +156,12 @@ function ComprehensiveReportView() {
   const handleDeleteReport = async () => {
     if (!report) return;
     setIsProcessing(true);
+    const reportNameToDelete = report.staffName;
     try {
         await dataStore.deleteShiftReport(report.id);
         toast({
             title: "Đã xóa báo cáo",
-            description: `Báo cáo của ${report.staffName} đã được xóa thành công.`,
+            description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
         });
     } catch(error) {
         console.error("Error deleting report:", error);
@@ -286,7 +290,7 @@ function ComprehensiveReportView() {
             <CardHeader>
               <CardTitle>Kết quả kiểm tra</CardTitle>
                <CardDescription>
-                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN')}</span>.
+                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}</span>.
                 </CardDescription>
             </CardHeader>
             <CardContent>
