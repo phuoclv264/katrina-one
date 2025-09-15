@@ -151,20 +151,20 @@ function InventoryReportView() {
   }, [categorizedCheckedList, openCategories.length]);
 
 
-  const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
-    if (stockValue === undefined || stockValue === '') return 'ok'; 
+ const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+    if (stockValue === undefined || stockValue === '') return 'ok';
     if (item.dataType === 'number') {
-        const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
-        if (isNaN(stock)) return 'ok';
-        if (stock < item.minStock * 0.3) return 'out';
-        if (stock < item.minStock) return 'low';
-        return 'ok';
+      const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+      if (isNaN(stock)) return 'ok';
+      if (stock < item.minStock * 0.3) return 'out';
+      if (stock < item.minStock) return 'low';
+      return 'ok';
     } else { // 'list' type
-        const stockString = String(stockValue).toLowerCase();
-        if (stockString.includes('hết')) return 'out';
-        if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
-        if (stockString.includes('dư')) return 'ok';
-        return 'ok';
+      const stockString = String(stockValue).toLowerCase();
+      if (stockString.includes('hết') || stockString.includes('gần hết')) return 'out'; // Hết hàng & Gần hết -> Đỏ
+      if (stockString.includes('còn đủ')) return 'low'; // Còn đủ -> Vàng
+      if (stockString.includes('dư')) return 'ok'; // Dư xài -> Xanh
+      return 'ok';
     }
   };
 
@@ -676,4 +676,3 @@ export default function InventoryReportPage() {
         </Suspense>
     )
 }
-
