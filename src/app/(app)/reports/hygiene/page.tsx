@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { ShiftReport, CompletionRecord, TaskSection } from '@/lib/types';
+import type { ShiftReport, CompletionRecord, TaskSection, Timestamp } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 function HygieneReportView() {
   const { user, loading: authLoading } = useAuth();
@@ -78,7 +80,8 @@ function HygieneReportView() {
         if(isMounted) setTaskSections(tasks);
     });
 
-    const unsubscribeReports = dataStore.onSnapshot(query(collection(db, "reports"), where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted')), (querySnapshot) => {
+    const reportsQuery = query(collection(db, "reports"), where('date', '==', date), where('shiftKey', '==', shiftKey), where('status', '==', 'submitted'));
+    const unsubscribeReports = onSnapshot(reportsQuery, (querySnapshot) => {
         if (isMounted) {
             const fetchedReports: ShiftReport[] = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -102,7 +105,7 @@ function HygieneReportView() {
     return () => {
         isMounted = false;
         unsubscribeTasks();
-        unsubscribeReports(); // Assuming this is how you unsubscribe from snapshots
+        unsubscribeReports(); 
     }
   }, [date, selectedReportId]);
 
