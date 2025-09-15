@@ -1486,13 +1486,28 @@ export const dataStore = {
     await photoStore.deletePhotos(photosToUpload);
   },
   
-  async deleteViolation(violationId: string, photoUrls: string[]): Promise<void> {
-    if (photoUrls && photoUrls.length > 0) {
-      const deletePhotoPromises = photoUrls.map(url => this.deletePhotoFromStorage(url));
+  async deleteViolation(violation: Violation): Promise<void> {
+    const allPhotoUrls: string[] = [];
+    if (violation.photos) {
+      allPhotoUrls.push(...violation.photos);
+    }
+    if (violation.penaltyPhotos) {
+      allPhotoUrls.push(...violation.penaltyPhotos);
+    }
+    if (violation.comments) {
+      violation.comments.forEach(comment => {
+        if (comment.photos) {
+          allPhotoUrls.push(...comment.photos);
+        }
+      });
+    }
+
+    if (allPhotoUrls.length > 0) {
+      const deletePhotoPromises = allPhotoUrls.map(url => this.deletePhotoFromStorage(url));
       await Promise.all(deletePhotoPromises);
     }
     
-    const violationRef = doc(db, 'violations', violationId);
+    const violationRef = doc(db, 'violations', violation.id);
     await deleteDoc(violationRef);
   },
 
@@ -1519,7 +1534,7 @@ export const dataStore = {
       ...comment,
       id: uuidv4(),
       photos: photoUrls,
-      createdAt: new Date().toISOString(), // Use client-side timestamp
+      createdAt: new Date().toISOString(),
     };
 
     // 3. Update the violation document

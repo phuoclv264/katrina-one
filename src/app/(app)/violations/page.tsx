@@ -428,7 +428,7 @@ export default function ViolationsPage() {
   const handleDeleteViolation = async (violation: Violation) => {
     setIsProcessing(true);
     try {
-        await dataStore.deleteViolation(violation.id, [...(violation.photos || []), ...(violation.penaltyPhotos || [])] );
+        await dataStore.deleteViolation(violation);
         toast({ title: 'Đã xóa', description: 'Đã xóa ghi nhận vi phạm.' });
     } catch (error) {
         console.error("Failed to delete violation:", error);
