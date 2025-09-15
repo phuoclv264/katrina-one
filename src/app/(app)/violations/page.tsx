@@ -720,23 +720,25 @@ export default function ViolationsPage() {
                                         </div>
                                     )}
                                      <div className="mt-4 pt-4 border-t flex items-center justify-between gap-2 flex-wrap">
-                                        <div>
+                                        <div className="flex-grow">
                                             {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
                                                     <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                         <CheckCircle className="h-4 w-4" />
                                                         <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
                                                     </div>
-                                                    <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        Xem ({v.penaltyPhotos.length})
-                                                    </Button>
-                                                    {canSubmitPenalty && (
-                                                        <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                            <FilePlus2 className="mr-2 h-4 w-4" />
-                                                            Bổ sung
-                                                        </Button>
-                                                    )}
+                                                    <div className="flex gap-2 flex-wrap">
+                                                      <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
+                                                          <Eye className="mr-2 h-4 w-4" />
+                                                          Xem ({v.penaltyPhotos.length})
+                                                      </Button>
+                                                      {canSubmitPenalty && (
+                                                          <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                              <FilePlus2 className="mr-2 h-4 w-4" />
+                                                              Bổ sung
+                                                          </Button>
+                                                      )}
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 canSubmitPenalty && (
