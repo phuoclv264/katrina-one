@@ -49,7 +49,7 @@ export function InventoryItemRow({
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
 
      const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
-        if (stockValue === undefined || stockValue === '') return 'ok'; 
+        if (stockValue === undefined || stockValue === '') return 'ok';
         if (item.dataType === 'number') {
             const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
             if (isNaN(stock)) return 'ok';
@@ -58,9 +58,9 @@ export function InventoryItemRow({
             return 'ok';
         } else { // 'list' type
             const stockString = String(stockValue).toLowerCase();
-            if (stockString.includes('hết')) return 'out';
-            if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
-            if (stockString.includes('dư')) return 'ok';
+            if (stockString.includes('hết') || stockString.includes('gần hết')) return 'out'; // Hết hàng & Gần hết -> Đỏ
+            if (stockString.includes('còn đủ')) return 'low'; // Còn đủ -> Vàng
+            if (stockString.includes('dư')) return 'ok'; // Dư xài -> Xanh
             return 'ok';
         }
     };

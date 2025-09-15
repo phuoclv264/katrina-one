@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import type { TimeSlot } from '@/lib/types';
-import { defaultTimeSlots } from '@/lib/data';
+import type { TimeSlot, ShiftTemplate } from '@/lib/types';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { cn } from '@/lib/utils';
+import isEqual from 'lodash.isequal';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
 
 type AvailabilityDialogProps = {
   isOpen: boolean;
@@ -23,43 +25,57 @@ type AvailabilityDialogProps = {
   onSave: (date: Date, slots: TimeSlot[]) => void;
   selectedDate: Date | null;
   existingAvailability: TimeSlot[];
+  shiftTemplates: ShiftTemplate[];
 };
 
-export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDate, existingAvailability }: AvailabilityDialogProps) {
-  const [slots, setSlots] = useState<TimeSlot[]>([]);
+export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDate, existingAvailability, shiftTemplates }: AvailabilityDialogProps) {
+  const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
+
+  const quickSelectSlots = useMemo(() => {
+    const uniqueSlots: TimeSlot[] = [];
+    const seen = new Set<string>();
+
+    shiftTemplates.forEach(template => {
+      const key = `${template.timeSlot.start}-${template.timeSlot.end}`;
+      if (!seen.has(key)) {
+        uniqueSlots.push(template.timeSlot);
+        seen.add(key);
+      }
+    });
+
+    // Sort the slots by start time
+    uniqueSlots.sort((a, b) => a.start.localeCompare(b.start));
+
+    return uniqueSlots;
+  }, [shiftTemplates]);
 
   useEffect(() => {
     if (isOpen) {
-      setSlots(existingAvailability.length > 0 ? existingAvailability : []);
+        // Deep copy to prevent mutation issues
+      setSelectedSlots(JSON.parse(JSON.stringify(existingAvailability || [])));
     }
   }, [isOpen, existingAvailability]);
 
-  const handleSlotChange = (index: number, field: 'start' | 'end', value: string) => {
-    const newSlots = [...slots];
-    newSlots[index][field] = value;
-    setSlots(newSlots);
-  };
-
-  const addSlot = (slot: TimeSlot) => {
-      // Check if the slot already exists
-    if (!slots.some(s => s.start === slot.start && s.end === slot.end)) {
-        const newSlots = [...slots, slot];
+  const handleToggleSlot = (slot: TimeSlot) => {
+    setSelectedSlots(prevSelected => {
+      const isAlreadySelected = prevSelected.some(s => isEqual(s, slot));
+      if (isAlreadySelected) {
+        return prevSelected.filter(s => !isEqual(s, slot));
+      } else {
+        const newSlots = [...prevSelected, slot];
         newSlots.sort((a,b) => a.start.localeCompare(b.start));
-        setSlots(newSlots);
-    }
+        return newSlots;
+      }
+    });
   };
-  
-  const addNewCustomSlot = () => {
-    setSlots([...slots, { start: '08:00', end: '12:00' }]);
-  }
 
-  const removeSlot = (index: number) => {
-    setSlots(slots.filter((_, i) => i !== index));
+  const handleRemoveSlot = (slotToRemove: TimeSlot) => {
+    setSelectedSlots(prevSelected => prevSelected.filter(s => !isEqual(s, slotToRemove)));
   };
 
   const handleSave = () => {
     if (selectedDate) {
-      onSave(selectedDate, slots);
+      onSave(selectedDate, selectedSlots);
     }
   };
 
@@ -76,52 +92,46 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
         </DialogHeader>
         <div className="py-4 space-y-4">
             <div>
-                <Label className="text-sm font-medium">Chọn nhanh</Label>
+                <Label className="text-sm font-medium">Chọn nhanh theo ca</Label>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                    {defaultTimeSlots.map(slot => (
-                        <Button 
-                            key={`${slot.start}-${slot.end}`} 
-                            variant="outline"
-                            onClick={() => addSlot(slot)}
-                            disabled={slots.some(s => s.start === slot.start && s.end === slot.end)}
-                        >
-                            {slot.start} - {slot.end}
-                        </Button>
-                    ))}
+                    {quickSelectSlots.map((slot, index) => {
+                        const isSelected = selectedSlots.some(s => isEqual(s, slot));
+                        return (
+                            <Button 
+                                key={index} 
+                                variant={isSelected ? "default" : "outline"}
+                                onClick={() => handleToggleSlot(slot)}
+                            >
+                                {slot.start} - {slot.end}
+                            </Button>
+                        )
+                    })}
                 </div>
             </div>
             
             <div className="space-y-2">
                 <Label className="text-sm font-medium">Khung giờ đã chọn</Label>
-                {slots.length === 0 ? (
+                {selectedSlots.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">Chưa chọn khung giờ nào.</p>
                 ) : (
-                    slots.map((slot, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                        <Input
-                            type="time"
-                            value={slot.start}
-                            onChange={(e) => handleSlotChange(index, 'start', e.target.value)}
-                            step="600"
-                        />
-                        <span>-</span>
-                        <Input
-                            type="time"
-                            value={slot.end}
-                            onChange={(e) => handleSlotChange(index, 'end', e.target.value)}
-                            step="600"
-                        />
-                        <Button variant="ghost" size="icon" onClick={() => removeSlot(index)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+                    <div className="flex flex-wrap gap-2">
+                    {selectedSlots.map((slot, index) => (
+                        <Badge key={index} variant="secondary" className="text-base h-auto py-1 pl-3 pr-1">
+                             <span>{slot.start} - {slot.end}</span>
+                             <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5 ml-1"
+                                onClick={() => handleRemoveSlot(slot)}
+                             >
+                                <X className="h-3 w-3" />
+                                <span className="sr-only">Xóa</span>
+                             </Button>
+                        </Badge>
+                    ))}
                     </div>
-                    ))
                 )}
             </div>
-             <Button variant="outline" size="sm" onClick={addNewCustomSlot}>
-                <Plus className="mr-2 h-4 w-4"/>
-                Thêm giờ tùy chỉnh
-            </Button>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

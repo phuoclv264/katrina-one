@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -54,7 +53,10 @@ const cleanupOldLocalStorage = () => {
 
 // Run cleanup when the app loads
 cleanupOldLocalStorage();
+
+
 // Also clean up old photos from IndexedDB
+// This will run when the app first loads the dataStore file.
 photoStore.cleanupOldPhotos();
 
 
@@ -166,40 +168,37 @@ export const dataStore = {
 
                 // Merge overlapping/adjacent availability slots upon loading
                 if (scheduleData.availability) {
-                    const availabilityByUserAndDate = new Map<string, Availability[]>();
+                    const availabilityByUser = new Map<string, Availability>();
                     scheduleData.availability.forEach(avail => {
                         const key = `${avail.userId}-${avail.date}`;
-                        if (!availabilityByUserAndDate.has(key)) {
-                            availabilityByUserAndDate.set(key, []);
+                        if (!availabilityByUser.has(key)) {
+                            availabilityByUser.set(key, { ...avail, availableSlots: [] });
                         }
-                        availabilityByUserAndDate.get(key)!.push(avail);
+                        // This logic has a potential issue. If a user registers [8-12, 13-17], and then separately [12-13],
+                        // they will all be added here.
+                        availabilityByUser.get(key)!.availableSlots.push(...avail.availableSlots);
                     });
                     
                     const mergedAvailability: Availability[] = [];
-                    availabilityByUserAndDate.forEach((userAvailsForDate) => {
-                         if (userAvailsForDate.length > 0) {
-                            const baseAvail = { ...userAvailsForDate[0] };
-                            const allSlots = userAvailsForDate.flatMap(a => a.availableSlots);
+                    availabilityByUser.forEach((userAvail) => {
+                         if (userAvail.availableSlots.length > 1) {
+                            const sortedSlots = [...userAvail.availableSlots].sort((a, b) => a.start.localeCompare(b.start));
+                            const result: TimeSlot[] = [sortedSlots[0]];
                             
-                            if (allSlots.length > 1) {
-                                const sortedSlots = [...allSlots].sort((a, b) => a.start.localeCompare(b.start));
-                                const result: TimeSlot[] = [sortedSlots[0]];
-                                
-                                for (let i = 1; i < sortedSlots.length; i++) {
-                                    const lastMerged = result[result.length - 1];
-                                    const current = sortedSlots[i];
-                                    if (current.start <= lastMerged.end) {
-                                        lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
-                                    } else {
-                                        result.push(current);
-                                    }
+                            for (let i = 1; i < sortedSlots.length; i++) {
+                                const lastMerged = result[result.length - 1];
+                                const current = sortedSlots[i];
+                                // Merge if current slot starts before or at the same time the last one ends
+                                if (current.start <= lastMerged.end) {
+                                    // Extend the end time if the current slot ends later
+                                    lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
+                                } else {
+                                    result.push(current);
                                 }
-                                baseAvail.availableSlots = result;
-                            } else {
-                                baseAvail.availableSlots = allSlots;
                             }
-                            mergedAvailability.push(baseAvail);
+                            userAvail.availableSlots = result;
                         }
+                        mergedAvailability.push(userAvail);
                     });
                     scheduleData.availability = mergedAvailability;
                 }
@@ -997,7 +996,7 @@ export const dataStore = {
         }
 
         if (!localReport && serverDoc.exists()) {
-             const serverReport = await this.overwriteLocalReport(reportId);
+             const serverReport = await this.overwriteLocalReport(userId, shiftKey);
              return { report: serverReport, status: 'synced' };
         }
         
@@ -1176,25 +1175,19 @@ export const dataStore = {
     await setDoc(firestoreRef, reportToSubmit);
   
     await photoStore.deletePhotos(Array.from(photoIdsToUpload));
-    
-    const savedDoc = await getDoc(firestoreRef);
-    const savedData = savedDoc.data();
-    if(savedData) {
-        const finalReport: ShiftReport = {
-            ...report, 
-            ...savedData,
-            id: savedDoc.id,
-            startedAt: (savedData.startedAt as Timestamp).toDate().toISOString(),
-            submittedAt: (savedData.submittedAt as Timestamp).toDate().toISOString(),
-            lastUpdated: (savedData.lastUpdated as Timestamp).toDate().toISOString(),
-        } as ShiftReport;
-    
-        await this.saveLocalReport(finalReport);
-    }
   },
-
-  async overwriteLocalReport(reportId: string): Promise<ShiftReport> {
+  
+  async overwriteLocalReport(arg1: string, arg2?: string): Promise<ShiftReport> {
     if (typeof window === 'undefined') throw new Error("Cannot overwrite local report from server.");
+    
+    let reportId: string;
+    if (arg2) {
+      const date = getTodaysDateKey();
+      reportId = `report-${arg1}-${arg2}-${date}`;
+    } else {
+      reportId = arg1;
+    }
+    
     const firestoreRef = doc(db, 'reports', reportId);
     const serverDoc = await getDoc(firestoreRef);
 

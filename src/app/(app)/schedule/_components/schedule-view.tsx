@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -139,33 +140,6 @@ export default function ScheduleView() {
 
     const handleSaveAvailability = async (date: Date, slots: TimeSlot[]) => {
         if (!user) return;
-        
-        // Merge overlapping time slots
-        const mergedSlots = ((): TimeSlot[] => {
-            if (slots.length < 2) {
-                return slots;
-            }
-            // 1. Sort by start time
-            const sortedSlots = [...slots].sort((a, b) => a.start.localeCompare(b.start));
-
-            const result: TimeSlot[] = [sortedSlots[0]];
-
-            // 2. Iterate and merge
-            for (let i = 1; i < sortedSlots.length; i++) {
-                const lastMerged = result[result.length - 1];
-                const current = sortedSlots[i];
-                
-                // If current slot starts before or at the same time the last one ends, they overlap or are adjacent
-                if (current.start <= lastMerged.end) {
-                    // Merge by extending the end time of the last slot
-                    lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
-                } else {
-                    // No overlap, add the current slot to the result
-                    result.push(current);
-                }
-            }
-            return result;
-        })();
 
         const baseSchedule = schedule ?? {
             weekId,
@@ -178,7 +152,7 @@ export default function ScheduleView() {
             userId: user.uid,
             userName: user.displayName,
             date: format(date, 'yyyy-MM-dd'),
-            availableSlots: mergedSlots,
+            availableSlots: slots,
         };
     
         const availabilityList = baseSchedule.availability ?? [];
@@ -517,6 +491,7 @@ export default function ScheduleView() {
                 onSave={handleSaveAvailability}
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
+                shiftTemplates={shiftTemplates}
             />
 
             <PassRequestsDialog 

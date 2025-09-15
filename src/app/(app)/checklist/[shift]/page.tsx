@@ -9,7 +9,7 @@ import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskS
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning } from 'lucide-react';
+import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning, ShieldAlert } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
@@ -25,12 +25,19 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { format } from 'date-fns';
+import { format, set } from 'date-fns';
 import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
 import { TaskItem } from '../../_components/task-item';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
+
+const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
+  sang: { start: '05:30', end: '12:00' },
+  trua: { start: '12:00', end: '17:00' },
+  toi: { start: '17:00', end: '22:30' },
+};
 
 export default function ChecklistPage() {
   const { toast } = useToast();
@@ -64,7 +71,27 @@ export default function ChecklistPage() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  
+  const [isReadonly, setIsReadonly] = useState(true);
+  const [isReadonlyChecked, setIsReadonlyChecked] = useState(false);
 
+  useEffect(() => {
+    if (!shiftKey || !shiftTimeFrames[shiftKey]) return;
+    const now = new Date();
+    const [startHour, startMinute] = shiftTimeFrames[shiftKey].start.split(':').map(Number);
+    const [endHour, endMinute] = shiftTimeFrames[shiftKey].end.split(':').map(Number);
+
+    const validStartTime = set(now, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
+    validStartTime.setHours(validStartTime.getHours() - 1); 
+
+    const validEndTime = set(now, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
+    validEndTime.setHours(validEndTime.getHours() + 1);
+
+    const readonly = now < validStartTime || now > validEndTime;
+    setIsReadonly(readonly);
+    setIsReadonlyChecked(true);
+  }, [shiftKey]);
+  
   // --- Back button handling for Lightbox ---
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
@@ -90,16 +117,13 @@ export default function ChecklistPage() {
     if (shift && report) {
       const defaultOpenItems = shift.sections
         .filter(section => {
-          // 'Trong ca' is always open
           if (section.title === 'Trong ca') {
             return true;
           }
-          // Check if all tasks in 'Đầu ca' or 'Cuối ca' are completed
           const allTasksCompleted = section.tasks.every(task => {
             const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
             return completions.length > 0;
           });
-          // If not all tasks are completed, the section should be open
           return !allTasksCompleted;
         })
         .map(section => section.title);
@@ -138,12 +162,44 @@ export default function ChecklistPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthLoading || !user || !shiftKey) return;
+    if (isAuthLoading || !user || !shiftKey || !isReadonlyChecked) return;
     
     let isMounted = true;
-    const loadReport = async () => {
-        setIsLoading(true);
-        setSyncStatus('checking');
+    
+    const loadData = async () => {
+      setIsLoading(true);
+      setSyncStatus('checking');
+
+      if (isReadonly) {
+        // Readonly mode: clean up local photos and fetch directly from server
+        try {
+            await photoStore.cleanupOldPhotos(); // Clears all photos not for today
+            const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
+            if (isMounted) {
+                setReport(serverReport);
+                setSubmissionNotes(serverReport.issues || '');
+                setSyncStatus('synced');
+            }
+        } catch (error) {
+            console.warn("Could not fetch server report in readonly mode:", error);
+            // Fallback: create an empty report to avoid crashing
+            if (isMounted) {
+                const newReport: ShiftReport = {
+                  id: `report-${user.uid}-${shiftKey}-${new Date().toISOString().split('T')[0]}`,
+                  userId: user.uid, staffName: user.displayName || 'Nhân viên', shiftKey,
+                  status: 'ongoing', date: new Date().toISOString().split('T')[0],
+                  startedAt: new Date().toISOString(), lastUpdated: new Date().toISOString(),
+                  completedTasks: {}, issues: null,
+                };
+                setReport(newReport);
+                setSyncStatus('error');
+                toast({ title: "Lỗi", description: "Không thể tải báo cáo đã nộp.", variant: "destructive"});
+            }
+        } finally {
+            if(isMounted) setIsLoading(false);
+        }
+      } else {
+        // Normal mode: compare local and server versions
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             if(isMounted) {
@@ -170,11 +226,12 @@ export default function ChecklistPage() {
         } finally {
             if(isMounted) setIsLoading(false);
         }
+      }
     };
 
-    loadReport();
+    loadData();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, toast, router]);
+  }, [isAuthLoading, user, shiftKey, isReadonly, isReadonlyChecked, toast]);
   
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -384,6 +441,17 @@ export default function ChecklistPage() {
     const handleSubmitReport = async () => {
         if (!report || !shift) return;
 
+        // Final check before submitting
+        if (isReadonly) {
+            toast({
+                title: "Đã hết giờ làm việc",
+                description: "Bạn không thể gửi báo cáo ngoài giờ làm việc cho phép.",
+                variant: "destructive",
+            });
+            router.refresh();
+            return;
+        }
+
         // --- Validation for end-of-shift notes ---
         const endOfShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
         if (endOfShiftSection) {
@@ -417,9 +485,10 @@ export default function ChecklistPage() {
 
         try {
             await dataStore.submitReport(finalReport);
-            const serverReport = await dataStore.overwriteLocalReport(report.id);
+            const serverReport = await dataStore.overwriteLocalReport(user!.uid, shiftKey);
             setReport(serverReport);
             setHasUnsubmittedChanges(false);
+            setSyncStatus('synced');
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
             toast({
@@ -440,14 +509,14 @@ export default function ChecklistPage() {
     };
     
   const handleDownloadFromServer = async () => {
-      if (!report) return;
+      if (!user) return;
       setIsSubmitting(true);
       setShowSyncDialog(false);
        toast({
             title: "Đang tải dữ liệu từ máy chủ...",
         });
       try {
-        const serverReport = await dataStore.overwriteLocalReport(report.id);
+        const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
         setReport(serverReport);
         setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
@@ -514,9 +583,7 @@ export default function ChecklistPage() {
     }
   };
 
-  const isReadonly = isSubmitting;
-
-  if (isAuthLoading || isLoading || !report || !tasksByShift || !shift) {
+  if (isAuthLoading || isLoading || !isReadonlyChecked || !report || !tasksByShift || !shift) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -560,7 +627,7 @@ export default function ChecklistPage() {
             <Button asChild variant="ghost" className="-ml-4">
                 <Link href="/shifts">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại Ca làm việc
+                    Quay lại
                 </Link>
             </Button>
             <div className="flex items-center gap-2">
@@ -578,6 +645,16 @@ export default function ChecklistPage() {
             </Button>
         </div>
       </header>
+
+      {isReadonly && (
+        <Alert variant="destructive" className="mb-6">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Chế độ chỉ xem</AlertTitle>
+            <AlertDescription>
+                Đã hết thời gian làm việc cho ca này. Bạn không thể thực hiện thêm thay đổi nào.
+            </AlertDescription>
+        </Alert>
+      )}
 
       <div className="space-y-4">
          <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
@@ -626,25 +703,27 @@ export default function ChecklistPage() {
       </div>
     </div>
     
-    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
-      <div className="relative">
-        <Button
-            size="lg"
-            className="rounded-full shadow-lg h-16 w-16"
-            onClick={handleSubmitReport}
-            disabled={isReadonly || syncStatus === 'server-newer'}
-            aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
-        >
-            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
-        </Button>
-        {hasUnsubmittedChanges && (
-            <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
-            </div>
-        )}
-      </div>
-    </div>
+    {!isReadonly && (
+        <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+        <div className="relative">
+            <Button
+                size="lg"
+                className="rounded-full shadow-lg h-16 w-16"
+                onClick={handleSubmitReport}
+                disabled={isReadonly || isSubmitting || syncStatus === 'server-newer'}
+                aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
+            >
+                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+            </Button>
+            {hasUnsubmittedChanges && (
+                <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                </div>
+            )}
+        </div>
+        </div>
+    )}
 
     <CameraDialog 
         isOpen={isCameraOpen}
@@ -709,3 +788,4 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
+
