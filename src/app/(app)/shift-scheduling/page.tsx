@@ -36,7 +36,7 @@ export default function ShiftSchedulingPage() {
         <div className="container mx-auto max-w-none p-4 sm:p-6 md:p-8">
             <header className="mb-8">
                 <Button asChild variant="ghost" className="-ml-4 mb-4">
-                    <Link href="/manager">
+                    <Link href={user?.role === 'Chủ nhà hàng' ? '/reports' : '/manager'}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Quay lại
                     </Link>
