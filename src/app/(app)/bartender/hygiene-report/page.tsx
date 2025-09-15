@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -37,6 +37,7 @@ export default function HygieneReportPage() {
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
   const shiftKey = 'bartender_hygiene';
+  const notesSectionRef = useRef<HTMLDivElement>(null);
   
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +47,7 @@ export default function HygieneReportPage() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [submissionNotes, setSubmissionNotes] = useState('');
+  const [notesError, setNotesError] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -156,9 +158,12 @@ export default function HygieneReportPage() {
   }, []);
 
   const handleNotesChange = useCallback((notes: string) => {
+    if (notesError) {
+      setNotesError(false);
+    }
     setSubmissionNotes(notes);
      updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
-  }, [updateLocalReport]);
+  }, [updateLocalReport, notesError]);
 
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -327,6 +332,21 @@ export default function HygieneReportPage() {
   
     const handleSubmitReport = async () => {
         if (!report) return;
+
+        // --- Validation for notes ---
+        const hasCompletedTask = Object.values(report.completedTasks).some(completions => completions.length > 0);
+        if (hasCompletedTask && (!submissionNotes || submissionNotes.trim() === '')) {
+            toast({
+                title: "Thiếu thông tin",
+                description: "Vui lòng nhập ghi chú trước khi gửi báo cáo.",
+                variant: "destructive",
+            });
+            setNotesError(true);
+            notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        // --- End Validation ---
+
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
@@ -550,9 +570,11 @@ export default function HygieneReportPage() {
           </CardContent>
         </Card>
          <SubmissionNotesSection 
+            ref={notesSectionRef}
             initialNotes={submissionNotes}
             onNotesChange={handleNotesChange}
             isReadonly={isReadonly}
+            isHighlighted={notesError}
         />
       </div>
     </div>
