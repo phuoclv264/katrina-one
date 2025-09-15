@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type Staff = {
@@ -198,6 +199,7 @@ export type Violation = {
   penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
   isFlagged?: boolean;
+  isPenaltyWaived?: boolean; // New field for penalty waiver
   comments?: ViolationComment[];
 };
 
