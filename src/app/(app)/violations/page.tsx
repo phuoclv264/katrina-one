@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -671,7 +670,7 @@ export default function ViolationsPage() {
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
 
                                 return (
-                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", v.isFlagged ? "bg-red-500/10 border-red-500/30" : "bg-card")}>
+                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", v.isFlagged ? "bg-red-500/10 border-red-500/30" : "border-primary/50")}>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
@@ -720,7 +719,7 @@ export default function ViolationsPage() {
                                         </div>
                                     )}
                                      <div className="mt-4 pt-4 border-t flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex-grow">
+                                        <div>
                                             {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
                                                     <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
