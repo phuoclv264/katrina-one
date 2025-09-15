@@ -206,6 +206,7 @@ function CommentSection({
   onCommentSubmit,
   onCommentEdit,
   onCommentDelete,
+  onOpenLightbox,
   isProcessing,
 }: {
   violation: Violation;
@@ -213,6 +214,7 @@ function CommentSection({
   onCommentSubmit: (violationId: string, commentText: string, photoIds: string[]) => void;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
+  onOpenLightbox: (photos: string[], index: number) => void;
   isProcessing: boolean;
 }) {
   const [commentText, setCommentText] = useState('');
@@ -304,9 +306,9 @@ function CommentSection({
                   {comment.photos && comment.photos.length > 0 && (
                     <div className="mt-2 flex gap-2 flex-wrap">
                       {comment.photos.map((photo, index) => (
-                        <div key={index} className="relative w-16 h-16 rounded-md overflow-hidden">
-                          <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
-                        </div>
+                         <button key={index} onClick={() => onOpenLightbox(comment.photos, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
+                            <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
+                        </button>
                       ))}
                     </div>
                   )}
@@ -365,8 +367,10 @@ export default function ViolationsPage() {
   
   const [filterUserId, setFilterUserId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
@@ -559,6 +563,12 @@ export default function ViolationsPage() {
     setIsSelfConfessMode(isSelfConfession);
     setIsDialogOpen(true);
   }
+  
+  const openLightbox = (photos: string[], index: number) => {
+      setLightboxSlides(photos.map(p => ({ src: p })));
+      setLightboxIndex(index);
+      setLightboxOpen(true);
+  };
 
   if (isLoading || authLoading || !user) {
     return (
@@ -684,7 +694,7 @@ export default function ViolationsPage() {
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
                                             {v.photos.map((photo, index) => (
-                                                <button key={index} onClick={() => { setLightboxSlides(v.photos!.map(p => ({ src: p }))); setLightboxOpen(true); }} className="relative w-20 h-20 rounded-md overflow-hidden">
+                                                <button key={index} onClick={() => openLightbox(v.photos, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
                                                     <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
                                                 </button>
                                             ))}
@@ -698,7 +708,7 @@ export default function ViolationsPage() {
                                                     <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <Button size="sm" variant="secondary" onClick={() => { setLightboxSlides(v.penaltyPhotos!.map(p => ({ src: p }))); setLightboxOpen(true); }}>
+                                                    <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
                                                         <Eye className="mr-2 h-4 w-4" />
                                                         Xem ({v.penaltyPhotos.length})
                                                     </Button>
@@ -725,6 +735,7 @@ export default function ViolationsPage() {
                                         onCommentSubmit={handleCommentSubmit}
                                         onCommentEdit={handleCommentEdit}
                                         onCommentDelete={handleCommentDelete}
+                                        onOpenLightbox={openLightbox}
                                         isProcessing={isItemProcessing}
                                       />
                                     )}
@@ -770,6 +781,7 @@ export default function ViolationsPage() {
         <Lightbox
             open={lightboxOpen}
             close={() => setLightboxOpen(false)}
+            index={lightboxIndex}
             slides={lightboxSlides}
         />
     </>
