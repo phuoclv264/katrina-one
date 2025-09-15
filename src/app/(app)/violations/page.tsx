@@ -732,10 +732,10 @@ export default function ViolationsPage() {
                                             {isOwner && (
                                                 <>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
-                                                        <Flag className={cn("h-4 w-4", isWaived ? "text-green-500 fill-green-500" : "text-muted-foreground")} />
+                                                        <Flag className={cn("h-4 w-4", isWaived ? "text-green-500 fill-green-500" : "text-green-500")} />
                                                     </Button>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
-                                                        <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-muted-foreground")} />
+                                                        <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-red-500")} />
                                                     </Button>
                                                 </>
                                             )}
