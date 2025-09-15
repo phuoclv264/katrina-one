@@ -249,13 +249,16 @@ function CommentSection({
     }
   };
   
+   const handleOpenCommentLightbox = (photos: string[], index: number) => {
+    onOpenLightbox(photos, index);
+  };
+  
    const handleDeletePreviewPhoto = (photoId: string) => {
     setCommentPhotoIds(prev => prev.filter(id => id !== photoId));
   }
 
   return (
     <div className="mt-4 pt-4 border-t border-dashed">
-      <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><MessageSquare />Bình luận</h4>
       {/* Existing Comments */}
       <div className="space-y-3 mb-4">
         {(violation.comments || []).map(comment => {
@@ -302,11 +305,11 @@ function CommentSection({
                 </div>
               ) : (
                 <>
-                  <p className="text-sm">{comment.text}</p>
+                  <p className="text-sm whitespace-pre-wrap">{comment.text}</p>
                   {comment.photos && comment.photos.length > 0 && (
                     <div className="mt-2 flex gap-2 flex-wrap">
                       {comment.photos.map((photo, index) => (
-                         <button key={index} onClick={() => onOpenLightbox(comment.photos, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
+                         <button key={index} onClick={() => handleOpenCommentLightbox(comment.photos, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
                             <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
                         </button>
                       ))}
@@ -374,6 +377,9 @@ export default function ViolationsPage() {
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
+
+  const [openCommentSectionId, setOpenCommentSectionId] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -569,6 +575,10 @@ export default function ViolationsPage() {
       setLightboxIndex(index);
       setLightboxOpen(true);
   };
+  
+  const toggleCommentSection = (violationId: string) => {
+      setOpenCommentSectionId(prevId => prevId === violationId ? null : violationId);
+  }
 
   if (isLoading || authLoading || !user) {
     return (
@@ -690,7 +700,7 @@ export default function ViolationsPage() {
                                     <p className="text-sm text-muted-foreground mt-1">
                                         Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
                                     </p>
-                                    <p className="mt-2 text-sm">{v.content}</p>
+                                    <p className="mt-2 text-sm whitespace-pre-wrap">{v.content}</p>
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
                                             {v.photos.map((photo, index) => (
@@ -729,15 +739,23 @@ export default function ViolationsPage() {
                                         )}
                                     </div>
                                     {isOwner && (
-                                      <CommentSection 
-                                        violation={v}
-                                        currentUser={user}
-                                        onCommentSubmit={handleCommentSubmit}
-                                        onCommentEdit={handleCommentEdit}
-                                        onCommentDelete={handleCommentDelete}
-                                        onOpenLightbox={openLightbox}
-                                        isProcessing={isItemProcessing}
-                                      />
+                                         <div className="mt-4 border-t pt-4">
+                                            <Button variant="ghost" onClick={() => toggleCommentSection(v.id)} className="w-full justify-start px-2">
+                                                <MessageSquare className="mr-2 h-4 w-4"/>
+                                                {openCommentSectionId === v.id ? 'Đóng bình luận' : `Bình luận (${(v.comments || []).length})`}
+                                            </Button>
+                                            {openCommentSectionId === v.id && (
+                                                <CommentSection
+                                                    violation={v}
+                                                    currentUser={user}
+                                                    onCommentSubmit={handleCommentSubmit}
+                                                    onCommentEdit={handleCommentEdit}
+                                                    onCommentDelete={handleCommentDelete}
+                                                    onOpenLightbox={openLightbox}
+                                                    isProcessing={isItemProcessing}
+                                                />
+                                            )}
+                                        </div>
                                     )}
                                     {isItemProcessing && (
                                         <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
