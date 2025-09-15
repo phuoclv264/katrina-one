@@ -63,6 +63,26 @@ export default function ChecklistPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
+  // --- Back button handling for Lightbox ---
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (isLightboxOpen) {
+        event.preventDefault();
+        setIsLightboxOpen(false);
+      }
+    };
+
+    if (isLightboxOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isLightboxOpen]);
+
+
   // Initialize accordion state based on completion status
   useEffect(() => {
     if (shift && report) {
@@ -662,3 +682,4 @@ export default function ChecklistPage() {
 }
 
     
+

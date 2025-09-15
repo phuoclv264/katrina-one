@@ -61,6 +61,26 @@ export default function HygieneReportPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
+  // --- Back button handling for Lightbox ---
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (isLightboxOpen) {
+        event.preventDefault();
+        setIsLightboxOpen(false);
+      }
+    };
+
+    if (isLightboxOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isLightboxOpen]);
+
+
   // Initialize accordion state to be all open by default
   useEffect(() => {
     if (tasks) {
