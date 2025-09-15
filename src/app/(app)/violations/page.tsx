@@ -268,13 +268,14 @@ function CommentSection({
         )}
         {(violation.comments || []).map(comment => {
           const isEditingThis = editingCommentId === comment.id;
+          const canEditOrDelete = currentUser.uid === comment.commenterId;
           return (
             <div key={comment.id} className="bg-muted/50 p-3 rounded-md">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                 <span className="font-bold text-foreground">{comment.commenterName}</span>
                 <div className="flex items-center gap-1">
                   <span>{new Date(comment.createdAt as string).toLocaleString('vi-VN')}</span>
-                   {currentUser.uid === comment.commenterId && !isEditingThis && (
+                   {canEditOrDelete && !isEditingThis && (
                       <div className="flex">
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}>
                           <Edit className="h-3 w-3" />
@@ -717,25 +718,23 @@ export default function ViolationsPage() {
                                             ))}
                                         </div>
                                     )}
-                                     <div className="mt-4 pt-4 border-t">
+                                     <div className="mt-4 pt-4 border-t flex items-center justify-between gap-2 flex-wrap">
                                         {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
+                                            <div className="flex items-center gap-2">
                                                 <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                     <CheckCircle className="h-4 w-4" />
                                                     <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        Xem ({v.penaltyPhotos.length})
+                                                <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    Xem ({v.penaltyPhotos.length})
+                                                </Button>
+                                                {canSubmitPenalty && (
+                                                    <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                        <FilePlus2 className="mr-2 h-4 w-4" />
+                                                        Bổ sung
                                                     </Button>
-                                                    {canSubmitPenalty && (
-                                                        <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                            <FilePlus2 className="mr-2 h-4 w-4" />
-                                                            Bổ sung
-                                                        </Button>
-                                                    )}
-                                                </div>
+                                                )}
                                             </div>
                                         ) : (
                                             canSubmitPenalty && (
@@ -744,9 +743,6 @@ export default function ViolationsPage() {
                                                 </Button>
                                             )
                                         )}
-                                    </div>
-                                    
-                                     <div className="mt-4 border-t pt-2 flex justify-end">
                                         <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
                                             <MessageSquare className="mr-2 h-4 w-4"/>
                                             {openCommentSectionId === v.id ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
