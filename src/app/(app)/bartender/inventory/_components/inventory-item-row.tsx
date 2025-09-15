@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
@@ -92,7 +93,6 @@ export function InventoryItemRow({
         >
             <div className="col-span-1">
                 <p className="font-semibold flex items-center gap-2">
-                     {item.isImportant && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
                     {item.name}
                 </p>
                 <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>

@@ -485,7 +485,7 @@ export default function InventoryPage() {
                     <div>
                         <CardTitle>Danh sách nguyên vật liệu</CardTitle>
                         <CardDescription>
-                            Các mục có <AlertTriangle className="inline-block h-4 w-4 text-destructive" /> là bắt buộc nhập số lượng.
+                            Nhập số lượng tồn kho thực tế của các mặt hàng.
                         </CardDescription>
                     </div>
                     {categorizedList.length > 0 && (
