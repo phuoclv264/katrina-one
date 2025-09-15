@@ -377,7 +377,27 @@ export default function ChecklistPage() {
   }
   
     const handleSubmitReport = async () => {
-        if (!report) return;
+        if (!report || !shift) return;
+
+        // --- Validation for end-of-shift notes ---
+        const endOfShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
+        if (endOfShiftSection) {
+            const endOfShiftTaskIds = new Set(endOfShiftSection.tasks.map(t => t.id));
+            const hasCompletedEndOfShiftTask = Object.keys(report.completedTasks).some(
+                taskId => endOfShiftTaskIds.has(taskId) && report.completedTasks[taskId].length > 0
+            );
+
+            if (hasCompletedEndOfShiftTask && (!submissionNotes || submissionNotes.trim() === '')) {
+                toast({
+                    title: "Thiếu thông tin",
+                    description: "Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.",
+                    variant: "destructive",
+                });
+                return;
+            }
+        }
+        // --- End Validation ---
+
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
@@ -680,6 +700,3 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
-
-    
-
