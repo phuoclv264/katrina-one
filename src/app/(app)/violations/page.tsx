@@ -224,6 +224,8 @@ function CommentSection({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
+  const isOwner = currentUser.role === 'Chủ nhà hàng';
+
   const handleSubmit = () => {
     if (!commentText.trim() && commentPhotoIds.length === 0) return;
     onCommentSubmit(violation.id, commentText, commentPhotoIds);
@@ -261,6 +263,9 @@ function CommentSection({
     <div className="mt-4 pt-4 border-t border-dashed">
       {/* Existing Comments */}
       <div className="space-y-3 mb-4">
+        {(violation.comments || []).length === 0 && !isOwner && (
+             <p className="text-sm text-muted-foreground text-center py-4">Chưa có bình luận nào.</p>
+        )}
         {(violation.comments || []).map(comment => {
           const isEditingThis = editingCommentId === comment.id;
           return (
@@ -322,25 +327,27 @@ function CommentSection({
         })}
       </div>
 
-      {/* New Comment Form */}
-      <div className="space-y-2">
-        <Textarea
-          placeholder="Nhập bình luận của bạn..."
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          disabled={isProcessing}
-        />
-        {commentPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{commentPhotoIds.length} ảnh đã được chọn để đính kèm.</p>}
-        <div className="flex justify-between items-center">
-            <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} disabled={isProcessing}>
-                <Camera className="mr-2 h-4 w-4" /> Đính kèm ảnh
-            </Button>
-            <Button onClick={handleSubmit} disabled={isProcessing || (!commentText.trim() && commentPhotoIds.length === 0)}>
-                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                Gửi
-            </Button>
+      {/* New Comment Form for Owner */}
+      {isOwner && (
+        <div className="space-y-2">
+            <Textarea
+            placeholder="Nhập bình luận của bạn..."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            disabled={isProcessing}
+            />
+            {commentPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{commentPhotoIds.length} ảnh đã được chọn để đính kèm.</p>}
+            <div className="flex justify-between items-center">
+                <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} disabled={isProcessing}>
+                    <Camera className="mr-2 h-4 w-4" /> Đính kèm ảnh
+                </Button>
+                <Button onClick={handleSubmit} disabled={isProcessing || (!commentText.trim() && commentPhotoIds.length === 0)}>
+                    {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Gửi
+                </Button>
+            </div>
         </div>
-      </div>
+      )}
       
       <CameraDialog
         isOpen={isCameraOpen}
@@ -738,25 +745,25 @@ export default function ViolationsPage() {
                                             )
                                         )}
                                     </div>
-                                    {isOwner && (
-                                         <div className="mt-4 border-t pt-4">
-                                            <Button variant="ghost" onClick={() => toggleCommentSection(v.id)} className="w-full justify-start px-2">
-                                                <MessageSquare className="mr-2 h-4 w-4"/>
-                                                {openCommentSectionId === v.id ? 'Đóng bình luận' : `Bình luận (${(v.comments || []).length})`}
-                                            </Button>
-                                            {openCommentSectionId === v.id && (
-                                                <CommentSection
-                                                    violation={v}
-                                                    currentUser={user}
-                                                    onCommentSubmit={handleCommentSubmit}
-                                                    onCommentEdit={handleCommentEdit}
-                                                    onCommentDelete={handleCommentDelete}
-                                                    onOpenLightbox={openLightbox}
-                                                    isProcessing={isItemProcessing}
-                                                />
-                                            )}
-                                        </div>
-                                    )}
+                                    
+                                    <div className="mt-4 border-t pt-4">
+                                        <Button variant="ghost" onClick={() => toggleCommentSection(v.id)} className="w-full justify-start px-2">
+                                            <MessageSquare className="mr-2 h-4 w-4"/>
+                                            {openCommentSectionId === v.id ? 'Đóng bình luận' : `Bình luận (${(v.comments || []).length})`}
+                                        </Button>
+                                        {openCommentSectionId === v.id && (
+                                            <CommentSection
+                                                violation={v}
+                                                currentUser={user}
+                                                onCommentSubmit={handleCommentSubmit}
+                                                onCommentEdit={handleCommentEdit}
+                                                onCommentDelete={handleCommentDelete}
+                                                onOpenLightbox={openLightbox}
+                                                isProcessing={isItemProcessing}
+                                            />
+                                        )}
+                                    </div>
+
                                     {isItemProcessing && (
                                         <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
                                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
