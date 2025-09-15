@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Badge } from '@/components/ui/badge';
 
 function HygieneReportView() {
   const { user, loading: authLoading } = useAuth();
@@ -91,10 +92,10 @@ function HygieneReportView() {
 
             setReports(fetchedReports);
 
-            if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId)) {
-                setSelectedReportId(fetchedReports.length > 0 ? fetchedReports[0].id : null);
+             if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId) && selectedReportId !== 'summary') {
+                setSelectedReportId(fetchedReports.length > 0 ? 'summary' : null);
             } else if (!selectedReportId && fetchedReports.length > 0) {
-                setSelectedReportId(fetchedReports[0].id);
+                setSelectedReportId('summary');
             } else if (fetchedReports.length === 0) {
                 setSelectedReportId(null);
             }
@@ -109,12 +110,50 @@ function HygieneReportView() {
     }
   }, [date, selectedReportId]);
 
-  const report = useMemo(() => {
+  const reportToView = useMemo(() => {
+    if (!selectedReportId) return null;
+    if (selectedReportId === 'summary') {
+        const combinedTasks: { [taskId: string]: CompletionRecord[] } = {};
+        let combinedIssues: string[] = [];
+
+        reports.forEach(report => {
+            for (const taskId in report.completedTasks) {
+                if (!combinedTasks[taskId]) {
+                    combinedTasks[taskId] = [];
+                }
+                const tasksWithStaffName = report.completedTasks[taskId].map(comp => ({
+                    ...comp,
+                    staffName: report.staffName
+                }));
+                combinedTasks[taskId].push(...tasksWithStaffName);
+            }
+            if (report.issues) {
+                combinedIssues.push(`${report.staffName}: ${report.issues}`);
+            }
+        });
+
+        for (const taskId in combinedTasks) {
+            combinedTasks[taskId].sort((a, b) => {
+                const timeA = a.timestamp.replace(':', '');
+                const timeB = b.timestamp.replace(':', '');
+                return timeB.localeCompare(timeA);
+            });
+        }
+
+         return {
+            id: 'summary',
+            staffName: 'Tổng hợp',
+            shiftKey,
+            date: date as string,
+            completedTasks: combinedTasks,
+            issues: combinedIssues.length > 0 ? combinedIssues.join('\n\n') : null,
+        } as unknown as ShiftReport;
+    }
     return reports.find(r => r.id === selectedReportId) || null;
-  }, [reports, selectedReportId]);
+  }, [reports, selectedReportId, shiftKey, date]);
   
   const allPagePhotos = useMemo(() => {
-    if (!taskSections || !report) return [];
+    if (!taskSections || !reportToView) return [];
 
     const findTaskText = (taskId: string): string => {
         for (const section of taskSections) {
@@ -125,22 +164,23 @@ function HygieneReportView() {
     };
 
     const photos: { src: string, description: string }[] = [];
-    for (const taskId in report.completedTasks) {
+    for (const taskId in reportToView.completedTasks) {
         const taskText = findTaskText(taskId);
-        const completions = report.completedTasks[taskId] as CompletionRecord[];
+        const completions = reportToView.completedTasks[taskId] as CompletionRecord[];
         for (const completion of completions) {
             if (completion.photos) {
               for (const photoUrl of completion.photos) {
+                  const staffCredit = (completion as any).staffName ? `Thực hiện bởi: ${(completion as any).staffName}\n` : '';
                   photos.push({
                       src: photoUrl,
-                      description: `${taskText}\nThực hiện lúc: ${completion.timestamp}`
+                      description: `${taskText}\n${staffCredit}Lúc: ${completion.timestamp}`
                   });
               }
             }
         }
     }
     return photos;
-  }, [taskSections, report]);
+  }, [taskSections, reportToView]);
 
   const openLightbox = (photoUrl: string) => {
     const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
@@ -169,11 +209,11 @@ function HygieneReportView() {
   }
 
   const handleDeleteReport = async () => {
-    if (!report || user?.role !== 'Chủ nhà hàng') return;
+    if (!reportToView || reportToView.id === 'summary' || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
-    const reportNameToDelete = report.staffName;
+    const reportNameToDelete = reportToView.staffName;
     try {
-        await dataStore.deleteShiftReport(report.id);
+        await dataStore.deleteShiftReport(reportToView.id);
         toast({
             title: "Đã xóa báo cáo",
             description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
@@ -259,12 +299,13 @@ function HygieneReportView() {
                                 <SelectValue placeholder="Chọn một nhân viên..." />
                             </SelectTrigger>
                             <SelectContent>
+                                {reports.length > 1 && <SelectItem value="summary">Tổng hợp</SelectItem>}
                                 {reports.map(r => (
                                     <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                         {user?.role === 'Chủ nhà hàng' && selectedReportId && (
+                         {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" size="icon" disabled={isProcessing}>
@@ -278,7 +319,7 @@ function HygieneReportView() {
                                             Xác nhận xóa báo cáo?
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{report?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{reportToView?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -294,7 +335,7 @@ function HygieneReportView() {
         </div>
       </header>
 
-    {!report ? (
+    {!reportToView ? (
         <div className="text-center py-16 text-muted-foreground">
             <p>Vui lòng chọn một nhân viên để xem báo cáo.</p>
         </div>
@@ -304,7 +345,10 @@ function HygieneReportView() {
             <CardHeader>
               <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
                <CardDescription>
-                Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}</span>.
+                {selectedReportId === 'summary' 
+                    ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
+                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}.`
+                }
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -320,7 +364,7 @@ function HygieneReportView() {
                     <AccordionContent className="border-t p-4">
                       <div className="space-y-4 pt-2">
                         {section.tasks.map((task) => {
-                          const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
+                          const completions = (reportToView.completedTasks[task.id] || []) as CompletionRecord[];
                           const isCompleted = completions.length > 0;
                           
                           return (
@@ -342,11 +386,16 @@ function HygieneReportView() {
                                     <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
                                     {completions.map((completion, cIndex) => (
                                     <div key={cIndex} className="rounded-md border bg-card p-3">
-                                        <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                 <Clock className="h-4 w-4 flex-shrink-0" />
                                                 <span>Thực hiện lúc: {completion.timestamp}</span>
                                             </div>
+                                             {selectedReportId === 'summary' && (
+                                                <Badge variant="secondary" className="font-normal">
+                                                   {(completion as any).staffName}
+                                                </Badge>
+                                            )}
                                         </div>
                                         {completion.photos && completion.photos.length > 0 ? (
                                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
@@ -378,13 +427,13 @@ function HygieneReportView() {
             </CardContent>
           </Card>
           
-          {report.issues && (
+          {reportToView.issues && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200">"{report.issues}"</p>
+                <div className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200 whitespace-pre-wrap">{reportToView.issues}</div>
               </CardContent>
             </Card>
           )}
@@ -416,3 +465,5 @@ export default function HygieneReportPage() {
         </Suspense>
     )
 }
+
+    
