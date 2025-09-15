@@ -407,7 +407,7 @@ export default function InventoryPage() {
             }
         }
 
-        if (!item.isImportant && !hasStockValue) {
+        if (!hasStockValue) {
             unEnteredItems.push(item);
         }
     }
@@ -460,6 +460,19 @@ export default function InventoryPage() {
             });
         });
     };
+
+    const categorizedUncheckedItems = useMemo((): CategorizedList => {
+        if (uncheckedItems.length === 0) return [];
+        const grouped: { [key: string]: InventoryItem[] } = {};
+        uncheckedItems.forEach(item => {
+            const category = item.category || 'CHƯA PHÂN LOẠI';
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(item);
+        });
+        return Object.entries(grouped).map(([category, items]) => ({ category, items }));
+    }, [uncheckedItems]);
 
   if (isLoading || authLoading || !report) {
     return (
@@ -641,20 +654,27 @@ export default function InventoryPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <ScrollArea className="max-h-60 w-full rounded-md border p-4">
-                <div className="space-y-2">
-                    {uncheckedItems.map(item => (
-                        <button
-                            key={item.id}
-                            className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
-                            onClick={() => {
-                                const element = itemRowRefs.current.get(item.id);
-                                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                element?.focus();
-                                setShowUncheckedWarning(false);
-                            }}
-                        >
-                            {item.name}
-                        </button>
+                <div className="space-y-4">
+                    {categorizedUncheckedItems.map(({ category, items }) => (
+                        <div key={category}>
+                            <h4 className="font-semibold text-primary mb-2 pb-1 border-b">{category}</h4>
+                            <div className="space-y-2">
+                                {items.map(item => (
+                                     <button
+                                        key={item.id}
+                                        className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
+                                        onClick={() => {
+                                            const element = itemRowRefs.current.get(item.id);
+                                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            element?.focus();
+                                            setShowUncheckedWarning(false);
+                                        }}
+                                    >
+                                        {item.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     ))}
                 </div>
             </ScrollArea>
@@ -668,5 +688,7 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
+
+    
 
     
