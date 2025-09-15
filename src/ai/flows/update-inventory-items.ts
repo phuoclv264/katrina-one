@@ -19,6 +19,10 @@ const InventoryItemSchema = z.object({
   unit: z.string(),
   minStock: z.number(),
   orderSuggestion: z.string(),
+  isImportant: z.boolean().optional(),
+  requiresPhoto: z.boolean().optional(),
+  dataType: z.enum(['number', 'list']).optional(),
+  listOptions: z.array(z.string()).optional(),
 });
 
 const UpdateInventoryItemsInputSchema = z.object({
@@ -48,7 +52,7 @@ IMPORTANT RULES:
 1.  You MUST return the **entire list** of items, including the ones that were not changed.
 2.  You MUST NOT add or remove any items from the list. The number of items in the output array must be exactly the same as in the input array.
 3.  You MUST preserve the original 'id' of every item. Do not change, add, or remove 'id' fields.
-4.  Only modify the fields ('name', 'category', 'supplier', 'unit', 'minStock', 'orderSuggestion') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
+4.  Only modify the fields ('name', 'category', 'supplier', 'unit', 'minStock', 'orderSuggestion', 'isImportant', 'requiresPhoto') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
 5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with 'category: "TOPPING"' and add 2 to their existing 'minStock'.
 6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
 7.  If the user provides a block of text where each line represents an item, you must treat this as a batch update instruction. The format is likely 'CATEGORY-NAME-SUPPLIER-UNIT-MINSTOCK-ORDERSUGGESTION'. For each line, find the corresponding item in the JSON list by its 'name' and update ALL of its fields to match the information in that line.
@@ -73,4 +77,5 @@ const updateInventoryItemsFlow = ai.defineFlow(
         return output!;
     }
 );
+
 

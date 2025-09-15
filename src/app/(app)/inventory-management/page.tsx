@@ -235,6 +235,13 @@ function AiAssistant({
             return <span key={index} className={color}>{part.value}</span>;
         });
     };
+    
+    const renderBooleanDiff = (oldValue: boolean | undefined, newValue: boolean | undefined) => {
+        const oldText = oldValue ? 'CÓ' : 'KHÔNG';
+        const newText = newValue ? 'CÓ' : 'KHÔNG';
+        if (oldValue === newValue) return newText;
+        return <span className="bg-green-200 dark:bg-green-900/50">{newText}</span>;
+    }
 
     return (
         <>
@@ -299,7 +306,7 @@ function AiAssistant({
                         </TabsContent>
                          <TabsContent value="edit" className="mt-4 space-y-4">
                              <Textarea
-                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'đổi nhà cung cấp của tất cả siro thành ABC'"
+                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'bỏ yêu cầu ảnh cho tất cả siro'"
                                 rows={3}
                                 value={updateInstruction}
                                 onChange={(e) => setUpdateInstruction(e.target.value)}
@@ -449,15 +456,18 @@ function AiAssistant({
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[35%]">Tên mặt hàng</TableHead>
-                                    <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
+                                    <TableHead className="w-[30%]">Tên mặt hàng</TableHead>
+                                    <TableHead>Nhóm</TableHead>
+                                    <TableHead>NCC</TableHead>
                                     <TableHead>Đơn vị</TableHead>
                                     <TableHead>Tồn tối thiểu</TableHead>
-                                    <TableHead>Gợi ý đặt hàng</TableHead>
+                                    <TableHead>Gợi ý đặt</TableHead>
+                                    <TableHead>Bắt buộc?</TableHead>
+                                    <TableHead>Y/c ảnh?</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {updatePreview.newList.map((newItem, index) => {
+                                {updatePreview.newList.map((newItem) => {
                                     const oldItem = updatePreview.oldList.find(item => item.id === newItem.id);
                                     if (!oldItem) return null;
                                     
@@ -466,10 +476,13 @@ function AiAssistant({
                                     return (
                                         <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}>
                                             <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
                                             <TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell>
+                                            <TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell>
+                                            <TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell>
                                         </TableRow>
                                     )
                                 })}
@@ -1074,3 +1087,4 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
