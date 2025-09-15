@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
 
 type AvailabilityDialogProps = {
   isOpen: boolean;
@@ -68,6 +69,10 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
     });
   };
 
+  const handleRemoveSlot = (slotToRemove: TimeSlot) => {
+    setSelectedSlots(prevSelected => prevSelected.filter(s => !isEqual(s, slotToRemove)));
+  };
+
   const handleSave = () => {
     if (selectedDate) {
       onSave(selectedDate, selectedSlots);
@@ -111,8 +116,17 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                 ) : (
                     <div className="flex flex-wrap gap-2">
                     {selectedSlots.map((slot, index) => (
-                        <Badge key={index} variant="secondary" className="text-base">
-                             {slot.start} - {slot.end}
+                        <Badge key={index} variant="secondary" className="text-base h-auto py-1 pl-3 pr-1">
+                             <span>{slot.start} - {slot.end}</span>
+                             <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5 ml-1"
+                                onClick={() => handleRemoveSlot(slot)}
+                             >
+                                <X className="h-3 w-3" />
+                                <span className="sr-only">Xóa</span>
+                             </Button>
                         </Badge>
                     ))}
                     </div>
