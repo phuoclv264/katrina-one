@@ -26,7 +26,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -161,9 +161,13 @@ export const dataStore = {
         };
     },
 
-    async updateNotificationStatus(notificationId: string, status: Notification['status']): Promise<void> {
+    async updateNotificationStatus(notificationId: string, status: Notification['status'], resolver?: AuthUser): Promise<void> {
         const docRef = doc(db, 'notifications', notificationId);
-        await updateDoc(docRef, { status, resolvedAt: serverTimestamp() });
+        const updateData: any = { status, resolvedAt: serverTimestamp() };
+        if (resolver) {
+            updateData.resolvedBy = { userId: resolver.uid, userName: resolver.displayName };
+        }
+        await updateDoc(docRef, updateData);
     },
 
     // --- Schedule ---
@@ -385,7 +389,7 @@ export const dataStore = {
         await addDoc(collection(db, "notifications"), newNotification);
     },
 
-    async revertPassRequest(notification: Notification): Promise<void> {
+    async revertPassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
         const { payload } = notification;
         const scheduleRef = doc(db, "schedules", payload.weekId);
 
@@ -414,8 +418,9 @@ export const dataStore = {
             const notificationRef = doc(db, "notifications", notification.id);
             transaction.update(notificationRef, {
                 status: 'pending',
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                resolvedAt: serverTimestamp(),
                 'payload.takenBy': null,
-                resolvedAt: null,
             });
         });
     },
@@ -428,7 +433,7 @@ export const dataStore = {
         });
     },
 
-    async approvePassRequest(notification: Notification): Promise<void> {
+    async approvePassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
@@ -456,15 +461,18 @@ export const dataStore = {
             // Update Notification
             transaction.update(notificationRef, {
                 status: 'resolved',
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
             });
         });
     },
     
-    async rejectPassRequestApproval(notificationId: string): Promise<void> {
+    async rejectPassRequestApproval(notificationId: string, resolver: AuthUser): Promise<void> {
         const notificationRef = doc(db, "notifications", notificationId);
         await updateDoc(notificationRef, {
             status: 'pending',
+            resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+            resolvedAt: serverTimestamp(),
             'payload.takenBy': null
         });
     },
@@ -480,7 +488,7 @@ export const dataStore = {
         });
     },
 
-    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser): Promise<void> {
+    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser, resolver: AuthUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
@@ -509,6 +517,7 @@ export const dataStore = {
             transaction.update(notificationRef, {
                 status: 'resolved',
                 'payload.takenBy': assignedUser,
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
             });
         });
@@ -1655,4 +1664,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-

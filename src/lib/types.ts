@@ -281,6 +281,7 @@ export type Notification = {
     status: NotificationStatus;
     payload: PassRequestPayload;
     createdAt: string | Timestamp;
+    resolvedBy?: AssignedUser;
     resolvedAt?: string | Timestamp;
 };
 
