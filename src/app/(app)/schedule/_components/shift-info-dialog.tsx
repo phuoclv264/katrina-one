@@ -29,6 +29,11 @@ type ShiftInfoDialogProps = {
   isProcessing: boolean;
 };
 
+type ColleagueInfo = {
+    user: ManagedUser;
+    shiftLabel: string;
+}
+
 export default function ShiftInfoDialog({
   isOpen,
   onClose,
@@ -52,12 +57,15 @@ export default function ShiftInfoDialog({
     const shiftStart = parseTime(shift.timeSlot.start);
     const shiftEnd = parseTime(shift.timeSlot.end);
 
-    const colleagueIds = new Set<string>();
+    const colleagueMap = new Map<string, ColleagueInfo>();
 
     // 1. Add colleagues from the SAME shift
     shift.assignedUsers.forEach(u => {
         if (u.userId !== currentUser.uid) {
-            colleagueIds.add(u.userId);
+            const user = allUsers.find(au => au.uid === u.userId);
+            if (user) {
+                colleagueMap.set(u.userId, { user, shiftLabel: shift.label });
+            }
         }
     });
 
@@ -69,21 +77,28 @@ export default function ShiftInfoDialog({
       shiftStart < parseTime(s.timeSlot.end)
     );
     
-    otherOverlappingShifts.forEach(s => {
-      s.assignedUsers.forEach(u => {
-          if (u.userId !== currentUser.uid) {
-             colleagueIds.add(u.userId);
+    otherOverlappingShifts.forEach(overlappingShift => {
+      overlappingShift.assignedUsers.forEach(u => {
+          if (u.userId !== currentUser.uid && !colleagueMap.has(u.userId)) {
+             const user = allUsers.find(au => au.uid === u.userId);
+             if (user) {
+                colleagueMap.set(u.userId, { user, shiftLabel: overlappingShift.label });
+             }
           }
       });
     });
 
-    const colleagues = allUsers.filter(u => colleagueIds.has(u.uid));
+    const colleagues = Array.from(colleagueMap.values());
 
     // Find available staff
     const availabilityForDay = schedule.availability.filter(a => a.date === shiftDate);
+    const assignedUserIdsInPeriod = new Set(colleagues.map(c => c.user.uid));
+    shift.assignedUsers.forEach(u => assignedUserIdsInPeriod.add(u.userId));
+
+
     const availableStaff = allUsers.filter(u => {
-        // Exclude self and current colleagues
-        if (shift.assignedUsers.some(au => au.userId === u.uid) || colleagueIds.has(u.uid)) {
+        // Exclude self and anyone already working in the period
+        if (assignedUserIdsInPeriod.has(u.uid)) {
             return false;
         }
         // Check availability
@@ -106,18 +121,18 @@ export default function ShiftInfoDialog({
         </DialogHeader>
         <Tabs defaultValue="colleagues" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="colleagues"><Users className="mr-2 h-4 w-4" />Đồng nghiệp ({colleagues.length})</TabsTrigger>
+            <TabsTrigger value="colleagues"><Users className="mr-2 h-4 w-4" />Nhân viên trong ca ({colleagues.length})</TabsTrigger>
             <TabsTrigger value="available"><UserCheck className="mr-2 h-4 w-4" />Nhân viên rảnh ({availableStaff.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="colleagues">
              <ScrollArea className="h-72 mt-4">
                 {colleagues.length > 0 ? (
                     <div className="space-y-2 pr-4">
-                    {colleagues.map(user => (
+                    {colleagues.map(({ user, shiftLabel }) => (
                         <Card key={user.uid}>
                         <CardContent className="p-3">
                             <p className="font-semibold">{user.displayName}</p>
-                            <p className="text-sm text-muted-foreground">{user.role}</p>
+                            <p className="text-sm text-muted-foreground">{shiftLabel} ({user.role})</p>
                         </CardContent>
                         </Card>
                     ))}
