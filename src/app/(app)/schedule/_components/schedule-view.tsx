@@ -238,7 +238,7 @@ export default function ScheduleView() {
         if (conflict) {
             toast({
                 title: 'Không thể nhận ca',
-                description: `Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`,
+                description: `Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.end}) mà bạn đã được phân công.`,
                 variant: 'destructive',
                 duration: 7000,
             });
@@ -248,8 +248,24 @@ export default function ScheduleView() {
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
-            // ALL roles will now go to pending_approval state
+            
             await dataStore.acceptPassShift(notification.id, acceptingUser);
+
+            // Optimistically update UI
+            setNotifications(prevNotifs => prevNotifs.map(n => {
+                if (n.id === notification.id) {
+                    return {
+                        ...n,
+                        status: 'pending_approval',
+                        payload: {
+                            ...n.payload,
+                            takenBy: acceptingUser
+                        }
+                    };
+                }
+                return n;
+            }));
+
             toast({ title: 'Thành công!', description: 'Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
@@ -273,7 +289,7 @@ export default function ScheduleView() {
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         try {
-            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
              toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
         } catch (error: any) {
              toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
@@ -283,7 +299,7 @@ export default function ScheduleView() {
     const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
          try {
-            await dataStore.revertPassRequest(notification);
+            await dataStore.revertPassRequest(notification, user);
             toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
         } catch (error) {
             console.error(error);
@@ -292,10 +308,11 @@ export default function ScheduleView() {
     }
 
      const handleApproveRequest = async (notification: Notification) => {
+        if (!user) return;
         (window as any).processingNotificationId = notification.id;
         setIsProcessing(true);
         try {
-            await dataStore.approvePassRequest(notification);
+            await dataStore.approvePassRequest(notification, user);
             toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
         } catch (error: any) {
             console.error(error);
@@ -307,10 +324,11 @@ export default function ScheduleView() {
     }
     
     const handleRejectApproval = async (notificationId: string) => {
-         (window as any).processingNotificationId = notificationId;
+         if (!user) return;
+        (window as any).processingNotificationId = notificationId;
         setIsProcessing(true);
         try {
-            await dataStore.rejectPassRequestApproval(notificationId);
+            await dataStore.rejectPassRequestApproval(notificationId, user);
             toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
         } catch (error) {
             console.error(error);
@@ -352,7 +370,8 @@ export default function ScheduleView() {
             if (n.status === 'pending') {
                 // For staff, count requests from others
                 if (!canManage) {
-                    return n.payload.requestingUser.userId !== user.uid;
+                    // Make sure it's not the user's own request and it's not declined
+                    return n.payload.requestingUser.userId !== user.uid && !(n.payload.declinedBy || []).includes(user.uid);
                 }
                 // For managers, count all pending requests
                 return true;
