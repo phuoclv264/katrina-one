@@ -471,6 +471,36 @@ export default function ScheduleView() {
         }
     }
 
+    const handleApproveRequest = async (notification: Notification) => {
+        (window as any).processingNotificationId = notification.id;
+        setIsSubmitting(true);
+        try {
+            await dataStore.approvePassRequest(notification);
+            toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: `Không thể phê duyệt: ${error.message}`, variant: 'destructive'});
+        } finally {
+            setIsSubmitting(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
+    
+    const handleRejectApproval = async (notificationId: string) => {
+         (window as any).processingNotificationId = notificationId;
+        setIsSubmitting(true);
+        try {
+            await dataStore.rejectPassRequestApproval(notificationId);
+            toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
+        } finally {
+            setIsSubmitting(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
+
     const handleAssignShift = (notification: Notification) => {
         const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
         const shiftToAssign = schedule.shifts.find(s => s.id === notification.payload.shiftId);
@@ -484,8 +514,8 @@ export default function ScheduleView() {
     const pendingRequestCount = useMemo(() => {
         if (!notifications) return 0;
         // Manager sees all pending requests
-        return notifications.filter(n => n.status === 'pending').length;
-    }, [notifications]);
+        return notifications.filter(n => (n.status === 'pending' || n.status === 'pending_approval') && isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)).length;
+    }, [notifications, weekInterval]);
 
     const handleUserClick = (user: ManagedUser) => {
         setSelectedUserForDetails(user);
@@ -916,6 +946,9 @@ export default function ScheduleView() {
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
                 onAssign={handleAssignShift}
+                onApprove={handleApproveRequest}
+                onRejectApproval={handleRejectApproval}
+                isProcessing={isSubmitting}
             />
             
             {selectedUserForDetails && (
