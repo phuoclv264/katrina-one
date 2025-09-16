@@ -293,9 +293,12 @@ export default function PassRequestsDialog({
                                                 </Badge>
                                             )}
                                             {notification.status === 'cancelled' && (
-                                                <Badge variant="destructive" className="mt-1">
-                                                    Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}
-                                                </Badge>
+                                                <div className="flex flex-col items-start gap-1 mt-1">
+                                                    <Badge variant="destructive">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>
+                                                    {payload.cancellationReason && (
+                                                        <p className="text-xs italic text-destructive">{payload.cancellationReason}</p>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                         <div className="flex items-end">

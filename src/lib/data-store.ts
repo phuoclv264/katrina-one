@@ -31,6 +31,7 @@ import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartender
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays } from 'date-fns';
+import { hasTimeConflict } from './schedule-utils';
 
 
 const getTodaysDateKey = () => {
@@ -421,6 +422,7 @@ export const dataStore = {
                 resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
                 'payload.takenBy': null,
+                 cancellationReason: null, // Clear cancellation reason
             });
         });
     },
@@ -436,17 +438,56 @@ export const dataStore = {
     async approvePassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
+        const takenBy = notification.payload.takenBy;
+
+        if (!takenBy) {
+            throw new Error("Không có người nhận ca để phê duyệt.");
+        }
+
+        const scheduleDoc = await getDoc(scheduleRef);
+        if (!scheduleDoc.exists()) {
+            throw new Error("Không tìm thấy lịch làm việc để kiểm tra xung đột.");
+        }
+        const scheduleData = scheduleDoc.data() as Schedule;
+        const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === notification.payload.shiftDate);
+        
+        const shiftToTake: AssignedShift = {
+            id: notification.payload.shiftId,
+            templateId: '', 
+            date: notification.payload.shiftDate,
+            label: notification.payload.shiftLabel,
+            role: notification.payload.shiftRole,
+            timeSlot: notification.payload.shiftTimeSlot,
+            assignedUsers: [], 
+            minUsers: 0,
+        };
+
+        const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
+        
+        if (conflict) {
+             // If conflict detected, cancel the notification with a reason
+            await updateDoc(notificationRef, {
+                status: 'cancelled',
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                resolvedAt: serverTimestamp(),
+                'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
+                'payload.takenBy': null,
+            });
+            throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
+        }
+
 
         await runTransaction(db, async (transaction) => {
-            const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+            // Re-fetch inside transaction to be safe
+            const freshScheduleDoc = await transaction.get(scheduleRef);
+            if (!freshScheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
             
-            const scheduleData = scheduleDoc.data() as Schedule;
-            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
+            const freshScheduleData = freshScheduleDoc.data() as Schedule;
+            const shiftToUpdate = freshScheduleData.shifts.find(s => s.id === notification.payload.shiftId);
             if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
 
             // Update Schedule
-            const updatedShifts = scheduleData.shifts.map(s => {
+            const updatedShifts = freshScheduleData.shifts.map(s => {
                 if (s.id === shiftToUpdate.id) {
                     const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
                     if (notification.payload.takenBy && !newAssignedUsers.some(u => u.userId === notification.payload.takenBy!.userId)) {

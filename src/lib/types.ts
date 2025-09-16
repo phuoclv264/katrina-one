@@ -273,6 +273,7 @@ export type PassRequestPayload = {
   takenBy?: AssignedUser; // The user who took over the shift
   declinedBy?: string[]; // Array of user IDs who declined
   targetUserId?: string; // For direct pass requests
+  cancellationReason?: string; // Reason for automatic cancellation
 }
 
 export type Notification = {
