@@ -90,10 +90,13 @@ export const dataStore = {
     subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
         
-        // Query for user's own requests
+        // Query for user's own requests OR requests targeted at the user
         const myRequestsQuery = query(
             notificationsCollection,
-            where('payload.requestingUser.userId', '==', userId),
+            or(
+                where('payload.requestingUser.userId', '==', userId),
+                where('payload.targetUserId', '==', userId)
+            ),
             orderBy('createdAt', 'desc')
         );
 
@@ -113,6 +116,9 @@ export const dataStore = {
             // Add other eligible requests
             otherRequests.forEach(n => {
                 const payload = n.payload;
+                // Don't show direct requests to others
+                if (payload.targetUserId) return;
+                
                 const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
                 const hasDeclined = (payload.declinedBy || []).includes(userId);
                 if (!isDifferentRole && !hasDeclined) {
@@ -349,6 +355,30 @@ export const dataStore = {
                     userId: requestingUser.uid,
                     userName: requestingUser.displayName
                 },
+                declinedBy: [],
+            }
+        };
+        await addDoc(collection(db, "notifications"), newNotification);
+    },
+
+    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser): Promise<void> {
+        const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+        const newNotification: Omit<Notification, 'id'> = {
+            type: 'pass_request',
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            payload: {
+                weekId: weekId,
+                shiftId: shiftToPass.id,
+                shiftLabel: shiftToPass.label,
+                shiftDate: shiftToPass.date,
+                shiftTimeSlot: shiftToPass.timeSlot,
+                shiftRole: shiftToPass.role,
+                requestingUser: {
+                    userId: requestingUser.uid,
+                    userName: requestingUser.displayName
+                },
+                targetUserId: targetUser.uid, // Add the target user ID
                 declinedBy: [],
             }
         };
@@ -1625,3 +1655,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+

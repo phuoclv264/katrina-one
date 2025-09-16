@@ -83,17 +83,22 @@ export default function PassRequestsDialog({
             pending.push(notification);
             return;
          }
-         // If I am a manager, I can see all pending approvals
+         // If I am a manager/owner, I can see all pending approvals
          if(notification.status === 'pending_approval' && (currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng')) {
              pending.push(notification);
              return;
          }
          // If status is 'pending', check if I am eligible to see it
          if (notification.status === 'pending') {
-            const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
-            const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
-            if (!isDifferentRole && !hasDeclined) {
-                pending.push(notification);
+            const isTargetedToMe = payload.targetUserId === currentUser.uid;
+            const isPublicRequest = !payload.targetUserId;
+            
+            if (isTargetedToMe || isPublicRequest) {
+                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
+                const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
+                if (!isDifferentRole && !hasDeclined) {
+                    pending.push(notification);
+                }
             }
          }
       } else { // 'resolved' or 'cancelled'
@@ -106,7 +111,7 @@ export default function PassRequestsDialog({
     // Sort pending requests by shift time (earliest first)
     pending.sort((a,b) => {
         const dateA = new Date(`${a.payload.shiftDate}T${a.payload.shiftTimeSlot.start}`);
-        const dateB = new Date(`${b.payload.shiftDate}T${b.payload.shiftTimeSlot.start}`);
+        const dateB = new Date(`${b.payload.shiftDate}T${b.payload.shiftTimeSlot.end}`);
         return dateA.getTime() - dateB.getTime();
     });
 
@@ -239,6 +244,9 @@ export default function PassRequestsDialog({
                                                 {notification.status === 'pending_approval' && payload.takenBy &&
                                                     <p className="flex items-center gap-2 font-medium text-amber-600"><Send />Được nhận bởi: {payload.takenBy.userName}</p>
                                                 }
+                                                 {payload.targetUserId && payload.targetUserId === currentUser.uid && !isMyRequest &&
+                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Yêu cầu trực tiếp cho bạn</p>
+                                                }
                                             </div>
                                         </div>
                                         <div className="flex items-end">
@@ -300,3 +308,4 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
+

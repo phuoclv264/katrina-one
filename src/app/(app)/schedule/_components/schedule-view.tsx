@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
@@ -40,6 +40,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import isEqual from 'lodash.isequal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
+import ShiftInfoDialog from './shift-info-dialog';
 
 
 export default function ScheduleView() {
@@ -57,6 +58,8 @@ export default function ScheduleView() {
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
+    const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+    const [activeShiftForInfo, setActiveShiftForInfo] = useState<AssignedShift | null>(null);
     const [selectedDateForAvailability, setSelectedDateForAvailability] = useState<Date | null>(null);
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
@@ -192,6 +195,21 @@ export default function ScheduleView() {
         } catch (error) {
             console.error("Failed to pass shift:", error);
             toast({ title: 'Lỗi', description: 'Không thể gửi yêu cầu pass ca.', variant: 'destructive' });
+        }
+    }
+    
+    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser) => {
+        if (!user) return;
+        setIsProcessing(true);
+        try {
+            await dataStore.requestDirectPassShift(shift, user, targetUser);
+            toast({ title: "Đã gửi yêu cầu", description: `Yêu cầu đổi ca đã được gửi trực tiếp đến ${targetUser.displayName}.`});
+            setIsInfoDialogOpen(false); // Close dialog on success
+        } catch(error: any) {
+            console.error("Failed to send direct pass request:", error);
+            toast({ title: 'Lỗi', description: `Không thể gửi yêu cầu: ${error.message}`, variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
         }
     }
 
@@ -505,14 +523,17 @@ export default function ScheduleView() {
                                                                                 </Button>
                                                                             </DropdownMenuTrigger>
                                                                             <DropdownMenuContent>
+                                                                                <DropdownMenuItem onSelect={() => { setActiveShiftForInfo(shift); setIsInfoDialogOpen(true); }}>
+                                                                                    <Users className="mr-2 h-4 w-4 text-blue-500" /> Xem thông tin ca
+                                                                                </DropdownMenuItem>
                                                                                 <AlertDialog>
                                                                                     <AlertDialogTrigger asChild>
                                                                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
-                                                                                            <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                                            <Send className="mr-2 h-4 w-4 text-green-500"/> Xin pass ca
                                                                                         </DropdownMenuItem>
                                                                                     </AlertDialogTrigger>
                                                                                     <AlertDialogContent>
-                                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận và được quản lý phê duyệt.</AlertDialogDescription></AlertDialogHeader>
                                                                                         <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
                                                                                     </AlertDialogContent>
                                                                                 </AlertDialog>
@@ -562,6 +583,18 @@ export default function ScheduleView() {
                 onRejectApproval={handleRejectApproval}
                 isProcessing={isProcessing}
             />
+            
+            {activeShiftForInfo && schedule && (
+                <ShiftInfoDialog
+                    isOpen={isInfoDialogOpen}
+                    onClose={() => setIsInfoDialogOpen(false)}
+                    shift={activeShiftForInfo}
+                    schedule={schedule}
+                    allUsers={allUsers}
+                    onDirectPassRequest={handleDirectPassRequest}
+                    isProcessing={isProcessing}
+                />
+            )}
         </TooltipProvider>
     );
 }
