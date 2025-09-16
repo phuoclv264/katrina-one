@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule, ManagedUser } from '@/lib/types';
@@ -55,7 +55,7 @@ function ShiftSummaryCard({
         };
 
         const mainShiftFrame = mainShiftTimeFrames[shiftKey];
-        if (!mainShiftFrame) return { assignedUsers: [], submittedUsers: [], absentUsers: [], uncompletedStartShiftTasks: [], uncompletedInShiftTasks: [], uncompletedEndShiftTasks: [], completedInShiftTasks: [], allStartShiftTasksUncompleted: false, allEndShiftTasksUncompleted: false };
+        if (!mainShiftFrame) return { assignedUsers: [], submittedUsers: [], absentUsers: [], uncompletedStartShiftTasks: [], uncompletedInShiftTasks: [], uncompletedEndShiftTasks: [], completedStartShiftTasks: [], completedInShiftTasks: [], completedEndShiftTasks: [], allStartShiftTasksUncompleted: false, allEndShiftTasksUncompleted: false };
 
         const mainShiftStart = parseTime(mainShiftFrame.start);
         const mainShiftEnd = parseTime(mainShiftFrame.end);
@@ -72,7 +72,6 @@ function ShiftSummaryCard({
             const isInMainShift = userShifts.some(userShift => {
                 const shiftStart = parseTime(userShift.timeSlot.start);
                 const shiftEnd = parseTime(userShift.timeSlot.end);
-                // Check for overlap: (StartA < EndB) and (StartB < EndA)
                 return shiftStart < mainShiftEnd && mainShiftStart < shiftEnd;
             });
 
@@ -85,7 +84,7 @@ function ShiftSummaryCard({
         const submittedUsers = Array.from(new Set(reports.map(r => r.staffName)));
         const absentUsers = assignedUsers.filter(u => !submittedUsers.includes(u));
 
-        const allCompletedTasks = new Map<string, { staffName: string; timestamp: string, photos?: string[] }[]>();
+        const allCompletedTasks = new Map<string, { staffName: string; completion: CompletionRecord }[]>();
         reports.forEach(report => {
             for (const taskId in report.completedTasks) {
                 if (!allCompletedTasks.has(taskId)) {
@@ -93,8 +92,7 @@ function ShiftSummaryCard({
                 }
                 const completionsWithStaff = report.completedTasks[taskId].map(comp => ({
                     staffName: report.staffName,
-                    timestamp: comp.timestamp,
-                    photos: comp.photos
+                    completion: comp
                 }));
                 allCompletedTasks.get(taskId)!.push(...completionsWithStaff);
             }
@@ -107,13 +105,21 @@ function ShiftSummaryCard({
         const uncompletedStartShiftTasks = startShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
         const uncompletedInShiftTasks = inShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
         const uncompletedEndShiftTasks = endShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
-            
-        const completedInShiftTasks = inShiftSection?.tasks
-            .map(task => ({
-                taskText: task.text,
-                completions: allCompletedTasks.get(task.id) || [],
-            }))
-            .filter(item => item.completions.length > 0) || [];
+        
+        const mapCompletedTasks = (section: typeof startShiftSection) => {
+            if (!section) return [];
+            return section.tasks
+                .map(task => ({
+                    taskText: task.text,
+                    taskType: task.type,
+                    completions: allCompletedTasks.get(task.id) || [],
+                }))
+                .filter(item => item.completions.length > 0);
+        };
+
+        const completedStartShiftTasks = mapCompletedTasks(startShiftSection);
+        const completedInShiftTasks = mapCompletedTasks(inShiftSection);
+        const completedEndShiftTasks = mapCompletedTasks(endShiftSection);
         
         const allStartShiftTasksUncompleted = startShiftSection ? uncompletedStartShiftTasks.length === startShiftSection.tasks.length : false;
         const allEndShiftTasksUncompleted = endShiftSection ? uncompletedEndShiftTasks.length === endShiftSection.tasks.length : false;
@@ -122,7 +128,9 @@ function ShiftSummaryCard({
             uncompletedStartShiftTasks, 
             uncompletedInShiftTasks,
             uncompletedEndShiftTasks, 
+            completedStartShiftTasks,
             completedInShiftTasks,
+            completedEndShiftTasks,
             allStartShiftTasksUncompleted,
             allEndShiftTasksUncompleted,
             assignedUsers,
@@ -132,7 +140,54 @@ function ShiftSummaryCard({
     }, [shift, shiftKey, date, reports, schedule, allUsers]);
 
     const hasUncompleted = summary.uncompletedStartShiftTasks.length > 0 || summary.uncompletedEndShiftTasks.length > 0 || summary.uncompletedInShiftTasks.length > 0;
-    const hasInShiftCompletions = summary.completedInShiftTasks.length > 0;
+    const hasCompleted = summary.completedStartShiftTasks.length > 0 || summary.completedInShiftTasks.length > 0 || summary.completedEndShiftTasks.length > 0;
+
+    const renderCompletedTaskList = (completedTasks: typeof summary.completedStartShiftTasks) => (
+         <div className="space-y-3">
+            {completedTasks.map(item => (
+                <div key={item.taskText} className="p-3 bg-card rounded-md border">
+                    <p className="font-medium mb-2">{item.taskText}</p>
+                    <ul className="space-y-2">
+                        {item.completions.map((comp, index) => (
+                            <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                <UserCheck className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                                <div>
+                                    <span className="font-semibold text-foreground">{comp.staffName}</span>
+                                    <span> lúc </span>
+                                    <span className="font-mono">{comp.completion.timestamp}</span>
+                                    
+                                     {item.taskType === 'boolean' && comp.completion.value !== undefined && (
+                                        <Badge variant={comp.completion.value ? "default" : "destructive"} className="ml-2">
+                                            {comp.completion.value ? <ThumbsUp className="h-3 w-3 mr-1"/> : <ThumbsDown className="h-3 w-3 mr-1"/>}
+                                            {comp.completion.value ? "Đảm bảo" : "Không đảm bảo"}
+                                        </Badge>
+                                    )}
+                                    {item.taskType === 'opinion' && comp.completion.opinion && (
+                                        <p className="text-xs italic bg-muted p-2 rounded-md border mt-1">"{comp.completion.opinion}"</p>
+                                    )}
+                                </div>
+                                {(comp.completion.photos && comp.completion.photos.length > 0) && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 ml-auto shrink-0" 
+                                        onClick={() => {
+                                            const slides = comp.completion.photos!.map(p => ({ 
+                                                src: p, 
+                                                description: `${item.taskText}\nThực hiện bởi: ${comp.staffName}\nLúc: ${comp.completion.timestamp}`
+                                            }));
+                                            onViewPhotos(slides, 0);
+                                        }}>
+                                        <ImageIcon className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </div>
+    );
 
     return (
         <Card className="mb-8 border-amber-500/50 bg-amber-50/20 dark:bg-amber-900/10">
@@ -155,6 +210,11 @@ function ShiftSummaryCard({
                                 <p className="font-medium text-sm mb-1 text-destructive">Nhân viên vắng (không nộp báo cáo):</p>
                                 <p className="text-sm font-semibold text-destructive">{summary.absentUsers.join(', ')}</p>
                             </div>
+                        )}
+                         {reports.length > 0 && summary.absentUsers.length === 0 && (
+                            <div className="p-3 bg-green-100/60 rounded-md border border-green-200/80">
+                               <p className="font-medium text-sm flex items-center gap-2 text-green-800"><CheckCircle className="h-4 w-4"/>Tất cả nhân viên được phân công đã nộp báo cáo.</p>
+                           </div>
                         )}
                     </div>
                 </div>
@@ -198,41 +258,29 @@ function ShiftSummaryCard({
                         </div>
                     </div>
                 )}
-                {hasInShiftCompletions && (
+                {hasCompleted && (
                      <div>
-                        <h4 className="font-semibold flex items-center gap-2 mb-2"><ListTodo/> Công việc đã làm trong ca</h4>
-                         <div className="space-y-3">
-                            {summary.completedInShiftTasks.map(item => (
-                                <div key={item.taskText} className="p-3 bg-card rounded-md border">
-                                    <p className="font-medium mb-2">{item.taskText}</p>
-                                    <ul className="space-y-1">
-                                        {item.completions.map((comp, index) => (
-                                            <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <UserCheck className="h-4 w-4 text-green-500" />
-                                                <span className="font-semibold text-foreground">{comp.staffName}</span>
-                                                <span>lúc</span>
-                                                <span className="font-mono">{comp.timestamp}</span>
-                                                 {(comp.photos && comp.photos.length > 0) && (
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="h-6 w-6 ml-auto" 
-                                                        onClick={() => {
-                                                            const slides = comp.photos!.map(p => ({ 
-                                                                src: p, 
-                                                                description: `${item.taskText}\nThực hiện bởi: ${comp.staffName}\nLúc: ${comp.timestamp}`
-                                                            }));
-                                                            onViewPhotos(slides, 0);
-                                                        }}>
-                                                        <ImageIcon className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><ListTodo/> Công việc đã hoàn thành</h4>
+                        <Accordion type="multiple" defaultValue={['start-shift-completed', 'in-shift-completed', 'end-shift-completed']} className="w-full space-y-2">
+                           {summary.completedStartShiftTasks.length > 0 && (
+                                <AccordionItem value="start-shift-completed" className="border rounded-md bg-card">
+                                    <AccordionTrigger className="p-3 font-medium hover:no-underline text-base">Đầu ca</AccordionTrigger>
+                                    <AccordionContent className="p-3 border-t">{renderCompletedTaskList(summary.completedStartShiftTasks)}</AccordionContent>
+                                </AccordionItem>
+                           )}
+                           {summary.completedInShiftTasks.length > 0 && (
+                                <AccordionItem value="in-shift-completed" className="border rounded-md bg-card">
+                                    <AccordionTrigger className="p-3 font-medium hover:no-underline text-base">Trong ca</AccordionTrigger>
+                                    <AccordionContent className="p-3 border-t">{renderCompletedTaskList(summary.completedInShiftTasks)}</AccordionContent>
+                                </AccordionItem>
+                           )}
+                           {summary.completedEndShiftTasks.length > 0 && (
+                                <AccordionItem value="end-shift-completed" className="border rounded-md bg-card">
+                                    <AccordionTrigger className="p-3 font-medium hover:no-underline text-base">Cuối ca</AccordionTrigger>
+                                    <AccordionContent className="p-3 border-t">{renderCompletedTaskList(summary.completedEndShiftTasks)}</AccordionContent>
+                                </AccordionItem>
+                           )}
+                        </Accordion>
                     </div>
                 )}
             </CardContent>
