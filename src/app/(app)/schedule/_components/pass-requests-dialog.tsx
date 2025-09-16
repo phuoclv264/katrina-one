@@ -39,11 +39,11 @@ type PassRequestsDialogProps = {
   weekInterval: { start: Date; end: Date };
   onAccept: (notification: Notification) => void;
   onDecline: (notification: Notification) => void;
-  onCancel: (notification: Notification) => void;
+  onCancel: (notificationId: string) => void;
   onRevert: (notification: Notification) => void;
   onAssign: (notification: Notification) => void;
   onApprove: (notification: Notification) => void;
-  onRejectApproval: (notification: Notification) => void;
+  onRejectApproval: (notificationId: string) => void;
   isProcessing: boolean;
 };
 
@@ -140,7 +140,7 @@ export default function PassRequestsDialog({
       if (notification.status === 'pending_approval' && (canOwnerApprove || canManagerApprove)) {
          return (
              <div className="flex gap-2 self-end sm:self-center">
-                 <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification)} disabled={isProcessingThis}>
+                 <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessingThis}>
                      {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>} Từ chối
                  </Button>
                  <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessingThis}>
@@ -164,7 +164,7 @@ export default function PassRequestsDialog({
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                          <AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ hủy yêu cầu của {payload.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
+                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             </div>
@@ -190,7 +190,7 @@ export default function PassRequestsDialog({
       // --- Staff Actions ---
       if (isMyRequest) {
           if (notification.status === 'pending') {
-              return <Button variant="outline" size="sm" onClick={() => onCancel(notification)} disabled={isProcessingThis}>Hủy yêu cầu</Button>
+              return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessingThis}>Hủy yêu cầu</Button>
           }
           if (notification.status === 'pending_approval') {
               return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>
