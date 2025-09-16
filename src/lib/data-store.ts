@@ -390,7 +390,15 @@ export const dataStore = {
         });
     },
 
-    async acceptPassShift(notification: Notification, acceptingUser: AssignedUser): Promise<void> {
+    async acceptPassShift(notificationId: string, acceptingUser: AssignedUser): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
+        await updateDoc(notificationRef, {
+            status: 'pending_approval',
+            'payload.takenBy': acceptingUser
+        });
+    },
+
+    async approvePassRequest(notification: Notification): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
@@ -402,43 +410,32 @@ export const dataStore = {
             const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
             if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
 
-            // --- Conflict Check ---
-            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`).getTime();
-            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`).getTime();
-
-            const existingUserShifts = scheduleData.shifts.filter(existingShift =>
-                existingShift.date === shiftToUpdate.date && existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId)
-            );
-
-            const hasConflict = existingUserShifts.some(existingShift => {
-                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`).getTime();
-                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`).getTime();
-                // Overlap exists if (StartA < EndB) and (StartB < EndA)
-                return shiftStartTime < existingEndTime && existingStartTime < shiftEndTime;
-            });
-            
-            if (hasConflict) throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
-            // --- End Conflict Check ---
-
-            // 1. Update Schedule
+            // Update Schedule
             const updatedShifts = scheduleData.shifts.map(s => {
                 if (s.id === shiftToUpdate.id) {
                     const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
-                    if (!newAssignedUsers.some(u => u.userId === acceptingUser.userId)) {
-                        newAssignedUsers.push(acceptingUser);
+                    if (notification.payload.takenBy && !newAssignedUsers.some(u => u.userId === notification.payload.takenBy!.userId)) {
+                        newAssignedUsers.push(notification.payload.takenBy);
                     }
                     return { ...s, assignedUsers: newAssignedUsers };
                 }
                 return s;
             });
-             transaction.update(scheduleRef, { shifts: updatedShifts });
+            transaction.update(scheduleRef, { shifts: updatedShifts });
             
-            // 2. Update Notification
+            // Update Notification
             transaction.update(notificationRef, {
                 status: 'resolved',
-                'payload.takenBy': acceptingUser,
                 resolvedAt: serverTimestamp(),
             });
+        });
+    },
+    
+    async rejectPassRequestApproval(notificationId: string): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
+        await updateDoc(notificationRef, {
+            status: 'pending',
+            'payload.takenBy': null
         });
     },
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2 } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
@@ -52,6 +53,7 @@ export default function ScheduleView() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
@@ -195,11 +197,13 @@ export default function ScheduleView() {
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
+        
+        (window as any).processingNotificationId = notification.id;
+        setIsProcessing(true);
     
         const { payload } = notification;
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
         
-        // Construct a temporary shift object representing the one to be taken
         const shiftToTake: AssignedShift = {
             id: payload.shiftId,
             templateId: '', // Not needed for conflict check
@@ -207,8 +211,8 @@ export default function ScheduleView() {
             label: payload.shiftLabel,
             role: payload.shiftRole,
             timeSlot: payload.shiftTimeSlot,
-            assignedUsers: [], // Not relevant for this check
-            minUsers: 0,       // Not relevant for this check
+            assignedUsers: [], 
+            minUsers: 0,
         };
     
         const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
@@ -220,17 +224,20 @@ export default function ScheduleView() {
                 variant: 'destructive',
                 duration: 7000,
             });
+            setIsProcessing(false);
             return;
         }
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
-            await dataStore.acceptPassShift(notification, acceptingUser);
-            toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
+            await dataStore.acceptPassShift(notification.id, acceptingUser);
+            toast({ title: 'Thành công!', description: 'Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
-            // The error from dataStore (server-side check) will be more specific
             toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
+            delete (window as any).processingNotificationId;
         }
     }
 
@@ -264,6 +271,36 @@ export default function ScheduleView() {
             toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
         }
     }
+
+     const handleApproveRequest = async (notification: Notification) => {
+        (window as any).processingNotificationId = notification.id;
+        setIsProcessing(true);
+        try {
+            await dataStore.approvePassRequest(notification);
+            toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: `Không thể phê duyệt: ${error.message}`, variant: 'destructive'});
+        } finally {
+            setIsProcessing(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
+    
+    const handleRejectApproval = async (notificationId: string) => {
+         (window as any).processingNotificationId = notificationId;
+        setIsProcessing(true);
+        try {
+            await dataStore.rejectPassRequestApproval(notificationId);
+            toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
+        } finally {
+            setIsProcessing(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
     
     const userAvailability = useMemo(() => {
         if (!user || !schedule || !Array.isArray(schedule.availability)) {
@@ -285,15 +322,30 @@ export default function ScheduleView() {
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     const pendingRequestCount = useMemo(() => {
-        if (!notifications) return 0;
+        if (!notifications || !user) return 0;
         return notifications.filter(n => {
-            if (n.type !== 'pass_request' || n.status !== 'pending') return false;
+            if (n.type !== 'pass_request') return false;
             
             // Filter by current week
             const shiftDate = parseISO(n.payload.shiftDate);
-            return isWithinInterval(shiftDate, weekInterval);
+            if (!isWithinInterval(shiftDate, weekInterval)) return false;
+
+            if (n.status === 'pending') {
+                // For staff, count requests from others
+                if (!canManage) {
+                    return n.payload.requestingUser.userId !== user.uid;
+                }
+                // For managers, count all pending requests
+                return true;
+            }
+            if (n.status === 'pending_approval' && canManage) {
+                // Only managers/owners see pending approvals
+                return true;
+            }
+            
+            return false;
         }).length;
-    }, [notifications, weekInterval]);
+    }, [notifications, weekInterval, user, canManage]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
         return notifications.some(n => n.payload.shiftId === shiftId && n.status === 'pending');
@@ -506,6 +558,9 @@ export default function ScheduleView() {
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
                 onAssign={() => { /* TODO */ }}
+                onApprove={handleApproveRequest}
+                onRejectApproval={handleRejectApproval}
+                isProcessing={isProcessing}
             />
         </TooltipProvider>
     );
