@@ -12,11 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, UserCheck, Send, Loader2 } from 'lucide-react';
-import type { ManagedUser, Schedule, AssignedShift, Availability } from '@/lib/types';
+import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/hooks/use-auth';
 
 type ShiftInfoDialogProps = {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function ShiftInfoDialog({
   onDirectPassRequest,
   isProcessing,
 }: ShiftInfoDialogProps) {
+  const { user: currentUser } = useAuth();
 
   const parseTime = (time: string): number => {
     const [hours, minutes] = time.split(':').map(Number);
@@ -44,23 +46,35 @@ export default function ShiftInfoDialog({
   };
   
   const { colleagues, availableStaff } = useMemo(() => {
-    if (!shift || !schedule) return { colleagues: [], availableStaff: [] };
+    if (!shift || !schedule || !currentUser) return { colleagues: [], availableStaff: [] };
 
     const shiftDate = shift.date;
     const shiftStart = parseTime(shift.timeSlot.start);
     const shiftEnd = parseTime(shift.timeSlot.end);
 
-    // Find colleagues
-    const overlappingShifts = schedule.shifts.filter(s =>
+    const colleagueIds = new Set<string>();
+
+    // 1. Add colleagues from the SAME shift
+    shift.assignedUsers.forEach(u => {
+        if (u.userId !== currentUser.uid) {
+            colleagueIds.add(u.userId);
+        }
+    });
+
+    // 2. Find colleagues from OTHER overlapping shifts
+    const otherOverlappingShifts = schedule.shifts.filter(s =>
       s.date === shiftDate &&
       s.id !== shift.id &&
       parseTime(s.timeSlot.start) < shiftEnd &&
       shiftStart < parseTime(s.timeSlot.end)
     );
-
-    const colleagueIds = new Set<string>();
-    overlappingShifts.forEach(s => {
-      s.assignedUsers.forEach(u => colleagueIds.add(u.userId));
+    
+    otherOverlappingShifts.forEach(s => {
+      s.assignedUsers.forEach(u => {
+          if (u.userId !== currentUser.uid) {
+             colleagueIds.add(u.userId);
+          }
+      });
     });
 
     const colleagues = allUsers.filter(u => colleagueIds.has(u.uid));
@@ -68,14 +82,16 @@ export default function ShiftInfoDialog({
     // Find available staff
     const availabilityForDay = schedule.availability.filter(a => a.date === shiftDate);
     const availableStaff = allUsers.filter(u => {
-        // Exclude self
-        if (shift.assignedUsers.some(au => au.userId === u.uid)) return false;
+        // Exclude self and current colleagues
+        if (shift.assignedUsers.some(au => au.userId === u.uid) || colleagueIds.has(u.uid)) {
+            return false;
+        }
         // Check availability
         return isUserAvailable(u.uid, shift.timeSlot, availabilityForDay);
     });
 
     return { colleagues, availableStaff };
-  }, [shift, schedule, allUsers]);
+  }, [shift, schedule, allUsers, currentUser]);
 
   if (!shift) return null;
 
