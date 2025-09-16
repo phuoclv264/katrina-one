@@ -681,7 +681,8 @@ export default function InventoryPage() {
                     {areAllUncheckedOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
                 </Button>
             </div>
-            <ScrollArea className="max-h-60 w-full rounded-md border bg-muted/30 p-3">
+            <ScrollArea className="max-h-60 w-full rounded-md border">
+              <div className="bg-background p-3">
                 <Accordion 
                     type="multiple" 
                     value={openUncheckedCategories} 
@@ -712,6 +713,7 @@ export default function InventoryPage() {
                     </AccordionItem>
                     ))}
                 </Accordion>
+              </div>
             </ScrollArea>
         </div>
 
