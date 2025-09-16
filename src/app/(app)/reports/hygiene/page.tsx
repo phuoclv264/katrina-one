@@ -446,6 +446,7 @@ function HygieneReportView() {
         slides={allPagePhotos}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
+        carousel={{ finite: true }}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
         captions={{ 

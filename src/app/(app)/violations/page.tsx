@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -869,6 +868,7 @@ export default function ViolationsPage() {
             close={() => setLightboxOpen(false)}
             index={lightboxIndex}
             slides={lightboxSlides}
+            carousel={{ finite: true }}
         />
     </>
   );

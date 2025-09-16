@@ -334,7 +334,7 @@ function ComprehensiveReportView() {
                                                 <span>Kiểm tra lúc: {completion.timestamp}</span>
                                             </div>
                                              {completion.value !== undefined && (
-                                              <Badge variant={completion.value ? "default" : "destructive"} className="ml-auto">
+                                              <Badge variant={completion.value ? 'default' : 'destructive'} className="ml-auto">
                                                 {completion.value ? "Đảm bảo" : "Không đảm bảo"}
                                               </Badge>
                                             )}
@@ -392,6 +392,7 @@ function ComprehensiveReportView() {
         slides={allPagePhotos}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
+        carousel={{ finite: true }}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
         captions={{ 

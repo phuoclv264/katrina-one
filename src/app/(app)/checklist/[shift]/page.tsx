@@ -777,6 +777,7 @@ export default function ChecklistPage() {
         slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
+        carousel={{ finite: true }}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
         captions={{ 
@@ -788,4 +789,5 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
+
 
