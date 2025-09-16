@@ -248,6 +248,7 @@ export default function ScheduleView() {
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
+            // ALL roles will now go to pending_approval state
             await dataStore.acceptPassShift(notification.id, acceptingUser);
             toast({ title: 'Thành công!', description: 'Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.'});
         } catch (error: any) {
@@ -578,7 +579,7 @@ export default function ScheduleView() {
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
-                onAssign={() => { /* TODO */ }}
+                onAssign={() => { /* Implemented in shift-scheduling */ }}
                 onApprove={handleApproveRequest}
                 onRejectApproval={handleRejectApproval}
                 isProcessing={isProcessing}

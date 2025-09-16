@@ -133,7 +133,7 @@ export default function PassRequestsDialog({
       const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
       const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestInvolvingManager;
       
-      const isProcessingThis = isProcessing && (notification.id === (window as any).processingNotificationId);
+      const isProcessingThis = isProcessing && (window as any).processingNotificationId === notification.id;
 
 
       // --- Manager / Owner Actions ---
@@ -308,4 +308,3 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
-
