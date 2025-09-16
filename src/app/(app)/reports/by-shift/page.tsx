@@ -35,7 +35,7 @@ function ShiftSummaryCard({
     shift: Shift, 
     reports: ShiftReport[],
     schedule: Schedule | null,
-    onViewPhotos: (photos: {src: string}[]) => void
+    onViewPhotos: (photos: {src: string, description: string}[], startIndex: number) => void
 }) {
     const summary = useMemo(() => {
         const allCompletedTasks = new Map<string, { staffName: string; timestamp: string, photos?: string[] }[]>();
@@ -174,7 +174,17 @@ function ShiftSummaryCard({
                                                 <span>lúc</span>
                                                 <span className="font-mono">{comp.timestamp}</span>
                                                  {(comp.photos && comp.photos.length > 0) && (
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => onViewPhotos(comp.photos!.map(p => ({ src: p })))}>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-6 w-6 ml-auto" 
+                                                        onClick={() => {
+                                                            const slides = comp.photos!.map(p => ({ 
+                                                                src: p, 
+                                                                description: `${item.taskText}\nThực hiện bởi: ${comp.staffName}\nLúc: ${comp.timestamp}`
+                                                            }));
+                                                            onViewPhotos(slides, 0);
+                                                        }}>
                                                         <ImageIcon className="h-4 w-4" />
                                                     </Button>
                                                 )}
@@ -209,7 +219,7 @@ function ReportView() {
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string, description?: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // --- Back button handling for Lightbox ---
@@ -330,39 +340,9 @@ function ReportView() {
     return tasksByShift && shiftKey ? tasksByShift[shiftKey] : null;
   }, [tasksByShift, shiftKey]);
   
-  const allPagePhotos = useMemo(() => {
-    if (!shift || !reportToView) return [];
-
-    const findTaskText = (taskId: string): string => {
-        for (const section of shift.sections) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in reportToView.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = reportToView.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-            if (completion.photos) {
-              for (const photoUrl of completion.photos) {
-                  const staffCredit = (completion as any).staffName ? `Thực hiện bởi: ${(completion as any).staffName}\n` : '';
-                  photos.push({
-                      src: photoUrl,
-                      description: `${taskText}\n${staffCredit}Lúc: ${completion.timestamp}`
-                  });
-              }
-            }
-        }
-    }
-    return photos;
-  }, [shift, reportToView]);
-
-  const openLightbox = (photos: {src: string, description?: string}[]) => {
-      setLightboxSlides(photos);
-      setLightboxIndex(0);
+  const openLightbox = (slides: {src: string, description?: string}[], startIndex: number = 0) => {
+      setLightboxSlides(slides);
+      setLightboxIndex(startIndex);
       setIsLightboxOpen(true);
   };
 
@@ -595,7 +575,14 @@ function ReportView() {
                                                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                                             {completion.photos.map((photo, pIndex) => (
                                                                 <button
-                                                                  onClick={() => openLightbox(completion.photos!.map(p => ({src: p})))}
+                                                                  onClick={() => {
+                                                                      const slides = completion.photos!.map(p => ({
+                                                                          src: p,
+                                                                          description: `${task.text}\nThực hiện bởi: ${(completion as any).staffName || reportToView.staffName}\nLúc: ${completion.timestamp}`
+                                                                      }));
+                                                                      const currentPhotoIndex = completion.photos!.findIndex(p => p === photo);
+                                                                      openLightbox(slides, currentPhotoIndex);
+                                                                  }}
                                                                   key={photo.slice(0, 50) + pIndex}
                                                                   className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
                                                                 >
