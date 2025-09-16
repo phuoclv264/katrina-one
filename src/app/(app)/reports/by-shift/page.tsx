@@ -101,6 +101,13 @@ function ShiftSummaryCard({
                 allCompletedTasks.get(taskId)!.push(...completionsWithStaff);
             }
         });
+        
+        // Sort completions by timestamp
+        allCompletedTasks.forEach((completions) => {
+            completions.sort((a, b) => {
+                return a.completion.timestamp.localeCompare(b.completion.timestamp);
+            });
+        });
 
         const startShiftSection = shift.sections.find(s => s.title === 'Đầu ca');
         const endShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
