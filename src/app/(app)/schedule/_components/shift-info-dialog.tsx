@@ -69,7 +69,7 @@ export default function ShiftInfoDialog({
     const availabilityForDay = schedule.availability.filter(a => a.date === shiftDate);
     const availableStaff = allUsers.filter(u => {
         // Exclude self
-        if (u.uid === shift.assignedUsers[0]?.userId) return false;
+        if (shift.assignedUsers.some(au => au.userId === u.uid)) return false;
         // Check availability
         return isUserAvailable(u.uid, shift.timeSlot, availabilityForDay);
     });
