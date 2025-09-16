@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -286,6 +287,7 @@ export default function ScheduleView() {
     };
     
     const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
+        if (!user) return;
         const baseSchedule = localSchedule ?? {
             weekId,
             status: 'draft',
@@ -299,7 +301,7 @@ export default function ScheduleView() {
             if (userToAssign) {
                 setIsSubmitting(true);
                 try {
-                    await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign);
+                    await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign, user);
                     toast({ title: 'Thành công!', description: `Đã chỉ định ca cho ${userToAssign.userName}.` });
                 } catch (error: any) {
                     toast({ title: 'Lỗi', description: `Không thể chỉ định ca: ${error.message}`, variant: 'destructive' });
@@ -329,7 +331,7 @@ export default function ScheduleView() {
             }
         }
         handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
-    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast, weekId]);
+    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast, weekId, user]);
 
     const handleSaveChanges = async () => {
         if (!localSchedule || !hasUnsavedChanges) return;
@@ -453,8 +455,8 @@ export default function ScheduleView() {
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         try {
-            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
-             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
+             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca.'});
         } catch (error: any) {
              toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
         }
@@ -463,7 +465,7 @@ export default function ScheduleView() {
      const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
          try {
-            await dataStore.revertPassRequest(notification);
+            await dataStore.revertPassRequest(notification, user);
             toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
         } catch (error) {
             console.error(error);
@@ -472,10 +474,11 @@ export default function ScheduleView() {
     }
 
     const handleApproveRequest = async (notification: Notification) => {
+        if (!user) return;
         (window as any).processingNotificationId = notification.id;
         setIsSubmitting(true);
         try {
-            await dataStore.approvePassRequest(notification);
+            await dataStore.approvePassRequest(notification, user);
             toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
         } catch (error: any) {
             console.error(error);
@@ -487,10 +490,11 @@ export default function ScheduleView() {
     }
     
     const handleRejectApproval = async (notificationId: string) => {
-         (window as any).processingNotificationId = notificationId;
+        if (!user) return;
+        (window as any).processingNotificationId = notificationId;
         setIsSubmitting(true);
         try {
-            await dataStore.rejectPassRequestApproval(notificationId);
+            await dataStore.rejectPassRequestApproval(notificationId, user);
             toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
         } catch (error) {
             console.error(error);
@@ -954,7 +958,7 @@ export default function ScheduleView() {
             {selectedUserForDetails && (
                 <UserDetailsDialog
                     isOpen={isUserDetailsDialogOpen}
-                    onClose={() => setIsUserDetailsDialogOpen(false)}
+                    onClose={() => setSelectedUserForDetails(null)}
                     user={selectedUserForDetails}
                     weekAvailability={(localSchedule?.availability || []).filter(a => a.userId === selectedUserForDetails.uid)}
                 />
