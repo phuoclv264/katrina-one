@@ -7,10 +7,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { ShiftReport, CompletionRecord, TasksByShift } from '@/lib/types';
+import type { ShiftReport, CompletionRecord, TasksByShift, Shift } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -23,6 +23,107 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+
+
+function ShiftSummaryCard({ shift, reports }: { shift: Shift, reports: ShiftReport[] }) {
+    const summary = useMemo(() => {
+        const allCompletedTasks = new Map<string, { staffName: string; timestamp: string }[]>();
+        reports.forEach(report => {
+            for (const taskId in report.completedTasks) {
+                if (!allCompletedTasks.has(taskId)) {
+                    allCompletedTasks.set(taskId, []);
+                }
+                const completionsWithStaff = report.completedTasks[taskId].map(comp => ({
+                    staffName: report.staffName,
+                    timestamp: comp.timestamp,
+                }));
+                allCompletedTasks.get(taskId)!.push(...completionsWithStaff);
+            }
+        });
+
+        const uncompletedStartShiftTasks = shift.sections
+            .find(s => s.title === 'Đầu ca')?.tasks
+            .filter(task => !allCompletedTasks.has(task.id)) || [];
+            
+        const uncompletedEndShiftTasks = shift.sections
+            .find(s => s.title === 'Cuối ca')?.tasks
+            .filter(task => !allCompletedTasks.has(task.id)) || [];
+
+        const inShiftSection = shift.sections.find(s => s.title === 'Trong ca');
+        const completedInShiftTasks = inShiftSection?.tasks
+            .map(task => ({
+                taskText: task.text,
+                completions: allCompletedTasks.get(task.id) || [],
+            }))
+            .filter(item => item.completions.length > 0) || [];
+            
+        return { uncompletedStartShiftTasks, uncompletedEndShiftTasks, completedInShiftTasks };
+    }, [shift, reports]);
+
+    const hasUncompleted = summary.uncompletedStartShiftTasks.length > 0 || summary.uncompletedEndShiftTasks.length > 0;
+    const hasInShiftCompletions = summary.completedInShiftTasks.length > 0;
+
+    if (!hasUncompleted && !hasInShiftCompletions) {
+        return null; // Don't render the card if there's nothing to show
+    }
+
+    return (
+        <Card className="mb-8 border-amber-500/50 bg-amber-50/20 dark:bg-amber-900/10">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <Info className="h-5 w-5" /> Tóm tắt báo cáo ca
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {hasUncompleted && (
+                     <div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><ListX/> Công việc chưa hoàn thành</h4>
+                        <div className="space-y-3">
+                        {summary.uncompletedStartShiftTasks.length > 0 && (
+                            <div className="p-3 bg-card rounded-md border">
+                                <p className="font-medium text-sm mb-1 text-muted-foreground">Đầu ca:</p>
+                                <ul className="list-disc pl-5 space-y-1 text-sm">
+                                    {summary.uncompletedStartShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                        {summary.uncompletedEndShiftTasks.length > 0 && (
+                             <div className="p-3 bg-card rounded-md border">
+                                <p className="font-medium text-sm mb-1 text-muted-foreground">Cuối ca:</p>
+                                <ul className="list-disc pl-5 space-y-1 text-sm">
+                                    {summary.uncompletedEndShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                        </div>
+                    </div>
+                )}
+                {hasInShiftCompletions && (
+                     <div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><ListTodo/> Công việc đã làm trong ca</h4>
+                         <div className="space-y-3">
+                            {summary.completedInShiftTasks.map(item => (
+                                <div key={item.taskText} className="p-3 bg-card rounded-md border">
+                                    <p className="font-medium mb-2">{item.taskText}</p>
+                                    <ul className="space-y-1">
+                                        {item.completions.map((comp, index) => (
+                                            <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <UserCheck className="h-4 w-4 text-green-500" />
+                                                <span className="font-semibold text-foreground">{comp.staffName}</span>
+                                                <span>lúc</span>
+                                                <span className="font-mono">{comp.timestamp}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
 
 
 function ReportView() {
@@ -337,6 +438,8 @@ function ReportView() {
             </Card>
         </div>
       </header>
+
+      <ShiftSummaryCard shift={shift} reports={reports} />
 
     {!reportToView ? (
         <div className="text-center py-16 text-muted-foreground">
