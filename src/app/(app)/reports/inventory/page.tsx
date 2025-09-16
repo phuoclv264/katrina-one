@@ -1,5 +1,4 @@
 
-
 'use client';
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import Link from 'next/link';
@@ -663,6 +662,7 @@ function InventoryReportView() {
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}
         slides={lightboxSlides}
+        carousel={{ finite: true }}
     />
     </>
   );

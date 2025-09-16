@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -1508,6 +1509,13 @@ export const dataStore = {
     const violationRef = doc(db, 'violations', violationId);
     await updateDoc(violationRef, {
       isFlagged: !currentState
+    });
+  },
+
+  async toggleViolationPenaltyWaived(violationId: string, currentState: boolean): Promise<void> {
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      isPenaltyWaived: !currentState
     });
   },
 

@@ -49,7 +49,7 @@ const SubmissionNotesSection = forwardRef<HTMLDivElement, SubmissionNotesSection
             </CardHeader>
             <CardContent>
                 <Textarea
-                    placeholder="Khách có phàn nàn gì không? Có bất cứ vấn đề gì muốn đề xuất thì cứ nói nhé! (Có thể bỏ trống)"
+                    placeholder="Khách có phàn nàn gì không? Có bất cứ vấn đề gì muốn đề xuất thì cứ nói nhé!"
                     rows={5}
                     value={notes}
                     onChange={handleChange}

@@ -25,6 +25,8 @@ const ParsedInventoryItemSchema = z.object({
     unit: z.string().describe('The unit of measurement for the item (e.g., "kg", "box", "lon", "cây").'),
     minStock: z.number().describe('The minimum required stock level for this item.'),
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
+    isImportant: z.boolean().optional().describe('Whether this item requires a stock count to submit the report.'),
+    requiresPhoto: z.boolean().optional().describe('Whether this item requires a photo as proof.'),
 });
 
 const GenerateInventoryListOutputSchema = z.object({
@@ -49,8 +51,10 @@ The input contains a list of products for a coffee shop. You must extract the fo
 - unit: The unit of measurement (e.g., kg, gram, hộp, gói, lon, cây, etc.).
 - minStock: The minimum stock quantity required.
 - orderSuggestion: The suggested quantity to order when stock is low.
+- isImportant: A boolean. If the text indicates this is a critical or mandatory item to check, set this to true. Default to false.
+- requiresPhoto: A boolean. If the text mentions needing a photo or visual proof, set this to true. Default to false.
 
-The input text could be a table pasted from a spreadsheet, or it could be a multi-line string where each line represents an item, with fields separated by a hyphen '-'. The order of fields in the hyphen-separated format is: Category-Name-Supplier-Unit-MinStock-OrderSuggestion.
+The input text could be a table pasted from a spreadsheet, or it could be a multi-line string where each line represents an item, with fields separated by a hyphen '-'.
 
 Analyze the following input and extract all items. Pay close attention to the columns, rows, or separators.
 If the input is an image, use OCR to read the text from the image first.

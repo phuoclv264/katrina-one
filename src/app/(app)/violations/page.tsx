@@ -481,6 +481,23 @@ export default function ViolationsPage() {
         }
     };
     
+    const handleToggleWaivePenalty = async (violation: Violation) => {
+        if (user?.role !== 'Chủ nhà hàng') return;
+        setProcessingViolationId(violation.id);
+        try {
+            await dataStore.toggleViolationPenaltyWaived(violation.id, !!violation.isPenaltyWaived);
+            toast({
+                title: 'Thành công',
+                description: violation.isPenaltyWaived ? 'Đã hủy miễn phạt.' : 'Đã miễn phạt cho vi phạm này.',
+            });
+        } catch (error) {
+            console.error("Failed to waive penalty:", error);
+            toast({ title: 'Lỗi', description: 'Không thể thay đổi trạng thái miễn phạt.', variant: 'destructive' });
+        } finally {
+            setProcessingViolationId(null);
+        }
+    }
+
     const handleCommentSubmit = async (violationId: string, commentText: string, photoIds: string[]) => {
       if (!user) return;
       setProcessingViolationId(violationId);
@@ -687,9 +704,21 @@ export default function ViolationsPage() {
                                 const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
+                                const isWaived = v.isPenaltyWaived === true;
+
+                                let borderClass = "border-primary/50";
+                                let bgClass = "bg-card";
+                                if (v.isFlagged) {
+                                    borderClass = "border-red-500/30";
+                                    bgClass = "bg-red-500/10";
+                                } else if (isWaived) {
+                                    borderClass = "border-green-500/30";
+                                    bgClass = "bg-green-500/10";
+                                }
+
 
                                 return (
-                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", v.isFlagged ? "bg-red-500/10 border-red-500/30" : "border-primary/50")}>
+                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", borderClass, bgClass)}>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
@@ -700,9 +729,14 @@ export default function ViolationsPage() {
                                         </div>
                                          <div className="flex gap-1 self-end sm:self-start">
                                             {isOwner && (
-                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
-                                                    <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-muted-foreground")} />
-                                                </Button>
+                                                <>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
+                                                        <Flag className={cn("h-4 w-4", isWaived ? "text-green-500 fill-green-500" : "text-green-500")} />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
+                                                        <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-red-500")} />
+                                                    </Button>
+                                                </>
                                             )}
                                             {canManage && (
                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
@@ -739,7 +773,12 @@ export default function ViolationsPage() {
                                     )}
                                      <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-2">
                                         <div>
-                                            {v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
+                                            {isWaived ? (
+                                                <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
+                                                    <CheckCircle className="h-4 w-4" />
+                                                    <span>Đã được miễn phạt.</span>
+                                                </div>
+                                            ) : v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
                                                     <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                         <CheckCircle className="h-4 w-4" />
@@ -829,6 +868,7 @@ export default function ViolationsPage() {
             close={() => setLightboxOpen(false)}
             index={lightboxIndex}
             slides={lightboxSlides}
+            carousel={{ finite: true }}
         />
     </>
   );

@@ -7,7 +7,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Star, Pencil, Type } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -110,6 +110,8 @@ function AiAssistant({
                     generatedNewItems.push({
                          ...item,
                         id: `item-${Date.now()}-${Math.random()}`,
+                        isImportant: item.isImportant ?? false,
+                        requiresPhoto: item.requiresPhoto ?? false,
                         dataType: 'number', // Default new items to number
                     });
                 }
@@ -233,6 +235,13 @@ function AiAssistant({
             return <span key={index} className={color}>{part.value}</span>;
         });
     };
+    
+    const renderBooleanDiff = (oldValue: boolean | undefined, newValue: boolean | undefined) => {
+        const oldText = oldValue ? 'CÓ' : 'KHÔNG';
+        const newText = newValue ? 'CÓ' : 'KHÔNG';
+        if (oldValue === newValue) return newText;
+        return <span className="bg-green-200 dark:bg-green-900/50">{newText}</span>;
+    }
 
     return (
         <>
@@ -297,7 +306,7 @@ function AiAssistant({
                         </TabsContent>
                          <TabsContent value="edit" className="mt-4 space-y-4">
                              <Textarea
-                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'đổi nhà cung cấp của tất cả siro thành ABC'"
+                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'bỏ yêu cầu ảnh cho tất cả siro'"
                                 rows={3}
                                 value={updateInstruction}
                                 onChange={(e) => setUpdateInstruction(e.target.value)}
@@ -447,15 +456,18 @@ function AiAssistant({
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[35%]">Tên mặt hàng</TableHead>
-                                    <TableHead className="w-[20%]">Nhà cung cấp</TableHead>
+                                    <TableHead className="w-[30%]">Tên mặt hàng</TableHead>
+                                    <TableHead>Nhóm</TableHead>
+                                    <TableHead>NCC</TableHead>
                                     <TableHead>Đơn vị</TableHead>
                                     <TableHead>Tồn tối thiểu</TableHead>
-                                    <TableHead>Gợi ý đặt hàng</TableHead>
+                                    <TableHead>Gợi ý đặt</TableHead>
+                                    <TableHead>Bắt buộc?</TableHead>
+                                    <TableHead>Y/c ảnh?</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {updatePreview.newList.map((newItem, index) => {
+                                {updatePreview.newList.map((newItem) => {
                                     const oldItem = updatePreview.oldList.find(item => item.id === newItem.id);
                                     if (!oldItem) return null;
                                     
@@ -464,10 +476,13 @@ function AiAssistant({
                                     return (
                                         <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}>
                                             <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
                                             <TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell>
+                                            <TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell>
+                                            <TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell>
                                         </TableRow>
                                     )
                                 })}
@@ -624,6 +639,8 @@ export default function InventoryManagementPage() {
       minStock: 1,
       orderSuggestion: '1',
       dataType: 'number',
+      isImportant: false,
+      requiresPhoto: false,
     };
     const newList = [...inventoryList, newItem];
     handleUpdateAndSave(newList);
@@ -734,9 +751,9 @@ export default function InventoryManagementPage() {
         let textToCopy = '';
         if (type === 'table') {
             // Create TSV (Tab-Separated Values) string for easy pasting into Excel
-            const headers = ['Tên mặt hàng', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh'];
+            const headers = ['Tên mặt hàng', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
             const rows = inventoryList.map(item => 
-                [item.name, item.category, item.supplier, item.unit, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG'].join('\t')
+                [item.name, item.category, item.supplier, item.unit, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('\t')
             );
             textToCopy = [headers.join('\t'), ...rows].join('\n');
         } else if (type === 'text') {
@@ -876,11 +893,20 @@ export default function InventoryManagementPage() {
                                         <Label htmlFor={`name-m-${item.id}`}>Tên mặt hàng</Label>
                                         <Input id={`name-m-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
                                     </div>
-                                    <div className="flex flex-col items-center pl-4">
+                                     <div className="flex flex-col items-center pl-2">
+                                      <Label htmlFor={`important-m-${item.id}`} className="text-xs mb-2">Bắt buộc</Label>
+                                      <Switch
+                                          id={`important-m-${item.id}`}
+                                          checked={!!item.isImportant}
+                                          onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
+                                          disabled={isSorting}
+                                      />
+                                    </div>
+                                    <div className="flex flex-col items-center pl-2">
                                       <Label htmlFor={`photo-m-${item.id}`} className="text-xs mb-2">Y/c ảnh</Label>
                                       <Switch
                                           id={`photo-m-${item.id}`}
-                                          checked={item.requiresPhoto}
+                                          checked={!!item.requiresPhoto}
                                           onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
                                           disabled={isSorting}
                                       />
@@ -957,6 +983,7 @@ export default function InventoryManagementPage() {
                                         <TableHead className="min-w-[100px] whitespace-nowrap">Đơn vị</TableHead>
                                         <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
                                         <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
+                                        <TableHead className="text-center">Bắt buộc nhập</TableHead>
                                         <TableHead className="text-center">Y/c ảnh</TableHead>
                                         <TableHead className="min-w-[200px]">Loại dữ liệu</TableHead>
                                         <TableHead className="text-right w-[50px] whitespace-nowrap">Hành động</TableHead>
@@ -969,7 +996,6 @@ export default function InventoryManagementPage() {
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                <div className="flex items-center gap-2">
-                                                 {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
                                                  <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" />
                                                </div>
                                             </TableCell>
@@ -989,6 +1015,13 @@ export default function InventoryManagementPage() {
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                            </TableCell>
+                                            <TableCell className="text-center w-[120px]">
+                                                <Switch
+                                                    checked={!!item.isImportant}
+                                                    onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
+                                                    disabled={isSorting}
+                                                />
                                             </TableCell>
                                              <TableCell className="text-center w-[100px]">
                                                 <Switch
@@ -1054,3 +1087,4 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+

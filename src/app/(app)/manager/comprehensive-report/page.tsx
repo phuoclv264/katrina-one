@@ -552,7 +552,7 @@ export default function ComprehensiveReportPage() {
               disabled={isReadonly || syncStatus === 'server-newer'}
               aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
           >
-              <Send className="h-6 w-6" />
+              {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
           </Button>
             {hasUnsubmittedChanges && (
                 <div className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -615,6 +615,7 @@ export default function ComprehensiveReportPage() {
         slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
+        carousel={{ finite: true }}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
         captions={{ 

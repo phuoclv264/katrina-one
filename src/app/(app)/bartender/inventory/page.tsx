@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Camera, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -21,6 +21,8 @@ import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { InventoryItemRow } from './_components/inventory-item-row';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -48,6 +50,10 @@ export default function InventoryPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
+
+  const [showUncheckedWarning, setShowUncheckedWarning] = useState(false);
+  const [uncheckedItems, setUncheckedItems] = useState<InventoryItem[]>([]);
+  const [openUncheckedCategories, setOpenUncheckedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Pha chế')) {
@@ -322,45 +328,8 @@ export default function InventoryPage() {
       }
   }
 
-  const handleSubmit = async () => {
+  const proceedToSubmit = async () => {
     if (!report || !user) return;
-    
-    // --- Validation for required fields and photos ---
-    for (const item of inventoryList) {
-        if (item.requiresPhoto) {
-            const record = report.stockLevels[item.id];
-            const stockValue = record?.stock;
-            const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
-            
-            if (!hasStockValue) {
-                 toast({
-                    title: "Thiếu thông tin tồn kho",
-                    description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
-                const element = itemRowRefs.current.get(item.id);
-                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element?.focus();
-                return;
-            }
-
-            const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
-            const hasServerPhoto = record.photos && record.photos.length > 0;
-            if (!hasLocalPhoto && !hasServerPhoto) {
-                 toast({
-                    title: "Thiếu ảnh bằng chứng",
-                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
-                const element = itemRowRefs.current.get(item.id);
-                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element?.focus();
-                return;
-            }
-        }
-    }
-    // --- End Validation ---
-
     const startTime = Date.now();
     setIsSubmitting(true);
     toast({
@@ -399,6 +368,60 @@ export default function InventoryPage() {
         setIsSubmitting(false);
     }
   }
+  
+  const handleSubmit = async () => {
+    if (!report) return;
+
+    const unEnteredItems: InventoryItem[] = [];
+    
+    // --- Validation for required fields and photos ---
+    for (const item of inventoryList) {
+        const record = report.stockLevels[item.id];
+        const stockValue = record?.stock;
+        const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
+
+        if (item.isImportant && !hasStockValue) {
+            toast({
+                title: "Thiếu thông tin tồn kho",
+                description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
+                variant: "destructive",
+            });
+            const element = itemRowRefs.current.get(item.id);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element?.focus();
+            return;
+        }
+
+        if (item.requiresPhoto) {
+            const hasLocalPhoto = record?.photoIds && record.photoIds.length > 0;
+            const hasServerPhoto = record?.photos && record.photos.length > 0;
+            if (!hasLocalPhoto && !hasServerPhoto) {
+                toast({
+                    title: "Thiếu ảnh bằng chứng",
+                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
+                    variant: "destructive",
+                });
+                const element = itemRowRefs.current.get(item.id);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element?.focus();
+                return;
+            }
+        }
+
+        if (!hasStockValue) {
+            unEnteredItems.push(item);
+        }
+    }
+    // --- End Validation ---
+    
+    if (unEnteredItems.length > 0) {
+        setUncheckedItems(unEnteredItems);
+        setShowUncheckedWarning(true);
+    } else {
+        await proceedToSubmit();
+    }
+  }
+
 
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
@@ -439,6 +462,28 @@ export default function InventoryPage() {
         });
     };
 
+    const categorizedUncheckedItems = useMemo((): CategorizedList => {
+        if (uncheckedItems.length === 0) return [];
+        const grouped: { [key: string]: InventoryItem[] } = {};
+        uncheckedItems.forEach(item => {
+            const category = item.category || 'CHƯA PHÂN LOẠI';
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(item);
+        });
+        return Object.entries(grouped).map(([category, items]) => ({ category, items }));
+    }, [uncheckedItems]);
+
+    const handleToggleAllUnchecked = () => {
+        if (openUncheckedCategories.length === categorizedUncheckedItems.length) {
+            setOpenUncheckedCategories([]);
+        } else {
+            setOpenUncheckedCategories(categorizedUncheckedItems.map(c => c.category));
+        }
+    };
+
+
   if (isLoading || authLoading || !report) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -459,6 +504,8 @@ export default function InventoryPage() {
   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
   const isProcessing = isSubmitting || isGenerating;
   const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
+  const areAllUncheckedOpen = categorizedUncheckedItems.length > 0 && openUncheckedCategories.length === categorizedUncheckedItems.length;
+
 
   return (
     <TooltipProvider>
@@ -485,7 +532,7 @@ export default function InventoryPage() {
                     <div>
                         <CardTitle>Danh sách nguyên vật liệu</CardTitle>
                         <CardDescription>
-                            Trạng thái sẽ tự động cập nhật khi bạn nhập số lượng tồn kho.
+                            Nhập số lượng tồn kho thực tế của các mặt hàng.
                         </CardDescription>
                     </div>
                     {categorizedList.length > 0 && (
@@ -610,7 +657,86 @@ export default function InventoryPage() {
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
       />
+    <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
+    <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">
+        <AlertDialogHeader className="flex flex-row items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+            <AlertTriangle className="h-6 w-6" />
+        </div>
+        <div>
+            <AlertDialogTitle className="text-lg font-bold text-amber-600 dark:text-amber-400">
+            Cảnh báo: Còn mặt hàng chưa kiểm kê
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+            Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. 
+            Bạn vẫn muốn tiếp tục gửi báo cáo?
+            </AlertDialogDescription>
+        </div>
+        </AlertDialogHeader>
+
+        {/* Một nút điều khiển mở/thu gọn tất cả */}
+        <div className="flex justify-end -mb-2">
+        <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToggleAllUnchecked}
+        >
+            <ChevronsDownUp className="mr-2 h-4 w-4" />
+            {areAllUncheckedOpen ? "Thu gọn tất cả" : "Mở rộng tất cả"}
+        </Button>
+        </div>
+
+        <ScrollArea className="max-h-60 w-full rounded-md border bg-muted/30">
+        <div className="p-3">
+            <Accordion 
+                type="multiple" 
+                value={openUncheckedCategories} 
+                onValueChange={setOpenUncheckedCategories} 
+                className="w-full space-y-2"
+            >
+                {categorizedUncheckedItems.map(({ category, items }) => (
+                <AccordionItem value={category} key={category} className="rounded-lg border bg-card shadow-sm">
+                    <AccordionTrigger className="px-3 py-2 text-base font-semibold hover:no-underline hover:bg-accent rounded-lg">
+                    {category} ({items.length})
+                    </AccordionTrigger>
+                    <AccordionContent className="p-2 space-y-2">
+                    {items.map(item => (
+                        <button
+                        key={item.id}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition"
+                        onClick={() => {
+                            const element = itemRowRefs.current.get(item.id)
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            element?.focus()
+                            setShowUncheckedWarning(false)
+                        }}
+                        >
+                        {item.name}
+                        </button>
+                    ))}
+                    </AccordionContent>
+                </AccordionItem>
+                ))}
+            </Accordion>
+        </div>
+        </ScrollArea>
+
+        <AlertDialogFooter>
+        <AlertDialogCancel className="rounded-lg">Hủy</AlertDialogCancel>
+        <AlertDialogAction 
+            onClick={proceedToSubmit} 
+            className="bg-amber-600 text-white hover:bg-amber-700 rounded-lg"
+        >
+            Bỏ qua và gửi
+        </AlertDialogAction>
+        </AlertDialogFooter>
+    </AlertDialogContent>
+    </AlertDialog>
     </div>
     </TooltipProvider>
   );
 }
+
+    
+
+    
