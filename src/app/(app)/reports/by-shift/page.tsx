@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
@@ -55,10 +56,7 @@ function ShiftSummaryCard({
         };
 
         const mainShiftFrame = mainShiftTimeFrames[shiftKey];
-        if (!mainShiftFrame) return { assignedUsers: [], submittedUsers: [], absentUsers: [], uncompletedStartShiftTasks: [], uncompletedInShiftTasks: [], uncompletedEndShiftTasks: [], completedStartShiftTasks: [], completedInShiftTasks: [], completedEndShiftTasks: [], allStartShiftTasksUncompleted: false, allEndShiftTasksUncompleted: false };
-
-        const mainShiftStart = parseTime(mainShiftFrame.start);
-        const mainShiftEnd = parseTime(mainShiftFrame.end);
+        if (!mainShiftFrame) return { assignedUsers: [], submittedUsers: [], absentUsers: [], uncompletedStartShiftTasks: [], uncompletedInShiftTasks: [], uncompletedEndShiftTasks: [], completedStartShiftTasks: [], completedInShiftTasks: [], completedEndShiftTasks: [], allStartShiftTasksUncompleted: false, allEndShiftTasksUncompleted: false, notes: [] };
 
         const allShiftsOnDay = schedule?.shifts.filter(s => s.date === date) || [];
 
@@ -66,25 +64,31 @@ function ShiftSummaryCard({
         
         const assignedUsersSet = new Set<string>();
 
+        const mainShiftStartMinutes = parseTime(mainShiftFrame.start);
+        const mainShiftEndMinutes = parseTime(mainShiftFrame.end);
+
         serverUsers.forEach(user => {
-            const userShifts = allShiftsOnDay.filter(s => s.assignedUsers.some(au => au.userId === user.uid));
+            const userShiftsOnDay = allShiftsOnDay.filter(s => s.assignedUsers.some(au => au.userId === user.uid));
             
-            const isInMainShift = userShifts.some(userShift => {
-                const shiftStart = parseTime(userShift.timeSlot.start);
-                const shiftEnd = parseTime(userShift.timeSlot.end);
-                return shiftStart < mainShiftEnd && mainShiftStart < shiftEnd;
+            const isInMainShift = userShiftsOnDay.some(userShift => {
+                const shiftStartMinutes = parseTime(userShift.timeSlot.start);
+                const shiftEndMinutes = parseTime(userShift.timeSlot.end);
+                // Check for overlap: (StartA < EndB) and (StartB < EndA)
+                return shiftStartMinutes < mainShiftEndMinutes && mainShiftStartMinutes < shiftEndMinutes;
             });
 
             if (isInMainShift) {
                 assignedUsersSet.add(user.displayName);
             }
         });
-        
+
         const assignedUsers = Array.from(assignedUsersSet).sort();
         const submittedUsers = Array.from(new Set(reports.map(r => r.staffName)));
         const absentUsers = assignedUsers.filter(u => !submittedUsers.includes(u));
 
         const allCompletedTasks = new Map<string, { staffName: string; completion: CompletionRecord }[]>();
+        const notes = reports.filter(r => r.issues?.trim()).map(r => ({ staffName: r.staffName, issues: r.issues! }));
+
         reports.forEach(report => {
             for (const taskId in report.completedTasks) {
                 if (!allCompletedTasks.has(taskId)) {
@@ -135,7 +139,8 @@ function ShiftSummaryCard({
             allEndShiftTasksUncompleted,
             assignedUsers,
             submittedUsers,
-            absentUsers
+            absentUsers,
+            notes,
         };
     }, [shift, shiftKey, date, reports, schedule, allUsers]);
 
@@ -211,13 +216,29 @@ function ShiftSummaryCard({
                                 <p className="text-sm font-semibold text-destructive">{summary.absentUsers.join(', ')}</p>
                             </div>
                         )}
-                         {reports.length > 0 && summary.absentUsers.length === 0 && (
+                         {reports.length > 0 && summary.absentUsers.length === 0 && summary.assignedUsers.length > 0 && (
                             <div className="p-3 bg-green-100/60 rounded-md border border-green-200/80">
                                <p className="font-medium text-sm flex items-center gap-2 text-green-800"><CheckCircle className="h-4 w-4"/>Tất cả nhân viên được phân công đã nộp báo cáo.</p>
                            </div>
                         )}
                     </div>
                 </div>
+
+                {summary.notes.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><MessageSquareWarning/> Ghi chú từ nhân viên</h4>
+                        <div className="space-y-2">
+                            {summary.notes.map((note, index) => (
+                                <div key={index} className="p-3 bg-card rounded-md border text-sm">
+                                    <blockquote className="border-l-4 pl-3 italic">
+                                        {note.issues}
+                                    </blockquote>
+                                    <p className="text-right font-semibold mt-1">- {note.staffName}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {hasUncompleted && (
                      <div>
@@ -798,3 +819,6 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
+
+
+    
