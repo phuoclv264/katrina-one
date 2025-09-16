@@ -646,49 +646,67 @@ export default function InventoryPage() {
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
       />
-      <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Cảnh báo: Còn mặt hàng chưa kiểm kê</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. Bạn vẫn muốn tiếp tục gửi báo cáo?
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <ScrollArea className="max-h-60 w-full rounded-md border bg-background p-4">
-                 <Accordion type="multiple" value={openUncheckedCategories} onValueChange={setOpenUncheckedCategories} className="w-full space-y-2">
-                    {categorizedUncheckedItems.map(({ category, items }) => (
-                        <AccordionItem value={category} key={category} className="border-b-0">
-                            <AccordionTrigger className="text-base font-semibold hover:no-underline p-2 bg-muted rounded-md">
-                                {category} ({items.length})
-                            </AccordionTrigger>
-                            <AccordionContent className="p-0 pt-2">
-                                <div className="space-y-2">
-                                    {items.map(item => (
-                                        <button
-                                            key={item.id}
-                                            className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
-                                            onClick={() => {
-                                                const element = itemRowRefs.current.get(item.id);
-                                                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                element?.focus();
-                                                setShowUncheckedWarning(false);
-                                            }}
-                                        >
-                                            {item.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                 </Accordion>
-            </ScrollArea>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction onClick={proceedToSubmit}>Bỏ qua và gửi</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+    <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
+    <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">
+        <AlertDialogHeader className="flex flex-row items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-6 w-6" />
+        </div>
+        <div>
+            <AlertDialogTitle className="text-lg font-bold text-destructive">
+            Cảnh báo: Còn mặt hàng chưa kiểm kê
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+            Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. 
+            Bạn vẫn muốn tiếp tục gửi báo cáo?
+            </AlertDialogDescription>
+        </div>
+        </AlertDialogHeader>
+
+        <ScrollArea className="max-h-60 w-full rounded-md border bg-muted/30 p-3">
+        <Accordion 
+            type="multiple" 
+            value={openUncheckedCategories} 
+            onValueChange={setOpenUncheckedCategories} 
+            className="w-full space-y-2"
+        >
+            {categorizedUncheckedItems.map(({ category, items }) => (
+            <AccordionItem value={category} key={category} className="rounded-lg border bg-card shadow-sm">
+                <AccordionTrigger className="px-3 py-2 text-base font-semibold hover:no-underline hover:bg-accent rounded-lg">
+                {category} ({items.length})
+                </AccordionTrigger>
+                <AccordionContent className="p-2 space-y-2">
+                {items.map(item => (
+                    <button
+                    key={item.id}
+                    className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition"
+                    onClick={() => {
+                        const element = itemRowRefs.current.get(item.id)
+                        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        element?.focus()
+                        setShowUncheckedWarning(false)
+                    }}
+                    >
+                    {item.name}
+                    </button>
+                ))}
+                </AccordionContent>
+            </AccordionItem>
+            ))}
+        </Accordion>
+        </ScrollArea>
+
+        <AlertDialogFooter>
+        <AlertDialogCancel className="rounded-lg">Hủy</AlertDialogCancel>
+        <AlertDialogAction 
+            onClick={proceedToSubmit} 
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg"
+        >
+            Bỏ qua và gửi
+        </AlertDialogAction>
+        </AlertDialogFooter>
+    </AlertDialogContent>
+    </AlertDialog>
     </div>
     </TooltipProvider>
   );
