@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule } from '@/lib/types';
+import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule, ManagedUser } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -25,19 +25,66 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { getISOWeek } from 'date-fns';
 
+const mainShiftTimeFrames: { [key: string]: { start: string; end: string } } = {
+  sang: { start: '05:30', end: '12:00' },
+  trua: { start: '12:00', end: '17:00' },
+  toi: { start: '17:00', end: '23:00' },
+};
 
 function ShiftSummaryCard({ 
-    shift, 
+    shift,
+    shiftKey,
+    date,
     reports, 
     schedule,
+    allUsers,
     onViewPhotos 
 }: { 
-    shift: Shift, 
+    shift: Shift,
+    shiftKey: string,
+    date: string,
     reports: ShiftReport[],
     schedule: Schedule | null,
+    allUsers: ManagedUser[],
     onViewPhotos: (photos: {src: string, description: string}[], startIndex: number) => void
 }) {
     const summary = useMemo(() => {
+        const parseTime = (timeStr: string) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const mainShiftFrame = mainShiftTimeFrames[shiftKey];
+        if (!mainShiftFrame) return { assignedUsers: [], submittedUsers: [], absentUsers: [], uncompletedStartShiftTasks: [], uncompletedInShiftTasks: [], uncompletedEndShiftTasks: [], completedInShiftTasks: [], allStartShiftTasksUncompleted: false, allEndShiftTasksUncompleted: false };
+
+        const mainShiftStart = parseTime(mainShiftFrame.start);
+        const mainShiftEnd = parseTime(mainShiftFrame.end);
+
+        const allShiftsOnDay = schedule?.shifts.filter(s => s.date === date) || [];
+
+        const serverUsers = allUsers.filter(u => u.role === 'Phục vụ');
+        
+        const assignedUsersSet = new Set<string>();
+
+        serverUsers.forEach(user => {
+            const userShifts = allShiftsOnDay.filter(s => s.assignedUsers.some(au => au.userId === user.uid));
+            
+            const isInMainShift = userShifts.some(userShift => {
+                const shiftStart = parseTime(userShift.timeSlot.start);
+                const shiftEnd = parseTime(userShift.timeSlot.end);
+                // Check for overlap: (StartA < EndB) and (StartB < EndA)
+                return shiftStart < mainShiftEnd && mainShiftStart < shiftEnd;
+            });
+
+            if (isInMainShift) {
+                assignedUsersSet.add(user.displayName);
+            }
+        });
+        
+        const assignedUsers = Array.from(assignedUsersSet).sort();
+        const submittedUsers = Array.from(new Set(reports.map(r => r.staffName)));
+        const absentUsers = assignedUsers.filter(u => !submittedUsers.includes(u));
+
         const allCompletedTasks = new Map<string, { staffName: string; timestamp: string, photos?: string[] }[]>();
         reports.forEach(report => {
             for (const taskId in report.completedTasks) {
@@ -70,10 +117,6 @@ function ShiftSummaryCard({
         
         const allStartShiftTasksUncompleted = startShiftSection ? uncompletedStartShiftTasks.length === startShiftSection.tasks.length : false;
         const allEndShiftTasksUncompleted = endShiftSection ? uncompletedEndShiftTasks.length === endShiftSection.tasks.length : false;
-        
-        const assignedUsers = schedule?.shifts.find(s => s.date === reports[0]?.date && s.label === shift.name)?.assignedUsers.map(u => u.userName) || [];
-        const submittedUsers = Array.from(new Set(reports.map(r => r.staffName)));
-        const absentUsers = assignedUsers.filter(u => !submittedUsers.includes(u));
 
         return { 
             uncompletedStartShiftTasks, 
@@ -86,14 +129,10 @@ function ShiftSummaryCard({
             submittedUsers,
             absentUsers
         };
-    }, [shift, reports, schedule]);
+    }, [shift, shiftKey, date, reports, schedule, allUsers]);
 
     const hasUncompleted = summary.uncompletedStartShiftTasks.length > 0 || summary.uncompletedEndShiftTasks.length > 0 || summary.uncompletedInShiftTasks.length > 0;
     const hasInShiftCompletions = summary.completedInShiftTasks.length > 0;
-
-    if (!hasUncompleted && !hasInShiftCompletions && summary.absentUsers.length === 0) {
-        return null; // Don't render the card if there's nothing to show
-    }
 
     return (
         <Card className="mb-8 border-amber-500/50 bg-amber-50/20 dark:bg-amber-900/10">
@@ -108,7 +147,7 @@ function ShiftSummaryCard({
                     <h4 className="font-semibold flex items-center gap-2 mb-2"><Users/> Chuyên cần</h4>
                     <div className="space-y-3">
                          <div className="p-3 bg-card rounded-md border">
-                            <p className="font-medium text-sm mb-1 text-muted-foreground">Nhân viên được phân công:</p>
+                            <p className="font-medium text-sm mb-1 text-muted-foreground">Nhân viên được phân công (Phục vụ):</p>
                              <p className="text-sm">{summary.assignedUsers.length > 0 ? summary.assignedUsers.join(', ') : 'Không có ai.'}</p>
                         </div>
                         {summary.absentUsers.length > 0 && (
@@ -213,6 +252,7 @@ function ReportView() {
   const [reports, setReports] = useState<ShiftReport[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
+  const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -256,20 +296,43 @@ function ReportView() {
     }
 
     let isMounted = true;
-    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
-      if (isMounted) setTasksByShift(tasks);
+    let loadingFlags = { tasks: false, reports: false, schedule: false, users: false };
+
+    const checkAllLoaded = () => {
+      if (Object.values(loadingFlags).every(Boolean) && isMounted) {
+        setIsLoading(false);
+      }
+    };
+
+    const unsubTasks = dataStore.subscribeToTasks((tasks) => {
+      if (isMounted) {
+        setTasksByShift(tasks);
+        loadingFlags.tasks = true;
+        checkAllLoaded();
+      }
+    });
+
+    const unsubUsers = dataStore.subscribeToUsers((users) => {
+        if(isMounted) {
+            setAllUsers(users);
+            loadingFlags.users = true;
+            checkAllLoaded();
+        }
     });
 
     const weekId = `${new Date(date).getFullYear()}-W${getISOWeek(new Date(date))}`;
-    const unsubscribeSchedule = dataStore.subscribeToSchedule(weekId, (sch) => {
-         if (isMounted) setSchedule(sch);
+    const unsubSchedule = dataStore.subscribeToSchedule(weekId, (sch) => {
+         if (isMounted) {
+            setSchedule(sch);
+            loadingFlags.schedule = true;
+            checkAllLoaded();
+         }
     });
 
-    const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
+    const unsubReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
       if (isMounted) {
         setReports(fetchedReports);
         
-        // If the selected report was deleted, default to summary or null
         if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId) && selectedReportId !== 'summary') {
             setSelectedReportId(fetchedReports.length > 0 ? 'summary' : null);
         } else if (!selectedReportId && fetchedReports.length > 0) {
@@ -278,15 +341,17 @@ function ReportView() {
             setSelectedReportId(null);
         }
         
-        setIsLoading(false);
+        loadingFlags.reports = true;
+        checkAllLoaded();
       }
     });
 
     return () => {
         isMounted = false;
-        unsubscribeTasks();
-        unsubscribeReports();
-        unsubscribeSchedule();
+        unsubTasks();
+        unsubReports();
+        unsubSchedule();
+        unsubUsers();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, shiftKey]);
@@ -404,8 +469,23 @@ function ReportView() {
     )
   }
 
-  if (!date || !shiftKey || reports.length === 0) {
+  if (!date || !shiftKey) {
     return (
+        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
+            <h1 className="text-2xl font-bold">Lỗi truy cập.</h1>
+            <p className="text-muted-foreground">URL không hợp lệ. Vui lòng quay lại và thử lại.</p>
+             <Button asChild variant="link" className="mt-4 -ml-4">
+                <Link href="/reports">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại tất cả báo cáo
+                </Link>
+            </Button>
+        </div>
+    );
+  }
+
+  if (reports.length === 0 && !schedule) {
+      return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <h1 className="text-2xl font-bold">Không tìm thấy báo cáo.</h1>
             <p className="text-muted-foreground">Không có báo cáo nào được nộp cho ca này vào ngày đã chọn.</p>
@@ -416,7 +496,7 @@ function ReportView() {
                 </Link>
             </Button>
         </div>
-    );
+      )
   }
 
   if (!shift) {
@@ -445,6 +525,7 @@ function ReportView() {
                 Ngày {new Date(date).toLocaleDateString('vi-VN')}
                 </p>
             </div>
+            {reports.length > 0 && (
             <Card className="w-full md:w-auto md:min-w-[250px]">
                 <CardHeader className="p-3">
                      <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chế độ xem</CardTitle>
@@ -489,13 +570,17 @@ function ReportView() {
                     </div>
                 </CardContent>
             </Card>
+            )}
         </div>
       </header>
 
       <ShiftSummaryCard 
         shift={shift} 
+        shiftKey={shiftKey}
+        date={date}
         reports={reports} 
-        schedule={schedule} 
+        schedule={schedule}
+        allUsers={allUsers} 
         onViewPhotos={openLightbox}
         />
 
