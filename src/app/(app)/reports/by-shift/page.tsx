@@ -41,23 +41,33 @@ function ShiftSummaryCard({ shift, reports }: { shift: Shift, reports: ShiftRepo
             }
         });
 
-        const uncompletedStartShiftTasks = shift.sections
-            .find(s => s.title === 'Đầu ca')?.tasks
+        const startShiftSection = shift.sections.find(s => s.title === 'Đầu ca');
+        const endShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
+        const inShiftSection = shift.sections.find(s => s.title === 'Trong ca');
+
+        const uncompletedStartShiftTasks = startShiftSection?.tasks
             .filter(task => !allCompletedTasks.has(task.id)) || [];
             
-        const uncompletedEndShiftTasks = shift.sections
-            .find(s => s.title === 'Cuối ca')?.tasks
+        const uncompletedEndShiftTasks = endShiftSection?.tasks
             .filter(task => !allCompletedTasks.has(task.id)) || [];
 
-        const inShiftSection = shift.sections.find(s => s.title === 'Trong ca');
         const completedInShiftTasks = inShiftSection?.tasks
             .map(task => ({
                 taskText: task.text,
                 completions: allCompletedTasks.get(task.id) || [],
             }))
             .filter(item => item.completions.length > 0) || [];
-            
-        return { uncompletedStartShiftTasks, uncompletedEndShiftTasks, completedInShiftTasks };
+        
+        const allStartShiftTasksUncompleted = startShiftSection ? uncompletedStartShiftTasks.length === startShiftSection.tasks.length : false;
+        const allEndShiftTasksUncompleted = endShiftSection ? uncompletedEndShiftTasks.length === endShiftSection.tasks.length : false;
+
+        return { 
+            uncompletedStartShiftTasks, 
+            uncompletedEndShiftTasks, 
+            completedInShiftTasks,
+            allStartShiftTasksUncompleted,
+            allEndShiftTasksUncompleted
+        };
     }, [shift, reports]);
 
     const hasUncompleted = summary.uncompletedStartShiftTasks.length > 0 || summary.uncompletedEndShiftTasks.length > 0;
@@ -82,17 +92,25 @@ function ShiftSummaryCard({ shift, reports }: { shift: Shift, reports: ShiftRepo
                         {summary.uncompletedStartShiftTasks.length > 0 && (
                             <div className="p-3 bg-card rounded-md border">
                                 <p className="font-medium text-sm mb-1 text-muted-foreground">Đầu ca:</p>
-                                <ul className="list-disc pl-5 space-y-1 text-sm">
-                                    {summary.uncompletedStartShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
-                                </ul>
+                                {summary.allStartShiftTasksUncompleted ? (
+                                    <p className="text-sm italic">Toàn bộ các công việc đầu ca chưa được thực hiện.</p>
+                                ) : (
+                                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                                        {summary.uncompletedStartShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                    </ul>
+                                )}
                             </div>
                         )}
                         {summary.uncompletedEndShiftTasks.length > 0 && (
                              <div className="p-3 bg-card rounded-md border">
                                 <p className="font-medium text-sm mb-1 text-muted-foreground">Cuối ca:</p>
-                                <ul className="list-disc pl-5 space-y-1 text-sm">
-                                    {summary.uncompletedEndShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
-                                </ul>
+                                {summary.allEndShiftTasksUncompleted ? (
+                                    <p className="text-sm italic">Toàn bộ các công việc cuối ca chưa được thực hiện.</p>
+                                ) : (
+                                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                                        {summary.uncompletedEndShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                    </ul>
+                                )}
                             </div>
                         )}
                         </div>
@@ -588,3 +606,5 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
+
+    
