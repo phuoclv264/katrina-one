@@ -85,7 +85,7 @@ export function AppSidebar() {
       if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
           secondaryItems.push({ href: '/bartender', label: 'Báo cáo (Pha chế)', icon: Coffee });
       }
-      if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
+      if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager/comprehensive-report')) {
           secondaryItems.push({ href: '/manager/comprehensive-report', label: 'Kiểm tra (Quản lý)', icon: FileSearch });
       }
 
@@ -176,6 +176,9 @@ export function AppSidebar() {
           {secondaryItems.length > 0 && (
             <>
                 <SidebarSeparator />
+                 <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
+                    <span className="text-xs font-semibold text-muted-foreground">VAI TRÒ PHỤ</span>
+                </SidebarMenuItem>
                 {secondaryItems.map((item) => (
                     <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
                     <SidebarMenuButton
