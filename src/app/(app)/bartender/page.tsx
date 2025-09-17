@@ -4,30 +4,11 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Archive, ShieldX, CalendarDays, Sun, Moon, Sunset } from 'lucide-react';
+import { ClipboardList, Archive, ShieldX, CalendarDays, Sun, Moon, Sunset, CheckSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
-
-function ServerDashboard() {
-  return (
-    <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Bảng điều khiển Phục vụ (Phụ)</CardTitle>
-          <CardDescription>Truy cập các tính năng của vai trò phụ.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <Button asChild size="lg" variant="outline">
-            <Link href="/shifts">
-              <Sun className="mr-2" />
-              Checklist Công việc
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-  )
-}
 
 export default function BartenderDashboardPage() {
   const { user, loading } = useAuth();
@@ -70,6 +51,20 @@ export default function BartenderDashboardPage() {
                 Kiểm kê Tồn kho
               </Link>
             </Button>
+
+            {hasServerSecondaryRole && (
+              <>
+                <Separator className="my-2" />
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/shifts">
+                    <CheckSquare className="mr-2" />
+                    Checklist Công việc
+                  </Link>
+                </Button>
+              </>
+            )}
+
             <Separator className="my-2" />
             <Button asChild size="lg" variant="outline">
               <Link href="/schedule">
@@ -85,8 +80,6 @@ export default function BartenderDashboardPage() {
             </Button>
           </CardContent>
         </Card>
-
-        {hasServerSecondaryRole && <ServerDashboard />}
       </div>
     </div>
   );

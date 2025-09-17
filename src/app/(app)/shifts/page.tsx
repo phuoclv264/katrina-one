@@ -5,7 +5,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList } from 'lucide-react';
+import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList, CheckSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -111,7 +111,7 @@ export default function ShiftsPage() {
   }, [todaysShifts]);
   
   const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
-
+  const isPrimaryServer = user?.role === 'Phục vụ';
 
   if (authLoading || isLoading) {
     return (
@@ -138,11 +138,11 @@ export default function ShiftsPage() {
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
-            <CardTitle>Bảng điều khiển Phục vụ</CardTitle>
+            <CardTitle>Checklist Công việc</CardTitle>
             <CardDescription>
               {todaysShifts.length > 0
                 ? `Hôm nay bạn có ca: ${todaysShifts.map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`).join(', ')}`
-                : "Bạn không có ca làm việc hôm nay."
+                : "Bạn không có ca làm việc nào được phân công hôm nay."
               }
             </CardDescription>
           </CardHeader>
@@ -165,27 +165,48 @@ export default function ShiftsPage() {
               ) : (
                   <div className="flex items-center justify-center p-4 rounded-md bg-muted text-muted-foreground text-sm gap-2">
                       <Info className="h-4 w-4" />
-                      <span>Không có checklist công việc nào cho hôm nay.</span>
+                      <span>Không có checklist công việc nào cho ca làm việc của bạn hôm nay.</span>
                   </div>
               )}
 
-            <Separator className="my-2" />
-            <Button asChild size="lg" variant="outline">
-              <Link href="/schedule">
-                  <CalendarDays className="mr-2" />
-                  Lịch làm việc
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/violations">
-                  <ShieldX className="mr-2" />
-                  Danh sách Vi phạm
-              </Link>
-            </Button>
+            {isPrimaryServer && (
+              <>
+                <Separator className="my-2" />
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/schedule">
+                      <CalendarDays className="mr-2" />
+                      Lịch làm việc
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/violations">
+                      <ShieldX className="mr-2" />
+                      Danh sách Vi phạm
+                  </Link>
+                </Button>
+              </>
+            )}
+
+            {hasBartenderSecondaryRole && (
+              <>
+                <Separator className="my-2" />
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/bartender/hygiene-report">
+                    <ClipboardList className="mr-2" />
+                    Báo cáo Vệ sinh quầy
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/bartender/inventory">
+                    <Archive className="mr-2" />
+                    Kiểm kê Tồn kho
+                  </Link>
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
-        
-        {hasBartenderSecondaryRole && <BartenderDashboard />}
       </div>
     </div>
   );
