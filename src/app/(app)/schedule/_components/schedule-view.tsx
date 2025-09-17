@@ -361,18 +361,16 @@ export default function ScheduleView() {
     const pendingRequestCount = useMemo(() => {
         if (!notifications || !user) return 0;
         return notifications.filter(n => {
-            if (n.type !== 'pass_request') return false;
-            
-            const shiftDate = parseISO(n.payload.shiftDate);
-            if (!isWithinInterval(shiftDate, weekInterval)) return false;
+            if (n.type !== 'pass_request' || !isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)) return false;
+
+            const isMyRequest = n.payload.requestingUser.userId === user.uid;
 
             if (n.status === 'pending') {
-                if (n.payload.requestingUser.userId === user.uid) {
-                    return true; // My own pending request
-                }
+                if (isMyRequest) return true; // My own pending request
+
                 const isTargetedToMe = n.payload.targetUserId === user.uid;
                 const isPublicRequest = !n.payload.targetUserId;
-                 if (isTargetedToMe || isPublicRequest) {
+                if (isTargetedToMe || isPublicRequest) {
                     const isDifferentRole = n.payload.shiftRole !== 'Bất kỳ' && user.role !== n.payload.shiftRole;
                     const hasDeclined = (n.payload.declinedBy || []).includes(user.uid);
                     return !isDifferentRole && !hasDeclined;
@@ -381,8 +379,7 @@ export default function ScheduleView() {
             }
 
             if (n.status === 'pending_approval') {
-                // For staff, only see their own pending approvals.
-                return n.payload.requestingUser.userId === user.uid;
+                return isMyRequest; // For staff, only see their own pending approvals.
             }
             
             return false;

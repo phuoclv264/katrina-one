@@ -496,7 +496,7 @@ export default function ScheduleView() {
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
             toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
             toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
         } finally {
@@ -516,13 +516,12 @@ export default function ScheduleView() {
     }
 
     const pendingRequestCount = useMemo(() => {
-        if (!notifications || !user) return 0;
-        // Manager sees all pending requests within the week
+        if (!notifications || !user || !canManage) return 0;
         return notifications.filter(n => 
             (n.status === 'pending' || n.status === 'pending_approval') && 
             isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)
         ).length;
-    }, [notifications, weekInterval, user]);
+    }, [notifications, weekInterval, user, canManage]);
 
     const handleUserClick = (user: ManagedUser) => {
         setSelectedUserForDetails(user);
