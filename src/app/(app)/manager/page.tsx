@@ -16,7 +16,7 @@ export default function ManagerDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
+    if (!loading && user && (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng' && !user.secondaryRoles?.includes('Quản lý'))) {
       router.replace('/');
     }
   }, [user, loading, router]);

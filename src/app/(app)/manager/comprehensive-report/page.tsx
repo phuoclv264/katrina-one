@@ -89,7 +89,7 @@ export default function ComprehensiveReportPage() {
   }, [tasks]);
 
   useEffect(() => {
-    if (!isAuthLoading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
+    if (!isAuthLoading && user && (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng' && !user.secondaryRoles?.includes('Quản lý'))) {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
@@ -627,7 +627,3 @@ export default function ComprehensiveReportPage() {
     </TooltipProvider>
   );
 }
-
-    
-
-    

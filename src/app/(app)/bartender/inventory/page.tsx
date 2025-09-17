@@ -56,7 +56,7 @@ export default function InventoryPage() {
   const [openUncheckedCategories, setOpenUncheckedCategories] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Pha chế')) {
+    if (!authLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
       router.replace('/');
     }
   }, [user, authLoading, router]);
@@ -736,7 +736,3 @@ export default function InventoryPage() {
     </TooltipProvider>
   );
 }
-
-    
-
-    

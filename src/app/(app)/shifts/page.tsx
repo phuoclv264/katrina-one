@@ -66,7 +66,7 @@ export default function ShiftsPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user && user.role !== 'Phục vụ') {
+    if (!authLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
       router.replace('/');
     }
   }, [user, authLoading, router]);

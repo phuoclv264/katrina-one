@@ -34,7 +34,7 @@ export default function BartenderDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user && user.role !== 'Pha chế') {
+    if (!loading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
       router.replace('/');
     }
   }, [user, loading, router]);

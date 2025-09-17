@@ -29,7 +29,8 @@ export function AppSidebar() {
   }
 
   const getMenuItems = () => {
-      const canManageViolations = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+      if (!user) return [];
+      const canManageViolations = user.role === 'Quản lý' || user.role === 'Chủ nhà hàng';
       const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
       const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
@@ -78,13 +79,20 @@ export function AppSidebar() {
       if(user?.secondaryRoles?.includes('Pha chế') && user.role !== 'Pha chế') {
           menuItems.push({ href: '/bartender', label: 'Báo cáo (Pha chế)', icon: Coffee });
       }
+      if(user?.secondaryRoles?.includes('Quản lý') && user.role !== 'Quản lý') {
+          menuItems.push({ href: '/manager', label: 'QL (Phụ)', icon: UserCog });
+      }
 
       // Add common items if they are not already there
       if (!menuItems.some(item => item.href === '/violations')) {
         menuItems.push(commonViolationMenu);
       }
 
-      return menuItems;
+      // Remove duplicates that might occur if a primary role has a feature that's also a common one.
+      const uniqueMenuItems = Array.from(new Map(menuItems.map(item => [item.href, item])).values());
+
+
+      return uniqueMenuItems;
   }
 
   const getHomeLink = () => {
