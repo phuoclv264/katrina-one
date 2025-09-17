@@ -91,12 +91,13 @@ export const dataStore = {
     subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
         
-        // Query for user's own requests OR requests targeted at the user
+        // Query for user's own requests OR requests targeted at the user OR requests taken by the user
         const myRequestsQuery = query(
             notificationsCollection,
             or(
                 where('payload.requestingUser.userId', '==', userId),
-                where('payload.targetUserId', '==', userId)
+                where('payload.targetUserId', '==', userId),
+                where('payload.takenBy.userId', '==', userId)
             ),
             orderBy('createdAt', 'desc')
         );
