@@ -79,6 +79,7 @@ export default function PassRequestsDialog({
     weekFilteredNotifications.forEach(notification => {
       const payload = notification.payload;
       const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+      const didITakeTheShift = payload.takenBy?.userId === currentUser.uid;
 
       if (notification.status === 'pending' || notification.status === 'pending_approval') {
          if (isMyRequest) { // I can see my own requests
@@ -108,7 +109,7 @@ export default function PassRequestsDialog({
              pending.push(notification);
          }
       } else { // 'resolved' or 'cancelled'
-        if(isMyRequest || currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý') {
+        if(isMyRequest || didITakeTheShift || currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý') {
             historical.push(notification);
         }
       }
