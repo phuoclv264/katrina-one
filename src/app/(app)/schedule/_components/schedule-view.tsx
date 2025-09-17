@@ -330,7 +330,7 @@ export default function ScheduleView() {
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
             toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
             toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
         } finally {
@@ -363,30 +363,34 @@ export default function ScheduleView() {
         return notifications.filter(n => {
             if (n.type !== 'pass_request') return false;
             
-            // Filter by current week
             const shiftDate = parseISO(n.payload.shiftDate);
             if (!isWithinInterval(shiftDate, weekInterval)) return false;
 
             if (n.status === 'pending') {
-                // For staff, count requests from others
-                if (!canManage) {
-                    // Make sure it's not the user's own request and it's not declined
-                    return n.payload.requestingUser.userId !== user.uid && !(n.payload.declinedBy || []).includes(user.uid);
+                if (n.payload.requestingUser.userId === user.uid) {
+                    return true; // My own pending request
                 }
-                // For managers, count all pending requests
-                return true;
+                const isTargetedToMe = n.payload.targetUserId === user.uid;
+                const isPublicRequest = !n.payload.targetUserId;
+                 if (isTargetedToMe || isPublicRequest) {
+                    const isDifferentRole = n.payload.shiftRole !== 'Bất kỳ' && user.role !== n.payload.shiftRole;
+                    const hasDeclined = (n.payload.declinedBy || []).includes(user.uid);
+                    return !isDifferentRole && !hasDeclined;
+                }
+                return false;
             }
-            if (n.status === 'pending_approval' && canManage) {
-                // Only managers/owners see pending approvals
-                return true;
+
+            if (n.status === 'pending_approval') {
+                // For staff, only see their own pending approvals.
+                return n.payload.requestingUser.userId === user.uid;
             }
             
             return false;
         }).length;
-    }, [notifications, weekInterval, user, canManage]);
+    }, [notifications, weekInterval, user]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
-        return notifications.some(n => n.payload.shiftId === shiftId && n.status === 'pending');
+        return notifications.some(n => n.payload.shiftId === shiftId && (n.status === 'pending' || n.status === 'pending_approval'));
     }
 
     if (authLoading || isLoading || !user) {

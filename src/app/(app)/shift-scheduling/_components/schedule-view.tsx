@@ -516,10 +516,13 @@ export default function ScheduleView() {
     }
 
     const pendingRequestCount = useMemo(() => {
-        if (!notifications) return 0;
-        // Manager sees all pending requests
-        return notifications.filter(n => (n.status === 'pending' || n.status === 'pending_approval') && isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)).length;
-    }, [notifications, weekInterval]);
+        if (!notifications || !user) return 0;
+        // Manager sees all pending requests within the week
+        return notifications.filter(n => 
+            (n.status === 'pending' || n.status === 'pending_approval') && 
+            isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)
+        ).length;
+    }, [notifications, weekInterval, user]);
 
     const handleUserClick = (user: ManagedUser) => {
         setSelectedUserForDetails(user);
