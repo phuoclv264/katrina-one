@@ -126,8 +126,7 @@ export const dataStore = {
                 where('payload.requestingUser.userId', '==', userId),
                 where('payload.targetUserId', '==', userId),
                 where('payload.takenBy.userId', '==', userId)
-            ),
-            orderBy('createdAt', 'desc')
+            )
         );
 
         const otherRequestsQuery = query(
@@ -214,6 +213,9 @@ export const dataStore = {
         const updateData: any = { status, resolvedAt: serverTimestamp() };
         if (resolver) {
             updateData.resolvedBy = { userId: resolver.uid, userName: resolver.displayName };
+        }
+        if (status === 'cancelled') {
+            updateData['payload.cancellationReason'] = 'Hủy bởi quản lý';
         }
         await updateDoc(docRef, updateData);
     },
@@ -588,10 +590,12 @@ export const dataStore = {
             // Find and cancel all other related pending requests for this shift
             const otherRequestsQuery = query(
                 collection(db, 'notifications'),
-                where('type', '==', 'pass_request'),
-                where('payload.shiftId', '==', notification.payload.shiftId),
-                where('payload.requestingUser.userId', '==', notification.payload.requestingUser.userId),
-                or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+                and(
+                    where('type', '==', 'pass_request'),
+                    where('payload.shiftId', '==', notification.payload.shiftId),
+                    where('payload.requestingUser.userId', '==', notification.payload.requestingUser.userId),
+                    or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+                )
             );
 
             const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
