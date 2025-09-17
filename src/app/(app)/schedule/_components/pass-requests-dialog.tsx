@@ -1,5 +1,4 @@
 
-
 'use client';
 import React, { useMemo, useEffect, useState } from 'react';
 import {
@@ -274,6 +273,7 @@ export default function PassRequestsDialog({
                         {pendingRequests.map(notification => {
                             const payload = notification.payload;
                             const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+                            const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
                             return (
                                 <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
@@ -282,12 +282,24 @@ export default function PassRequestsDialog({
                                             <div className="text-sm text-muted-foreground space-y-1">
                                                 <p className="flex items-center gap-2"><Clock />{payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end}</p>
                                                 <p className="flex items-center gap-2"><Calendar />{format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-                                                <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />{isMyRequest ? 'Yêu cầu của bạn' : `Từ ${payload.requestingUser.userName}`}</p>
+                                                
+                                                {isMyRequest ? (
+                                                    targetUser ? (
+                                                        <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Đã gửi trực tiếp đến: {targetUser.displayName}</p>
+                                                    ) : (
+                                                        <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Yêu cầu công khai của bạn</p>
+                                                    )
+                                                ) : (
+                                                    <>
+                                                        <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
+                                                        {payload.targetUserId && payload.targetUserId === currentUser.uid &&
+                                                            <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Yêu cầu trực tiếp cho bạn</p>
+                                                        }
+                                                    </>
+                                                )}
+                                                
                                                 {notification.status === 'pending_approval' && payload.takenBy &&
                                                     <p className="flex items-center gap-2 font-medium text-amber-600"><Send />Được nhận bởi: {payload.takenBy.userName}</p>
-                                                }
-                                                 {payload.targetUserId && payload.targetUserId === currentUser.uid && !isMyRequest &&
-                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Yêu cầu trực tiếp cho bạn</p>
                                                 }
                                             </div>
                                         </div>
