@@ -517,8 +517,9 @@ export default function ScheduleView() {
 
     const pendingRequestCount = useMemo(() => {
         if (!notifications || !user || !canManage) return 0;
-        return notifications.filter(n => 
-            (n.status === 'pending' || n.status === 'pending_approval') && 
+        return notifications.filter(n =>
+            (n.type === 'pass_request') &&
+            (n.status === 'pending' || n.status === 'pending_approval') &&
             isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)
         ).length;
     }, [notifications, weekInterval, user, canManage]);

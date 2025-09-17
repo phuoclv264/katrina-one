@@ -238,7 +238,7 @@ export default function ScheduleView() {
         if (conflict) {
             toast({
                 title: 'Không thể nhận ca',
-                description: `Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.end}) mà bạn đã được phân công.`,
+                description: `Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`,
                 variant: 'destructive',
                 duration: 7000,
             });
@@ -360,31 +360,40 @@ export default function ScheduleView() {
 
     const pendingRequestCount = useMemo(() => {
         if (!notifications || !user) return 0;
-        return notifications.filter(n => {
-            if (n.type !== 'pass_request' || !isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)) return false;
+        
+        const weekFilteredNotifications = notifications.filter(notification => {
+            if (notification.type !== 'pass_request') return false;
+            const shiftDate = parseISO(notification.payload.shiftDate);
+            return isWithinInterval(shiftDate, weekInterval);
+        });
 
-            const isMyRequest = n.payload.requestingUser.userId === user.uid;
+        return weekFilteredNotifications.filter(notification => {
+            const payload = notification.payload;
+            const isMyRequest = payload.requestingUser.userId === user.uid;
 
-            if (n.status === 'pending') {
-                if (isMyRequest) return true; // My own pending request
+            if (notification.status === 'pending' || notification.status === 'pending_approval') {
+                if (isMyRequest) return true;
 
-                const isTargetedToMe = n.payload.targetUserId === user.uid;
-                const isPublicRequest = !n.payload.targetUserId;
-                if (isTargetedToMe || isPublicRequest) {
-                    const isDifferentRole = n.payload.shiftRole !== 'Bất kỳ' && user.role !== n.payload.shiftRole;
-                    const hasDeclined = (n.payload.declinedBy || []).includes(user.uid);
-                    return !isDifferentRole && !hasDeclined;
+                if (notification.status === 'pending_approval' && payload.takenBy?.userId === user.uid) {
+                    return true;
                 }
-                return false;
+                
+                if (notification.status === 'pending') {
+                    const isTargetedToMe = payload.targetUserId === user.uid;
+                    const isPublicRequest = !payload.targetUserId;
+                    
+                    if (isTargetedToMe || isPublicRequest) {
+                        const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
+                        const hasDeclined = (payload.declinedBy || []).includes(user.uid);
+                        if (!isDifferentRole && !hasDeclined) {
+                            return true;
+                        }
+                    }
+                }
             }
-
-            if (n.status === 'pending_approval') {
-                return isMyRequest; // For staff, only see their own pending approvals.
-            }
-            
             return false;
         }).length;
-    }, [notifications, weekInterval, user]);
+    }, [notifications, user, weekInterval]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
         return notifications.some(n => n.payload.shiftId === shiftId && (n.status === 'pending' || n.status === 'pending_approval'));
@@ -619,4 +628,5 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
