@@ -482,7 +482,15 @@ export default function ScheduleView() {
             toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
         } catch (error: any) {
             console.error(error);
-            toast({ title: 'Lỗi', description: `Không thể phê duyệt: ${error.message}`, variant: 'destructive'});
+            let errorMessage = 'Không thể phê duyệt yêu cầu.';
+            if (error instanceof Error) {
+                if (error.message.includes('SHIFT_CONFLICT:')) {
+                    errorMessage = error.message.replace('SHIFT_CONFLICT:', '').trim();
+                } else if (error.message.includes('ALREADY_RESOLVED:')) {
+                    errorMessage = error.message.replace('ALREADY_RESOLVED:', '').trim();
+                }
+            }
+            toast({ title: 'Lỗi Phê duyệt', description: errorMessage, variant: 'destructive'});
         } finally {
             setIsSubmitting(false);
             delete (window as any).processingNotificationId;

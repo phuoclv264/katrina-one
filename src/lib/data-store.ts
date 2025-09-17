@@ -70,7 +70,7 @@ export const dataStore = {
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const now = new Date();
-            const expiredRequestsToUpdate: Notification[] = [];
+            const requestsToUpdate: Notification[] = [];
 
             const notifications: Notification[] = querySnapshot.docs.map(doc => {
                  const data = doc.data();
@@ -85,29 +85,27 @@ export const dataStore = {
                 if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
                     const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
-                        expiredRequestsToUpdate.push(notification);
+                        requestsToUpdate.push(notification);
                     }
                 }
                 return notification;
             });
             
             // Asynchronously update expired requests to 'cancelled' status
-            if (expiredRequestsToUpdate.length > 0) {
-                console.log(`[Auto-Cleanup] Cancelling ${expiredRequestsToUpdate.length} expired pass requests...`);
+            if (requestsToUpdate.length > 0) {
+                console.log(`[Auto-Cleanup] Found ${requestsToUpdate.length} expired pass requests to update.`);
                 const batch = writeBatch(db);
-                expiredRequestsToUpdate.forEach(req => {
+                requestsToUpdate.forEach(req => {
                     const docRef = doc(db, 'notifications', req.id);
                     batch.update(docRef, { 
                         status: 'cancelled',
                         'payload.cancellationReason': 'Tự động hủy do đã quá hạn.'
                     });
                 });
-                batch.commit().catch(err => console.error("Error batch cancelling expired notifications:", err));
+                batch.commit().catch(err => console.error("Error batch updating expired notifications:", err));
             }
             
-            // Filter out the expired ones from the immediate view for a cleaner UX
-            const validNotifications = notifications.filter(n => !expiredRequestsToUpdate.find(exp => exp.id === n.id));
-            callback(validNotifications);
+            callback(notifications);
 
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
@@ -139,7 +137,6 @@ export const dataStore = {
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
             const combined = new Map<string, Notification>();
             const myExpiredRequestsToUpdate: Notification[] = [];
-            const otherExpiredRequestsToHide: Set<string> = new Set();
             
             myRequests.forEach(n => {
                  if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
@@ -153,7 +150,7 @@ export const dataStore = {
             });
             
             if (myExpiredRequestsToUpdate.length > 0) {
-                console.log(`[Auto-Cleanup] Cancelling ${myExpiredRequestsToUpdate.length} of your expired pass requests...`);
+                console.log(`[Auto-Cleanup] Updating ${myExpiredRequestsToUpdate.length} of your expired pass requests...`);
                 const batch = writeBatch(db);
                 myExpiredRequestsToUpdate.forEach(req => {
                     batch.update(doc(db, 'notifications', req.id), { 
@@ -161,7 +158,7 @@ export const dataStore = {
                         'payload.cancellationReason': 'Tự động hủy do đã quá hạn.'
                     });
                 });
-                batch.commit().catch(err => console.error("Error batch cancelling user's expired notifications:", err));
+                batch.commit().catch(err => console.error("Error batch updating user's expired notifications:", err));
             }
 
             otherRequests.forEach(n => {
@@ -169,14 +166,13 @@ export const dataStore = {
                 if (n.type === 'pass_request' && n.status === 'pending') {
                     const shiftDateTime = parseISO(`${payload.shiftDate}T${payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
-                        otherExpiredRequestsToHide.add(n.id);
-                        return;
+                        return; // Don't show expired requests from others
                     }
                 }
                 if (payload.targetUserId) return;
                 const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
                 const hasDeclined = (payload.declinedBy || []).includes(userId);
-                if (!isDifferentRole && !hasDeclined && !otherExpiredRequestsToHide.has(n.id)) {
+                if (!isDifferentRole && !hasDeclined) {
                     combined.set(n.id, n);
                 }
             });
@@ -525,59 +521,59 @@ export const dataStore = {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
         const takenBy = notification.payload.takenBy;
-
+    
         if (!takenBy) {
             throw new Error("Không có người nhận ca để phê duyệt.");
         }
-
-        const scheduleDoc = await getDoc(scheduleRef);
-        if (!scheduleDoc.exists()) {
-            throw new Error("Không tìm thấy lịch làm việc để kiểm tra xung đột.");
-        }
-        const scheduleData = scheduleDoc.data() as Schedule;
-        const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === notification.payload.shiftDate);
-        
-        const shiftToTake: AssignedShift = {
-            id: notification.payload.shiftId,
-            templateId: '', 
-            date: notification.payload.shiftDate,
-            label: notification.payload.shiftLabel,
-            role: notification.payload.shiftRole,
-            timeSlot: notification.payload.shiftTimeSlot,
-            assignedUsers: [], 
-            minUsers: 0,
-        };
-
-        const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
-        
-        if (conflict) {
-             // If conflict detected, cancel the notification with a reason
-            await updateDoc(notificationRef, {
-                status: 'cancelled',
-                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
-                resolvedAt: serverTimestamp(),
-                'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
-                'payload.takenBy': null,
-            });
-            throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
-        }
-
-
+    
         await runTransaction(db, async (transaction) => {
-            // Re-fetch inside transaction to be safe
-            const freshScheduleDoc = await transaction.get(scheduleRef);
-            if (!freshScheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
+            const scheduleDoc = await transaction.get(scheduleRef);
+            if (!scheduleDoc.exists()) {
+                throw new Error("Không tìm thấy lịch làm việc để kiểm tra xung đột.");
+            }
+            const scheduleData = scheduleDoc.data() as Schedule;
             
-            const freshScheduleData = freshScheduleDoc.data() as Schedule;
-            const shiftToUpdate = freshScheduleData.shifts.find(s => s.id === notification.payload.shiftId);
-            if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
-
+            // Check if original requester is still in the shift
+            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
+            if (!shiftToUpdate) {
+                throw new Error("Không tìm thấy ca làm việc này trong lịch.");
+            }
+            const isRequesterStillAssigned = shiftToUpdate.assignedUsers.some(u => u.userId === notification.payload.requestingUser.userId);
+            
+            if (!isRequesterStillAssigned) {
+                // The shift was already taken by someone else and approved.
+                // Cancel this now-redundant notification.
+                transaction.update(notificationRef, {
+                    status: 'cancelled',
+                    'payload.cancellationReason': 'Ca làm việc này đã được người khác đảm nhận.',
+                    resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                    resolvedAt: serverTimestamp(),
+                });
+                throw new Error("ALREADY_RESOLVED: Ca làm việc này đã được người khác đảm nhận.");
+            }
+    
+            // Check for time conflicts for the accepting user
+            const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === notification.payload.shiftDate);
+            const shiftToTake: AssignedShift = { ...shiftToUpdate, assignedUsers: [] };
+            const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
+            
+            if (conflict) {
+                transaction.update(notificationRef, {
+                    status: 'cancelled',
+                    'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
+                    'payload.takenBy': null,
+                    resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                    resolvedAt: serverTimestamp(),
+                });
+                throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
+            }
+    
             // Update Schedule
-            const updatedShifts = freshScheduleData.shifts.map(s => {
+            const updatedShifts = scheduleData.shifts.map(s => {
                 if (s.id === shiftToUpdate.id) {
                     const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
-                    if (notification.payload.takenBy && !newAssignedUsers.some(u => u.userId === notification.payload.takenBy!.userId)) {
-                        newAssignedUsers.push(notification.payload.takenBy);
+                    if (!newAssignedUsers.some(u => u.userId === takenBy.userId)) {
+                        newAssignedUsers.push(takenBy);
                     }
                     return { ...s, assignedUsers: newAssignedUsers };
                 }
@@ -1791,4 +1787,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
 
