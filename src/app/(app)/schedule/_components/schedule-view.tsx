@@ -205,7 +205,6 @@ export default function ScheduleView() {
         try {
             await dataStore.requestDirectPassShift(shift, user, targetUser);
             toast({ title: "Đã gửi yêu cầu", description: `Yêu cầu đổi ca đã được gửi trực tiếp đến ${targetUser.displayName}.`});
-            setIsInfoDialogOpen(false); // Close dialog on success
         } catch(error: any) {
             console.error("Failed to send direct pass request:", error);
             toast({ title: 'Lỗi', description: `Không thể gửi yêu cầu: ${error.message}`, variant: 'destructive' });
@@ -634,6 +633,7 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
 
 

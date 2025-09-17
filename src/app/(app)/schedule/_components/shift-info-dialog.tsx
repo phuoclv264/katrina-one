@@ -131,9 +131,9 @@ export default function ShiftInfoDialog({
           </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="colleagues" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="colleagues"><Users className="mr-2 h-4 w-4" />Nhân viên trong ca ({colleagues.length})</TabsTrigger>
-            <TabsTrigger value="available"><UserCheck className="mr-2 h-4 w-4" />Nhân viên rảnh ({availableStaff.length})</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-auto">
+            <TabsTrigger value="colleagues" className="whitespace-normal"><Users className="mr-2 h-4 w-4" />Nhân viên trong ca ({colleagues.length})</TabsTrigger>
+            <TabsTrigger value="available" className="whitespace-normal"><UserCheck className="mr-2 h-4 w-4" />Nhân viên rảnh ({availableStaff.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="colleagues">
              <ScrollArea className="h-72 mt-4">
