@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList, CheckSquare } from 'lucide-react';
+import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList, CheckSquare, FileSearch } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -28,30 +27,6 @@ const mainShiftInfo = {
     toi: { name: "Ca Tối", icon: Moon, href: "/checklist/toi" },
 }
 
-function BartenderDashboard() {
-  return (
-    <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Bảng điều khiển Pha chế (Phụ)</CardTitle>
-          <CardDescription>Truy cập các tính năng của vai trò phụ.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-           <Button asChild size="lg" variant="outline">
-            <Link href="/bartender/hygiene-report">
-              <ClipboardList className="mr-2" />
-              Báo cáo Vệ sinh quầy
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/bartender/inventory">
-              <Archive className="mr-2" />
-              Kiểm kê Tồn kho
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-  )
-}
 
 export default function ShiftsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -111,6 +86,7 @@ export default function ShiftsPage() {
   }, [todaysShifts]);
   
   const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
+  const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');
   const isPrimaryServer = user?.role === 'Phục vụ';
 
   if (authLoading || isLoading) {
@@ -187,9 +163,10 @@ export default function ShiftsPage() {
               </>
             )}
 
+            {(hasBartenderSecondaryRole || hasManagerSecondaryRole) && <Separator className="my-2" />}
+
             {hasBartenderSecondaryRole && (
               <>
-                <Separator className="my-2" />
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
                 <Button asChild size="lg" variant="outline">
                   <Link href="/bartender/hygiene-report">
@@ -205,6 +182,19 @@ export default function ShiftsPage() {
                 </Button>
               </>
             )}
+
+            {hasManagerSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/manager/comprehensive-report">
+                    <FileSearch className="mr-2" />
+                    Phiếu kiểm tra toàn diện
+                  </Link>
+                </Button>
+              </>
+            )}
+
           </CardContent>
         </Card>
       </div>

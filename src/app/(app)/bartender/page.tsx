@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Archive, ShieldX, CalendarDays, Sun, Moon, Sunset, CheckSquare } from 'lucide-react';
+import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -29,6 +29,7 @@ export default function BartenderDashboardPage() {
   }
   
   const hasServerSecondaryRole = user.secondaryRoles?.includes('Phục vụ');
+  const hasManagerSecondaryRole = user.secondaryRoles?.includes('Quản lý');
 
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
@@ -67,9 +68,10 @@ export default function BartenderDashboardPage() {
               </Link>
             </Button>
             
+            {(hasServerSecondaryRole || hasManagerSecondaryRole) && <Separator className="my-2" />}
+
             {hasServerSecondaryRole && (
               <>
-                <Separator className="my-2" />
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
                 <Button asChild size="lg" variant="outline">
                   <Link href="/shifts">
@@ -79,6 +81,19 @@ export default function BartenderDashboardPage() {
                 </Button>
               </>
             )}
+
+            {hasManagerSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/manager/comprehensive-report">
+                    <FileSearch className="mr-2" />
+                    Phiếu kiểm tra toàn diện
+                  </Link>
+                </Button>
+              </>
+            )}
+
           </CardContent>
         </Card>
       </div>
