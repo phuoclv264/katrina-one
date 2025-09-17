@@ -91,7 +91,7 @@ export default function ShiftInfoDialog({
     const colleagues = Array.from(colleagueMap.values());
 
     // Find available staff
-    const availabilityForDay = schedule.availability.filter(a => a.date === shiftDate);
+    const availabilityForDay = (schedule.availability || []).filter(a => a.date === shiftDate);
     const assignedUserIdsInPeriod = new Set(colleagues.map(c => c.user.uid));
     shift.assignedUsers.forEach(u => assignedUserIdsInPeriod.add(u.userId));
 
