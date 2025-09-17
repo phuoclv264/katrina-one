@@ -101,6 +101,10 @@ export default function PassRequestsDialog({
                 }
             }
          }
+         // A user who took a shift should see it while it's pending approval
+         if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser.uid) {
+             pending.push(notification);
+         }
       } else { // 'resolved' or 'cancelled'
         if(isMyRequest || currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý') {
             historical.push(notification);
@@ -207,6 +211,9 @@ export default function PassRequestsDialog({
                 </div>
              );
            }
+            if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser.uid) {
+                return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>
+            }
       }
       
       return null;
