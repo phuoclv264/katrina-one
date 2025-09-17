@@ -52,20 +52,8 @@ export default function BartenderDashboardPage() {
               </Link>
             </Button>
 
-            {hasServerSecondaryRole && (
-              <>
-                <Separator className="my-2" />
-                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/shifts">
-                    <CheckSquare className="mr-2" />
-                    Checklist Công việc
-                  </Link>
-                </Button>
-              </>
-            )}
-
             <Separator className="my-2" />
+
             <Button asChild size="lg" variant="outline">
               <Link href="/schedule">
                   <CalendarDays className="mr-2" />
@@ -78,6 +66,19 @@ export default function BartenderDashboardPage() {
                   Danh sách Vi phạm
               </Link>
             </Button>
+            
+            {hasServerSecondaryRole && (
+              <>
+                <Separator className="my-2" />
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/shifts">
+                    <CheckSquare className="mr-2" />
+                    Checklist Công việc
+                  </Link>
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
