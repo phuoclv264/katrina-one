@@ -24,6 +24,7 @@ import {
   or,
   arrayUnion,
   arrayRemove,
+  and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser } from './types';
@@ -70,6 +71,7 @@ export const dataStore = {
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const now = new Date();
+            const expiredRequests: Notification[] = [];
 
             const notifications: Notification[] = querySnapshot.docs.map(doc => {
                  const data = doc.data();
@@ -79,9 +81,32 @@ export const dataStore = {
                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                     resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
                 } as Notification;
+                
+                // Identify expired pass requests
+                if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        expiredRequests.push(notification);
+                    }
+                }
+                
                 return notification;
             });
             
+            // Automatically cancel expired requests
+            if (expiredRequests.length > 0) {
+                const batch = writeBatch(db);
+                expiredRequests.forEach(req => {
+                    const docRef = doc(db, 'notifications', req.id);
+                    batch.update(docRef, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                        resolvedAt: serverTimestamp(),
+                    });
+                });
+                batch.commit().catch(e => console.error("Failed to auto-cancel expired pass requests:", e));
+            }
+
             callback(notifications);
 
         }, (error) => {
@@ -107,8 +132,10 @@ export const dataStore = {
 
         const otherRequestsQuery = query(
             notificationsCollection,
-            where('status', '==', 'pending'),
-             where('payload.requestingUser.userId', '!=', userId)
+            and(
+                where('status', '==', 'pending'),
+                where('payload.requestingUser.userId', '!=', userId)
+            )
         );
 
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
@@ -118,6 +145,13 @@ export const dataStore = {
                  if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
                     const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
+                        // Cancel my own expired request
+                        const docRef = doc(db, 'notifications', n.id);
+                        updateDoc(docRef, {
+                            status: 'cancelled',
+                            'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                            resolvedAt: serverTimestamp(),
+                        }).catch(e => console.error("Failed to auto-cancel own expired request:", e));
                         return; // Don't show it in the UI immediately
                     }
                 }
@@ -1772,6 +1806,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-
-
