@@ -2,6 +2,7 @@
 
 'use client';
 
+import * as React from "react"
 import {
   SidebarContent,
   SidebarHeader,
@@ -37,7 +38,7 @@ export function AppSidebar() {
       const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
 
       let primaryItems: any[] = [];
-      let secondaryItems: any[] = [];
+      let secondaryItems: { role: string; item: any }[] = [];
 
       // Primary role menus
       switch(user?.role) {
@@ -183,13 +184,14 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
           
+          {Object.entries(groupedSecondaryItems).length > 0 && <SidebarSeparator className="my-2"/>}
+
           {Object.entries(groupedSecondaryItems).map(([role, items]) => (
             <React.Fragment key={role}>
-              <SidebarSeparator className="my-2"/>
               <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
                 <span className="text-xs font-semibold text-muted-foreground uppercase">Phụ: {role}</span>
               </SidebarMenuItem>
-              {items.map((item: any) => (
+              {(items as any[]).map((item: any) => (
                 <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
                   <SidebarMenuButton
                     asChild
