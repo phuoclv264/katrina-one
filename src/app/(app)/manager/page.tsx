@@ -29,6 +29,9 @@ export default function ManagerDashboardPage() {
     )
   }
 
+  const hasServerSecondaryRole = user.secondaryRoles?.includes('Phục vụ');
+  const hasBartenderSecondaryRole = user.secondaryRoles?.includes('Pha chế');
+
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <Card className="w-full max-w-md">
@@ -68,6 +71,39 @@ export default function ManagerDashboardPage() {
                 Ghi nhận Vi phạm
             </Link>
           </Button>
+
+            {(hasServerSecondaryRole || hasBartenderSecondaryRole) && <Separator className="my-2" />}
+
+            {hasServerSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/shifts">
+                    <CheckSquare className="mr-2" />
+                    Checklist Công việc
+                  </Link>
+                </Button>
+              </>
+            )}
+
+            {hasBartenderSecondaryRole && (
+                <>
+                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
+                 <Button asChild size="lg" variant="outline">
+                    <Link href="/bartender/hygiene-report">
+                        <ClipboardList className="mr-2" />
+                        Báo cáo Vệ sinh quầy
+                    </Link>
+                 </Button>
+                 <Button asChild size="lg" variant="outline">
+                    <Link href="/bartender/inventory">
+                        <Archive className="mr-2" />
+                        Kiểm kê Tồn kho
+                    </Link>
+                 </Button>
+                </>
+            )}
+
         </CardContent>
       </Card>
     </div>
