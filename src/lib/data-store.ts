@@ -70,7 +70,7 @@ export const dataStore = {
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const now = new Date();
-            const expiredRequestIdsToDelete: string[] = [];
+            const expiredRequestsToUpdate: Notification[] = [];
 
             const notifications: Notification[] = querySnapshot.docs.map(doc => {
                  const data = doc.data();
@@ -81,29 +81,33 @@ export const dataStore = {
                     resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
                 } as Notification;
 
-                // Check if pass_request is expired
+                // Check if pass_request is expired and pending
                 if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
                     const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
-                        expiredRequestIdsToDelete.push(notification.id);
+                        expiredRequestsToUpdate.push(notification);
                     }
                 }
                 return notification;
             });
             
-            // Filter out the expired ones before sending to UI
-            const validNotifications = notifications.filter(n => !expiredRequestIdsToDelete.includes(n.id));
-            callback(validNotifications);
-
-            // Asynchronously delete expired requests in the background
-            if (expiredRequestIdsToDelete.length > 0) {
-                console.log(`[Auto-Cleanup] Deleting ${expiredRequestIdsToDelete.length} expired pass requests...`);
+            // Asynchronously update expired requests to 'cancelled' status
+            if (expiredRequestsToUpdate.length > 0) {
+                console.log(`[Auto-Cleanup] Cancelling ${expiredRequestsToUpdate.length} expired pass requests...`);
                 const batch = writeBatch(db);
-                expiredRequestIdsToDelete.forEach(id => {
-                    batch.delete(doc(db, 'notifications', id));
+                expiredRequestsToUpdate.forEach(req => {
+                    const docRef = doc(db, 'notifications', req.id);
+                    batch.update(docRef, { 
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.'
+                    });
                 });
-                batch.commit().catch(err => console.error("Error batch deleting expired notifications:", err));
+                batch.commit().catch(err => console.error("Error batch cancelling expired notifications:", err));
             }
+            
+            // Filter out the expired ones from the immediate view for a cleaner UX
+            const validNotifications = notifications.filter(n => !expiredRequestsToUpdate.find(exp => exp.id === n.id));
+            callback(validNotifications);
 
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
@@ -116,7 +120,6 @@ export const dataStore = {
     subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
         
-        // Query for user's own requests OR requests targeted at the user OR requests taken by the user
         const myRequestsQuery = query(
             notificationsCollection,
             or(
@@ -127,7 +130,6 @@ export const dataStore = {
             orderBy('createdAt', 'desc')
         );
 
-        // Query for pending requests from others
         const otherRequestsQuery = query(
             notificationsCollection,
             where('status', '==', 'pending'),
@@ -136,53 +138,45 @@ export const dataStore = {
 
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
             const combined = new Map<string, Notification>();
-            const now = new Date();
-            const myExpiredIdsToDelete = new Set<string>();
-
-            // Add my requests first and check for expiry
+            const myExpiredRequestsToUpdate: Notification[] = [];
+            const otherExpiredRequestsToHide: Set<string> = new Set();
+            
             myRequests.forEach(n => {
                  if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
                     const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
-                        // If it's my own request, mark for deletion
-                        if(n.payload.requestingUser.userId === userId) {
-                           myExpiredIdsToDelete.add(n.id);
-                        }
-                        return; // Don't add expired requests to the list to be shown
+                        myExpiredRequestsToUpdate.push(n);
+                        return; // Don't show it in the UI immediately
                     }
                 }
                 combined.set(n.id, n);
             });
             
-             // Asynchronously delete user's own expired requests
-            if (myExpiredIdsToDelete.size > 0) {
-                 console.log(`[Auto-Cleanup] Deleting ${myExpiredIdsToDelete.size} of your own expired pass requests...`);
+            if (myExpiredRequestsToUpdate.length > 0) {
+                console.log(`[Auto-Cleanup] Cancelling ${myExpiredRequestsToUpdate.length} of your expired pass requests...`);
                 const batch = writeBatch(db);
-                myExpiredIdsToDelete.forEach(id => {
-                    batch.delete(doc(db, 'notifications', id));
+                myExpiredRequestsToUpdate.forEach(req => {
+                    batch.update(doc(db, 'notifications', req.id), { 
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.'
+                    });
                 });
-                batch.commit().catch(err => console.error("Error batch deleting user's expired notifications:", err));
+                batch.commit().catch(err => console.error("Error batch cancelling user's expired notifications:", err));
             }
 
-
-            // Add other eligible requests
             otherRequests.forEach(n => {
                 const payload = n.payload;
-                
-                 // Filter out expired requests from others
                 if (n.type === 'pass_request' && n.status === 'pending') {
                     const shiftDateTime = parseISO(`${payload.shiftDate}T${payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
-                        return; // Don't show expired requests from others
+                        otherExpiredRequestsToHide.add(n.id);
+                        return;
                     }
                 }
-                
-                // Don't show direct requests to others
                 if (payload.targetUserId) return;
-                
                 const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
                 const hasDeclined = (payload.declinedBy || []).includes(userId);
-                if (!isDifferentRole && !hasDeclined) {
+                if (!isDifferentRole && !hasDeclined && !otherExpiredRequestsToHide.has(n.id)) {
                     combined.set(n.id, n);
                 }
             });
@@ -229,6 +223,11 @@ export const dataStore = {
             updateData.resolvedBy = { userId: resolver.uid, userName: resolver.displayName };
         }
         await updateDoc(docRef, updateData);
+    },
+
+    async deleteNotification(notificationId: string): Promise<void> {
+        const docRef = doc(db, 'notifications', notificationId);
+        await deleteDoc(docRef);
     },
 
     // --- Schedule ---
@@ -1765,4 +1764,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-

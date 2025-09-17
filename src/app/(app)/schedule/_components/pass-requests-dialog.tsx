@@ -29,6 +29,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
+import { dataStore } from '@/lib/data-store';
+import { useToast } from '@/hooks/use-toast';
 
 type PassRequestsDialogProps = {
   isOpen: boolean;
@@ -63,6 +65,7 @@ export default function PassRequestsDialog({
   onRejectApproval,
   isProcessing,
 }: PassRequestsDialogProps) {
+  const { toast } = useToast();
   
   const { pendingRequests, historicalRequests } = useMemo(() => {
     const pending: Notification[] = [];
@@ -130,6 +133,23 @@ export default function PassRequestsDialog({
     return { pendingRequests: pending, historicalRequests: historical };
   }, [notifications, currentUser, weekInterval]);
   
+  const handleDeleteFromHistory = async (notificationId: string) => {
+    if (currentUser.role !== 'Chủ nhà hàng') return;
+    try {
+        await dataStore.deleteNotification(notificationId);
+        toast({
+            title: "Thành công",
+            description: "Đã xóa yêu cầu khỏi lịch sử."
+        });
+    } catch(error) {
+        toast({
+            title: "Lỗi",
+            description: "Không thể xóa yêu cầu.",
+            variant: "destructive"
+        });
+    }
+  }
+
   const renderRequestActions = (notification: Notification) => {
       const payload = notification.payload;
       const isMyRequest = payload.requestingUser.userId === currentUser.uid;
@@ -175,18 +195,33 @@ export default function PassRequestsDialog({
           )
       }
       
-      if (notification.status === 'resolved' && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
+      if ((notification.status === 'resolved' || notification.status === 'cancelled') && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
          return (
             <div className="flex gap-2 self-end sm:self-center">
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                         <Button variant="outline" size="sm" disabled={isProcessingThis}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                         <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                {notification.status === 'resolved' && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={isProcessingThis}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+                 {currentUser.role === 'Chủ nhà hàng' && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive h-9 w-9">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                         <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn yêu cầu này khỏi hệ thống. Chỉ nên dùng để dọn dẹp các mục cũ. Không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromHistory(notification.id)}>Xóa vĩnh viễn</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
             </div>
            );
       }
