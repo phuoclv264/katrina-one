@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from "react"
@@ -83,8 +82,13 @@ export function AppSidebar() {
       if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
           secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
       }
-      if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
-          secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender', label: 'Báo cáo', icon: Coffee } });
+      if(user?.secondaryRoles?.includes('Pha chế')) {
+          if (!primaryHrefs.has('/bartender/hygiene-report')) {
+              secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh', icon: ClipboardList } });
+          }
+          if (!primaryHrefs.has('/bartender/inventory')) {
+              secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive } });
+          }
       }
       if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager/comprehensive-report')) {
           secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch } });
@@ -184,12 +188,14 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
           
-          {Object.entries(groupedSecondaryItems).length > 0 && <SidebarSeparator className="my-2"/>}
+          {Object.entries(groupedSecondaryItems).length > 0 && (
+              <SidebarSeparator className="my-2"/>
+          )}
 
           {Object.entries(groupedSecondaryItems).map(([role, items]) => (
             <React.Fragment key={role}>
               <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Phụ: {role}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Vai trò phụ: {role}</span>
               </SidebarMenuItem>
               {(items as any[]).map((item: any) => (
                 <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
