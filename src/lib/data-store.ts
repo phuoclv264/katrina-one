@@ -30,7 +30,7 @@ import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, Inventor
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 
 
@@ -69,17 +69,42 @@ export const dataStore = {
         const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const notifications: Notification[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            notifications.push({
-            id: doc.id,
-            ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-            resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
-            } as Notification);
-        });
-        callback(notifications);
+            const now = new Date();
+            const expiredRequestIdsToDelete: string[] = [];
+
+            const notifications: Notification[] = querySnapshot.docs.map(doc => {
+                 const data = doc.data();
+                const notification = {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+                } as Notification;
+
+                // Check if pass_request is expired
+                if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        expiredRequestIdsToDelete.push(notification.id);
+                    }
+                }
+                return notification;
+            });
+            
+            // Filter out the expired ones before sending to UI
+            const validNotifications = notifications.filter(n => !expiredRequestIdsToDelete.includes(n.id));
+            callback(validNotifications);
+
+            // Asynchronously delete expired requests in the background
+            if (expiredRequestIdsToDelete.length > 0) {
+                console.log(`[Auto-Cleanup] Deleting ${expiredRequestIdsToDelete.length} expired pass requests...`);
+                const batch = writeBatch(db);
+                expiredRequestIdsToDelete.forEach(id => {
+                    batch.delete(doc(db, 'notifications', id));
+                });
+                batch.commit().catch(err => console.error("Error batch deleting expired notifications:", err));
+            }
+
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
             callback([]);
@@ -111,13 +136,47 @@ export const dataStore = {
 
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
             const combined = new Map<string, Notification>();
+            const now = new Date();
+            const myExpiredIdsToDelete = new Set<string>();
 
-            // Add my requests first
-            myRequests.forEach(n => combined.set(n.id, n));
+            // Add my requests first and check for expiry
+            myRequests.forEach(n => {
+                 if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        // If it's my own request, mark for deletion
+                        if(n.payload.requestingUser.userId === userId) {
+                           myExpiredIdsToDelete.add(n.id);
+                        }
+                        return; // Don't add expired requests to the list to be shown
+                    }
+                }
+                combined.set(n.id, n);
+            });
+            
+             // Asynchronously delete user's own expired requests
+            if (myExpiredIdsToDelete.size > 0) {
+                 console.log(`[Auto-Cleanup] Deleting ${myExpiredIdsToDelete.size} of your own expired pass requests...`);
+                const batch = writeBatch(db);
+                myExpiredIdsToDelete.forEach(id => {
+                    batch.delete(doc(db, 'notifications', id));
+                });
+                batch.commit().catch(err => console.error("Error batch deleting user's expired notifications:", err));
+            }
+
 
             // Add other eligible requests
             otherRequests.forEach(n => {
                 const payload = n.payload;
+                
+                 // Filter out expired requests from others
+                if (n.type === 'pass_request' && n.status === 'pending') {
+                    const shiftDateTime = parseISO(`${payload.shiftDate}T${payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        return; // Don't show expired requests from others
+                    }
+                }
+                
                 // Don't show direct requests to others
                 if (payload.targetUserId) return;
                 
@@ -1706,3 +1765,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
