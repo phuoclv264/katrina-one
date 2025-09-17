@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -12,6 +13,7 @@ export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà 
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  secondaryRoles?: UserRole[];
 }
 
 export const useAuth = () => {
@@ -32,6 +34,7 @@ export const useAuth = () => {
             ...firebaseUser,
             displayName: userData.displayName,
             role: userRole,
+            secondaryRoles: userData.secondaryRoles || [],
           } as AuthUser;
           setUser(authUser);
 
@@ -99,6 +102,7 @@ export const useAuth = () => {
         email,
         displayName,
         role,
+        secondaryRoles: [],
       });
 
       // onAuthStateChanged will handle the user state update and redirect

@@ -35,26 +35,29 @@ export function AppSidebar() {
       const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
       const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
 
+      let menuItems = [];
+
+      // Primary role menus
       switch(user?.role) {
-          case 'Phục vụ': return [
+          case 'Phục vụ': menuItems.push(
             { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
-            commonScheduleMenu,
-            commonViolationMenu
-          ];
-          case 'Pha chế': return [
+            commonScheduleMenu
+          );
+          break;
+          case 'Pha chế': menuItems.push(
             { href: '/bartender', label: 'Danh mục Báo cáo', icon: Coffee },
-            commonScheduleMenu,
-            commonViolationMenu
-          ];
-          case 'Quản lý': return [
+            commonScheduleMenu
+          );
+          break;
+          case 'Quản lý': menuItems.push(
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
             { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
             { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
-            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
-            commonViolationMenu
-          ];
-          case 'Chủ nhà hàng': return [
+            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays }
+          );
+          break;
+          case 'Chủ nhà hàng': menuItems.push(
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
@@ -63,10 +66,25 @@ export function AppSidebar() {
             { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
             { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
             commonViolationMenu,
-            { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert },
-          ];
-          default: return [];
+            { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert }
+          );
+          break;
       }
+      
+      // Secondary role menus
+      if(user?.secondaryRoles?.includes('Phục vụ') && user.role !== 'Phục vụ') {
+          menuItems.push({ href: '/shifts', label: 'Checklist (Phục vụ)', icon: CheckSquare });
+      }
+      if(user?.secondaryRoles?.includes('Pha chế') && user.role !== 'Pha chế') {
+          menuItems.push({ href: '/bartender', label: 'Báo cáo (Pha chế)', icon: Coffee });
+      }
+
+      // Add common items if they are not already there
+      if (!menuItems.some(item => item.href === '/violations')) {
+        menuItems.push(commonViolationMenu);
+      }
+
+      return menuItems;
   }
 
   const getHomeLink = () => {
