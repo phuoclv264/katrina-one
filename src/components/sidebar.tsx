@@ -29,36 +29,40 @@ export function AppSidebar() {
   }
 
   const getMenuItems = () => {
-      if (!user) return [];
+      if (!user) return { primaryItems: [], secondaryItems: [] };
       const canManageViolations = user.role === 'Quản lý' || user.role === 'Chủ nhà hàng';
       const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
       const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
       const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
 
-      let menuItems = [];
+      let primaryItems: any[] = [];
+      let secondaryItems: any[] = [];
 
       // Primary role menus
       switch(user?.role) {
-          case 'Phục vụ': menuItems.push(
-            { href: '/shifts', label: 'Ca làm việc', icon: CheckSquare },
-            commonScheduleMenu
+          case 'Phục vụ': primaryItems.push(
+            { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare },
+            commonScheduleMenu,
+            commonViolationMenu
           );
           break;
-          case 'Pha chế': menuItems.push(
-            { href: '/bartender', label: 'Danh mục Báo cáo', icon: Coffee },
-            commonScheduleMenu
+          case 'Pha chế': primaryItems.push(
+            { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
+            commonScheduleMenu,
+            commonViolationMenu
           );
           break;
-          case 'Quản lý': menuItems.push(
+          case 'Quản lý': primaryItems.push(
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
             { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
             { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
-            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays }
+            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
+            commonViolationMenu
           );
           break;
-          case 'Chủ nhà hàng': menuItems.push(
+          case 'Chủ nhà hàng': primaryItems.push(
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
@@ -72,27 +76,20 @@ export function AppSidebar() {
           break;
       }
       
+      const primaryHrefs = new Set(primaryItems.map(item => item.href));
+
       // Secondary role menus
-      if(user?.secondaryRoles?.includes('Phục vụ') && user.role !== 'Phục vụ') {
-          menuItems.push({ href: '/shifts', label: 'Checklist (Phục vụ)', icon: CheckSquare });
+      if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
+          secondaryItems.push({ href: '/shifts', label: 'Checklist (Phục vụ)', icon: CheckSquare });
       }
-      if(user?.secondaryRoles?.includes('Pha chế') && user.role !== 'Pha chế') {
-          menuItems.push({ href: '/bartender', label: 'Báo cáo (Pha chế)', icon: Coffee });
+      if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
+          secondaryItems.push({ href: '/bartender', label: 'Báo cáo (Pha chế)', icon: Coffee });
       }
-      if(user?.secondaryRoles?.includes('Quản lý') && user.role !== 'Quản lý') {
-          menuItems.push({ href: '/manager', label: 'QL (Phụ)', icon: UserCog });
-      }
-
-      // Add common items if they are not already there
-      if (!menuItems.some(item => item.href === '/violations')) {
-        menuItems.push(commonViolationMenu);
+      if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
+          secondaryItems.push({ href: '/manager/comprehensive-report', label: 'Kiểm tra (Quản lý)', icon: FileSearch });
       }
 
-      // Remove duplicates that might occur if a primary role has a feature that's also a common one.
-      const uniqueMenuItems = Array.from(new Map(menuItems.map(item => [item.href, item])).values());
-
-
-      return uniqueMenuItems;
+      return { primaryItems, secondaryItems };
   }
 
   const getHomeLink = () => {
@@ -105,7 +102,7 @@ export function AppSidebar() {
     }
   }
 
-  const menuItems = getMenuItems();
+  const { primaryItems, secondaryItems } = getMenuItems();
   const homeLink = getHomeLink();
   const displayName = user?.displayName ?? 'Đang tải...';
   const displayRole = user?.role ?? '';
@@ -159,7 +156,7 @@ export function AppSidebar() {
       <SidebarSeparator />
       <SidebarContent className="flex-1">
         <SidebarMenu>
-          {menuItems.map((item) => (
+          {primaryItems.map((item) => (
             <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
               <SidebarMenuButton
                 asChild
@@ -175,6 +172,29 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+          
+          {secondaryItems.length > 0 && (
+            <>
+                <SidebarSeparator />
+                {secondaryItems.map((item) => (
+                    <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
+                    <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href}
+                        tooltip={item.label}
+                    >
+                        <Link href={item.href} onClick={handleLinkClick}>
+                        <div className="flex items-center gap-2">
+                            <item.icon />
+                            <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                        </div>
+                        </Link>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                ))}
+            </>
+          )}
+
         </SidebarMenu>
       </SidebarContent>
       <SidebarSeparator />
