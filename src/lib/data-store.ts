@@ -403,6 +403,20 @@ export const dataStore = {
     },
     
     async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
+        const existingRequestQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.shiftId', '==', shiftToPass.id),
+            where('payload.requestingUser.userId', '==', requestingUser.uid),
+            where('status', 'in', ['pending', 'pending_approval'])
+        );
+
+        const existingRequestsSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestsSnapshot.empty) {
+            throw new Error('Bạn đã có một yêu cầu pass ca đang chờ cho ca làm việc này.');
+        }
+
+
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
         const newNotification: Omit<Notification, 'id'> = {
             type: 'pass_request',
@@ -426,6 +440,19 @@ export const dataStore = {
     },
 
     async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser): Promise<void> {
+        const existingRequestQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.shiftId', '==', shiftToPass.id),
+            where('payload.requestingUser.userId', '==', requestingUser.uid),
+            where('payload.targetUserId', '==', targetUser.uid),
+            where('status', 'in', ['pending', 'pending_approval'])
+        );
+        const existingRequestsSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestsSnapshot.empty) {
+            throw new Error(`Bạn đã gửi yêu cầu cho ${targetUser.displayName} rồi.`);
+        }
+
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
         const newNotification: Omit<Notification, 'id'> = {
             type: 'pass_request',
@@ -1764,3 +1791,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+

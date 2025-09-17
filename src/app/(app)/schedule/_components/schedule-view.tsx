@@ -192,9 +192,10 @@ export default function ScheduleView() {
         try {
             await dataStore.requestPassShift(shift, user);
             toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to pass shift:", error);
-            toast({ title: 'Lỗi', description: 'Không thể gửi yêu cầu pass ca.', variant: 'destructive' });
+            const errorMessage = error.message || 'Không thể gửi yêu cầu pass ca.';
+            toast({ title: 'Lỗi', description: errorMessage, variant: 'destructive' });
         }
     }
     
@@ -367,6 +368,10 @@ export default function ScheduleView() {
             return isWithinInterval(shiftDate, weekInterval);
         });
 
+        if (canManage) {
+            return weekFilteredNotifications.filter(n => n.status === 'pending' || n.status === 'pending_approval').length;
+        }
+
         return weekFilteredNotifications.filter(notification => {
             const payload = notification.payload;
             const isMyRequest = payload.requestingUser.userId === user.uid;
@@ -393,7 +398,7 @@ export default function ScheduleView() {
             }
             return false;
         }).length;
-    }, [notifications, user, weekInterval]);
+    }, [notifications, user, weekInterval, canManage]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
         return notifications.some(n => n.payload.shiftId === shiftId && (n.status === 'pending' || n.status === 'pending_approval'));
@@ -628,5 +633,6 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
 
