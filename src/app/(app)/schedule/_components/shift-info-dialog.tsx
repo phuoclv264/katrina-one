@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, UserCheck, Send, Loader2 } from 'lucide-react';
-import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser } from '@/lib/types';
+import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
@@ -27,6 +27,7 @@ type ShiftInfoDialogProps = {
   allUsers: ManagedUser[];
   onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser) => void;
   isProcessing: boolean;
+  notifications: Notification[];
 };
 
 type ColleagueInfo = {
@@ -42,6 +43,7 @@ export default function ShiftInfoDialog({
   allUsers,
   onDirectPassRequest,
   isProcessing,
+  notifications,
 }: ShiftInfoDialogProps) {
   const { user: currentUser } = useAuth();
 
@@ -108,6 +110,15 @@ export default function ShiftInfoDialog({
     return { colleagues, availableStaff };
   }, [shift, schedule, allUsers, currentUser]);
 
+  const existingPendingRequests = useMemo(() => {
+    return notifications.filter(n => 
+        n.type === 'pass_request' &&
+        n.payload.shiftId === shift.id &&
+        (n.status === 'pending' || n.status === 'pending_approval')
+    );
+  }, [notifications, shift.id]);
+
+
   if (!shift) return null;
 
   return (
@@ -146,20 +157,23 @@ export default function ShiftInfoDialog({
              <ScrollArea className="h-72 mt-4">
                  {availableStaff.length > 0 ? (
                     <div className="space-y-2 pr-4">
-                        {availableStaff.map(user => (
-                            <Card key={user.uid}>
-                                <CardContent className="p-3 flex items-center justify-between">
-                                    <div>
-                                        <p className="font-semibold">{user.displayName}</p>
-                                        <p className="text-sm text-muted-foreground">{user.role}</p>
-                                    </div>
-                                    <Button size="sm" onClick={() => onDirectPassRequest(shift, user)} disabled={isProcessing}>
-                                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
-                                        Nhờ nhận ca
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        {availableStaff.map(user => {
+                            const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
+                            return (
+                                <Card key={user.uid}>
+                                    <CardContent className="p-3 flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold">{user.displayName}</p>
+                                            <p className="text-sm text-muted-foreground">{user.role}</p>
+                                        </div>
+                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user)} disabled={isProcessing || alreadyRequested}>
+                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
+                                            {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận ca'}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
                     </div>
                 ) : (
                     <p className="text-sm text-muted-foreground text-center py-8">Không có nhân viên nào rảnh trong khung giờ này.</p>

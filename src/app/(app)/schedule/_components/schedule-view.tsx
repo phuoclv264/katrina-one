@@ -628,11 +628,13 @@ export default function ScheduleView() {
                     allUsers={allUsers}
                     onDirectPassRequest={handleDirectPassRequest}
                     isProcessing={isProcessing}
+                    notifications={notifications}
                 />
             )}
         </TooltipProvider>
     );
 }
+
 
 
 
