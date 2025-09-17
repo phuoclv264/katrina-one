@@ -70,7 +70,6 @@ export const dataStore = {
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const now = new Date();
-            const requestsToUpdate: Notification[] = [];
 
             const notifications: Notification[] = querySnapshot.docs.map(doc => {
                  const data = doc.data();
@@ -80,30 +79,8 @@ export const dataStore = {
                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                     resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
                 } as Notification;
-
-                // Check if pass_request is expired and pending
-                if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
-                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
-                    if (isPast(shiftDateTime)) {
-                        requestsToUpdate.push(notification);
-                    }
-                }
                 return notification;
             });
-            
-            // Asynchronously update expired requests to 'cancelled' status
-            if (requestsToUpdate.length > 0) {
-                console.log(`[Auto-Cleanup] Found ${requestsToUpdate.length} expired pass requests to update.`);
-                const batch = writeBatch(db);
-                requestsToUpdate.forEach(req => {
-                    const docRef = doc(db, 'notifications', req.id);
-                    batch.update(docRef, { 
-                        status: 'cancelled',
-                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.'
-                    });
-                });
-                batch.commit().catch(err => console.error("Error batch updating expired notifications:", err));
-            }
             
             callback(notifications);
 
@@ -136,30 +113,16 @@ export const dataStore = {
 
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
             const combined = new Map<string, Notification>();
-            const myExpiredRequestsToUpdate: Notification[] = [];
             
             myRequests.forEach(n => {
                  if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
                     const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
-                        myExpiredRequestsToUpdate.push(n);
                         return; // Don't show it in the UI immediately
                     }
                 }
                 combined.set(n.id, n);
             });
-            
-            if (myExpiredRequestsToUpdate.length > 0) {
-                console.log(`[Auto-Cleanup] Updating ${myExpiredRequestsToUpdate.length} of your expired pass requests...`);
-                const batch = writeBatch(db);
-                myExpiredRequestsToUpdate.forEach(req => {
-                    batch.update(doc(db, 'notifications', req.id), { 
-                        status: 'cancelled',
-                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.'
-                    });
-                });
-                batch.commit().catch(err => console.error("Error batch updating user's expired notifications:", err));
-            }
 
             otherRequests.forEach(n => {
                 const payload = n.payload;
@@ -581,11 +544,33 @@ export const dataStore = {
             });
             transaction.update(scheduleRef, { shifts: updatedShifts });
             
-            // Update Notification
+            // Update the approved Notification
             transaction.update(notificationRef, {
                 status: 'resolved',
                 resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
+            });
+
+            // Find and cancel all other related pending requests for this shift
+            const otherRequestsQuery = query(
+                collection(db, 'notifications'),
+                where('type', '==', 'pass_request'),
+                where('payload.shiftId', '==', notification.payload.shiftId),
+                where('payload.requestingUser.userId', '==', notification.payload.requestingUser.userId),
+                or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+            );
+
+            const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
+            otherRequestsSnapshot.forEach(doc => {
+                // Don't cancel the one we are currently approving
+                if (doc.id !== notification.id) {
+                    transaction.update(doc.ref, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Đã có người khác nhận và được phê duyệt.',
+                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                        resolvedAt: serverTimestamp(),
+                    });
+                }
             });
         });
     },
@@ -1787,5 +1772,6 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
 
 
