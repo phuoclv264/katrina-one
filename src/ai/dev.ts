@@ -10,4 +10,3 @@ import '@/ai/flows/generate-comprehensive-tasks.ts';
 import '@/ai/flows/sort-tasks.ts';
 import '@/ai/flows/update-inventory-items.ts';
 import '@/ai/flows/generate-daily-summary.ts';
-import '@/ai/flows/expire-pass-requests-flow.ts';
