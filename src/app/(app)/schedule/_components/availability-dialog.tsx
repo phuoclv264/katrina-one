@@ -32,6 +32,12 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
   const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
 
   const quickSelectSlots = useMemo(() => {
+    // Add the two special full-day slots
+    const specialSlots: TimeSlot[] = [
+        { start: '05:30', end: '17:00' },
+        { start: '05:30', end: '22:30' },
+    ];
+    
     const uniqueSlots: TimeSlot[] = [];
     const seen = new Set<string>();
 
@@ -42,11 +48,16 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
         seen.add(key);
       }
     });
-
+    
     // Sort the slots by start time
     uniqueSlots.sort((a, b) => a.start.localeCompare(b.start));
 
-    return uniqueSlots;
+    // Prepend the special slots
+    return {
+        special: specialSlots,
+        regular: uniqueSlots
+    };
+
   }, [shiftTemplates]);
 
   useEffect(() => {
@@ -94,7 +105,20 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
             <div>
                 <Label className="text-sm font-medium">Chọn nhanh theo ca</Label>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                    {quickSelectSlots.map((slot, index) => {
+                    {quickSelectSlots.special.map((slot, index) => {
+                         const isSelected = selectedSlots.some(s => isEqual(s, slot));
+                         return (
+                            <Button 
+                                key={`special-${index}`} 
+                                variant={isSelected ? "default" : "outline"}
+                                className={cn("border-2 border-transparent", !isSelected && "border-blue-500/80")}
+                                onClick={() => handleToggleSlot(slot)}
+                            >
+                                {slot.start} - {slot.end}
+                            </Button>
+                         )
+                    })}
+                    {quickSelectSlots.regular.map((slot, index) => {
                         const isSelected = selectedSlots.some(s => isEqual(s, slot));
                         return (
                             <Button 

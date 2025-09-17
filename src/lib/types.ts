@@ -259,7 +259,7 @@ export type Availability = {
 
 // --- Notification System Types ---
 
-export type NotificationStatus = 'pending' | 'resolved' | 'cancelled';
+export type NotificationStatus = 'pending' | 'pending_approval' | 'resolved' | 'cancelled';
 export type NotificationType = 'pass_request';
 
 export type PassRequestPayload = {
@@ -272,6 +272,8 @@ export type PassRequestPayload = {
   requestingUser: AssignedUser;
   takenBy?: AssignedUser; // The user who took over the shift
   declinedBy?: string[]; // Array of user IDs who declined
+  targetUserId?: string; // For direct pass requests
+  cancellationReason?: string; // Reason for automatic cancellation
 }
 
 export type Notification = {
@@ -280,6 +282,7 @@ export type Notification = {
     status: NotificationStatus;
     payload: PassRequestPayload;
     createdAt: string | Timestamp;
+    resolvedBy?: AssignedUser;
     resolvedAt?: string | Timestamp;
 };
 

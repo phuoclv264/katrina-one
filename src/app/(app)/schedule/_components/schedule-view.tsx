@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
@@ -39,6 +40,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import isEqual from 'lodash.isequal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
+import ShiftInfoDialog from './shift-info-dialog';
 
 
 export default function ScheduleView() {
@@ -52,9 +54,12 @@ export default function ScheduleView() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
+    const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+    const [activeShiftForInfo, setActiveShiftForInfo] = useState<AssignedShift | null>(null);
     const [selectedDateForAvailability, setSelectedDateForAvailability] = useState<Date | null>(null);
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
@@ -187,19 +192,36 @@ export default function ScheduleView() {
         try {
             await dataStore.requestPassShift(shift, user);
             toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to pass shift:", error);
-            toast({ title: 'Lỗi', description: 'Không thể gửi yêu cầu pass ca.', variant: 'destructive' });
+            const errorMessage = error.message || 'Không thể gửi yêu cầu pass ca.';
+            toast({ title: 'Lỗi', description: errorMessage, variant: 'destructive' });
+        }
+    }
+    
+    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser) => {
+        if (!user) return;
+        setIsProcessing(true);
+        try {
+            await dataStore.requestDirectPassShift(shift, user, targetUser);
+            toast({ title: "Đã gửi yêu cầu", description: `Yêu cầu đổi ca đã được gửi trực tiếp đến ${targetUser.displayName}.`});
+        } catch(error: any) {
+            console.error("Failed to send direct pass request:", error);
+            toast({ title: 'Lỗi', description: `Không thể gửi yêu cầu: ${error.message}`, variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
         }
     }
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
+        
+        (window as any).processingNotificationId = notification.id;
+        setIsProcessing(true);
     
         const { payload } = notification;
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
         
-        // Construct a temporary shift object representing the one to be taken
         const shiftToTake: AssignedShift = {
             id: payload.shiftId,
             templateId: '', // Not needed for conflict check
@@ -207,8 +229,8 @@ export default function ScheduleView() {
             label: payload.shiftLabel,
             role: payload.shiftRole,
             timeSlot: payload.shiftTimeSlot,
-            assignedUsers: [], // Not relevant for this check
-            minUsers: 0,       // Not relevant for this check
+            assignedUsers: [], 
+            minUsers: 0,
         };
     
         const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
@@ -220,17 +242,37 @@ export default function ScheduleView() {
                 variant: 'destructive',
                 duration: 7000,
             });
+            setIsProcessing(false);
             return;
         }
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
-            await dataStore.acceptPassShift(notification, acceptingUser);
-            toast({ title: 'Thành công!', description: 'Bạn đã nhận ca làm việc này.'});
+            
+            await dataStore.acceptPassShift(notification.id, acceptingUser);
+
+            // Optimistically update UI
+            setNotifications(prevNotifs => prevNotifs.map(n => {
+                if (n.id === notification.id) {
+                    return {
+                        ...n,
+                        status: 'pending_approval',
+                        payload: {
+                            ...n.payload,
+                            takenBy: acceptingUser
+                        }
+                    };
+                }
+                return n;
+            }));
+
+            toast({ title: 'Thành công!', description: 'Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.'});
         } catch (error: any) {
             console.error("Failed to take shift:", error);
-            // The error from dataStore (server-side check) will be more specific
             toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
+            delete (window as any).processingNotificationId;
         }
     }
 
@@ -247,7 +289,7 @@ export default function ScheduleView() {
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         try {
-            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
              toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
         } catch (error: any) {
              toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
@@ -257,11 +299,43 @@ export default function ScheduleView() {
     const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
          try {
-            await dataStore.revertPassRequest(notification);
+            await dataStore.revertPassRequest(notification, user);
             toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
         } catch (error) {
             console.error(error);
             toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+        }
+    }
+
+     const handleApproveRequest = async (notification: Notification) => {
+        if (!user) return;
+        (window as any).processingNotificationId = notification.id;
+        setIsProcessing(true);
+        try {
+            await dataStore.approvePassRequest(notification, user);
+            toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: `Không thể phê duyệt: ${error.message}`, variant: 'destructive'});
+        } finally {
+            setIsProcessing(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
+    
+    const handleRejectApproval = async (notificationId: string) => {
+         if (!user) return;
+        (window as any).processingNotificationId = notificationId;
+        setIsProcessing(true);
+        try {
+            await dataStore.rejectPassRequestApproval(notificationId, user);
+            toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
+        } finally {
+            setIsProcessing(false);
+            delete (window as any).processingNotificationId;
         }
     }
     
@@ -285,18 +359,48 @@ export default function ScheduleView() {
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     const pendingRequestCount = useMemo(() => {
-        if (!notifications) return 0;
-        return notifications.filter(n => {
-            if (n.type !== 'pass_request' || n.status !== 'pending') return false;
-            
-            // Filter by current week
-            const shiftDate = parseISO(n.payload.shiftDate);
+        if (!notifications || !user) return 0;
+        
+        const weekFilteredNotifications = notifications.filter(notification => {
+            if (notification.type !== 'pass_request') return false;
+            const shiftDate = parseISO(notification.payload.shiftDate);
             return isWithinInterval(shiftDate, weekInterval);
+        });
+
+        if (canManage) {
+            return weekFilteredNotifications.filter(n => n.status === 'pending' || n.status === 'pending_approval').length;
+        }
+
+        return weekFilteredNotifications.filter(notification => {
+            const payload = notification.payload;
+            const isMyRequest = payload.requestingUser.userId === user.uid;
+
+            if (notification.status === 'pending' || notification.status === 'pending_approval') {
+                if (isMyRequest) return true;
+
+                if (notification.status === 'pending_approval' && payload.takenBy?.userId === user.uid) {
+                    return true;
+                }
+                
+                if (notification.status === 'pending') {
+                    const isTargetedToMe = payload.targetUserId === user.uid;
+                    const isPublicRequest = !payload.targetUserId;
+                    
+                    if (isTargetedToMe || isPublicRequest) {
+                        const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
+                        const hasDeclined = (payload.declinedBy || []).includes(user.uid);
+                        if (!isDifferentRole && !hasDeclined) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }).length;
-    }, [notifications, weekInterval]);
+    }, [notifications, user, weekInterval, canManage]);
     
     const hasPendingRequest = (shiftId: string): boolean => {
-        return notifications.some(n => n.payload.shiftId === shiftId && n.status === 'pending');
+        return notifications.some(n => n.payload.shiftId === shiftId && (n.status === 'pending' || n.status === 'pending_approval'));
     }
 
     if (authLoading || isLoading || !user) {
@@ -453,14 +557,17 @@ export default function ScheduleView() {
                                                                                 </Button>
                                                                             </DropdownMenuTrigger>
                                                                             <DropdownMenuContent>
+                                                                                <DropdownMenuItem onSelect={() => { setActiveShiftForInfo(shift); setIsInfoDialogOpen(true); }}>
+                                                                                    <Users className="mr-2 h-4 w-4 text-blue-500" /> Xem thông tin ca
+                                                                                </DropdownMenuItem>
                                                                                 <AlertDialog>
                                                                                     <AlertDialogTrigger asChild>
                                                                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
-                                                                                            <Send className="mr-2 h-4 w-4 text-blue-500"/> Xin pass ca
+                                                                                            <Send className="mr-2 h-4 w-4 text-green-500"/> Xin pass ca
                                                                                         </DropdownMenuItem>
                                                                                     </AlertDialogTrigger>
                                                                                     <AlertDialogContent>
-                                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận.</AlertDialogDescription></AlertDialogHeader>
+                                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận và được quản lý phê duyệt.</AlertDialogDescription></AlertDialogHeader>
                                                                                         <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
                                                                                     </AlertDialogContent>
                                                                                 </AlertDialog>
@@ -505,8 +612,29 @@ export default function ScheduleView() {
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
-                onAssign={() => { /* TODO */ }}
+                onAssign={() => { /* Implemented in shift-scheduling */ }}
+                onApprove={handleApproveRequest}
+                onRejectApproval={handleRejectApproval}
+                isProcessing={isProcessing}
             />
+            
+            {activeShiftForInfo && schedule && (
+                <ShiftInfoDialog
+                    isOpen={isInfoDialogOpen}
+                    onClose={() => setIsInfoDialogOpen(false)}
+                    shift={activeShiftForInfo}
+                    schedule={schedule}
+                    allUsers={allUsers}
+                    onDirectPassRequest={handleDirectPassRequest}
+                    isProcessing={isProcessing}
+                    notifications={notifications}
+                />
+            )}
         </TooltipProvider>
     );
 }
+
+
+
+
+

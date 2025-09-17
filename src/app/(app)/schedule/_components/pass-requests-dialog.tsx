@@ -12,10 +12,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser } from '@/lib/types';
+import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser } from '@/lib/types';
 import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
+import { dataStore } from '@/lib/data-store';
+import { useToast } from '@/hooks/use-toast';
 
 type PassRequestsDialogProps = {
   isOpen: boolean;
@@ -41,6 +43,9 @@ type PassRequestsDialogProps = {
   onCancel: (notificationId: string) => void;
   onRevert: (notification: Notification) => void;
   onAssign: (notification: Notification) => void;
+  onApprove: (notification: Notification) => void;
+  onRejectApproval: (notificationId: string) => void;
+  isProcessing: boolean;
 };
 
 export default function PassRequestsDialog({
@@ -55,13 +60,12 @@ export default function PassRequestsDialog({
   onCancel,
   onRevert,
   onAssign,
+  onApprove,
+  onRejectApproval,
+  isProcessing,
 }: PassRequestsDialogProps) {
+  const { toast } = useToast();
   
-  const canManage = currentUser.role === 'Chủ nhà hàng';
-
-  const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
-  const [showRevertConfirm, setShowRevertConfirm] = useState<Notification | null>(null);
-
   const { pendingRequests, historicalRequests } = useMemo(() => {
     const pending: Notification[] = [];
     const historical: Notification[] = [];
@@ -75,21 +79,37 @@ export default function PassRequestsDialog({
     weekFilteredNotifications.forEach(notification => {
       const payload = notification.payload;
       const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+      const didITakeTheShift = payload.takenBy?.userId === currentUser.uid;
 
-      if (notification.status === 'pending') {
-         // Show my own pending requests
-         if (isMyRequest) {
+      if (notification.status === 'pending' || notification.status === 'pending_approval') {
+         if (isMyRequest) { // I can see my own requests
             pending.push(notification);
             return;
          }
-         // For others' requests, check if eligible to see
-         const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
-         const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
-         if (!isDifferentRole && !hasDeclined) {
-            pending.push(notification);
+         // If I am a manager/owner, I can see all pending approvals
+         if(notification.status === 'pending_approval' && (currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng')) {
+             pending.push(notification);
+             return;
+         }
+         // If status is 'pending', check if I am eligible to see it
+         if (notification.status === 'pending') {
+            const isTargetedToMe = payload.targetUserId === currentUser.uid;
+            const isPublicRequest = !payload.targetUserId;
+            
+            if (isTargetedToMe || isPublicRequest) {
+                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
+                const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
+                if (!isDifferentRole && !hasDeclined) {
+                    pending.push(notification);
+                }
+            }
+         }
+         // A user who took a shift should see it while it's pending approval
+         if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser.uid) {
+             pending.push(notification);
          }
       } else { // 'resolved' or 'cancelled'
-        if(isMyRequest || canManage) {
+        if(isMyRequest || didITakeTheShift || currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý') {
             historical.push(notification);
         }
       }
@@ -98,7 +118,7 @@ export default function PassRequestsDialog({
     // Sort pending requests by shift time (earliest first)
     pending.sort((a,b) => {
         const dateA = new Date(`${a.payload.shiftDate}T${a.payload.shiftTimeSlot.start}`);
-        const dateB = new Date(`${b.payload.shiftDate}T${b.payload.shiftTimeSlot.start}`);
+        const dateB = new Date(`${b.payload.shiftDate}T${b.payload.shiftTimeSlot.end}`);
         return dateA.getTime() - dateB.getTime();
     });
 
@@ -111,63 +131,124 @@ export default function PassRequestsDialog({
 
 
     return { pendingRequests: pending, historicalRequests: historical };
-  }, [notifications, currentUser, canManage, weekInterval]);
+  }, [notifications, currentUser, weekInterval]);
   
+  const handleDeleteFromHistory = async (notificationId: string) => {
+    if (currentUser.role !== 'Chủ nhà hàng') return;
+    try {
+        await dataStore.deleteNotification(notificationId);
+        toast({
+            title: "Thành công",
+            description: "Đã xóa yêu cầu khỏi lịch sử."
+        });
+    } catch(error) {
+        toast({
+            title: "Lỗi",
+            description: "Không thể xóa yêu cầu.",
+            variant: "destructive"
+        });
+    }
+  }
+
   const renderRequestActions = (notification: Notification) => {
-      if (canManage) {
-        if (notification.status === 'pending') {
-           return (
-            <div className="flex gap-2 self-end sm:self-center">
-                 <Button variant="secondary" size="sm" onClick={() => onAssign(notification)}>
+      const payload = notification.payload;
+      const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+      const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
+      const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
+      const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestInvolvingManager;
+      
+      const isProcessingThis = isProcessing && (window as any).processingNotificationId === notification.id;
+
+
+      // --- Manager / Owner Actions ---
+      if (notification.status === 'pending_approval' && (canOwnerApprove || canManagerApprove)) {
+         return (
+             <div className="flex gap-2 self-end sm:self-center">
+                 <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessingThis}>
+                     {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>} Từ chối
+                 </Button>
+                 <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessingThis}>
+                     {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>} Phê duyệt
+                 </Button>
+             </div>
+         )
+      }
+
+      if (notification.status === 'pending' && currentUser.role === 'Chủ nhà hàng') {
+          return (
+             <div className="flex gap-2 self-end sm:self-center">
+                 <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessingThis}>
                     <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
                 </Button>
-                <AlertDialog open={showCancelConfirm === notification.id} onOpenChange={(open) => !open && setShowCancelConfirm(null)}>
+                <AlertDialog>
                     <AlertDialogTrigger asChild>
-                         <Button variant="destructive" size="sm" onClick={() => setShowCancelConfirm(notification.id)}>
+                         <Button variant="destructive" size="sm" disabled={isProcessingThis}>
                             <Trash2 className="mr-2 h-4 w-4"/> Hủy
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                         <AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ hủy yêu cầu của {notification.payload.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => { onCancel(notification.id); setShowCancelConfirm(null); }}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
+                         <AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ hủy yêu cầu của {payload.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.</AlertDialogDescription></AlertDialogHeader>
+                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             </div>
-          );
-        }
-        if (notification.status === 'resolved') {
-           return (
-            <div className="flex gap-2 self-end sm:self-center">
-                <AlertDialog open={showRevertConfirm?.id === notification.id} onOpenChange={(open) => !open && setShowRevertConfirm(null)}>
-                    <AlertDialogTrigger asChild>
-                         <Button variant="outline" size="sm" onClick={() => setShowRevertConfirm(notification)}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                         <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({notification.payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => { onRevert(notification); setShowRevertConfirm(null); }}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
-           );
-        }
-        return null;
+          )
       }
       
-      // Actions for staff
-      const isMyRequest = notification.payload.requestingUser.userId === currentUser.uid;
+      if ((notification.status === 'resolved' || notification.status === 'cancelled') && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
+         return (
+            <div className="flex gap-2 self-end sm:self-center">
+                {notification.status === 'resolved' && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={isProcessingThis}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+                 {currentUser.role === 'Chủ nhà hàng' && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive h-9 w-9">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                         <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn yêu cầu này khỏi hệ thống. Chỉ nên dùng để dọn dẹp các mục cũ. Không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromHistory(notification.id)}>Xóa vĩnh viễn</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+            </div>
+           );
+      }
+      
+      // --- Staff Actions ---
       if (isMyRequest) {
           if (notification.status === 'pending') {
-              return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)}>Hủy yêu cầu</Button>
+              return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessingThis}>Hủy yêu cầu</Button>
+          }
+          if (notification.status === 'pending_approval') {
+              return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>
           }
       } else { // It's someone else's request
            if (notification.status === 'pending') {
              return (
                  <div className="flex gap-2 self-end sm:self-center">
-                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
-                    <Button size="sm" onClick={() => onAccept(notification)}><CheckCircle className="mr-2 h-4 w-4"/>Nhận ca</Button>
+                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessingThis}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
+                    <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessingThis}>
+                        {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                        Nhận ca
+                    </Button>
                 </div>
              );
            }
+            if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser.uid) {
+                return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>
+            }
       }
       
       return null;
@@ -193,15 +274,34 @@ export default function PassRequestsDialog({
                         {pendingRequests.map(notification => {
                             const payload = notification.payload;
                             const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+                            const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
                             return (
-                                <Card key={notification.id} className="border-primary border-2">
+                                <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
                                         <div className="space-y-2">
                                             <p className="font-bold text-lg">{payload.shiftLabel}</p>
                                             <div className="text-sm text-muted-foreground space-y-1">
                                                 <p className="flex items-center gap-2"><Clock />{payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end}</p>
                                                 <p className="flex items-center gap-2"><Calendar />{format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-                                                <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />{isMyRequest ? 'Yêu cầu của bạn' : `Từ ${payload.requestingUser.userName}`}</p>
+                                                
+                                                {isMyRequest ? (
+                                                    targetUser ? (
+                                                        <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Đã gửi trực tiếp đến: {targetUser.displayName}</p>
+                                                    ) : (
+                                                        <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Yêu cầu công khai của bạn</p>
+                                                    )
+                                                ) : (
+                                                    <>
+                                                        <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
+                                                        {payload.targetUserId && payload.targetUserId === currentUser.uid &&
+                                                            <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Yêu cầu trực tiếp cho bạn</p>
+                                                        }
+                                                    </>
+                                                )}
+                                                
+                                                {notification.status === 'pending_approval' && payload.takenBy &&
+                                                    <p className="flex items-center gap-2 font-medium text-amber-600"><Send />Được nhận bởi: {payload.takenBy.userName}</p>
+                                                }
                                             </div>
                                         </div>
                                         <div className="flex items-end">
@@ -227,7 +327,7 @@ export default function PassRequestsDialog({
                         <div className="space-y-3">
                         {historicalRequests.map(notification => {
                             const payload = notification.payload;
-                            const timeToShow = (notification.status === 'resolved' ? notification.resolvedAt : notification.createdAt) as string;
+                            const timeToShow = (notification.resolvedAt || notification.createdAt) as string;
                             return (
                                 <Card key={notification.id}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
@@ -235,9 +335,26 @@ export default function PassRequestsDialog({
                                             <p className="font-medium">{payload.shiftLabel} <span className="text-sm text-muted-foreground">({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</span></p>
                                             <div className="text-sm text-muted-foreground space-y-1">
                                                  <p className="flex items-center gap-2"><UserIcon />{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
+                                                 {notification.resolvedBy && (
+                                                    <p className="flex items-center gap-2">
+                                                        <UserCog className="h-4 w-4"/>
+                                                        <span>Xử lý bởi: {notification.resolvedBy.userName}</span>
+                                                    </p>
+                                                 )}
                                             </div>
-                                            {notification.status === 'resolved' && payload.takenBy && <Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Đã được nhận bởi {payload.takenBy.userName}</Badge>}
-                                            {notification.status === 'cancelled' && <Badge variant="destructive" className="mt-1">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>}
+                                            {notification.status === 'resolved' && payload.takenBy && (
+                                                <Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                    Đã được nhận bởi {payload.takenBy.userName}
+                                                </Badge>
+                                            )}
+                                            {notification.status === 'cancelled' && (
+                                                <div className="flex flex-col items-start gap-1 mt-1">
+                                                    <Badge variant="destructive">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>
+                                                    {payload.cancellationReason && (
+                                                        <p className="text-xs italic text-destructive">{payload.cancellationReason}</p>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-end">
                                             {renderRequestActions(notification)}
@@ -263,5 +380,3 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
-
-    

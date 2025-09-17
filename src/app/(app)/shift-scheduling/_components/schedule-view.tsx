@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -286,6 +287,7 @@ export default function ScheduleView() {
     };
     
     const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
+        if (!user) return;
         const baseSchedule = localSchedule ?? {
             weekId,
             status: 'draft',
@@ -299,7 +301,7 @@ export default function ScheduleView() {
             if (userToAssign) {
                 setIsSubmitting(true);
                 try {
-                    await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign);
+                    await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign, user);
                     toast({ title: 'Thành công!', description: `Đã chỉ định ca cho ${userToAssign.userName}.` });
                 } catch (error: any) {
                     toast({ title: 'Lỗi', description: `Không thể chỉ định ca: ${error.message}`, variant: 'destructive' });
@@ -329,7 +331,7 @@ export default function ScheduleView() {
             }
         }
         handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
-    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast, weekId]);
+    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast, weekId, user]);
 
     const handleSaveChanges = async () => {
         if (!localSchedule || !hasUnsavedChanges) return;
@@ -453,8 +455,8 @@ export default function ScheduleView() {
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         try {
-            await dataStore.updateNotificationStatus(notificationId, 'cancelled');
-             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
+            await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
+             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca.'});
         } catch (error: any) {
              toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
         }
@@ -463,11 +465,51 @@ export default function ScheduleView() {
      const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
          try {
-            await dataStore.revertPassRequest(notification);
+            await dataStore.revertPassRequest(notification, user);
             toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
         } catch (error) {
             console.error(error);
             toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+        }
+    }
+
+    const handleApproveRequest = async (notification: Notification) => {
+        if (!user) return;
+        (window as any).processingNotificationId = notification.id;
+        setIsSubmitting(true);
+        try {
+            await dataStore.approvePassRequest(notification, user);
+            toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
+        } catch (error: any) {
+            console.error(error);
+            let errorMessage = 'Không thể phê duyệt yêu cầu.';
+            if (error instanceof Error) {
+                if (error.message.includes('SHIFT_CONFLICT:')) {
+                    errorMessage = error.message.replace('SHIFT_CONFLICT:', '').trim();
+                } else if (error.message.includes('ALREADY_RESOLVED:')) {
+                    errorMessage = error.message.replace('ALREADY_RESOLVED:', '').trim();
+                }
+            }
+            toast({ title: 'Lỗi Phê duyệt', description: errorMessage, variant: 'destructive'});
+        } finally {
+            setIsSubmitting(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
+    
+    const handleRejectApproval = async (notificationId: string) => {
+        if (!user) return;
+        (window as any).processingNotificationId = notificationId;
+        setIsSubmitting(true);
+        try {
+            await dataStore.rejectPassRequestApproval(notificationId, user);
+            toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
+        } finally {
+            setIsSubmitting(false);
+            delete (window as any).processingNotificationId;
         }
     }
 
@@ -482,10 +524,13 @@ export default function ScheduleView() {
     }
 
     const pendingRequestCount = useMemo(() => {
-        if (!notifications) return 0;
-        // Manager sees all pending requests
-        return notifications.filter(n => n.status === 'pending').length;
-    }, [notifications]);
+        if (!notifications || !user || !canManage) return 0;
+        return notifications.filter(n =>
+            (n.type === 'pass_request') &&
+            (n.status === 'pending' || n.status === 'pending_approval') &&
+            isWithinInterval(parseISO(n.payload.shiftDate), weekInterval)
+        ).length;
+    }, [notifications, weekInterval, user, canManage]);
 
     const handleUserClick = (user: ManagedUser) => {
         setSelectedUserForDetails(user);
@@ -916,12 +961,15 @@ export default function ScheduleView() {
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
                 onAssign={handleAssignShift}
+                onApprove={handleApproveRequest}
+                onRejectApproval={handleRejectApproval}
+                isProcessing={isSubmitting}
             />
             
             {selectedUserForDetails && (
                 <UserDetailsDialog
                     isOpen={isUserDetailsDialogOpen}
-                    onClose={() => setIsUserDetailsDialogOpen(false)}
+                    onClose={() => setSelectedUserForDetails(null)}
                     user={selectedUserForDetails}
                     weekAvailability={(localSchedule?.availability || []).filter(a => a.userId === selectedUserForDetails.uid)}
                 />

@@ -24,13 +24,15 @@ import {
   or,
   arrayUnion,
   arrayRemove,
+  and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
+import { hasTimeConflict } from './schedule-utils';
 
 
 const getTodaysDateKey = () => {
@@ -68,17 +70,45 @@ export const dataStore = {
         const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const notifications: Notification[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            notifications.push({
-            id: doc.id,
-            ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-            resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
-            } as Notification);
-        });
-        callback(notifications);
+            const now = new Date();
+            const expiredRequests: Notification[] = [];
+
+            const notifications: Notification[] = querySnapshot.docs.map(doc => {
+                 const data = doc.data();
+                const notification = {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+                } as Notification;
+                
+                // Identify expired pass requests
+                if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        expiredRequests.push(notification);
+                    }
+                }
+                
+                return notification;
+            });
+            
+            // Automatically cancel expired requests
+            if (expiredRequests.length > 0) {
+                const batch = writeBatch(db);
+                expiredRequests.forEach(req => {
+                    const docRef = doc(db, 'notifications', req.id);
+                    batch.update(docRef, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                        resolvedAt: serverTimestamp(),
+                    });
+                });
+                batch.commit().catch(e => console.error("Failed to auto-cancel expired pass requests:", e));
+            }
+
+            callback(notifications);
+
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
             callback([]);
@@ -90,29 +120,52 @@ export const dataStore = {
     subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
         
-        // Query for user's own requests
         const myRequestsQuery = query(
             notificationsCollection,
-            where('payload.requestingUser.userId', '==', userId),
-            orderBy('createdAt', 'desc')
+            or(
+                where('payload.requestingUser.userId', '==', userId),
+                where('payload.targetUserId', '==', userId),
+                where('payload.takenBy.userId', '==', userId)
+            )
         );
 
-        // Query for pending requests from others
         const otherRequestsQuery = query(
             notificationsCollection,
-            where('status', '==', 'pending'),
-             where('payload.requestingUser.userId', '!=', userId)
+            and(
+                where('status', '==', 'pending'),
+                where('payload.requestingUser.userId', '!=', userId)
+            )
         );
 
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
             const combined = new Map<string, Notification>();
+            
+            myRequests.forEach(n => {
+                 if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        // Cancel my own expired request
+                        const docRef = doc(db, 'notifications', n.id);
+                        updateDoc(docRef, {
+                            status: 'cancelled',
+                            'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                            resolvedAt: serverTimestamp(),
+                        }).catch(e => console.error("Failed to auto-cancel own expired request:", e));
+                        return; // Don't show it in the UI immediately
+                    }
+                }
+                combined.set(n.id, n);
+            });
 
-            // Add my requests first
-            myRequests.forEach(n => combined.set(n.id, n));
-
-            // Add other eligible requests
             otherRequests.forEach(n => {
                 const payload = n.payload;
+                if (n.type === 'pass_request' && n.status === 'pending') {
+                    const shiftDateTime = parseISO(`${payload.shiftDate}T${payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        return; // Don't show expired requests from others
+                    }
+                }
+                if (payload.targetUserId) return;
                 const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
                 const hasDeclined = (payload.declinedBy || []).includes(userId);
                 if (!isDifferentRole && !hasDeclined) {
@@ -155,9 +208,21 @@ export const dataStore = {
         };
     },
 
-    async updateNotificationStatus(notificationId: string, status: Notification['status']): Promise<void> {
+    async updateNotificationStatus(notificationId: string, status: Notification['status'], resolver?: AuthUser): Promise<void> {
         const docRef = doc(db, 'notifications', notificationId);
-        await updateDoc(docRef, { status, resolvedAt: serverTimestamp() });
+        const updateData: any = { status, resolvedAt: serverTimestamp() };
+        if (resolver) {
+            updateData.resolvedBy = { userId: resolver.uid, userName: resolver.displayName };
+        }
+        if (status === 'cancelled') {
+            updateData['payload.cancellationReason'] = 'Hủy bởi quản lý';
+        }
+        await updateDoc(docRef, updateData);
+    },
+
+    async deleteNotification(notificationId: string): Promise<void> {
+        const docRef = doc(db, 'notifications', notificationId);
+        await deleteDoc(docRef);
     },
 
     // --- Schedule ---
@@ -333,6 +398,20 @@ export const dataStore = {
     },
     
     async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
+        const existingRequestQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.shiftId', '==', shiftToPass.id),
+            where('payload.requestingUser.userId', '==', requestingUser.uid),
+            where('status', 'in', ['pending', 'pending_approval'])
+        );
+
+        const existingRequestsSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestsSnapshot.empty) {
+            throw new Error('Bạn đã có một yêu cầu pass ca đang chờ cho ca làm việc này.');
+        }
+
+
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
         const newNotification: Omit<Notification, 'id'> = {
             type: 'pass_request',
@@ -355,7 +434,44 @@ export const dataStore = {
         await addDoc(collection(db, "notifications"), newNotification);
     },
 
-    async revertPassRequest(notification: Notification): Promise<void> {
+    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser): Promise<void> {
+        const existingRequestQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.shiftId', '==', shiftToPass.id),
+            where('payload.requestingUser.userId', '==', requestingUser.uid),
+            where('payload.targetUserId', '==', targetUser.uid),
+            where('status', 'in', ['pending', 'pending_approval'])
+        );
+        const existingRequestsSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestsSnapshot.empty) {
+            throw new Error(`Bạn đã gửi yêu cầu cho ${targetUser.displayName} rồi.`);
+        }
+
+        const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+        const newNotification: Omit<Notification, 'id'> = {
+            type: 'pass_request',
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            payload: {
+                weekId: weekId,
+                shiftId: shiftToPass.id,
+                shiftLabel: shiftToPass.label,
+                shiftDate: shiftToPass.date,
+                shiftTimeSlot: shiftToPass.timeSlot,
+                shiftRole: shiftToPass.role,
+                requestingUser: {
+                    userId: requestingUser.uid,
+                    userName: requestingUser.displayName
+                },
+                targetUserId: targetUser.uid, // Add the target user ID
+                declinedBy: [],
+            }
+        };
+        await addDoc(collection(db, "notifications"), newNotification);
+    },
+
+    async revertPassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
         const { payload } = notification;
         const scheduleRef = doc(db, "schedules", payload.weekId);
 
@@ -384,61 +500,126 @@ export const dataStore = {
             const notificationRef = doc(db, "notifications", notification.id);
             transaction.update(notificationRef, {
                 status: 'pending',
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                resolvedAt: serverTimestamp(),
                 'payload.takenBy': null,
-                resolvedAt: null,
+                 cancellationReason: null, // Clear cancellation reason
             });
         });
     },
 
-    async acceptPassShift(notification: Notification, acceptingUser: AssignedUser): Promise<void> {
+    async acceptPassShift(notificationId: string, acceptingUser: AssignedUser): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
+        await updateDoc(notificationRef, {
+            status: 'pending_approval',
+            'payload.takenBy': acceptingUser
+        });
+    },
+
+    async approvePassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
-
+        const takenBy = notification.payload.takenBy;
+    
+        if (!takenBy) {
+            throw new Error("Không có người nhận ca để phê duyệt.");
+        }
+    
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
-            
+            if (!scheduleDoc.exists()) {
+                throw new Error("Không tìm thấy lịch làm việc để kiểm tra xung đột.");
+            }
             const scheduleData = scheduleDoc.data() as Schedule;
-            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
-            if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
-
-            // --- Conflict Check ---
-            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`).getTime();
-            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`).getTime();
-
-            const existingUserShifts = scheduleData.shifts.filter(existingShift =>
-                existingShift.date === shiftToUpdate.date && existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId)
-            );
-
-            const hasConflict = existingUserShifts.some(existingShift => {
-                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`).getTime();
-                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`).getTime();
-                // Overlap exists if (StartA < EndB) and (StartB < EndA)
-                return shiftStartTime < existingEndTime && existingStartTime < shiftEndTime;
-            });
             
-            if (hasConflict) throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
-            // --- End Conflict Check ---
-
-            // 1. Update Schedule
+            // Check if original requester is still in the shift
+            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
+            if (!shiftToUpdate) {
+                throw new Error("Không tìm thấy ca làm việc này trong lịch.");
+            }
+            const isRequesterStillAssigned = shiftToUpdate.assignedUsers.some(u => u.userId === notification.payload.requestingUser.userId);
+            
+            if (!isRequesterStillAssigned) {
+                // The shift was already taken by someone else and approved.
+                // Cancel this now-redundant notification.
+                transaction.update(notificationRef, {
+                    status: 'cancelled',
+                    'payload.cancellationReason': 'Ca làm việc này đã được người khác đảm nhận.',
+                    resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                    resolvedAt: serverTimestamp(),
+                });
+                throw new Error("ALREADY_RESOLVED: Ca làm việc này đã được người khác đảm nhận.");
+            }
+    
+            // Check for time conflicts for the accepting user
+            const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === notification.payload.shiftDate);
+            const shiftToTake: AssignedShift = { ...shiftToUpdate, assignedUsers: [] };
+            const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
+            
+            if (conflict) {
+                transaction.update(notificationRef, {
+                    status: 'cancelled',
+                    'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
+                    'payload.takenBy': null,
+                    resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                    resolvedAt: serverTimestamp(),
+                });
+                throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
+            }
+    
+            // Update Schedule
             const updatedShifts = scheduleData.shifts.map(s => {
                 if (s.id === shiftToUpdate.id) {
                     const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
-                    if (!newAssignedUsers.some(u => u.userId === acceptingUser.userId)) {
-                        newAssignedUsers.push(acceptingUser);
+                    if (!newAssignedUsers.some(u => u.userId === takenBy.userId)) {
+                        newAssignedUsers.push(takenBy);
                     }
                     return { ...s, assignedUsers: newAssignedUsers };
                 }
                 return s;
             });
-             transaction.update(scheduleRef, { shifts: updatedShifts });
+            transaction.update(scheduleRef, { shifts: updatedShifts });
             
-            // 2. Update Notification
+            // Update the approved Notification
             transaction.update(notificationRef, {
                 status: 'resolved',
-                'payload.takenBy': acceptingUser,
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
             });
+
+            // Find and cancel all other related pending requests for this shift
+            const otherRequestsQuery = query(
+                collection(db, 'notifications'),
+                and(
+                    where('type', '==', 'pass_request'),
+                    where('payload.shiftId', '==', notification.payload.shiftId),
+                    where('payload.requestingUser.userId', '==', notification.payload.requestingUser.userId),
+                    or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+                )
+            );
+
+            const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
+            otherRequestsSnapshot.forEach(doc => {
+                // Don't cancel the one we are currently approving
+                if (doc.id !== notification.id) {
+                    transaction.update(doc.ref, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Đã có người khác nhận và được phê duyệt.',
+                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                        resolvedAt: serverTimestamp(),
+                    });
+                }
+            });
+        });
+    },
+    
+    async rejectPassRequestApproval(notificationId: string, resolver: AuthUser): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
+        await updateDoc(notificationRef, {
+            status: 'pending',
+            resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+            resolvedAt: serverTimestamp(),
+            'payload.takenBy': null
         });
     },
 
@@ -453,7 +634,7 @@ export const dataStore = {
         });
     },
 
-    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser): Promise<void> {
+    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser, resolver: AuthUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
@@ -482,6 +663,7 @@ export const dataStore = {
             transaction.update(notificationRef, {
                 status: 'resolved',
                 'payload.takenBy': assignedUser,
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
             });
         });
