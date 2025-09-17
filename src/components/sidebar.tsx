@@ -80,13 +80,13 @@ export function AppSidebar() {
 
       // Secondary role menus
       if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
-          secondaryItems.push({ href: '/shifts', label: 'Checklist (Phục vụ)', icon: CheckSquare });
+          secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
       }
       if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
-          secondaryItems.push({ href: '/bartender', label: 'Báo cáo (Pha chế)', icon: Coffee });
+          secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender', label: 'Báo cáo', icon: Coffee } });
       }
       if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager/comprehensive-report')) {
-          secondaryItems.push({ href: '/manager/comprehensive-report', label: 'Kiểm tra (Quản lý)', icon: FileSearch });
+          secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch } });
       }
 
       return { primaryItems, secondaryItems };
@@ -117,6 +117,16 @@ export function AppSidebar() {
       default: return <User />;
     }
   }
+
+  // Group secondary items by role
+  const groupedSecondaryItems = secondaryItems.reduce((acc, { role, item }) => {
+    if (!acc[role]) {
+      acc[role] = [];
+    }
+    acc[role].push(item);
+    return acc;
+  }, {} as Record<string, any[]>);
+
 
   return (
     <>
@@ -173,30 +183,30 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
           
-          {secondaryItems.length > 0 && (
-            <>
-                <SidebarSeparator />
-                 <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
-                    <span className="text-xs font-semibold text-muted-foreground">VAI TRÒ PHỤ</span>
+          {Object.entries(groupedSecondaryItems).map(([role, items]) => (
+            <React.Fragment key={role}>
+              <SidebarSeparator className="my-2"/>
+              <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Phụ: {role}</span>
+              </SidebarMenuItem>
+              {items.map((item: any) => (
+                <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                  >
+                    <Link href={item.href} onClick={handleLinkClick}>
+                      <div className="flex items-center gap-2">
+                        <item.icon />
+                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                      </div>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
-                {secondaryItems.map((item) => (
-                    <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
-                    <SidebarMenuButton
-                        asChild
-                        isActive={pathname === item.href}
-                        tooltip={item.label}
-                    >
-                        <Link href={item.href} onClick={handleLinkClick}>
-                        <div className="flex items-center gap-2">
-                            <item.icon />
-                            <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                        </div>
-                        </Link>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
-            </>
-          )}
+              ))}
+            </React.Fragment>
+          ))}
 
         </SidebarMenu>
       </SidebarContent>
