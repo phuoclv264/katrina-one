@@ -15,6 +15,8 @@ import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
+import IncidentReportDialog from './_components/incident-report-dialog';
+import RevenueStatsDialog from './_components/revenue-stats-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 
 
@@ -24,11 +26,15 @@ export default function CashierDashboardPage() {
   const { toast } = useToast();
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
+  const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+  const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
+  const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
+
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
 
 
@@ -40,21 +46,26 @@ export default function CashierDashboardPage() {
   
   useEffect(() => {
       if (user) {
-          const unsubSlips = dataStore.subscribeToDailyExpenseSlips(format(new Date(), 'yyyy-MM-dd'), setDailySlips);
+          const date = format(new Date(), 'yyyy-MM-dd');
+          const unsubSlips = dataStore.subscribeToDailyExpenseSlips(date, setDailySlips);
           const unsubSuppliers = dataStore.subscribeToSuppliers(setSuppliers);
+          const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
           
           Promise.all([
-              dataStore.getDailyExpenseSlips(format(new Date(), 'yyyy-MM-dd')),
+              dataStore.getDailyExpenseSlips(date),
               dataStore.getSuppliers(),
-          ]).then(([slips, supplierList]) => {
+              dataStore.getRevenueStats(date),
+          ]).then(([slips, supplierList, revenue]) => {
               setDailySlips(slips);
               setSuppliers(supplierList);
+              setRevenueStats(revenue);
               setIsLoading(false);
           });
           
           return () => {
               unsubSlips();
               unsubSuppliers();
+              unsubRevenue();
           };
       }
   }, [user]);
@@ -77,7 +88,7 @@ export default function CashierDashboardPage() {
         const slipData = { ...data, createdBy: { userId: user.uid, userName: user.displayName }};
         await dataStore.addOrUpdateExpenseSlip(slipData, id);
         toast({ title: "Thành công", description: `Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.` });
-        setIsDialogOpen(false);
+        setIsExpenseDialogOpen(false);
     } catch (error) {
         console.error("Failed to save expense slip", error);
         toast({ title: "Lỗi", description: "Không thể lưu phiếu chi.", variant: "destructive" });
@@ -98,10 +109,43 @@ export default function CashierDashboardPage() {
         setIsProcessing(false);
     }
   }
+
+  const handleSaveIncident = async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'>) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+          await dataStore.addIncidentReport(data, user);
+          toast({ title: "Thành công", description: "Đã ghi nhận sự cố." });
+          if(data.cost > 0) {
+              toast({ title: "Thông báo", description: "Một phiếu chi tương ứng đã được tạo tự động." });
+          }
+          setIsIncidentDialogOpen(false);
+      } catch (error) {
+          console.error("Failed to save incident report", error);
+          toast({ title: "Lỗi", description: "Không thể lưu báo cáo sự cố.", variant: "destructive" });
+      } finally {
+          setIsProcessing(false);
+      }
+  }
+  
+  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => {
+    if(!user) return;
+    setIsProcessing(true);
+    try {
+        await dataStore.addOrUpdateRevenueStats(data, user);
+        toast({ title: "Thành công", description: "Đã cập nhật doanh thu." });
+        setIsRevenueDialogOpen(false);
+    } catch(error) {
+        console.error("Failed to save revenue stats", error);
+        toast({ title: "Lỗi", description: "Không thể lưu doanh thu.", variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
+    }
+  }
   
   const handleEditClick = (slip: ExpenseSlip) => {
       setSlipToEdit(slip);
-      setIsDialogOpen(true);
+      setIsExpenseDialogOpen(true);
   }
 
   if (authLoading || isLoading || !user) {
@@ -162,8 +206,8 @@ export default function CashierDashboardPage() {
                     <CardTitle className="text-sm font-medium">Doanh thu (POS)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">0đ</div>
-                    <p className="text-xs text-muted-foreground">Chưa nhập liệu</p>
+                    <div className="text-2xl font-bold">{(revenueStats?.netRevenue || 0).toLocaleString('vi-VN')}đ</div>
+                    <p className="text-xs text-muted-foreground">{revenueStats ? `Cập nhật lúc ${format(new Date(revenueStats.createdAt as string), 'HH:mm')}` : 'Chưa nhập liệu'}</p>
                 </CardContent>
             </Card>
             <Card>
@@ -183,7 +227,7 @@ export default function CashierDashboardPage() {
                     <CardHeader>
                         <div className="flex justify-between items-center">
                             <CardTitle>Quản lý Phiếu chi</CardTitle>
-                            <Button size="sm" onClick={() => { setSlipToEdit(null); setIsDialogOpen(true); }}>
+                            <Button size="sm" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Tạo phiếu chi
                             </Button>
@@ -249,7 +293,7 @@ export default function CashierDashboardPage() {
                         <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản hoặc nguyên vật liệu.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button variant="outline" className="w-full">
+                        <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
                             <AlertTriangle className="mr-2 h-4 w-4" />
                             Tạo Báo cáo Sự cố
                         </Button>
@@ -264,7 +308,7 @@ export default function CashierDashboardPage() {
                         <CardDescription>Nhập số liệu từ bill tổng kết trên máy POS.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <Button variant="outline" className="w-full">
+                       <Button variant="outline" className="w-full" onClick={() => setIsRevenueDialogOpen(true)}>
                             <Receipt className="mr-2 h-4 w-4" />
                             Nhập/Cập nhật Doanh thu
                         </Button>
@@ -286,15 +330,30 @@ export default function CashierDashboardPage() {
         </div>
     </div>
     {user && (
-        <ExpenseSlipDialog
-            open={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
-            onSave={handleSaveSlip}
-            isProcessing={isProcessing}
-            slipToEdit={slipToEdit}
-            suppliers={suppliers}
-            onSuppliersChange={setSuppliers}
-        />
+        <>
+            <ExpenseSlipDialog
+                open={isExpenseDialogOpen}
+                onOpenChange={setIsExpenseDialogOpen}
+                onSave={handleSaveSlip}
+                isProcessing={isProcessing}
+                slipToEdit={slipToEdit}
+                suppliers={suppliers}
+                onSuppliersChange={setSuppliers}
+            />
+            <IncidentReportDialog
+                open={isIncidentDialogOpen}
+                onOpenChange={setIsIncidentDialogOpen}
+                onSave={handleSaveIncident}
+                isProcessing={isProcessing}
+            />
+            <RevenueStatsDialog
+                open={isRevenueDialogOpen}
+                onOpenChange={setIsRevenueDialogOpen}
+                onSave={handleSaveRevenue}
+                isProcessing={isProcessing}
+                existingStats={revenueStats}
+            />
+        </>
     )}
     </>
   );
