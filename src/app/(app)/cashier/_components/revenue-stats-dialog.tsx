@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -68,6 +68,7 @@ export default function RevenueStatsDialog({
 
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
+    const [showOldReceiptAlert, setShowOldReceiptAlert] = useState(false);
 
     // This determines which image to display: the new one if it exists, otherwise the old one.
     const displayImageDataUri = newImageDataUri || existingStats?.invoiceImageUrl;
@@ -154,11 +155,30 @@ export default function RevenueStatsDialog({
 
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
-        setNewImageDataUri(imageUri);
         toast({ title: 'AI đang phân tích hóa đơn...' });
 
         try {
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
+
+            // Timestamp validation
+            if (result.reportTimestamp) {
+                const reportTime = new Date(result.reportTimestamp);
+                const now = new Date();
+                const oneHour = 60 * 60 * 1000;
+                
+                // Convert current time to Vietnam timezone for comparison
+                const nowInVietnam = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                
+                if (nowInVietnam.getTime() - reportTime.getTime() > oneHour) {
+                    setShowOldReceiptAlert(true);
+                    setIsOcrLoading(false);
+                    return; // Stop processing
+                }
+            } else {
+                 toast({ variant: 'destructive', title: 'Cảnh báo', description: 'Không tìm thấy ngày giờ trên hóa đơn. Vui lòng kiểm tra lại ảnh.' });
+            }
+
+            setNewImageDataUri(imageUri); // Set image only after validation passes
 
             setNetRevenue(result.netRevenue || 0);
             setOrderCount(result.orderCount || 0);
@@ -346,6 +366,23 @@ export default function RevenueStatsDialog({
                              <Camera className="mr-2 h-4 w-4" />
                              Chụp ảnh mới
                         </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            <AlertDialog open={showOldReceiptAlert} onOpenChange={setShowOldReceiptAlert}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <Clock className="text-destructive"/>
+                            Cảnh báo: Phiếu thống kê đã cũ
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Hệ thống phát hiện phiếu thống kê này đã được in ra hơn 1 tiếng trước. Để đảm bảo số liệu chính xác nhất, vui lòng in phiếu mới và thử lại.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setShowOldReceiptAlert(false)}>Đã hiểu</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

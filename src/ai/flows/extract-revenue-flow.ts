@@ -17,6 +17,7 @@ const ExtractRevenueInputSchema = z.object({
 export type ExtractRevenueInput = z.infer<typeof ExtractRevenueInputSchema>;
 
 const ExtractRevenueOutputSchema = z.object({
+    reportTimestamp: z.string().describe('The date and time the report was generated, usually labeled "Ngày giờ". Extract it exactly as seen in "YYYY-MM-DD HH:mm:ss" format.'),
     netRevenue: z.number().describe('The total net revenue amount. This is often labeled as "Doanh thu Net" or a similar term.'),
     orderCount: z.number().describe('The total number of orders. This is often labeled as "Tổng số đơn".'),
     deliveryPartnerPayout: z.number().describe('The amount paid to delivery partners. Look for "Tiền trả ĐTGH" or similar labels.'),
@@ -44,10 +45,11 @@ const prompt = ai.definePrompt({
 
 The image contains a summary of the day's sales. You must meticulously find and extract the following fields. All values should be numbers, without any currency symbols or formatting.
 
-1.  **netRevenue**: Find the total net revenue. Look for labels like "Doanh thu Net", "Tổng cộng", or "Thực thu".
-2.  **orderCount**: Find the total number of orders. Look for "Tổng số đơn", "Số bill", or "Số lượng đơn".
-3.  **deliveryPartnerPayout**: Find the amount paid to delivery partners. Look for "Tiền trả ĐTGH".
-4.  **revenueByPaymentMethod**: This is an object containing a breakdown of revenue by payment method. You need to find the value for each of the following keys:
+1.  **reportTimestamp**: Find the report's generation date and time. Look for a label like "Ngày giờ". Return it as a string in "YYYY-MM-DD HH:mm:ss" format. This is critical.
+2.  **netRevenue**: Find the total net revenue. Look for labels like "Doanh thu Net", "Tổng cộng", or "Thực thu".
+3.  **orderCount**: Find the total number of orders. Look for "Tổng số đơn", "Số bill", or "Số lượng đơn".
+4.  **deliveryPartnerPayout**: Find the amount paid to delivery partners. Look for "Tiền trả ĐTGH".
+5.  **revenueByPaymentMethod**: This is an object containing a breakdown of revenue by payment method. You need to find the value for each of the following keys:
     *   **cash**: Find the amount for "Tiền mặt".
     *   **techcombankVietQrPro**: Find the amount for "Techcombank VietQR Pro".
     *   **shopeeFood**: Find the amount for "ShopeeFood".
