@@ -22,7 +22,7 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 type RevenueStatsDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string | null }) => void;
+    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => void;
     isProcessing: boolean;
     existingStats: RevenueStats | null;
 };
@@ -91,7 +91,7 @@ export default function RevenueStatsDialog({
                 setOrderCount(existingStats.orderCount);
                 setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
                 setRevenueByPaymentMethod({ ...initialPaymentMethods, ...existingStats.revenueByPaymentMethod });
-                setImageDataUri(existingStats.invoiceImageUrl || null);
+                setImageDataUri(existingStats.invoiceImageUrl);
             } else {
                 // Reset for new entry
                 setNetRevenue(0);
@@ -137,10 +137,10 @@ export default function RevenueStatsDialog({
             orderCount,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            imageDataUri: imageDataUri, // This will be null if only numbers are changed, but image exists from `existingStats`
+            invoiceImageUrl: imageDataUri, 
         };
 
-        onSave(dataToSave);
+        onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>);
     };
 
     const processImage = async (imageUri: string) => {
@@ -219,7 +219,7 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Tải hoặc chụp ảnh bill tổng kết từ POS để AI điền tự động. Mọi thay đổi sẽ được lưu kèm với ảnh.
+                            Tải hoặc chụp ảnh bill tổng kết từ POS để AI điền tự động. Mỗi lần lưu đều phải có ảnh mới.
                         </DialogDescription>
                     </DialogHeader>
 

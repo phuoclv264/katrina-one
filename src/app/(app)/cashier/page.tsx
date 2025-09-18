@@ -111,7 +111,7 @@ export default function CashierDashboardPage() {
     }
   }
 
-  const handleSaveIncident = async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'>) => {
+  const handleSaveIncident = async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>) => {
       if (!user) return;
       setIsProcessing(true);
       try {
@@ -129,7 +129,7 @@ export default function CashierDashboardPage() {
       }
   }
   
-  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string }) => {
+  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => {
     if(!user) return;
     setIsProcessing(true);
     try {

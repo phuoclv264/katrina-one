@@ -356,7 +356,7 @@ export type IncidentReport = {
 };
 
 export type RevenueStats = {
-  id: string; // cashier-revenue-{date}
+  id: string; // YYYY-MM-DD
   date: string;
   netRevenue: number;
   orderCount: number;
@@ -367,8 +367,8 @@ export type RevenueStats = {
     grabFood: number;
     bankTransfer: number;
   };
-  deliveryPartnerPayout: number; // Tiền trả ĐTGH
-  invoiceImageUrl?: string; // URL to the uploaded receipt image
+  deliveryPartnerPayout: number;
+  invoiceImageUrl: string;
 
   createdBy: AssignedUser;
   createdAt: string | Timestamp;

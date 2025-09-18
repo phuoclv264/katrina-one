@@ -125,37 +125,25 @@ export const dataStore = {
         return null;
     },
 
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string | null }, user: AuthUser): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>, user: AuthUser): Promise<void> {
         const date = format(new Date(), 'yyyy-MM-dd');
         const docRef = doc(db, 'revenue_stats', date);
 
-        let imageUrl: string | undefined = undefined;
-
-        if (data.imageDataUri && data.imageDataUri.startsWith('data:')) {
-            // New image was uploaded
-            const blob = await (await fetch(data.imageDataUri)).blob();
-            const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, blob);
-            imageUrl = await getDownloadURL(storageRef);
-        } else if (data.imageDataUri) {
-            // An existing URL was passed, keep it
-            imageUrl = data.imageDataUri;
-        } else {
-             // No image data passed, check if one already exists
-            const currentStats = await this.getRevenueStats(date);
-            if (currentStats?.invoiceImageUrl) {
-                imageUrl = currentStats.invoiceImageUrl;
-            }
+        if (!data.invoiceImageUrl || !data.invoiceImageUrl.startsWith('data:')) {
+            throw new Error("Dữ liệu ảnh hóa đơn là bắt buộc.");
         }
     
-        const { imageDataUri, ...dataToSave } = data;
-
+        const blob = await (await fetch(data.invoiceImageUrl)).blob();
+        const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
+        await uploadBytes(storageRef, blob);
+        const imageUrl = await getDownloadURL(storageRef);
+    
         const finalData = {
-            ...dataToSave,
+            ...data,
+            invoiceImageUrl: imageUrl, // Replace data URI with Firebase Storage URL
             date,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
-            invoiceImageUrl: imageUrl,
         };
 
         // If there's a delivery partner payout, also create an expense slip
