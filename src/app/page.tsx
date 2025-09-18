@@ -222,8 +222,8 @@ export default function AuthPage() {
                         <SelectContent>
                             <SelectItem value="Phục vụ">Phục vụ</SelectItem>
                             <SelectItem value="Pha chế">Pha chế</SelectItem>
-                            <SelectItem value="Quản lý">Quản lý</SelectItem>
                             <SelectItem value="Thu ngân">Thu ngân</SelectItem>
+                            <SelectItem value="Quản lý">Quản lý</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

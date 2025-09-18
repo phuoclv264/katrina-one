@@ -48,6 +48,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
     const roleOptions = [
         { uid: 'Phục vụ', displayName: 'Phục vụ', role: 'Phục vụ' },
         { uid: 'Pha chế', displayName: 'Pha chế', role: 'Pha chế' },
+        { uid: 'Thu ngân', displayName: 'Thu ngân', role: 'Thu ngân' },
         { uid: 'Quản lý', displayName: 'Quản lý', role: 'Quản lý' },
     ] as ManagedUser[];
 
@@ -79,6 +80,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
                             <SelectContent>
                                 <SelectItem value="Phục vụ">Phục vụ</SelectItem>
                                 <SelectItem value="Pha chế">Pha chế</SelectItem>
+                                <SelectItem value="Thu ngân">Thu ngân</SelectItem>
                                 <SelectItem value="Quản lý">Quản lý</SelectItem>
                                 <SelectItem value="Chủ nhà hàng">Chủ nhà hàng</SelectItem>
                             </SelectContent>
