@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 type RevenueStatsDialogProps = {
@@ -57,6 +58,7 @@ export default function RevenueStatsDialog({
     existingStats
 }: RevenueStatsDialogProps) {
     const { toast } = useToast();
+    const isMobile = useIsMobile();
     
     // Form state
     const [netRevenue, setNetRevenue] = useState(0);
@@ -308,15 +310,23 @@ export default function RevenueStatsDialog({
                                 </CardHeader>
                                 <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
                                      {displayImageDataUri ? (
-                                        <div className="w-full text-center">
-                                            <Button variant="secondary" onClick={() => setIsLightboxOpen(true)} className="h-auto py-3 px-4">
-                                                <Eye className="mr-2 h-5 w-5" />
-                                                <div className="text-left">
-                                                    <p className="font-semibold">Đã tải ảnh lên</p>
-                                                    <p className="text-xs text-muted-foreground">Nhấn để xem lại</p>
+                                        <>
+                                            {isMobile ? (
+                                                <div className="w-full text-center">
+                                                    <Button variant="secondary" onClick={() => setIsLightboxOpen(true)} className="h-auto py-3 px-4">
+                                                        <Eye className="mr-2 h-5 w-5" />
+                                                        <div className="text-left">
+                                                            <p className="font-semibold">Đã tải ảnh lên</p>
+                                                            <p className="text-xs text-muted-foreground">Nhấn để xem lại</p>
+                                                        </div>
+                                                    </Button>
                                                 </div>
-                                            </Button>
-                                        </div>
+                                            ) : (
+                                                <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
+                                                     <Image src={displayImageDataUri} alt="Ảnh phiếu thống kê" fill className="object-contain rounded-md" />
+                                                </div>
+                                            )}
+                                        </>
                                     ) : (
                                         <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
                                             <p className="text-sm text-muted-foreground">Chưa có ảnh</p>
@@ -355,7 +365,7 @@ export default function RevenueStatsDialog({
                         
                         {/* --- Right Column: Data Entry --- */}
                          <div className="w-full md:w-1/2">
-                            <ScrollArea className="h-full max-h-[35vh] pr-4">
+                            <ScrollArea className="h-full max-h-[55vh] pr-4">
                                 <div className="space-y-4">
                                      {renderInputField("netRevenue", "Doanh thu Net", netRevenue, (val) => setNetRevenue(Number(val)), originalData?.netRevenue, true)}
                                      {renderInputField("orderCount", "Số lượng đơn", orderCount, (val) => setOrderCount(Number(val)), originalData?.orderCount, true)}
@@ -493,3 +503,4 @@ export default function RevenueStatsDialog({
         </>
     );
 }
+
