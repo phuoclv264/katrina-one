@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -18,6 +18,8 @@ import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
 
 type RevenueStatsDialogProps = {
     open: boolean;
@@ -60,9 +62,16 @@ export default function RevenueStatsDialog({
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+    
+    // This state now tracks only the *new* image provided in the current session
+    const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
 
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
+
+    // This determines which image to display: the new one if it exists, otherwise the old one.
+    const displayImageDataUri = newImageDataUri || existingStats?.invoiceImageUrl;
+
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -86,19 +95,19 @@ export default function RevenueStatsDialog({
 
     useEffect(() => {
         if (open) {
+            // Reset new image state every time dialog opens
+            setNewImageDataUri(null); 
             if (existingStats) {
                 setNetRevenue(existingStats.netRevenue);
                 setOrderCount(existingStats.orderCount);
                 setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
                 setRevenueByPaymentMethod({ ...initialPaymentMethods, ...existingStats.revenueByPaymentMethod });
-                setImageDataUri(existingStats.invoiceImageUrl);
             } else {
                 // Reset for new entry
                 setNetRevenue(0);
                 setOrderCount(0);
                 setDeliveryPartnerPayout(0);
                 setRevenueByPaymentMethod(initialPaymentMethods);
-                setImageDataUri(null);
             }
         }
     }, [open, existingStats]);
@@ -113,16 +122,7 @@ export default function RevenueStatsDialog({
 
     const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1; // Allow for rounding errors
 
-    const handleSave = () => {
-        if (!imageDataUri) {
-            toast({
-                title: "Thiếu ảnh hóa đơn",
-                description: "Vui lòng tải lên hoặc chụp ảnh hóa đơn thống kê doanh thu trước khi lưu.",
-                variant: "destructive"
-            });
-            return;
-        }
-
+    const executeSave = () => {
         if (isRevenueMismatch) {
             toast({
                 title: "Số liệu không khớp",
@@ -137,15 +137,24 @@ export default function RevenueStatsDialog({
             orderCount,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            invoiceImageUrl: imageDataUri, 
+            invoiceImageUrl: newImageDataUri, // Always save with the new image URI
         };
 
         onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>);
+    }
+    
+    const handleSave = () => {
+        if (!newImageDataUri) {
+            setShowMissingImageAlert(true);
+            return;
+        }
+        executeSave();
     };
+
 
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
-        setImageDataUri(imageUri);
+        setNewImageDataUri(imageUri);
         toast({ title: 'AI đang phân tích hóa đơn...' });
 
         try {
@@ -251,9 +260,9 @@ export default function RevenueStatsDialog({
                                 Chụp ảnh hóa đơn
                             </Button>
                         </div>
-                        {imageDataUri && (
+                        {displayImageDataUri && (
                              <button onClick={() => setIsLightboxOpen(true)} className="relative aspect-square w-24 h-24 mx-auto rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
-                                <Image src={imageDataUri} alt="Hóa đơn đã tải lên" layout="fill" objectFit="cover" />
+                                <Image src={displayImageDataUri} alt="Hóa đơn đã tải lên" layout="fill" objectFit="cover" />
                              </button>
                         )}
                     </div>
@@ -310,17 +319,49 @@ export default function RevenueStatsDialog({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={showMissingImageAlert} onOpenChange={setShowMissingImageAlert}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertCircle className="text-destructive"/>
+                            Yêu cầu ảnh hóa đơn
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Mỗi lần lưu thông tin doanh thu đều cần một ảnh hóa đơn mới để đảm bảo tính chính xác. Vui lòng cung cấp ảnh.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="sm:justify-center gap-2 pt-4">
+                        <Button variant="outline" className="w-full" onClick={() => {
+                            setShowMissingImageAlert(false);
+                            fileInputRef.current?.click();
+                        }}>
+                             <Upload className="mr-2 h-4 w-4" />
+                             Tải ảnh lên
+                        </Button>
+                         <Button className="w-full" onClick={() => {
+                            setShowMissingImageAlert(false);
+                            setIsCameraOpen(true);
+                         }}>
+                             <Camera className="mr-2 h-4 w-4" />
+                             Chụp ảnh mới
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+
             <CameraDialog 
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}
                 onSubmit={handlePhotoCapture}
                 singlePhotoMode={true}
             />
-            {imageDataUri && (
+            {displayImageDataUri && (
                  <Lightbox
                     open={isLightboxOpen}
                     close={() => setIsLightboxOpen(false)}
-                    slides={[{ src: imageDataUri }]}
+                    slides={[{ src: displayImageDataUri }]}
                     plugins={[Zoom]}
                     carousel={{ finite: true }}
                     zoom={{ maxZoomPixelRatio: 5 }}
