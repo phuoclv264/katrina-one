@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, Clock, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -18,6 +18,8 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 
 type RevenueStatsDialogProps = {
@@ -203,9 +205,13 @@ export default function RevenueStatsDialog({
             });
 
             toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu.' });
-        } catch (error) {
-            console.error('OCR Error:', error);
-            toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+        } catch (error: any) {
+             if (error.message && error.message.includes('503 Service Unavailable')) {
+                toast({ variant: 'destructive', title: 'AI đang quá tải', description: 'Mô hình AI đang được sử dụng nhiều. Vui lòng thử lại sau vài giây.' });
+             } else {
+                console.error('OCR Error:', error);
+                toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+             }
         } finally {
             setIsOcrLoading(false);
         }
@@ -259,89 +265,94 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Tải hoặc chụp ảnh phiếu thống kê doanh thu tổng kết từ POS để AI điền tự động. Mỗi lần lưu đều phải có ảnh mới.
+                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Mỗi lần lưu đều phải có ảnh mới.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isOcrLoading || isProcessing}
-                                className="w-full"
-                            >
-                                {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                Tải ảnh phiếu
-                            </Button>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                className="hidden"
-                                accept="image/*"
-                            />
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsCameraOpen(true)}
-                                disabled={isOcrLoading || isProcessing}
-                                className="w-full"
-                            >
-                                <Camera className="mr-2 h-4 w-4" />
-                                Chụp ảnh phiếu
-                            </Button>
-                        </div>
-                        {displayImageDataUri && (
-                             <button onClick={() => setIsLightboxOpen(true)} className="relative aspect-square w-24 h-24 mx-auto rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
-                                <Image src={displayImageDataUri} alt="Phiếu thống kê đã tải lên" layout="fill" objectFit="cover" />
-                             </button>
-                        )}
-                    </div>
+                     <ScrollArea className="max-h-[70vh]">
+                        <div className="space-y-6 pr-6">
+                            <div className="space-y-4">
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isOcrLoading || isProcessing}
+                                        className="w-full"
+                                    >
+                                        {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                        Tải ảnh phiếu
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange}
+                                        className="hidden"
+                                        accept="image/*"
+                                    />
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => setIsCameraOpen(true)}
+                                        disabled={isOcrLoading || isProcessing}
+                                        className="w-full"
+                                    >
+                                        <Camera className="mr-2 h-4 w-4" />
+                                        Chụp ảnh phiếu
+                                    </Button>
+                                </div>
+                                {displayImageDataUri && (
+                                    <button onClick={() => setIsLightboxOpen(true)} className="relative w-full aspect-[4/3] mx-auto rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
+                                        <Image src={displayImageDataUri} alt="Phiếu thống kê đã tải lên" layout="fill" objectFit="contain" />
+                                    </button>
+                                )}
+                            </div>
 
-
-                    <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
-                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="netRevenue">Doanh thu Net</Label>
                                 <Input id="netRevenue" type="number" value={netRevenue} onChange={e => setNetRevenue(Number(e.target.value))} placeholder="0" />
                             </div>
-                            <div className="space-y-2">
+                             <div className="space-y-2">
                                 <Label htmlFor="orderCount">Số lượng đơn</Label>
                                 <Input id="orderCount" type="number" value={orderCount} onChange={e => setOrderCount(Number(e.target.value))} placeholder="0" />
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Doanh thu theo PTTT</Label>
-                            <div className="p-4 border rounded-md grid grid-cols-2 gap-4">
-                                {Object.entries(revenueByPaymentMethod).map(([key, value]) => (
-                                    <div key={key} className="space-y-1">
-                                        <Label htmlFor={`pm-${key}`} className="text-xs capitalize">{paymentMethodLabels[key as keyof typeof paymentMethodLabels]}</Label>
-                                        <Input id={`pm-${key}`} type="number" value={value} onChange={e => handlePaymentMethodChange(key as any, e.target.value)} placeholder="0" />
+
+                            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base text-blue-800 dark:text-blue-200">Doanh thu theo Phương thức thanh toán</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {Object.entries(revenueByPaymentMethod).map(([key, value]) => (
+                                            <div key={key} className="space-y-1">
+                                                <Label htmlFor={`pm-${key}`} className="text-xs capitalize">{paymentMethodLabels[key as keyof typeof paymentMethodLabels]}</Label>
+                                                <Input id={`pm-${key}`} type="number" value={value} onChange={e => handlePaymentMethodChange(key as any, e.target.value)} placeholder="0" />
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-3 font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+                                    {isRevenueMismatch && (
+                                        <Alert variant="destructive" className="mt-3">
+                                            <AlertCircle className="h-4 w-4"/>
+                                            <AlertTitle>Doanh thu không khớp!</AlertTitle>
+                                            <AlertDescription>
+                                                Doanh thu Net không bằng Tổng PTTT.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="deliveryPayout">Tiền trả cho Đối tác Giao hàng</Label>
+                                <Input id="deliveryPayout" type="number" value={deliveryPartnerPayout} onChange={e => setDeliveryPartnerPayout(Number(e.target.value))} placeholder="0" />
+                                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                    <Info className="h-3 w-3 mt-0.5 shrink-0"/>
+                                    <span>Số tiền này sẽ được tự động tạo một phiếu chi tương ứng.</span>
+                                </p>
                             </div>
-                            <p className="text-xs text-muted-foreground">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+
                         </div>
-
-                        {isRevenueMismatch && (
-                            <Alert variant="destructive">
-                                <AlertTitle>Doanh thu không khớp!</AlertTitle>
-                                <AlertDescription>
-                                    Doanh thu Net ({netRevenue.toLocaleString('vi-VN')}đ) không bằng Tổng PTTT ({totalPaymentMethods.toLocaleString('vi-VN')}đ).
-                                </AlertDescription>
-                            </Alert>
-                        )}
-
-                        <div className="space-y-2">
-                            <Label htmlFor="deliveryPayout">Tiền trả cho Đối tác Giao hàng</Label>
-                            <Input id="deliveryPayout" type="number" value={deliveryPartnerPayout} onChange={e => setDeliveryPartnerPayout(Number(e.target.value))} placeholder="0" />
-                            <p className="text-xs text-muted-foreground">
-                                Số tiền này sẽ được tự động tạo một phiếu chi.
-                            </p>
-                        </div>
-
-                    </div>
-                    <DialogFooter>
+                    </ScrollArea>
+                    <DialogFooter className="mt-6 pr-6">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
