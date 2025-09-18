@@ -10,6 +10,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/bartender': 'Danh mục Báo cáo Pha chế',
     '/bartender/hygiene-report': 'Báo cáo Vệ sinh quầy',
     '/bartender/inventory': 'Kiểm kê Tồn kho',
+    '/cashier': 'Bảng điều khiển Thu ngân',
     '/manager': 'Bảng điều khiển Quản lý',
     '/manager/comprehensive-report': 'Phiếu kiểm tra toàn diện',
     '/manager/hygiene-report': 'Xem Báo cáo Vệ sinh',
@@ -27,7 +28,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/inventory-management': 'QL Hàng tồn kho',
     '/violations': 'Danh sách Vi phạm',
     '/schedule': 'Lịch làm việc',
-    '/shift-scheduling': 'Xếp lịch & Phê duyệt',
+    '/shift-scheduling': 'Xếp lịch &amp; Phê duyệt',
 };
 
 export function MobileHeader() {

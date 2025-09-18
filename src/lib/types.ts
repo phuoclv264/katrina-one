@@ -8,7 +8,7 @@ export type Staff = {
   name: string;
 };
 
-export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng';
+export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
 export type ManagedUser = {
   uid: string;
@@ -294,3 +294,82 @@ export interface AuthUser extends User {
   role: UserRole;
   secondaryRoles?: UserRole[];
 }
+
+// --- Cashier Types ---
+
+export type ExpenseType = 'goods_import' | 'other_cost';
+export type OtherCostCategory = 'Lương' | 'Điện' | 'Nước' | 'Dịch vụ' | 'Sự cố' | 'Khác';
+export type PaymentMethod = 'cash' | 'bank_transfer';
+
+export type ExpenseSlip = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  type: ExpenseType;
+  paymentMethod: PaymentMethod;
+  amount: number;
+  
+  // For 'goods_import'
+  supplier?: string;
+  itemName?: string;
+  quantity?: number;
+  unitPrice?: number;
+  
+  // For 'other_cost'
+  otherCostCategory?: OtherCostCategory;
+  
+  notes?: string;
+  invoiceImageUrl?: string;
+  
+  createdBy: AssignedUser;
+  createdAt: string | Timestamp;
+  lastModified?: string | Timestamp;
+  editHistory?: any[];
+};
+
+export type HandoverReport = {
+  id: string; // cashier-handover-{date}
+  date: string;
+  posImageUrl?: string;
+  posCashRevenue?: number;
+  posTotalExpense?: number;
+  startOfDayCash: number;
+  actualCash: number;
+  discrepancyReason?: string;
+  discrepancyProofImageUrl?: string;
+  
+  createdBy: AssignedUser;
+  createdAt: string | Timestamp;
+  lastModified?: string | Timestamp;
+  isBackfilled?: boolean; // For owner to fill later
+  editHistory?: any[];
+};
+
+export type IncidentReport = {
+  id: string;
+  date: string;
+  content: string;
+  cost: number;
+  
+  createdBy: AssignedUser;
+  createdAt: string | Timestamp;
+  associatedExpenseSlipId?: string;
+};
+
+export type RevenueStats = {
+  id: string; // cashier-revenue-{date}
+  date: string;
+  netRevenue: number;
+  orderCount: number;
+  revenueByPaymentMethod: {
+    cash: number;
+    techcombank: number;
+    vietQR: number;
+    shopeeFood: number;
+    grabFood: number;
+    other: number;
+  };
+  deliveryPartnerPayout: number; // Tiền trả ĐTGH
+
+  createdBy: AssignedUser;
+  createdAt: string | Timestamp;
+};

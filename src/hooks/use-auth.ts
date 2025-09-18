@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -7,7 +8,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from './use-toast';
 
-export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng';
+export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
 export interface AuthUser extends User {
   displayName: string;
@@ -47,6 +48,8 @@ export const useAuth = () => {
                 router.replace('/manager');
             } else if (userRole === 'Chủ nhà hàng') {
                 router.replace('/reports');
+            } else if (userRole === 'Thu ngân') {
+                router.replace('/cashier');
             }
           }
 

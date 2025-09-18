@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from "react"
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -50,6 +51,11 @@ export function AppSidebar() {
           case 'Pha chế': primaryItems.push(
             { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
             commonScheduleMenu,
+            commonViolationMenu
+          );
+          break;
+           case 'Thu ngân': primaryItems.push(
+            { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
             commonViolationMenu
           );
           break;
@@ -93,6 +99,10 @@ export function AppSidebar() {
       if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager/comprehensive-report')) {
           secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch } });
       }
+       if(user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
+          secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Bảng điều khiển Thu ngân', icon: Banknote } });
+      }
+
 
       return { primaryItems, secondaryItems };
   }
@@ -101,6 +111,7 @@ export function AppSidebar() {
     switch(user?.role) {
         case 'Phục vụ': return '/shifts';
         case 'Pha chế': return '/bartender';
+        case 'Thu ngân': return '/cashier';
         case 'Quản lý': return '/manager';
         case 'Chủ nhà hàng': return '/reports';
         default: return '/';
@@ -117,6 +128,7 @@ export function AppSidebar() {
     switch(user?.role) {
       case 'Phục vụ': return <User />;
       case 'Pha chế': return <Coffee />;
+      case 'Thu ngân': return <Banknote />;
       case 'Quản lý': return <UserCog />;
       case 'Chủ nhà hàng': return <Building />;
       default: return <User />;
@@ -195,7 +207,7 @@ export function AppSidebar() {
           {Object.entries(groupedSecondaryItems).map(([role, items]) => (
             <React.Fragment key={role}>
               <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Vai trò phụ: {role}</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Phụ: {role}</span>
               </SidebarMenuItem>
               {(items as any[]).map((item: any) => (
                 <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">

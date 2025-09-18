@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -21,6 +22,8 @@ export default function AppRootPage() {
         router.replace('/manager');
       } else if (user.role === 'Chủ nhà hàng') {
         router.replace('/reports');
+      } else if (user.role === 'Thu ngân') {
+        router.replace('/cashier');
       }
     }
   }, [loading, user, router]);
