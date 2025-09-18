@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -65,6 +65,94 @@ photoStore.cleanupOldPhotos();
 
 export const dataStore = {
      // --- Cashier ---
+
+    async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>, user: AuthUser): Promise<void> {
+        const incidentData = {
+            ...data,
+            date: format(new Date(), 'yyyy-MM-dd'),
+            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            createdAt: serverTimestamp(),
+        };
+
+        const incidentCollection = collection(db, 'incidents');
+        const incidentDocRef = await addDoc(incidentCollection, incidentData);
+
+        // If there's a cost, create a corresponding expense slip
+        if (data.cost > 0) {
+            const expenseSlipData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
+                date: format(new Date(), 'yyyy-MM-dd'),
+                type: 'other_cost',
+                paymentMethod: 'cash', // Default to cash for incidents
+                amount: data.cost,
+                otherCostCategory: 'Sự cố',
+                notes: `Chi phí cho sự cố: ${data.content}`,
+                createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            };
+            await this.addOrUpdateExpenseSlip(expenseSlipData);
+        }
+    },
+
+    subscribeToRevenueStats(date: string, callback: (stats: RevenueStats | null) => void): () => void {
+        const docRef = doc(db, 'revenue_stats', date);
+        return onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                 const data = docSnap.data();
+                 callback({
+                     id: docSnap.id,
+                     ...data,
+                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                 } as RevenueStats);
+            } else {
+                callback(null);
+            }
+        }, (error) => {
+            console.error(`[Firestore Read Error] Could not read revenue stats: ${error.code}`);
+            callback(null);
+        });
+    },
+
+    async getRevenueStats(date: string): Promise<RevenueStats | null> {
+        const docRef = doc(db, 'revenue_stats', date);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+             const data = docSnap.data();
+             return {
+                 id: docSnap.id,
+                 ...data,
+                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+             } as RevenueStats;
+        }
+        return null;
+    },
+
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>, user: AuthUser): Promise<void> {
+        const date = format(new Date(), 'yyyy-MM-dd');
+        const docRef = doc(db, 'revenue_stats', date);
+        const dataToSave = {
+            ...data,
+            date,
+            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            createdAt: serverTimestamp(),
+        };
+
+        // If there's a delivery partner payout, also create an expense slip
+        if (data.deliveryPartnerPayout > 0) {
+            const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
+                date,
+                type: 'other_cost',
+                paymentMethod: 'cash', // Assuming cash payment, this could be made selectable
+                amount: data.deliveryPartnerPayout,
+                otherCostCategory: 'Dịch vụ',
+                notes: 'Chi trả cho Đối tác Giao hàng',
+                createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            };
+            // This is a fire-and-forget operation, consider error handling
+            this.addOrUpdateExpenseSlip(expenseData).catch(e => console.error("Failed to auto-create expense slip for delivery payout:", e));
+        }
+
+        await setDoc(docRef, dataToSave, { merge: true });
+    },
+
 
     subscribeToDailyExpenseSlips(date: string, callback: (slips: ExpenseSlip[]) => void): () => void {
         const slipsCollection = collection(db, 'expense_slips');
