@@ -18,7 +18,7 @@ import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 
 
@@ -157,7 +157,7 @@ export default function RevenueStatsDialog({
 
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
-        toast({ title: 'AI đang phân tích hóa đơn...' });
+        toast({ title: 'AI đang phân tích phiếu...' });
 
         try {
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
@@ -182,7 +182,7 @@ export default function RevenueStatsDialog({
                     return; // Stop processing
                 }
             } else {
-                 toast({ variant: 'destructive', title: 'Cảnh báo', description: 'Không tìm thấy ngày giờ trên hóa đơn. Vui lòng kiểm tra lại ảnh.' });
+                 toast({ variant: 'destructive', title: 'Cảnh báo', description: 'Không tìm thấy ngày giờ trên phiếu. Vui lòng kiểm tra lại ảnh.' });
             }
 
             setNewImageDataUri(imageUri); // Set image only after validation passes
@@ -198,7 +198,7 @@ export default function RevenueStatsDialog({
                 bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
             });
 
-            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh hóa đơn.' });
+            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu thống kê.' });
         } catch (error) {
             console.error('OCR Error:', error);
             toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
@@ -255,12 +255,12 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Tải hoặc chụp ảnh bill tổng kết từ POS để AI điền tự động. Mỗi lần lưu đều phải có ảnh mới.
+                            Tải hoặc chụp ảnh phiếu thống kê doanh thu tổng kết từ POS để AI điền tự động. Mỗi lần lưu đều phải có ảnh mới.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <Button
                                 variant="outline"
                                 onClick={() => fileInputRef.current?.click()}
@@ -268,7 +268,7 @@ export default function RevenueStatsDialog({
                                 className="w-full"
                             >
                                 {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                Tải ảnh hóa đơn
+                                Tải ảnh phiếu
                             </Button>
                             <input
                                 type="file"
@@ -284,12 +284,12 @@ export default function RevenueStatsDialog({
                                 className="w-full"
                             >
                                 <Camera className="mr-2 h-4 w-4" />
-                                Chụp ảnh hóa đơn
+                                Chụp ảnh phiếu
                             </Button>
                         </div>
                         {displayImageDataUri && (
                              <button onClick={() => setIsLightboxOpen(true)} className="relative aspect-square w-24 h-24 mx-auto rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
-                                <Image src={displayImageDataUri} alt="Hóa đơn đã tải lên" layout="fill" objectFit="cover" />
+                                <Image src={displayImageDataUri} alt="Phiếu thống kê đã tải lên" layout="fill" objectFit="cover" />
                              </button>
                         )}
                     </div>
@@ -352,10 +352,10 @@ export default function RevenueStatsDialog({
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
                             <AlertCircle className="text-destructive"/>
-                            Yêu cầu ảnh hóa đơn
+                            Yêu cầu ảnh phiếu thống kê
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Mỗi lần lưu thông tin doanh thu đều cần một ảnh hóa đơn mới để đảm bảo tính chính xác. Vui lòng cung cấp ảnh.
+                            Mỗi lần lưu thông tin doanh thu đều cần một ảnh phiếu thống kê mới để đảm bảo tính chính xác. Vui lòng cung cấp ảnh.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="sm:justify-center gap-2 pt-4">
@@ -426,3 +426,4 @@ export default function RevenueStatsDialog({
         </>
     );
 }
+
