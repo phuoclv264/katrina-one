@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -162,6 +160,12 @@ export default function RevenueStatsDialog({
         try {
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
 
+            if (!result.isReceipt) {
+                toast({ variant: 'destructive', title: 'Ảnh không hợp lệ', description: result.rejectionReason || 'Vui lòng thử lại với ảnh khác.' });
+                setIsOcrLoading(false);
+                return;
+            }
+
             // Timestamp validation
             if (result.reportTimestamp) {
                 const reportTime = new Date(result.reportTimestamp);
@@ -191,17 +195,17 @@ export default function RevenueStatsDialog({
             setOrderCount(result.orderCount || 0);
             setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
             setRevenueByPaymentMethod({
-                cash: result.revenueByPaymentMethod.cash || 0,
-                techcombankVietQrPro: result.revenueByPaymentMethod.techcombankVietQrPro || 0,
-                shopeeFood: result.revenueByPaymentMethod.shopeeFood || 0,
-                grabFood: result.revenueByPaymentMethod.grabFood || 0,
-                bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
+                cash: result.revenueByPaymentMethod?.cash || 0,
+                techcombankVietQrPro: result.revenueByPaymentMethod?.techcombankVietQrPro || 0,
+                shopeeFood: result.revenueByPaymentMethod?.shopeeFood || 0,
+                grabFood: result.revenueByPaymentMethod?.grabFood || 0,
+                bankTransfer: result.revenueByPaymentMethod?.bankTransfer || 0,
             });
 
-            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu thống kê.' });
+            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu.' });
         } catch (error) {
             console.error('OCR Error:', error);
-            toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+            toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
         } finally {
             setIsOcrLoading(false);
         }
@@ -241,7 +245,7 @@ export default function RevenueStatsDialog({
             reader.readAsDataURL(photoBlob);
         } catch(error) {
              console.error('OCR Error:', error);
-             toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+             toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
         } finally {
             await photoStore.deletePhoto(photoId); // Clean up temporary photo
         }
@@ -426,4 +430,3 @@ export default function RevenueStatsDialog({
         </>
     );
 }
-
