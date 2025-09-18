@@ -439,7 +439,7 @@ export default function RevenueStatsDialog({
                             Mỗi lần cập nhật thông tin doanh thu đều cần một ảnh phiếu thống kê mới để đảm bảo tính chính xác. Vui lòng cung cấp ảnh.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter className="sm:justify-center gap-2 pt-4">
+                    <div className="flex flex-col sm:flex-row gap-2 pt-4">
                         <Button variant="outline" className="w-full" onClick={() => {
                             setShowMissingImageAlert(false);
                             fileInputRef.current?.click();
@@ -454,6 +454,9 @@ export default function RevenueStatsDialog({
                              <Camera className="mr-2 h-4 w-4" />
                              Chụp ảnh mới
                         </Button>
+                    </div>
+                    <AlertDialogFooter className='sm:justify-start'>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
