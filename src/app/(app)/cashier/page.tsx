@@ -128,11 +128,11 @@ export default function CashierDashboardPage() {
       }
   }
   
-  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => {
+  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
     setIsProcessing(true);
     try {
-        await dataStore.addOrUpdateRevenueStats(data, user);
+        await dataStore.addOrUpdateRevenueStats(data, user, isEdited);
         toast({ title: "Thành công", description: "Đã cập nhật doanh thu." });
         setIsRevenueDialogOpen(false);
     } catch(error) {
