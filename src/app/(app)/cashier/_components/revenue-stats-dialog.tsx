@@ -365,7 +365,7 @@ export default function RevenueStatsDialog({
                         
                         {/* --- Right Column: Data Entry --- */}
                          <div className="w-full md:w-1/2">
-                            <ScrollArea className="h-full max-h-[55vh] pr-4">
+                            <ScrollArea className="h-full max-h-[40vh] md:max-h-[55vh] pr-4">
                                 <div className="space-y-4">
                                      {renderInputField("netRevenue", "Doanh thu Net", netRevenue, (val) => setNetRevenue(Number(val)), originalData?.netRevenue, true)}
                                      {renderInputField("orderCount", "Số lượng đơn", orderCount, (val) => setOrderCount(Number(val)), originalData?.orderCount, true)}
@@ -503,4 +503,3 @@ export default function RevenueStatsDialog({
         </>
     );
 }
-
