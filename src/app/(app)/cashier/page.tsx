@@ -299,7 +299,7 @@ export default function CashierDashboardPage() {
                     <CardContent>
                        <Button variant="outline" className="w-full bg-background/80 text-primary hover:bg-background" onClick={() => setIsRevenueDialogOpen(true)}>
                             <Receipt className="mr-2 h-4 w-4" />
-                            Nhập/Cập nhật Doanh thu
+                            {revenueStats ? 'Cập nhật' : 'Nhập'} Doanh thu
                         </Button>
                     </CardContent>
                 </Card>

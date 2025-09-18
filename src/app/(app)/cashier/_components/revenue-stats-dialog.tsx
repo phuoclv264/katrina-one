@@ -161,7 +161,8 @@ export default function RevenueStatsDialog({
     }
     
     const handleSave = () => {
-        if (!displayImageDataUri) { // Check if there is any image at all
+        // If this is an update (existingStats exists) but no new image has been provided, show alert.
+        if (existingStats && !newImageDataUri) {
             setShowMissingImageAlert(true);
             return;
         }
@@ -297,7 +298,10 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động.
+                            {existingStats 
+                                ? 'Để cập nhật, bạn phải tải lên hoặc chụp một ảnh phiếu thống kê MỚI.'
+                                : 'Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động.'
+                            }
                         </DialogDescription>
                     </DialogHeader>
 
@@ -429,10 +433,10 @@ export default function RevenueStatsDialog({
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
                             <AlertCircle className="text-destructive"/>
-                            Yêu cầu ảnh phiếu thống kê
+                            Yêu cầu ảnh phiếu thống kê mới
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Mỗi lần lưu thông tin doanh thu đều cần một ảnh phiếu thống kê mới để đảm bảo tính chính xác. Vui lòng cung cấp ảnh.
+                            Mỗi lần cập nhật thông tin doanh thu đều cần một ảnh phiếu thống kê mới để đảm bảo tính chính xác. Vui lòng cung cấp ảnh.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="sm:justify-center gap-2 pt-4">
