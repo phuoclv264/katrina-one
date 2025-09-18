@@ -20,11 +20,10 @@ const ExtractRevenueOutputSchema = z.object({
     rejectionReason: z.string().optional().describe('The reason why the image was rejected. Provided only if isReceipt is false.'),
     reportTimestamp: z.string().optional().describe('The date and time the report was generated, usually labeled "Ngày giờ". Extract it exactly as seen in "YYYY-MM-DD HH:mm:ss" format.'),
     netRevenue: z.number().optional().describe('The total net revenue amount. This is often labeled as "Doanh thu Net" or a similar term.'),
-    orderCount: z.number().optional().describe('The total number of orders. This is often labeled as "Tổng số đơn".'),
     deliveryPartnerPayout: z.number().optional().describe('The amount paid to delivery partners. Look for "Tiền trả ĐTGH" or similar labels.'),
     revenueByPaymentMethod: z.object({
-        cash: z.number().describe('Revenue from cash payments. Labeled as "Tiền mặt".'),
         techcombankVietQrPro: z.number().describe('Revenue from Techcombank VietQR Pro. Labeled "Techcombank VietQR Pro".'),
+        cash: z.number().describe('Revenue from cash payments. Labeled as "Tiền mặt".'),
         shopeeFood: z.number().describe('Revenue from ShopeeFood. Labeled "ShopeeFood".'),
         grabFood: z.number().describe('Revenue from GrabFood. Labeled "Grab Food".'),
         bankTransfer: z.number().describe('Revenue from other bank transfers. Labeled "Chuyển Khoản".'),
@@ -46,7 +45,7 @@ const prompt = ai.definePrompt({
 
 **Step 1: Validate the Image**
 
-First, you MUST determine if the image is a valid daily sales report from the POS system. A valid report contains keywords like "Doanh thu Net", "Tổng số đơn", "Tiền mặt", "ShopeeFood", etc.
+First, you MUST determine if the image is a valid daily sales report from the POS system. A valid report contains keywords like "Doanh thu Net", "Tiền mặt", "ShopeeFood", etc.
 Then, you MUST assess the image quality. Is it clear enough to read all numbers and text without ambiguity?
 
 *   If the image is NOT a sales report, set \`isReceipt\` to \`false\` and provide a \`rejectionReason\` of "Đây không phải là phiếu thống kê doanh thu."
@@ -58,11 +57,10 @@ If and only if the image is a valid and clear sales report, set \`isReceipt\` to
 
 1.  **reportTimestamp**: Find the report's generation date and time. Look for a label like "Ngày giờ". Return it as a string in "YYYY-MM-DD HH:mm:ss" format. This is critical.
 2.  **netRevenue**: Find the total net revenue. Look for labels like "Doanh thu Net", "Tổng cộng", or "Thực thu".
-3.  **orderCount**: Find the total number of orders. Look for "Tổng số đơn", "Số bill", or "Số lượng đơn".
-4.  **deliveryPartnerPayout**: Find the amount paid to delivery partners. Look for "Tiền trả ĐTGH".
-5.  **revenueByPaymentMethod**: This is an object containing a breakdown of revenue by payment method. You need to find the value for each of the following keys:
-    *   **cash**: Find the amount for "Tiền mặt".
+3.  **deliveryPartnerPayout**: Find the amount paid to delivery partners. Look for "Tiền trả ĐTGH".
+4.  **revenueByPaymentMethod**: This is an object containing a breakdown of revenue by payment method. You need to find the value for each of the following keys:
     *   **techcombankVietQrPro**: Find the amount for "Techcombank VietQR Pro".
+    *   **cash**: Find the amount for "Tiền mặt".
     *   **shopeeFood**: Find the amount for "ShopeeFood".
     *   **grabFood**: Find the amount for "Grab Food".
     *   **bankTransfer**: Find the amount for "Chuyển Khoản".

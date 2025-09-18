@@ -359,10 +359,9 @@ export type RevenueStats = {
   id: string; // YYYY-MM-DD
   date: string;
   netRevenue: number;
-  orderCount: number;
   revenueByPaymentMethod: {
-    cash: number;
     techcombankVietQrPro: number;
+    cash: number;
     shopeeFood: number;
     grabFood: number;
     bankTransfer: number;
