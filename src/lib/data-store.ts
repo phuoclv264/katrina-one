@@ -125,16 +125,27 @@ export const dataStore = {
         return null;
     },
 
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string }, user: AuthUser): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string | null }, user: AuthUser): Promise<void> {
         const date = format(new Date(), 'yyyy-MM-dd');
         const docRef = doc(db, 'revenue_stats', date);
 
         let imageUrl: string | undefined = undefined;
-        if (data.imageDataUri) {
+
+        if (data.imageDataUri && data.imageDataUri.startsWith('data:')) {
+            // New image was uploaded
             const blob = await (await fetch(data.imageDataUri)).blob();
             const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, blob);
             imageUrl = await getDownloadURL(storageRef);
+        } else if (data.imageDataUri) {
+            // An existing URL was passed, keep it
+            imageUrl = data.imageDataUri;
+        } else {
+             // No image data passed, check if one already exists
+            const currentStats = await this.getRevenueStats(date);
+            if (currentStats?.invoiceImageUrl) {
+                imageUrl = currentStats.invoiceImageUrl;
+            }
         }
     
         const { imageDataUri, ...dataToSave } = data;

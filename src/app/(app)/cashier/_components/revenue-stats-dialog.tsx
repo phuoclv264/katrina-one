@@ -15,11 +15,14 @@ import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
 type RevenueStatsDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string }) => void;
+    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string | null }) => void;
     isProcessing: boolean;
     existingStats: RevenueStats | null;
 };
@@ -58,6 +61,27 @@ export default function RevenueStatsDialog({
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+    // --- Back button handling for Lightbox ---
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+        if (isLightboxOpen) {
+            event.preventDefault();
+            setIsLightboxOpen(false);
+        }
+        };
+
+        if (isLightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+        }
+
+        return () => {
+        window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isLightboxOpen]);
 
 
     useEffect(() => {
@@ -113,7 +137,7 @@ export default function RevenueStatsDialog({
             orderCount,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            imageDataUri,
+            imageDataUri: imageDataUri, // This will be null if only numbers are changed, but image exists from `existingStats`
         };
 
         onSave(dataToSave);
@@ -228,9 +252,9 @@ export default function RevenueStatsDialog({
                             </Button>
                         </div>
                         {imageDataUri && (
-                             <div className="relative aspect-[3/4] w-full max-w-sm mx-auto rounded-md overflow-hidden border">
-                                <Image src={imageDataUri} alt="Hóa đơn đã tải lên" layout="fill" objectFit="contain" />
-                            </div>
+                             <button onClick={() => setIsLightboxOpen(true)} className="relative aspect-square w-24 h-24 mx-auto rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
+                                <Image src={imageDataUri} alt="Hóa đơn đã tải lên" layout="fill" objectFit="cover" />
+                             </button>
                         )}
                     </div>
 
@@ -292,6 +316,16 @@ export default function RevenueStatsDialog({
                 onSubmit={handlePhotoCapture}
                 singlePhotoMode={true}
             />
+            {imageDataUri && (
+                 <Lightbox
+                    open={isLightboxOpen}
+                    close={() => setIsLightboxOpen(false)}
+                    slides={[{ src: imageDataUri }]}
+                    plugins={[Zoom]}
+                    carousel={{ finite: true }}
+                    zoom={{ maxZoomPixelRatio: 5 }}
+                />
+            )}
         </>
     );
 }
