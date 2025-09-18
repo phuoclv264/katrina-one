@@ -1,6 +1,7 @@
 
 
 import type { Timestamp } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
 
 export type Staff = {
   pin: string;
@@ -14,6 +15,7 @@ export type ManagedUser = {
   email: string;
   displayName: string;
   role: UserRole;
+  secondaryRoles?: UserRole[];
   notes?: string;
 };
 
@@ -290,4 +292,5 @@ export type Notification = {
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  secondaryRoles?: UserRole[];
 }

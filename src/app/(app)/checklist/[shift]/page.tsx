@@ -149,7 +149,7 @@ export default function ChecklistPage() {
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
-    if (!isAuthLoading && (!user || user.role !== 'Phục vụ')) {
+    if (!isAuthLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
@@ -789,5 +789,3 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
-
-

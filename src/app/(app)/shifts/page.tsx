@@ -4,14 +4,14 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info } from 'lucide-react';
+import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList, CheckSquare, FileSearch } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { Schedule, AssignedShift } from '@/lib/types';
-import { getISOWeek, startOfWeek, endOfWeek, format, isSameDay } from 'date-fns';
+import { getISOWeek, format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Define the main shift time frames
@@ -27,6 +27,7 @@ const mainShiftInfo = {
     toi: { name: "Ca Tối", icon: Moon, href: "/checklist/toi" },
 }
 
+
 export default function ShiftsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function ShiftsPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user && user.role !== 'Phục vụ') {
+    if (!authLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
       router.replace('/');
     }
   }, [user, authLoading, router]);
@@ -84,6 +85,9 @@ export default function ShiftsPage() {
     return Array.from(mainShifts);
   }, [todaysShifts]);
   
+  const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
+  const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');
+  const isPrimaryServer = user?.role === 'Phục vụ';
 
   if (authLoading || isLoading) {
     return (
@@ -107,54 +111,93 @@ export default function ShiftsPage() {
 
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Bảng điều khiển Phục vụ</CardTitle>
-          <CardDescription>
-            {todaysShifts.length > 0
-              ? `Hôm nay bạn có ca: ${todaysShifts.map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`).join(', ')}`
-              : "Bạn không có ca làm việc hôm nay."
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-            {relevantMainShifts.length > 0 ? (
-                Object.entries(mainShiftInfo).map(([key, info]) => {
-                    if (relevantMainShifts.includes(key)) {
-                        const Icon = info.icon;
-                        return (
-                            <Button asChild size="lg" key={key}>
-                                <Link href={info.href}>
-                                    <Icon className="mr-2" />
-                                    {info.name}
-                                </Link>
-                            </Button>
-                        )
-                    }
-                    return null;
-                })
-            ) : (
-                <div className="flex items-center justify-center p-4 rounded-md bg-muted text-muted-foreground text-sm gap-2">
-                    <Info className="h-4 w-4" />
-                    <span>Không có checklist công việc nào cho hôm nay.</span>
-                </div>
+      <div className="w-full max-w-md">
+        <Card>
+          <CardHeader>
+            <CardTitle>Checklist Công việc</CardTitle>
+            <CardDescription>
+              {todaysShifts.length > 0
+                ? `Hôm nay bạn có ca: ${todaysShifts.map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`).join(', ')}`
+                : "Bạn không có ca làm việc nào được phân công hôm nay."
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+              {relevantMainShifts.length > 0 ? (
+                  Object.entries(mainShiftInfo).map(([key, info]) => {
+                      if (relevantMainShifts.includes(key)) {
+                          const Icon = info.icon;
+                          return (
+                              <Button asChild size="lg" key={key}>
+                                  <Link href={info.href}>
+                                      <Icon className="mr-2" />
+                                      {info.name}
+                                  </Link>
+                              </Button>
+                          )
+                      }
+                      return null;
+                  })
+              ) : (
+                  <div className="flex items-center justify-center p-4 rounded-md bg-muted text-muted-foreground text-sm gap-2">
+                      <Info className="h-4 w-4" />
+                      <span>Không có checklist công việc nào cho ca làm việc của bạn hôm nay.</span>
+                  </div>
+              )}
+
+            {isPrimaryServer && (
+              <>
+                <Separator className="my-2" />
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/schedule">
+                      <CalendarDays className="mr-2" />
+                      Lịch làm việc
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/violations">
+                      <ShieldX className="mr-2" />
+                      Danh sách Vi phạm
+                  </Link>
+                </Button>
+              </>
             )}
 
-          <Separator className="my-2" />
-          <Button asChild size="lg" variant="outline">
-            <Link href="/schedule">
-                <CalendarDays className="mr-2" />
-                Lịch làm việc
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/violations">
-                <ShieldX className="mr-2" />
-                Danh sách Vi phạm
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+            {(hasBartenderSecondaryRole || hasManagerSecondaryRole) && <Separator className="my-2" />}
+
+            {hasBartenderSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/bartender/hygiene-report">
+                    <ClipboardList className="mr-2" />
+                    Báo cáo Vệ sinh quầy
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/bartender/inventory">
+                    <Archive className="mr-2" />
+                    Kiểm kê Tồn kho
+                  </Link>
+                </Button>
+              </>
+            )}
+
+            {hasManagerSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/manager/comprehensive-report">
+                    <FileSearch className="mr-2" />
+                    Phiếu kiểm tra toàn diện
+                  </Link>
+                </Button>
+              </>
+            )}
+
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

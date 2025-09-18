@@ -92,7 +92,7 @@ export default function HygieneReportPage() {
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
-    if (!isAuthLoading && (!user || user.role !== 'Pha chế')) {
+    if (!isAuthLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
@@ -663,7 +663,3 @@ export default function HygieneReportPage() {
     </TooltipProvider>
   );
 }
-
-    
-
-    
