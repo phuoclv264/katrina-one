@@ -1,15 +1,18 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
+import CameraDialog from '@/components/camera-dialog';
+import { photoStore } from '@/lib/photo-store';
 
 type RevenueStatsDialogProps = {
     open: boolean;
@@ -18,6 +21,23 @@ type RevenueStatsDialogProps = {
     isProcessing: boolean;
     existingStats: RevenueStats | null;
 };
+
+const initialPaymentMethods = {
+    cash: 0,
+    techcombankVietQrPro: 0,
+    shopeeFood: 0,
+    grabFood: 0,
+    bankTransfer: 0,
+};
+
+const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string } = {
+    cash: "Tiền mặt",
+    techcombankVietQrPro: "TCB VietQR Pro",
+    shopeeFood: "ShopeeFood",
+    grabFood: "Grab Food",
+    bankTransfer: "Chuyển Khoản",
+};
+
 
 export default function RevenueStatsDialog({
     open,
@@ -30,27 +50,24 @@ export default function RevenueStatsDialog({
     const [netRevenue, setNetRevenue] = useState(0);
     const [orderCount, setOrderCount] = useState(0);
     const [deliveryPartnerPayout, setDeliveryPartnerPayout] = useState(0);
-    const [revenueByPaymentMethod, setRevenueByPaymentMethod] = useState({
-        cash: 0,
-        techcombank: 0,
-        vietQR: 0,
-        shopeeFood: 0,
-        grabFood: 0,
-        other: 0,
-    });
+    const [revenueByPaymentMethod, setRevenueByPaymentMethod] = useState(initialPaymentMethods);
+
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [isOcrLoading, setIsOcrLoading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (open && existingStats) {
             setNetRevenue(existingStats.netRevenue);
             setOrderCount(existingStats.orderCount);
             setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
-            setRevenueByPaymentMethod(existingStats.revenueByPaymentMethod);
+            setRevenueByPaymentMethod({ ...initialPaymentMethods, ...existingStats.revenueByPaymentMethod });
         } else if (open) {
             // Reset for new entry
             setNetRevenue(0);
             setOrderCount(0);
             setDeliveryPartnerPayout(0);
-            setRevenueByPaymentMethod({ cash: 0, techcombank: 0, vietQR: 0, shopeeFood: 0, grabFood: 0, other: 0 });
+            setRevenueByPaymentMethod(initialPaymentMethods);
         }
     }, [open, existingStats]);
 
@@ -62,7 +79,7 @@ export default function RevenueStatsDialog({
         return Object.values(revenueByPaymentMethod).reduce((sum, val) => sum + val, 0);
     }, [revenueByPaymentMethod]);
 
-    const isRevenueMismatch = netRevenue > 0 && netRevenue !== totalPaymentMethods;
+    const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1; // Allow for rounding errors
 
     const handleSave = () => {
         if (isRevenueMismatch) {
@@ -84,65 +101,181 @@ export default function RevenueStatsDialog({
         onSave(dataToSave);
     };
 
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsOcrLoading(true);
+        toast({ title: 'AI đang phân tích hóa đơn...' });
+
+        try {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const imageDataUri = reader.result as string;
+                const result = await extractRevenueFromImage({ imageDataUri });
+
+                setNetRevenue(result.netRevenue || 0);
+                setOrderCount(result.orderCount || 0);
+                setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
+                setRevenueByPaymentMethod({
+                    cash: result.revenueByPaymentMethod.cash || 0,
+                    techcombankVietQrPro: result.revenueByPaymentMethod.techcombankVietQrPro || 0,
+                    shopeeFood: result.revenueByPaymentMethod.shopeeFood || 0,
+                    grabFood: result.revenueByPaymentMethod.grabFood || 0,
+                    bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
+                });
+
+                toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh hóa đơn.' });
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('OCR Error:', error);
+            toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+        } finally {
+            setIsOcrLoading(false);
+            if(fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+    
+    const handlePhotoCapture = async (photoIds: string[]) => {
+        setIsCameraOpen(false);
+        if (photoIds.length === 0) return;
+        const photoId = photoIds[0];
+
+        setIsOcrLoading(true);
+        toast({ title: 'AI đang phân tích hóa đơn...' });
+
+        try {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (!photoBlob) throw new Error("Không tìm thấy ảnh đã chụp.");
+
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                 const imageDataUri = reader.result as string;
+                 const result = await extractRevenueFromImage({ imageDataUri });
+
+                 setNetRevenue(result.netRevenue || 0);
+                 setOrderCount(result.orderCount || 0);
+                 setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
+                 setRevenueByPaymentMethod({
+                    cash: result.revenueByPaymentMethod.cash || 0,
+                    techcombankVietQrPro: result.revenueByPaymentMethod.techcombankVietQrPro || 0,
+                    shopeeFood: result.revenueByPaymentMethod.shopeeFood || 0,
+                    grabFood: result.revenueByPaymentMethod.grabFood || 0,
+                    bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
+                 });
+
+                 toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh hóa đơn.' });
+            };
+            reader.readAsDataURL(photoBlob);
+        } catch(error) {
+             console.error('OCR Error:', error);
+            toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+        } finally {
+            setIsOcrLoading(false);
+            await photoStore.deletePhoto(photoId);
+        }
+    }
+
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
-                    <DialogDescription>
-                        Nhập số liệu từ bill tổng kết cuối ngày trên máy POS.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="netRevenue">Doanh thu Net</Label>
-                            <Input id="netRevenue" type="number" value={netRevenue} onChange={e => setNetRevenue(Number(e.target.value))} placeholder="0" />
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
+                        <DialogDescription>
+                            Nhập thủ công hoặc tải ảnh bill tổng kết từ POS để AI điền tự động.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                     <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isOcrLoading || isProcessing}
+                            className="w-full"
+                        >
+                            {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                            Tải ảnh hóa đơn
+                        </Button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                            accept="image/*"
+                        />
+                         <Button
+                            variant="outline"
+                            onClick={() => setIsCameraOpen(true)}
+                            disabled={isOcrLoading || isProcessing}
+                            className="w-full"
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Chụp ảnh hóa đơn
+                        </Button>
+                    </div>
+
+                    <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="netRevenue">Doanh thu Net</Label>
+                                <Input id="netRevenue" type="number" value={netRevenue} onChange={e => setNetRevenue(Number(e.target.value))} placeholder="0" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="orderCount">Số lượng đơn</Label>
+                                <Input id="orderCount" type="number" value={orderCount} onChange={e => setOrderCount(Number(e.target.value))} placeholder="0" />
+                            </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="orderCount">Số lượng đơn</Label>
-                            <Input id="orderCount" type="number" value={orderCount} onChange={e => setOrderCount(Number(e.target.value))} placeholder="0" />
+                            <Label>Doanh thu theo PTTT</Label>
+                            <div className="p-4 border rounded-md grid grid-cols-2 gap-4">
+                                {Object.entries(revenueByPaymentMethod).map(([key, value]) => (
+                                    <div key={key} className="space-y-1">
+                                        <Label htmlFor={`pm-${key}`} className="text-xs capitalize">{paymentMethodLabels[key as keyof typeof paymentMethodLabels]}</Label>
+                                        <Input id={`pm-${key}`} type="number" value={value} onChange={e => handlePaymentMethodChange(key as any, e.target.value)} placeholder="0" />
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
                         </div>
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Doanh thu theo PTTT</Label>
-                        <div className="p-4 border rounded-md grid grid-cols-2 gap-4">
-                            {Object.entries(revenueByPaymentMethod).map(([key, value]) => (
-                                <div key={key} className="space-y-1">
-                                    <Label htmlFor={`pm-${key}`} className="text-xs capitalize">{key.replace('_', ' ')}</Label>
-                                    <Input id={`pm-${key}`} type="number" value={value} onChange={e => handlePaymentMethodChange(key as any, e.target.value)} placeholder="0" />
-                                </div>
-                            ))}
+
+                        {isRevenueMismatch && (
+                            <Alert variant="destructive">
+                                <AlertTitle>Doanh thu không khớp!</AlertTitle>
+                                <AlertDescription>
+                                    Doanh thu Net ({netRevenue.toLocaleString('vi-VN')}đ) không bằng Tổng PTTT ({totalPaymentMethods.toLocaleString('vi-VN')}đ).
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
+                        <div className="space-y-2">
+                            <Label htmlFor="deliveryPayout">Tiền trả cho Đối tác Giao hàng</Label>
+                            <Input id="deliveryPayout" type="number" value={deliveryPartnerPayout} onChange={e => setDeliveryPartnerPayout(Number(e.target.value))} placeholder="0" />
+                            <p className="text-xs text-muted-foreground">
+                                Số tiền này sẽ được tự động tạo một phiếu chi.
+                            </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+
                     </div>
-
-                    {isRevenueMismatch && (
-                        <Alert variant="destructive">
-                            <AlertTitle>Doanh thu không khớp!</AlertTitle>
-                            <AlertDescription>
-                                Doanh thu Net ({netRevenue.toLocaleString('vi-VN')}đ) không bằng Tổng PTTT ({totalPaymentMethods.toLocaleString('vi-VN')}đ).
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
-                    <div className="space-y-2">
-                        <Label htmlFor="deliveryPayout">Tiền trả cho Đối tác Giao hàng</Label>
-                        <Input id="deliveryPayout" type="number" value={deliveryPartnerPayout} onChange={e => setDeliveryPartnerPayout(Number(e.target.value))} placeholder="0" />
-                         <p className="text-xs text-muted-foreground">
-                            Số tiền này sẽ được tự động tạo một phiếu chi.
-                        </p>
-                    </div>
-
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                    <Button onClick={handleSave} disabled={isProcessing}>
-                        {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Lưu
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                        <Button onClick={handleSave} disabled={isProcessing}>
+                            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Lưu
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <CameraDialog 
+                isOpen={isCameraOpen}
+                onClose={() => setIsCameraOpen(false)}
+                onSubmit={handlePhotoCapture}
+                singlePhotoMode={true}
+            />
+        </>
     );
 }

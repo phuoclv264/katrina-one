@@ -362,11 +362,10 @@ export type RevenueStats = {
   orderCount: number;
   revenueByPaymentMethod: {
     cash: number;
-    techcombank: number;
-    vietQR: number;
+    techcombankVietQrPro: number;
     shopeeFood: number;
     grabFood: number;
-    other: number;
+    bankTransfer: number;
   };
   deliveryPartnerPayout: number; // Tiền trả ĐTGH
 
