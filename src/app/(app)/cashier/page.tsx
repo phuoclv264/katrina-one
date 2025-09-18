@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -237,79 +236,68 @@ export default function CashierDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         {dailySlips.length > 0 ? (
-                           <Table>
-                               <TableHeader>
-                                   <TableRow>
-                                       <TableHead>Nội dung</TableHead>
-                                       <TableHead>Số tiền</TableHead>
-                                       <TableHead>Hình thức</TableHead>
-                                       <TableHead className="text-right">Hành động</TableHead>
-                                   </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                   {dailySlips.map(slip => (
-                                       <TableRow key={slip.id}>
-                                           <TableCell className="font-medium">
-                                               {slip.type === 'goods_import' ? `Nhập hàng: ${slip.itemName}` : `Chi phí: ${slip.otherCostCategory}`}
-                                                <p className="text-xs text-muted-foreground font-normal">{slip.notes}</p>
-                                           </TableCell>
-                                           <TableCell>{slip.amount.toLocaleString('vi-VN')}đ</TableCell>
-                                           <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
-                                           <TableCell className="text-right">
-                                               <Button variant="ghost" size="icon" onClick={() => handleEditClick(slip)} disabled={isProcessing}>
-                                                    <Edit className="h-4 w-4" />
-                                               </Button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
-                                                            <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteSlip(slip.id)}>Xóa</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                           </TableCell>
+                           <div className="overflow-x-auto">
+                               <Table>
+                                   <TableHeader>
+                                       <TableRow>
+                                           <TableHead>Nội dung</TableHead>
+                                           <TableHead>Số tiền</TableHead>
+                                           <TableHead>Hình thức</TableHead>
+                                           <TableHead className="text-right">Hành động</TableHead>
                                        </TableRow>
-                                   ))}
-                               </TableBody>
-                           </Table>
+                                   </TableHeader>
+                                   <TableBody>
+                                       {dailySlips.map(slip => (
+                                           <TableRow key={slip.id}>
+                                               <TableCell className="font-medium">
+                                                   {slip.type === 'goods_import' ? `Nhập hàng: ${slip.itemName}` : `Chi phí: ${slip.otherCostCategory}`}
+                                                    <p className="text-xs text-muted-foreground font-normal">{slip.notes}</p>
+                                               </TableCell>
+                                               <TableCell>{slip.amount.toLocaleString('vi-VN')}đ</TableCell>
+                                               <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
+                                               <TableCell className="text-right">
+                                                   <Button variant="ghost" size="icon" onClick={() => handleEditClick(slip)} disabled={isProcessing}>
+                                                        <Edit className="h-4 w-4" />
+                                                   </Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
+                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteSlip(slip.id)}>Xóa</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                               </TableCell>
+                                           </TableRow>
+                                       ))}
+                                   </TableBody>
+                               </Table>
+                           </div>
                         ) : (
                              <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
                         )}
                         {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
                     </CardContent>
                 </Card>
-
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Báo cáo Sự cố</CardTitle>
-                        <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản hoặc nguyên vật liệu.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
-                            <AlertTriangle className="mr-2 h-4 w-4" />
-                            Tạo Báo cáo Sự cố
-                        </Button>
-                    </CardContent>
-                </Card>
             </div>
 
             <div className="space-y-6">
-                 <Card>
+                 <Card className="bg-primary/5 text-primary-foreground border-primary/20 shadow-lg">
                     <CardHeader>
-                        <CardTitle>Thống kê Doanh thu</CardTitle>
-                        <CardDescription>Nhập số liệu từ bill tổng kết trên máy POS.</CardDescription>
+                        <CardTitle className="text-primary">Thống kê Doanh thu</CardTitle>
+                        <CardDescription className="text-primary/80">Nhập số liệu từ bill tổng kết trên máy POS.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <Button variant="outline" className="w-full" onClick={() => setIsRevenueDialogOpen(true)}>
+                       <Button variant="outline" className="w-full bg-background/80 text-primary hover:bg-background" onClick={() => setIsRevenueDialogOpen(true)}>
                             <Receipt className="mr-2 h-4 w-4" />
                             Nhập/Cập nhật Doanh thu
                         </Button>
@@ -324,6 +312,18 @@ export default function CashierDashboardPage() {
                          <Button className="w-full">
                             <ArrowRight className="mr-2 h-4 w-4" />
                             Thực hiện bàn giao
+                        </Button>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Báo cáo Sự cố</CardTitle>
+                        <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản hoặc nguyên vật liệu.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
+                            <AlertTriangle className="mr-2 h-4 w-4" />
+                            Tạo Báo cáo Sự cố
                         </Button>
                     </CardContent>
                 </Card>
