@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -8,16 +9,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Upload, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
+import Image from 'next/image';
 
 type RevenueStatsDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => void;
+    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string }) => void;
     isProcessing: boolean;
     existingStats: RevenueStats | null;
 };
@@ -55,19 +57,25 @@ export default function RevenueStatsDialog({
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+
 
     useEffect(() => {
-        if (open && existingStats) {
-            setNetRevenue(existingStats.netRevenue);
-            setOrderCount(existingStats.orderCount);
-            setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
-            setRevenueByPaymentMethod({ ...initialPaymentMethods, ...existingStats.revenueByPaymentMethod });
-        } else if (open) {
-            // Reset for new entry
-            setNetRevenue(0);
-            setOrderCount(0);
-            setDeliveryPartnerPayout(0);
-            setRevenueByPaymentMethod(initialPaymentMethods);
+        if (open) {
+            if (existingStats) {
+                setNetRevenue(existingStats.netRevenue);
+                setOrderCount(existingStats.orderCount);
+                setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
+                setRevenueByPaymentMethod({ ...initialPaymentMethods, ...existingStats.revenueByPaymentMethod });
+                setImageDataUri(existingStats.invoiceImageUrl || null);
+            } else {
+                // Reset for new entry
+                setNetRevenue(0);
+                setOrderCount(0);
+                setDeliveryPartnerPayout(0);
+                setRevenueByPaymentMethod(initialPaymentMethods);
+                setImageDataUri(null);
+            }
         }
     }, [open, existingStats]);
 
@@ -82,6 +90,15 @@ export default function RevenueStatsDialog({
     const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1; // Allow for rounding errors
 
     const handleSave = () => {
+        if (!imageDataUri) {
+            toast({
+                title: "Thiếu ảnh hóa đơn",
+                description: "Vui lòng tải lên hoặc chụp ảnh hóa đơn thống kê doanh thu trước khi lưu.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         if (isRevenueMismatch) {
             toast({
                 title: "Số liệu không khớp",
@@ -96,46 +113,54 @@ export default function RevenueStatsDialog({
             orderCount,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
+            imageDataUri,
         };
 
         onSave(dataToSave);
     };
 
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
+        setImageDataUri(imageUri);
         toast({ title: 'AI đang phân tích hóa đơn...' });
 
         try {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const imageDataUri = reader.result as string;
-                const result = await extractRevenueFromImage({ imageDataUri });
+            const result = await extractRevenueFromImage({ imageDataUri: imageUri });
 
-                setNetRevenue(result.netRevenue || 0);
-                setOrderCount(result.orderCount || 0);
-                setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
-                setRevenueByPaymentMethod({
-                    cash: result.revenueByPaymentMethod.cash || 0,
-                    techcombankVietQrPro: result.revenueByPaymentMethod.techcombankVietQrPro || 0,
-                    shopeeFood: result.revenueByPaymentMethod.shopeeFood || 0,
-                    grabFood: result.revenueByPaymentMethod.grabFood || 0,
-                    bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
-                });
+            setNetRevenue(result.netRevenue || 0);
+            setOrderCount(result.orderCount || 0);
+            setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
+            setRevenueByPaymentMethod({
+                cash: result.revenueByPaymentMethod.cash || 0,
+                techcombankVietQrPro: result.revenueByPaymentMethod.techcombankVietQrPro || 0,
+                shopeeFood: result.revenueByPaymentMethod.shopeeFood || 0,
+                grabFood: result.revenueByPaymentMethod.grabFood || 0,
+                bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
+            });
 
-                toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh hóa đơn.' });
-            };
-            reader.readAsDataURL(file);
+            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh hóa đơn.' });
         } catch (error) {
             console.error('OCR Error:', error);
             toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
         } finally {
             setIsOcrLoading(false);
-            if(fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
+        }
+    };
+
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const imageUri = reader.result as string;
+            processImage(imageUri);
+        };
+        reader.readAsDataURL(file);
+        
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     };
     
@@ -144,38 +169,21 @@ export default function RevenueStatsDialog({
         if (photoIds.length === 0) return;
         const photoId = photoIds[0];
 
-        setIsOcrLoading(true);
-        toast({ title: 'AI đang phân tích hóa đơn...' });
-
         try {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) throw new Error("Không tìm thấy ảnh đã chụp.");
 
             const reader = new FileReader();
-            reader.onloadend = async () => {
-                 const imageDataUri = reader.result as string;
-                 const result = await extractRevenueFromImage({ imageDataUri });
-
-                 setNetRevenue(result.netRevenue || 0);
-                 setOrderCount(result.orderCount || 0);
-                 setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
-                 setRevenueByPaymentMethod({
-                    cash: result.revenueByPaymentMethod.cash || 0,
-                    techcombankVietQrPro: result.revenueByPaymentMethod.techcombankVietQrPro || 0,
-                    shopeeFood: result.revenueByPaymentMethod.shopeeFood || 0,
-                    grabFood: result.revenueByPaymentMethod.grabFood || 0,
-                    bankTransfer: result.revenueByPaymentMethod.bankTransfer || 0,
-                 });
-
-                 toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh hóa đơn.' });
+            reader.onloadend = () => {
+                 const imageUri = reader.result as string;
+                 processImage(imageUri);
             };
             reader.readAsDataURL(photoBlob);
         } catch(error) {
              console.error('OCR Error:', error);
-            toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+             toast({ variant: 'destructive', title: 'Lỗi OCR', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
         } finally {
-            setIsOcrLoading(false);
-            await photoStore.deletePhoto(photoId);
+            await photoStore.deletePhoto(photoId); // Clean up temporary photo
         }
     }
 
@@ -187,37 +195,45 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Nhập thủ công hoặc tải ảnh bill tổng kết từ POS để AI điền tự động.
+                            Tải hoặc chụp ảnh bill tổng kết từ POS để AI điền tự động. Mọi thay đổi sẽ được lưu kèm với ảnh.
                         </DialogDescription>
                     </DialogHeader>
 
-                     <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isOcrLoading || isProcessing}
-                            className="w-full"
-                        >
-                            {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                            Tải ảnh hóa đơn
-                        </Button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept="image/*"
-                        />
-                         <Button
-                            variant="outline"
-                            onClick={() => setIsCameraOpen(true)}
-                            disabled={isOcrLoading || isProcessing}
-                            className="w-full"
-                        >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Chụp ảnh hóa đơn
-                        </Button>
+                    <div className="space-y-4">
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isOcrLoading || isProcessing}
+                                className="w-full"
+                            >
+                                {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                Tải ảnh hóa đơn
+                            </Button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/*"
+                            />
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsCameraOpen(true)}
+                                disabled={isOcrLoading || isProcessing}
+                                className="w-full"
+                            >
+                                <Camera className="mr-2 h-4 w-4" />
+                                Chụp ảnh hóa đơn
+                            </Button>
+                        </div>
+                        {imageDataUri && (
+                             <div className="relative aspect-[3/4] w-full max-w-sm mx-auto rounded-md overflow-hidden border">
+                                <Image src={imageDataUri} alt="Hóa đơn đã tải lên" layout="fill" objectFit="contain" />
+                            </div>
+                        )}
                     </div>
+
 
                     <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
                         <div className="grid grid-cols-2 gap-4">
@@ -263,8 +279,8 @@ export default function RevenueStatsDialog({
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                        <Button onClick={handleSave} disabled={isProcessing}>
-                            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
+                            {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Lưu
                         </Button>
                     </DialogFooter>

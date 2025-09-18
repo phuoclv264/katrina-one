@@ -368,6 +368,7 @@ export type RevenueStats = {
     bankTransfer: number;
   };
   deliveryPartnerPayout: number; // Tiền trả ĐTGH
+  invoiceImageUrl?: string; // URL to the uploaded receipt image
 
   createdBy: AssignedUser;
   createdAt: string | Timestamp;

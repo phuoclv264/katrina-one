@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -128,7 +129,7 @@ export default function CashierDashboardPage() {
       }
   }
   
-  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => {
+  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string }) => {
     if(!user) return;
     setIsProcessing(true);
     try {

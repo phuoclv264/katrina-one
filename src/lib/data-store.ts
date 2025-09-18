@@ -125,14 +125,26 @@ export const dataStore = {
         return null;
     },
 
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>, user: AuthUser): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'invoiceImageUrl'> & { imageDataUri?: string }, user: AuthUser): Promise<void> {
         const date = format(new Date(), 'yyyy-MM-dd');
         const docRef = doc(db, 'revenue_stats', date);
-        const dataToSave = {
-            ...data,
+
+        let imageUrl: string | undefined = undefined;
+        if (data.imageDataUri) {
+            const blob = await (await fetch(data.imageDataUri)).blob();
+            const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            imageUrl = await getDownloadURL(storageRef);
+        }
+    
+        const { imageDataUri, ...dataToSave } = data;
+
+        const finalData = {
+            ...dataToSave,
             date,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
+            invoiceImageUrl: imageUrl,
         };
 
         // If there's a delivery partner payout, also create an expense slip
@@ -150,7 +162,7 @@ export const dataStore = {
             this.addOrUpdateExpenseSlip(expenseData).catch(e => console.error("Failed to auto-create expense slip for delivery payout:", e));
         }
 
-        await setDoc(docRef, dataToSave, { merge: true });
+        await setDoc(docRef, finalData, { merge: true });
     },
 
 
