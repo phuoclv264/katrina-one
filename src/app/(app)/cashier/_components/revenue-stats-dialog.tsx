@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -302,17 +302,23 @@ export default function RevenueStatsDialog({
                      <div className="flex flex-col md:flex-row gap-6">
                         {/* --- Left Column: Image --- */}
                         <div className="w-full md:w-1/2 flex flex-col gap-4">
-                            <Card className="bg-card flex-grow flex flex-col">
+                             <Card className="bg-card flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base">Ảnh phiếu thống kê</CardTitle>
                                 </CardHeader>
                                 <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
                                      {displayImageDataUri ? (
-                                        <button onClick={() => setIsLightboxOpen(true)} className="relative w-full max-w-sm mx-auto aspect-video rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
-                                            <Image src={displayImageDataUri} alt="Phiếu thống kê đã tải lên" layout="fill" objectFit="contain" />
-                                        </button>
+                                        <div className="w-full text-center">
+                                            <Button variant="secondary" onClick={() => setIsLightboxOpen(true)} className="h-auto py-3 px-4">
+                                                <Eye className="mr-2 h-5 w-5" />
+                                                <div className="text-left">
+                                                    <p className="font-semibold">Đã tải ảnh lên</p>
+                                                    <p className="text-xs text-muted-foreground">Nhấn để xem lại</p>
+                                                </div>
+                                            </Button>
+                                        </div>
                                     ) : (
-                                        <div className="w-full aspect-video flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
+                                        <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
                                             <p className="text-sm text-muted-foreground">Chưa có ảnh</p>
                                         </div>
                                     )}
