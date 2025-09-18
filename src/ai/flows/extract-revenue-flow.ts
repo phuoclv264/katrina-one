@@ -71,7 +71,17 @@ const extractRevenueFlow = ai.defineFlow(
     outputSchema: ExtractRevenueOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+    try {
+        const { output } = await prompt(input);
+        return output!;
+    } catch (error: any) {
+         if (error.message && error.message.includes('503 Service Unavailable')) {
+            console.warn('AI model is overloaded. Retrying in 2 seconds...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const { output } = await prompt(input);
+            return output!;
+        }
+        throw error;
+    }
   }
 );
