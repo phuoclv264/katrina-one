@@ -275,15 +275,15 @@ export default function RevenueStatsDialog({
         }
     }
     
-    const renderInputField = (id: string, label: string, value: number, onChange: (val: string) => void, originalValue?: number) => {
+    const renderInputField = (id: string, label: string, value: number, onChange: (val: string) => void, originalValue?: number, isImportant: boolean = false) => {
         const isEdited = originalValue !== undefined && value !== originalValue;
         return (
             <div key={id} className="grid grid-cols-2 items-center gap-2">
-                <Label htmlFor={id} className="text-sm text-right flex items-center gap-2 justify-end">
+                <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
                      {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
                     {label}
                 </Label>
-                <Input id={id} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className="h-9" />
+                <Input id={id} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className={cn("h-9", isImportant && "font-bold text-base")} />
             </div>
         );
     };
@@ -302,7 +302,7 @@ export default function RevenueStatsDialog({
                      <div className="flex flex-col md:flex-row gap-6">
                         {/* --- Left Column: Image --- */}
                         <div className="w-full md:w-1/2 flex flex-col gap-4">
-                            <Card className="bg-muted/50 flex-grow flex flex-col">
+                            <Card className="bg-card flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base">Ảnh phiếu thống kê</CardTitle>
                                 </CardHeader>
@@ -351,8 +351,8 @@ export default function RevenueStatsDialog({
                          <div className="w-full md:w-1/2">
                             <ScrollArea className="h-full max-h-[35vh] pr-4">
                                 <div className="space-y-4">
-                                     {renderInputField("netRevenue", "Doanh thu Net", netRevenue, (val) => setNetRevenue(Number(val)), originalData?.netRevenue)}
-                                     {renderInputField("orderCount", "Số lượng đơn", orderCount, (val) => setOrderCount(Number(val)), originalData?.orderCount)}
+                                     {renderInputField("netRevenue", "Doanh thu Net", netRevenue, (val) => setNetRevenue(Number(val)), originalData?.netRevenue, true)}
+                                     {renderInputField("orderCount", "Số lượng đơn", orderCount, (val) => setOrderCount(Number(val)), originalData?.orderCount, true)}
                                      
                                     <Card>
                                         <CardHeader className="pb-2 pt-4">

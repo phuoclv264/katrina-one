@@ -370,7 +370,7 @@ export type RevenueStats = {
   deliveryPartnerPayout: number;
   invoiceImageUrl: string;
   reportTimestamp?: string;
-  isEdited?: boolean;
+  isEdited: boolean;
 
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
