@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -64,6 +64,52 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+     // --- Cashier ---
+
+    subscribeToDailyExpenseSlips(date: string, callback: (slips: ExpenseSlip[]) => void): () => void {
+        const slipsCollection = collection(db, 'expense_slips');
+        const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+        
+        return onSnapshot(q, (snapshot) => {
+            const slips = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as ExpenseSlip));
+            callback(slips);
+        }, (error) => {
+            console.error(`[Firestore Read Error] Could not read daily expense slips: ${error.code}`);
+            callback([]);
+        });
+    },
+
+    async getDailyExpenseSlips(date: string): Promise<ExpenseSlip[]> {
+         const slipsCollection = collection(db, 'expense_slips');
+        const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as ExpenseSlip));
+    },
+
+    async addOrUpdateExpenseSlip(data: Omit<ExpenseSlip, 'id' | 'createdAt'>, id?: string): Promise<void> {
+        if (id) {
+            const docRef = doc(db, 'expense_slips', id);
+            await updateDoc(docRef, { ...data, lastModified: serverTimestamp() });
+        } else {
+            const collectionRef = collection(db, 'expense_slips');
+            await addDoc(collectionRef, { ...data, createdAt: serverTimestamp(), date: format(new Date(), 'yyyy-MM-dd') });
+        }
+    },
+    
+    async deleteExpenseSlip(id: string): Promise<void> {
+        const docRef = doc(db, 'expense_slips', id);
+        await deleteDoc(docRef);
+    },
+
+     // --- End Cashier ---
      // --- Notifications ---
     subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
@@ -1013,6 +1059,14 @@ export const dataStore = {
         callback(initialSuppliers);
     });
     return unsubscribe;
+  },
+  async getSuppliers(): Promise<string[]> {
+    const docRef = doc(db, 'app-data', 'suppliers');
+    const docSnap = await getDoc(docRef);
+    if(docSnap.exists()){
+      return docSnap.data().list as string[];
+    }
+    return initialSuppliers;
   },
 
   async updateSuppliers(newSuppliers: string[]) {

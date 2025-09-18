@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -50,7 +51,7 @@ export function SupplierCombobox({ suppliers, value, onChange, disabled }: Suppl
   }
 
   const displayValue = value && value !== 'Chưa xác định'
-    ? suppliers.find((supplier) => supplier.toLowerCase() === value.toLowerCase())
+    ? suppliers.find((supplier) => supplier.toLowerCase() === value.toLowerCase()) || value
     : "Chọn NCC";
 
   return (
