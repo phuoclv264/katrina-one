@@ -369,7 +369,8 @@ export type RevenueStats = {
   };
   deliveryPartnerPayout: number;
   invoiceImageUrl: string;
-  reportTimestamp?: string; // Add this field
+  reportTimestamp?: string;
+  isEdited?: boolean;
 
   createdBy: AssignedUser;
   createdAt: string | Timestamp;

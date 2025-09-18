@@ -125,27 +125,30 @@ export const dataStore = {
         return null;
     },
 
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>, user: AuthUser): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean): Promise<void> {
         const date = format(new Date(), 'yyyy-MM-dd');
         const docRef = doc(db, 'revenue_stats', date);
 
-        if (!data.invoiceImageUrl || !data.invoiceImageUrl.startsWith('data:')) {
-            throw new Error("Dữ liệu ảnh hóa đơn là bắt buộc.");
-        }
-    
-        const blob = await (await fetch(data.invoiceImageUrl)).blob();
-        const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, blob);
-        const imageUrl = await getDownloadURL(storageRef);
-    
-        const finalData = {
+        let finalData: Partial<RevenueStats> = {
             ...data,
-            invoiceImageUrl: imageUrl, // Replace data URI with Firebase Storage URL
             date,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
+            isEdited: isEdited,
         };
 
+        if (data.invoiceImageUrl && data.invoiceImageUrl.startsWith('data:')) {
+            const blob = await (await fetch(data.invoiceImageUrl)).blob();
+            const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            finalData.invoiceImageUrl = await getDownloadURL(storageRef);
+        } else {
+            // if image is not new, don't update it unless it's explicitly passed as null/undefined to be cleared
+            if (data.invoiceImageUrl === undefined) {
+                 delete finalData.invoiceImageUrl;
+            }
+        }
+    
         // If there's a delivery partner payout, also create an expense slip
         if (data.deliveryPartnerPayout > 0) {
             const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {

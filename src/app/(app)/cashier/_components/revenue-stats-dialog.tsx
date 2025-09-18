@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, Clock, Info } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -20,12 +20,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 
 type RevenueStatsDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>) => void;
+    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => void;
     isProcessing: boolean;
     existingStats: RevenueStats | null;
 };
@@ -55,25 +56,26 @@ export default function RevenueStatsDialog({
     existingStats
 }: RevenueStatsDialogProps) {
     const { toast } = useToast();
+    
+    // Form state
     const [netRevenue, setNetRevenue] = useState(0);
     const [orderCount, setOrderCount] = useState(0);
     const [deliveryPartnerPayout, setDeliveryPartnerPayout] = useState(0);
     const [revenueByPaymentMethod, setRevenueByPaymentMethod] = useState(initialPaymentMethods);
 
+    // AI Original state for comparison
+    const [originalData, setOriginalData] = useState<Partial<RevenueStats> | null>(null);
+
+    // UI & Flow state
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    // This state now tracks only the *new* image provided in the current session
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
-
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [oldReceiptInfo, setOldReceiptInfo] = useState<{ reportTime: string; currentTime: string; hoursDiff: number; } | null>(null);
 
-    // This determines which image to display: the new one if it exists, otherwise the old one.
     const displayImageDataUri = newImageDataUri || existingStats?.invoiceImageUrl;
-
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -95,23 +97,19 @@ export default function RevenueStatsDialog({
     }, [isLightboxOpen]);
 
 
+    const resetFormState = (stats: RevenueStats | null) => {
+        setNetRevenue(stats?.netRevenue || 0);
+        setOrderCount(stats?.orderCount || 0);
+        setDeliveryPartnerPayout(stats?.deliveryPartnerPayout || 0);
+        setRevenueByPaymentMethod({ ...initialPaymentMethods, ...(stats?.revenueByPaymentMethod || {}) });
+        setOriginalData(null); // Clear original data on reset
+    };
+
     useEffect(() => {
         if (open) {
-            // Reset new image state every time dialog opens
             setNewImageDataUri(null); 
             setOldReceiptInfo(null);
-            if (existingStats) {
-                setNetRevenue(existingStats.netRevenue);
-                setOrderCount(existingStats.orderCount);
-                setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
-                setRevenueByPaymentMethod({ ...initialPaymentMethods, ...existingStats.revenueByPaymentMethod });
-            } else {
-                // Reset for new entry
-                setNetRevenue(0);
-                setOrderCount(0);
-                setDeliveryPartnerPayout(0);
-                setRevenueByPaymentMethod(initialPaymentMethods);
-            }
+            resetFormState(existingStats);
         }
     }, [open, existingStats]);
 
@@ -124,6 +122,19 @@ export default function RevenueStatsDialog({
     }, [revenueByPaymentMethod]);
 
     const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1; // Allow for rounding errors
+    const hasBeenEdited = useMemo(() => {
+        if (!originalData) return false;
+        if (netRevenue !== originalData.netRevenue) return true;
+        if (orderCount !== originalData.orderCount) return true;
+        if (deliveryPartnerPayout !== originalData.deliveryPartnerPayout) return true;
+        for (const key in revenueByPaymentMethod) {
+            if (revenueByPaymentMethod[key as keyof typeof revenueByPaymentMethod] !== originalData.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]) {
+                return true;
+            }
+        }
+        return false;
+    }, [originalData, netRevenue, orderCount, deliveryPartnerPayout, revenueByPaymentMethod]);
+
 
     const executeSave = () => {
         if (isRevenueMismatch) {
@@ -140,14 +151,14 @@ export default function RevenueStatsDialog({
             orderCount,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            invoiceImageUrl: newImageDataUri, // Always save with the new image URI
+            invoiceImageUrl: newImageDataUri,
         };
 
-        onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy'>);
+        onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, hasBeenEdited);
     }
     
     const handleSave = () => {
-        if (!newImageDataUri) {
+        if (!displayImageDataUri) { // Check if there is any image at all
             setShowMissingImageAlert(true);
             return;
         }
@@ -168,13 +179,10 @@ export default function RevenueStatsDialog({
                 return;
             }
 
-            // Timestamp validation
             if (result.reportTimestamp) {
                 const reportTime = new Date(result.reportTimestamp);
                 const now = new Date();
                 const oneHour = 60 * 60 * 1000;
-
-                // Convert current time to Vietnam timezone for comparison
                 const nowInVietnam = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
                 const timeDiff = nowInVietnam.getTime() - reportTime.getTime();
 
@@ -185,24 +193,33 @@ export default function RevenueStatsDialog({
                         hoursDiff: parseFloat((timeDiff / oneHour).toFixed(1)),
                     });
                     setIsOcrLoading(false);
-                    return; // Stop processing
+                    return;
                 }
             } else {
                  toast({ variant: 'destructive', title: 'Cảnh báo', description: 'Không tìm thấy ngày giờ trên phiếu. Vui lòng kiểm tra lại ảnh.' });
             }
 
-            setNewImageDataUri(imageUri); // Set image only after validation passes
+            setNewImageDataUri(imageUri);
 
-            setNetRevenue(result.netRevenue || 0);
-            setOrderCount(result.orderCount || 0);
-            setDeliveryPartnerPayout(result.deliveryPartnerPayout || 0);
-            setRevenueByPaymentMethod({
-                cash: result.revenueByPaymentMethod?.cash || 0,
-                techcombankVietQrPro: result.revenueByPaymentMethod?.techcombankVietQrPro || 0,
-                shopeeFood: result.revenueByPaymentMethod?.shopeeFood || 0,
-                grabFood: result.revenueByPaymentMethod?.grabFood || 0,
-                bankTransfer: result.revenueByPaymentMethod?.bankTransfer || 0,
-            });
+            const aiData = {
+                netRevenue: result.netRevenue || 0,
+                orderCount: result.orderCount || 0,
+                deliveryPartnerPayout: result.deliveryPartnerPayout || 0,
+                revenueByPaymentMethod: {
+                    ...initialPaymentMethods,
+                    ...result.revenueByPaymentMethod,
+                },
+            };
+            
+            // Set form state
+            setNetRevenue(aiData.netRevenue);
+            setOrderCount(aiData.orderCount);
+            setDeliveryPartnerPayout(aiData.deliveryPartnerPayout);
+            setRevenueByPaymentMethod(aiData.revenueByPaymentMethod);
+            
+            // Store original AI data for comparison
+            setOriginalData(aiData);
+
 
             toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu.' });
         } catch (error: any) {
@@ -253,106 +270,134 @@ export default function RevenueStatsDialog({
              console.error('OCR Error:', error);
              toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
         } finally {
-            await photoStore.deletePhoto(photoId); // Clean up temporary photo
+            await photoStore.deletePhoto(photoId);
         }
     }
-
+    
+    const renderInputField = (id: string, label: string, value: number, onChange: (val: string) => void, originalValue?: number) => {
+        const isEdited = originalValue !== undefined && value !== originalValue;
+        return (
+            <div key={id} className="grid grid-cols-2 items-center gap-2">
+                <Label htmlFor={id} className="text-sm text-right flex items-center gap-2 justify-end">
+                     {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
+                    {label}
+                </Label>
+                <Input id={id} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className="h-9" />
+            </div>
+        );
+    };
 
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Mỗi lần lưu đều phải có ảnh mới.
+                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động.
                         </DialogDescription>
                     </DialogHeader>
 
-                     <ScrollArea className="max-h-[70vh]">
-                        <div className="space-y-6 pr-6">
-                            <div className="space-y-4">
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={isOcrLoading || isProcessing}
-                                        className="w-full"
-                                    >
-                                        {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                        Tải ảnh phiếu
-                                    </Button>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                        accept="image/*"
-                                    />
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => setIsCameraOpen(true)}
-                                        disabled={isOcrLoading || isProcessing}
-                                        className="w-full"
-                                    >
-                                        <Camera className="mr-2 h-4 w-4" />
-                                        Chụp ảnh phiếu
-                                    </Button>
-                                </div>
-                                {displayImageDataUri && (
-                                    <button onClick={() => setIsLightboxOpen(true)} className="relative w-full aspect-[4/3] mx-auto rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
-                                        <Image src={displayImageDataUri} alt="Phiếu thống kê đã tải lên" layout="fill" objectFit="contain" />
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="netRevenue">Doanh thu Net</Label>
-                                <Input id="netRevenue" type="number" value={netRevenue} onChange={e => setNetRevenue(Number(e.target.value))} placeholder="0" />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="orderCount">Số lượng đơn</Label>
-                                <Input id="orderCount" type="number" value={orderCount} onChange={e => setOrderCount(Number(e.target.value))} placeholder="0" />
-                            </div>
-
-                            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+                     <div className="flex flex-col md:flex-row gap-6">
+                        {/* --- Left Column: Image --- */}
+                        <div className="w-full md:w-1/2 flex flex-col gap-4">
+                            <Card className="bg-muted/50 flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-base text-blue-800 dark:text-blue-200">Doanh thu theo Phương thức thanh toán</CardTitle>
+                                    <CardTitle className="text-base">Ảnh phiếu thống kê</CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {Object.entries(revenueByPaymentMethod).map(([key, value]) => (
-                                            <div key={key} className="space-y-1">
-                                                <Label htmlFor={`pm-${key}`} className="text-xs capitalize">{paymentMethodLabels[key as keyof typeof paymentMethodLabels]}</Label>
-                                                <Input id={`pm-${key}`} type="number" value={value} onChange={e => handlePaymentMethodChange(key as any, e.target.value)} placeholder="0" />
-                                            </div>
-                                        ))}
+                                <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
+                                     {displayImageDataUri ? (
+                                        <button onClick={() => setIsLightboxOpen(true)} className="relative w-full max-w-sm mx-auto aspect-video rounded-md overflow-hidden border-2 border-dashed hover:border-primary transition-all">
+                                            <Image src={displayImageDataUri} alt="Phiếu thống kê đã tải lên" layout="fill" objectFit="contain" />
+                                        </button>
+                                    ) : (
+                                        <div className="w-full aspect-video flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
+                                            <p className="text-sm text-muted-foreground">Chưa có ảnh</p>
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isOcrLoading || isProcessing}
+                                            className="w-full"
+                                        >
+                                            {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                            Tải ảnh phiếu
+                                        </Button>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                            className="hidden"
+                                            accept="image/*"
+                                        />
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => setIsCameraOpen(true)}
+                                            disabled={isOcrLoading || isProcessing}
+                                            className="w-full"
+                                        >
+                                            <Camera className="mr-2 h-4 w-4" />
+                                            Chụp ảnh phiếu
+                                        </Button>
                                     </div>
-                                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-3 font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
-                                    {isRevenueMismatch && (
-                                        <Alert variant="destructive" className="mt-3">
-                                            <AlertCircle className="h-4 w-4"/>
-                                            <AlertTitle>Doanh thu không khớp!</AlertTitle>
+                                </CardContent>
+                            </Card>
+                        </div>
+                        
+                        {/* --- Right Column: Data Entry --- */}
+                         <div className="w-full md:w-1/2">
+                            <ScrollArea className="h-full max-h-[65vh] pr-4">
+                                <div className="space-y-4">
+                                     {renderInputField("netRevenue", "Doanh thu Net", netRevenue, (val) => setNetRevenue(Number(val)), originalData?.netRevenue)}
+                                     {renderInputField("orderCount", "Số lượng đơn", orderCount, (val) => setOrderCount(Number(val)), originalData?.orderCount)}
+                                     
+                                    <Card>
+                                        <CardHeader className="pb-2 pt-4">
+                                            <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            {Object.entries(revenueByPaymentMethod).map(([key, value]) => 
+                                                renderInputField(
+                                                    `pm-${key}`, 
+                                                    paymentMethodLabels[key as keyof typeof paymentMethodLabels], 
+                                                    value, 
+                                                    (val) => handlePaymentMethodChange(key as any, val), 
+                                                    originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]
+                                                )
+                                            )}
+                                            <div className="text-right pt-2">
+                                                <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+                                                {isRevenueMismatch && (
+                                                    <p className="text-xs text-destructive font-semibold">Không khớp Doanh thu Net!</p>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {renderInputField("deliveryPayout", "Trả cho ĐTGH", deliveryPartnerPayout, (val) => setDeliveryPartnerPayout(Number(val)), originalData?.deliveryPartnerPayout)}
+                                    <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
+                                        <Info className="h-3 w-3 mt-0.5 shrink-0"/>
+                                        <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
+                                    </p>
+                                    
+                                     {hasBeenEdited && (
+                                        <Alert variant="default" className="mt-4 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
+                                            <Edit className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
+                                            <AlertTitle>Đã chỉnh sửa thủ công</AlertTitle>
                                             <AlertDescription>
-                                                Doanh thu Net không bằng Tổng PTTT.
+                                                Số liệu đã được thay đổi so với kết quả AI đọc được.
                                             </AlertDescription>
                                         </Alert>
                                     )}
-                                </CardContent>
-                            </Card>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="deliveryPayout">Tiền trả cho Đối tác Giao hàng</Label>
-                                <Input id="deliveryPayout" type="number" value={deliveryPartnerPayout} onChange={e => setDeliveryPartnerPayout(Number(e.target.value))} placeholder="0" />
-                                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-                                    <Info className="h-3 w-3 mt-0.5 shrink-0"/>
-                                    <span>Số tiền này sẽ được tự động tạo một phiếu chi tương ứng.</span>
-                                </p>
-                            </div>
-
+                                </div>
+                            </ScrollArea>
                         </div>
-                    </ScrollArea>
-                    <DialogFooter className="mt-6 pr-6">
+
+                     </div>
+
+                    <DialogFooter className="mt-6">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
