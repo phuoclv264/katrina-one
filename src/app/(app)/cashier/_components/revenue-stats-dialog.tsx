@@ -19,6 +19,7 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { format } from 'date-fns';
 
 
 type RevenueStatsDialogProps = {
@@ -68,7 +69,7 @@ export default function RevenueStatsDialog({
 
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
-    const [showOldReceiptAlert, setShowOldReceiptAlert] = useState(false);
+    const [oldReceiptInfo, setOldReceiptInfo] = useState<{ reportTime: string; currentTime: string; hoursDiff: number; } | null>(null);
 
     // This determines which image to display: the new one if it exists, otherwise the old one.
     const displayImageDataUri = newImageDataUri || existingStats?.invoiceImageUrl;
@@ -98,6 +99,7 @@ export default function RevenueStatsDialog({
         if (open) {
             // Reset new image state every time dialog opens
             setNewImageDataUri(null); 
+            setOldReceiptInfo(null);
             if (existingStats) {
                 setNetRevenue(existingStats.netRevenue);
                 setOrderCount(existingStats.orderCount);
@@ -165,12 +167,17 @@ export default function RevenueStatsDialog({
                 const reportTime = new Date(result.reportTimestamp);
                 const now = new Date();
                 const oneHour = 60 * 60 * 1000;
-                
+
                 // Convert current time to Vietnam timezone for comparison
                 const nowInVietnam = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-                
-                if (nowInVietnam.getTime() - reportTime.getTime() > oneHour) {
-                    setShowOldReceiptAlert(true);
+                const timeDiff = nowInVietnam.getTime() - reportTime.getTime();
+
+                if (timeDiff > oneHour) {
+                    setOldReceiptInfo({
+                        reportTime: format(reportTime, 'HH:mm:ss, dd/MM/yyyy'),
+                        currentTime: format(nowInVietnam, 'HH:mm:ss, dd/MM/yyyy'),
+                        hoursDiff: parseFloat((timeDiff / oneHour).toFixed(1)),
+                    });
                     setIsOcrLoading(false);
                     return; // Stop processing
                 }
@@ -370,7 +377,7 @@ export default function RevenueStatsDialog({
                 </AlertDialogContent>
             </AlertDialog>
             
-            <AlertDialog open={showOldReceiptAlert} onOpenChange={setShowOldReceiptAlert}>
+            <AlertDialog open={!!oldReceiptInfo} onOpenChange={(open) => !open && setOldReceiptInfo(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
@@ -378,11 +385,23 @@ export default function RevenueStatsDialog({
                             Cảnh báo: Phiếu thống kê đã cũ
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Hệ thống phát hiện phiếu thống kê này đã được in ra hơn 1 tiếng trước. Để đảm bảo số liệu chính xác nhất, vui lòng in phiếu mới và thử lại.
+                            <div className="space-y-2 mt-2 text-sm">
+                                <p>Hệ thống phát hiện phiếu thống kê này có thể đã cũ.</p>
+                                <ul className="list-disc pl-5 space-y-1">
+                                    <li>Thời gian trên phiếu: <span className="font-semibold">{oldReceiptInfo?.reportTime}</span></li>
+                                    <li>Thời gian hiện tại: <span className="font-semibold">{oldReceiptInfo?.currentTime}</span></li>
+                                    <li>Đã qua: <span className="font-semibold">{oldReceiptInfo?.hoursDiff} giờ</span></li>
+                                </ul>
+                                <p className="pt-2 font-medium">Để đảm bảo số liệu chính xác:</p>
+                                <ul className="list-disc pl-5 space-y-1">
+                                    <li>Nếu thời gian trên là đúng, vui lòng <span className="font-bold">in phiếu mới</span> và thử lại.</li>
+                                    <li>Nếu AI nhận diện sai, vui lòng <span className="font-bold">chụp lại ảnh rõ hơn</span>.</li>
+                                </ul>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setShowOldReceiptAlert(false)}>Đã hiểu</AlertDialogAction>
+                        <AlertDialogAction onClick={() => setOldReceiptInfo(null)}>Đã hiểu</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
