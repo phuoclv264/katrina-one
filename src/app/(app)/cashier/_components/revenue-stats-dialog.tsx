@@ -386,13 +386,13 @@ export default function RevenueStatsDialog({
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             <div className="space-y-2 mt-2 text-sm">
-                                <p>Hệ thống phát hiện phiếu thống kê này có thể đã cũ.</p>
+                                <div>Hệ thống phát hiện phiếu thống kê này có thể đã cũ.</div>
                                 <ul className="list-disc pl-5 space-y-1">
                                     <li>Thời gian trên phiếu: <span className="font-semibold">{oldReceiptInfo?.reportTime}</span></li>
                                     <li>Thời gian hiện tại: <span className="font-semibold">{oldReceiptInfo?.currentTime}</span></li>
                                     <li>Đã qua: <span className="font-semibold">{oldReceiptInfo?.hoursDiff} giờ</span></li>
                                 </ul>
-                                <p className="pt-2 font-medium">Để đảm bảo số liệu chính xác:</p>
+                                <div className="pt-2 font-medium">Để đảm bảo số liệu chính xác:</div>
                                 <ul className="list-disc pl-5 space-y-1">
                                     <li>Nếu thời gian trên là đúng, vui lòng <span className="font-bold">in phiếu mới</span> và thử lại.</li>
                                     <li>Nếu AI nhận diện sai, vui lòng <span className="font-bold">chụp lại ảnh rõ hơn</span>.</li>
