@@ -122,38 +122,36 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                     <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh]">
-                    {/* Matched Items */}
-                    <div className="flex flex-col">
-                        <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
-                           <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
-                        </h4>
-                        <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
-                           <div className="space-y-2">
-                             {matchedItems.length > 0 ? (
-                                matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} isMatched={true} />)
-                             ) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">Không có mặt hàng nào khớp.</p>
-                             )}
-                           </div>
-                        </ScrollArea>
+                <ScrollArea className="max-h-[60vh]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                        {/* Matched Items */}
+                        <div className="flex flex-col">
+                            <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
+                            </h4>
+                            <div className="flex-1 rounded-md border p-2 bg-card space-y-2">
+                                {matchedItems.length > 0 ? (
+                                    matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} isMatched={true} />)
+                                ) : (
+                                    <p className="text-sm text-muted-foreground text-center py-4">Không có mặt hàng nào khớp.</p>
+                                )}
+                            </div>
+                        </div>
+                        {/* Unmatched Items */}
+                        <div className="flex flex-col">
+                            <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
+                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
+                            </h4>
+                            <div className="flex-1 rounded-md border p-2 bg-card space-y-2">
+                                {unmatchedItems.length > 0 ? (
+                                    unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isMatched={false} />)
+                                ) : (
+                                    <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                     {/* Unmatched Items */}
-                    <div className="flex flex-col">
-                         <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
-                           <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
-                        </h4>
-                         <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
-                           <div className="space-y-2">
-                             {unmatchedItems.length > 0 ? (
-                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isMatched={false} />)
-                             ) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
-                             )}
-                           </div>
-                        </ScrollArea>
-                    </div>
-                </div>
+                </ScrollArea>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                     <Button onClick={handleConfirm} disabled={matchedItems.length === 0}>Xác nhận & Thêm {matchedItems.length} mặt hàng</Button>
@@ -354,7 +352,7 @@ export default function ExpenseSlipDialog({
                                 </div>
                             </div>
                         
-                            <Card className="border-primary/50 border-2 bg-card">
+                            <Card className="border-primary/50 border-2 bg-muted/30">
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Dùng AI quét hóa đơn</CardTitle>
                                     <CardDescription>Cách nhanh nhất để nhập liệu. Chụp hoặc tải ảnh hóa đơn và AI sẽ tự động điền các mặt hàng.</CardDescription>
@@ -512,4 +510,5 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
+
 
