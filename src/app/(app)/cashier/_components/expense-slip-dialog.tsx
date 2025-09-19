@@ -22,18 +22,28 @@ import { photoStore } from '@/lib/photo-store';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
+    const [open, setOpen] = useState(false);
     const [quantity, setQuantity] = useState(item.quantity);
     const [unitPrice, setUnitPrice] = useState(item.unitPrice);
+    
+    useEffect(() => {
+        if(open) {
+            setQuantity(item.quantity);
+            setUnitPrice(item.unitPrice);
+        }
+    }, [open, item]);
 
     const handleSave = () => {
         onSave({ ...item, quantity, unitPrice });
+        setOpen(false); // Close popover on save
     };
 
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>{children}</PopoverTrigger>
             <PopoverContent className="w-80">
                 <div className="grid gap-4">
@@ -372,10 +382,10 @@ export default function ExpenseSlipDialog({
                                 ) : (
                                     <>
                                         {/* Mobile view */}
-                                        <div className="md:hidden space-y-3">
+                                        <div className="md:hidden space-y-3 bg-white dark:bg-card p-3 rounded-md">
                                             {items.map(item => (
                                                 <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
-                                                    <Card className="cursor-pointer">
+                                                    <Card className="cursor-pointer bg-muted/50">
                                                         <CardContent className="p-4">
                                                             <div className="flex justify-between items-start">
                                                                 <div>
@@ -389,15 +399,15 @@ export default function ExpenseSlipDialog({
                                                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
                                                                 <div>
                                                                     <p className="text-muted-foreground">Số lượng ({item.unit})</p>
-                                                                    <p className="font-medium">{item.quantity}</p>
+                                                                    <p className="font-medium text-base">{item.quantity}</p>
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-muted-foreground">Đơn giá</p>
-                                                                    <p className="font-medium">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                    <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-muted-foreground">Thành tiền</p>
-                                                                    <p className="font-bold text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                                    <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
                                                                 </div>
                                                             </div>
                                                         </CardContent>
@@ -407,7 +417,7 @@ export default function ExpenseSlipDialog({
                                         </div>
 
                                         {/* Desktop view */}
-                                        <div className="hidden md:block border rounded-md">
+                                        <div className="hidden md:block border rounded-md bg-white dark:bg-card">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
