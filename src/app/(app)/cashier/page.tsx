@@ -91,29 +91,39 @@ export default function CashierDashboardPage() {
   }, [user, authLoading, router]);
   
   useEffect(() => {
-      if (user) {
-          const date = format(new Date(), 'yyyy-MM-dd');
-          const unsubSlips = dataStore.subscribeToDailyExpenseSlips(date, setDailySlips);
-          const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
-          const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
-          
-          Promise.all([
-              dataStore.getDailyExpenseSlips(date),
-              dataStore.getRevenueStats(date),
-              dataStore.getInventoryList(),
-          ]).then(([slips, revenue, inventory]) => {
-              setDailySlips(slips);
-              setRevenueStats(revenue);
-              setInventoryList(inventory);
-              setIsLoading(false);
-          });
-          
-          return () => {
-              unsubSlips();
-              unsubRevenue();
-              unsubInventory();
-          };
-      }
+    if (user) {
+        const date = format(new Date(), 'yyyy-MM-dd');
+        const unsubSlips = dataStore.subscribeToDailyExpenseSlips(date, setDailySlips);
+        const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
+        const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
+
+        // Fetch initial data to set loading state correctly
+        const fetchInitialData = async () => {
+            try {
+                const [slips, revenue, inventory] = await Promise.all([
+                    dataStore.getDailyExpenseSlips(date),
+                    dataStore.getRevenueStats(date),
+                    dataStore.getInventoryList(),
+                ]);
+                setDailySlips(slips);
+                setRevenueStats(revenue);
+                setInventoryList(inventory);
+            } catch (error) {
+                console.error("Failed to fetch initial cashier data:", error);
+                toast.error("Không thể tải dữ liệu ban đầu.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchInitialData();
+        
+        return () => {
+            unsubSlips();
+            unsubRevenue();
+            unsubInventory();
+        };
+    }
   }, [user]);
 
   const { totalCashExpense, totalBankExpense } = useMemo(() => {
@@ -397,4 +407,5 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
 

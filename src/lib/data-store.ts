@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -75,17 +75,22 @@ export const dataStore = {
         };
 
         const incidentCollection = collection(db, 'incidents');
-        const incidentDocRef = await addDoc(incidentCollection, incidentData);
+        await addDoc(incidentCollection, incidentData);
 
         // If there's a cost, create a corresponding expense slip
         if (data.cost > 0) {
-            const expenseSlipData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
+            const expenseSlipData: Partial<ExpenseSlip> = {
                 date: format(new Date(), 'yyyy-MM-dd'),
-                type: 'other_cost',
-                paymentMethod: 'cash', // Default to cash for incidents
-                amount: data.cost,
-                otherCostCategory: 'Sự cố',
-                notes: `Chi phí cho sự cố: ${data.content}`,
+                items: [{
+                    itemId: 'incident_cost',
+                    name: `Chi phí sự cố: ${data.content}`,
+                    supplier: 'N/A',
+                    quantity: 1,
+                    unitPrice: data.cost
+                }],
+                totalAmount: data.cost,
+                paymentMethod: 'cash',
+                notes: `Tự động tạo từ báo cáo sự cố.`,
                 createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             };
             await this.addOrUpdateExpenseSlip(expenseSlipData);
@@ -151,16 +156,20 @@ export const dataStore = {
     
         // If there's a delivery partner payout, also create an expense slip
         if (data.deliveryPartnerPayout > 0) {
-            const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
+            const expenseData: Partial<ExpenseSlip> = {
                 date,
-                type: 'other_cost',
-                paymentMethod: 'cash', // Assuming cash payment, this could be made selectable
-                amount: data.deliveryPartnerPayout,
-                otherCostCategory: 'Dịch vụ',
-                notes: 'Chi trả cho Đối tác Giao hàng',
+                items: [{
+                    itemId: 'delivery_payout',
+                    name: 'Chi trả cho Đối tác Giao hàng',
+                    supplier: 'N/A',
+                    quantity: 1,
+                    unitPrice: data.deliveryPartnerPayout,
+                }],
+                totalAmount: data.deliveryPartnerPayout,
+                paymentMethod: 'cash',
+                notes: 'Tự động tạo từ thống kê doanh thu.',
                 createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             };
-            // This is a fire-and-forget operation, consider error handling
             this.addOrUpdateExpenseSlip(expenseData).catch(e => console.error("Failed to auto-create expense slip for delivery payout:", e));
         }
 
@@ -196,7 +205,7 @@ export const dataStore = {
         } as ExpenseSlip));
     },
 
-    async addOrUpdateExpenseSlip(data: Omit<ExpenseSlip, 'id' | 'createdAt'>, id?: string): Promise<void> {
+    async addOrUpdateExpenseSlip(data: Partial<ExpenseSlip>, id?: string): Promise<void> {
         if (id) {
             const docRef = doc(db, 'expense_slips', id);
             await updateDoc(docRef, { ...data, lastModified: serverTimestamp() });
@@ -1105,6 +1114,22 @@ export const dataStore = {
    async updateComprehensiveTasks(newTasks: ComprehensiveTaskSection[]) {
     const docRef = doc(db, 'app-data', 'comprehensiveTasks');
     await setDoc(docRef, { tasks: newTasks });
+  },
+
+  async getInventoryList(): Promise<InventoryItem[]> {
+    const docRef = doc(db, 'app-data', 'inventoryList');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        const items = docSnap.data().items as InventoryItem[];
+        return items.map(item => ({
+            ...item,
+            supplier: item.supplier ?? 'Chưa xác định',
+            category: item.category ?? 'CHƯA PHÂN LOẠI',
+            dataType: item.dataType || 'number',
+            listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+        }));
+    }
+    return initialInventoryList;
   },
 
   subscribeToInventoryList(callback: (items: InventoryItem[]) => void): () => void {
