@@ -121,7 +121,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
-                    <AlertDialogDescriptionComponent>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</AlertDialogDescriptionComponent>
+                    <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
