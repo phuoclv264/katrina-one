@@ -72,6 +72,19 @@ export function ItemMultiSelect({
     setOpen(false);
   }
 
+  const selectableItems = React.useMemo(() => {
+      return [...inventoryItems].sort((a, b) => {
+          const aIsSelected = tempSelected.some(item => item.itemId === a.id);
+          const bIsSelected = tempSelected.some(item => item.itemId === b.id);
+
+          if (aIsSelected && !bIsSelected) return -1;
+          if (!aIsSelected && bIsSelected) return 1;
+
+          return a.name.localeCompare(b.name, 'vi');
+      });
+  }, [inventoryItems, tempSelected]);
+
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -111,7 +124,7 @@ export function ItemMultiSelect({
           <CommandList>
             <CommandEmpty>Không tìm thấy mặt hàng.</CommandEmpty>
             <CommandGroup>
-              {inventoryItems.map((item) => {
+              {selectableItems.map((item) => {
                 const isSelected = tempSelected.some(
                   (selected) => selected.itemId === item.id
                 )
