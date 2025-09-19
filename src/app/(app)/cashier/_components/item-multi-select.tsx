@@ -69,7 +69,7 @@ export function ItemMultiSelect({
                   <Badge
                     key={item.itemId}
                     variant="secondary"
-                    className="mr-1"
+                    className="mr-1 mb-1"
                   >
                     {item.name}
                   </Badge>

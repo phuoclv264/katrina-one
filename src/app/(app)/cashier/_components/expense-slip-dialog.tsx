@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload } from 'lucide-react';
 import { ItemMultiSelect } from './item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -162,6 +162,7 @@ export default function ExpenseSlipDialog({
     reporter
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [items, setItems] = useState<ExpenseItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -235,43 +236,69 @@ export default function ExpenseSlipDialog({
         onSave(data, slipToEdit?.id);
     };
     
-    const handleAiInvoiceProcess = async (photoIds: string[]) => {
+    const processInvoiceImage = async (imageUri: string, photoId: string) => {
+        setIsAiLoading(true);
+        const toastId = toast.loading("AI đang phân tích hóa đơn...");
+        
+        try {
+            setInvoiceImage({id: photoId, url: imageUri});
+
+            const result = await extractInvoiceItems({
+                imageDataUri: imageUri,
+                inventoryItems: inventoryList,
+            });
+
+            if (result.items.length === 0) {
+                toast.error('AI không nhận diện được mặt hàng nào từ hóa đơn.');
+            } else {
+                setExtractedItems(result.items);
+                setShowAiPreview(true);
+            }
+        } catch (error) {
+            console.error("AI invoice processing failed:", error);
+            toast.error("Lỗi AI: Không thể xử lý hóa đơn.");
+        } finally {
+            toast.dismiss(toastId);
+            setIsAiLoading(false);
+        }
+    };
+    
+    const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const photoId = uuidv4();
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = () => {
+            const imageDataUri = reader.result as string;
+            processInvoiceImage(imageDataUri, photoId);
+        };
+        
+        await photoStore.addPhoto(photoId, file);
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handlePhotoCapture = async (photoIds: string[]) => {
         setIsCameraOpen(false);
         if (photoIds.length === 0) return;
 
         const photoId = photoIds[0];
-        setIsAiLoading(true);
-        const toastId = toast.loading("AI đang phân tích hóa đơn...");
-        
         try {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) throw new Error("Không tìm thấy ảnh đã chụp.");
 
             const reader = new FileReader();
             reader.readAsDataURL(photoBlob);
-            reader.onloadend = async () => {
+            reader.onloadend = () => {
                 const imageDataUri = reader.result as string;
-                setInvoiceImage({id: photoId, url: imageDataUri}); // Keep for submission
-
-                const result = await extractInvoiceItems({
-                    imageDataUri: imageDataUri,
-                    inventoryItems: inventoryList,
-                });
-
-                if (result.items.length === 0) {
-                    toast.error('AI không nhận diện được mặt hàng nào từ hóa đơn.');
-                } else {
-                    setExtractedItems(result.items);
-                    setShowAiPreview(true);
-                }
-                toast.dismiss(toastId);
-                setIsAiLoading(false);
+                processInvoiceImage(imageDataUri, photoId);
             };
         } catch (error) {
-            console.error("AI invoice processing failed:", error);
-            toast.error("Lỗi AI: Không thể xử lý hóa đơn.");
-            toast.dismiss(toastId);
-            setIsAiLoading(false);
+            console.error("Failed to process captured photo", error);
+            toast.error("Lỗi xử lý ảnh chụp.");
         }
     };
     
@@ -297,7 +324,7 @@ export default function ExpenseSlipDialog({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                                    <Input value={date} disabled />
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
@@ -307,15 +334,28 @@ export default function ExpenseSlipDialog({
                         
                             <div className="space-y-2">
                                 <Label>Chọn mặt hàng</Label>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap">
                                      <ItemMultiSelect
                                         inventoryItems={inventoryList}
                                         selectedItems={items}
                                         onChange={handleItemsSelected}
+                                        className="flex-1 min-w-[200px]"
                                     />
-                                    <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading}>
-                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading}>
+                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload />}
+                                        </Button>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handlePhotoUpload}
+                                            className="hidden"
+                                            accept="image/*"
+                                        />
+                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading}>
+                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -397,7 +437,7 @@ export default function ExpenseSlipDialog({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleAiInvoiceProcess} singlePhotoMode={true} />
+            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handlePhotoCapture} singlePhotoMode={true} />
             <AiPreviewDialog 
                 open={showAiPreview} 
                 onOpenChange={setShowAiPreview}
