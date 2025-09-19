@@ -51,13 +51,14 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
 };
 
 // Sub-component for input fields to prevent re-render focus loss issue
-const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant }: {
+const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant, isSubtle }: {
     id: string;
     label: string;
     value: number;
     onChange: (val: string) => void;
     originalValue?: number;
     isImportant?: boolean;
+    isSubtle?: boolean;
 }) => {
     const [localValue, setLocalValue] = useState(String(value));
     
@@ -75,7 +76,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
 
     return (
         <div key={id} className="grid grid-cols-2 items-center gap-2">
-            <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
+            <Label htmlFor={id} className={cn(isSubtle ? "text-sm text-muted-foreground" : "text-base", "text-right flex items-center gap-2 justify-end", isImportant && "font-bold")}>
                  {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
                 {label}
             </Label>
@@ -87,7 +88,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
               onBlur={handleBlur}
               onFocus={(e) => e.target.select()}
               placeholder="0" 
-              className={cn("h-9", isImportant && "font-bold text-base")} 
+              className={cn(isImportant ? "h-11 text-lg font-bold" : "h-9", "text-right")} 
             />
         </div>
     );
@@ -364,7 +365,7 @@ export default function RevenueStatsDialog({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-grow overflow-y-auto -mx-6 px-6">
+                    <div className="flex-grow overflow-y-auto -mx-6 px-6 bg-background">
                         <div className="py-4 space-y-6">
                             {/* --- Image Section --- */}
                             <Card className="bg-card flex-grow flex flex-col">
@@ -412,27 +413,34 @@ export default function RevenueStatsDialog({
                             </Card>
 
                             {/* --- Data Section (Conditional) --- */}
-                             {displayImageDataUri && (
-                                <div className="rounded-md border bg-muted/30 shadow-inner p-4 space-y-4">
+                            {displayImageDataUri && (
+                                <div className="space-y-4">
                                     {reportTimestamp && (
-                                        <div className="grid grid-cols-2 items-center gap-2">
-                                            <Label className="text-sm text-right flex items-center gap-2 justify-end">Thời gian trên phiếu</Label>
-                                            <div className="text-sm font-semibold p-2 bg-background rounded-md text-center">{format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}</div>
-                                        </div>
+                                        <Card>
+                                            <CardContent className="p-3 text-center text-sm font-semibold">
+                                                Thời gian trên phiếu: {format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}
+                                            </CardContent>
+                                        </Card>
                                     )}
-                                    <InputField
-                                        id="netRevenue"
-                                        label="Doanh thu Net"
-                                        value={netRevenue}
-                                        onChange={(val) => setNetRevenue(Number(val))}
-                                        originalValue={originalData?.netRevenue}
-                                        isImportant={true}
-                                    />
+
+                                    <Card>
+                                        <CardContent className="p-4 space-y-4">
+                                            <InputField
+                                                id="netRevenue"
+                                                label="Doanh thu Net"
+                                                value={netRevenue}
+                                                onChange={(val) => setNetRevenue(Number(val))}
+                                                originalValue={originalData?.netRevenue}
+                                                isImportant={true}
+                                            />
+                                        </CardContent>
+                                    </Card>
+
                                     <Card>
                                         <CardHeader className="pb-2 pt-4">
                                             <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
                                         </CardHeader>
-                                        <CardContent className="space-y-2">
+                                        <CardContent className="space-y-3">
                                             {Object.entries(revenueByPaymentMethod).map(([key, value]) =>
                                                 <InputField
                                                     key={`pm-${key}`}
@@ -441,31 +449,34 @@ export default function RevenueStatsDialog({
                                                     value={value}
                                                     onChange={(val) => handlePaymentMethodChange(key as any, val)}
                                                     originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
+                                                    isSubtle={true}
                                                 />
                                             )}
-                                            <div className="text-right pt-2">
-                                                <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
-                                                {isRevenueMismatch && (
-                                                    <p className="text-xs text-destructive font-semibold">Không khớp Doanh thu Net!</p>
-                                                )}
+                                            <div className={cn("text-right pt-2 mt-2 border-t font-semibold", isRevenueMismatch ? "text-destructive" : "text-muted-foreground")}>
+                                                <p className="text-sm">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+                                                {isRevenueMismatch && <p className="text-xs">Không khớp Doanh thu Net!</p>}
                                             </div>
                                         </CardContent>
                                     </Card>
-
-                                    <InputField
-                                        id="deliveryPayout"
-                                        label="Trả cho ĐTGH"
-                                        value={deliveryPartnerPayout}
-                                        onChange={(val) => setDeliveryPartnerPayout(Number(val))}
-                                        originalValue={originalData?.deliveryPartnerPayout}
-                                    />
-                                    <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
-                                        <Info className="h-3 w-3 mt-0.5 shrink-0" />
-                                        <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
-                                    </p>
+                                    
+                                     <Card>
+                                        <CardContent className="p-4 space-y-4">
+                                            <InputField
+                                                id="deliveryPayout"
+                                                label="Trả cho ĐTGH"
+                                                value={deliveryPartnerPayout}
+                                                onChange={(val) => setDeliveryPartnerPayout(Number(val))}
+                                                originalValue={originalData?.deliveryPartnerPayout}
+                                            />
+                                            <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
+                                                <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                                                <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
+                                            </p>
+                                        </CardContent>
+                                    </Card>
 
                                     {hasBeenEdited && (
-                                        <Alert variant="default" className="mt-4 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
+                                        <Alert variant="default" className="border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
                                             <Edit className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
                                             <AlertTitle>Đã chỉnh sửa thủ công</AlertTitle>
                                             <AlertDescription>
@@ -477,7 +488,6 @@ export default function RevenueStatsDialog({
                             )}
                         </div>
                     </div>
-
 
                     <DialogFooter className="shrink-0">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
@@ -564,3 +574,4 @@ export default function RevenueStatsDialog({
         </>
     );
 }
+
