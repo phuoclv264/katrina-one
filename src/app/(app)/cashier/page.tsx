@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser } from '@/lib/types';
+import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -23,13 +23,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 const CashierDialogs = React.memo(({
     user,
+    inventoryList,
     isExpenseDialogOpen,
     setIsExpenseDialogOpen,
     handleSaveSlip,
     isProcessing,
     slipToEdit,
-    suppliers,
-    setSuppliers,
     isIncidentDialogOpen,
     setIsIncidentDialogOpen,
     handleSaveIncident,
@@ -46,8 +45,8 @@ const CashierDialogs = React.memo(({
                 onSave={handleSaveSlip}
                 isProcessing={isProcessing}
                 slipToEdit={slipToEdit}
-                suppliers={suppliers}
-                onSuppliersChange={setSuppliers}
+                inventoryList={inventoryList}
+                reporter={user}
             />
             <IncidentReportDialog
                 open={isIncidentDialogOpen}
@@ -74,7 +73,7 @@ export default function CashierDashboardPage() {
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
-  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -95,24 +94,24 @@ export default function CashierDashboardPage() {
       if (user) {
           const date = format(new Date(), 'yyyy-MM-dd');
           const unsubSlips = dataStore.subscribeToDailyExpenseSlips(date, setDailySlips);
-          const unsubSuppliers = dataStore.subscribeToSuppliers(setSuppliers);
           const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
+          const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
           
           Promise.all([
               dataStore.getDailyExpenseSlips(date),
-              dataStore.getSuppliers(),
               dataStore.getRevenueStats(date),
-          ]).then(([slips, supplierList, revenue]) => {
+              dataStore.getInventoryList(),
+          ]).then(([slips, revenue, inventory]) => {
               setDailySlips(slips);
-              setSuppliers(supplierList);
               setRevenueStats(revenue);
+              setInventoryList(inventory);
               setIsLoading(false);
           });
           
           return () => {
               unsubSlips();
-              unsubSuppliers();
               unsubRevenue();
+              unsubInventory();
           };
       }
   }, [user]);
@@ -120,9 +119,9 @@ export default function CashierDashboardPage() {
   const { totalCashExpense, totalBankExpense } = useMemo(() => {
     return dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
-        acc.totalCashExpense += slip.amount;
+        acc.totalCashExpense += slip.totalAmount;
       } else if (slip.paymentMethod === 'bank_transfer') {
-        acc.totalBankExpense += slip.amount;
+        acc.totalBankExpense += slip.totalAmount;
       }
       return acc;
     }, { totalCashExpense: 0, totalBankExpense: 0 });
@@ -278,7 +277,7 @@ export default function CashierDashboardPage() {
                                    <TableHeader>
                                        <TableRow>
                                            <TableHead>Nội dung</TableHead>
-                                           <TableHead>Số tiền</TableHead>
+                                           <TableHead>Tổng tiền</TableHead>
                                            <TableHead>Hình thức</TableHead>
                                            <TableHead className="text-right">Hành động</TableHead>
                                        </TableRow>
@@ -287,10 +286,12 @@ export default function CashierDashboardPage() {
                                        {dailySlips.map(slip => (
                                            <TableRow key={slip.id}>
                                                <TableCell className="font-medium">
-                                                   {slip.type === 'goods_import' ? `Nhập hàng: ${slip.itemName}` : `Chi phí: ${slip.otherCostCategory}`}
-                                                    <p className="text-xs text-muted-foreground font-normal">{slip.notes}</p>
+                                                    {slip.items.length > 1 
+                                                        ? `${slip.items[0].name} và ${slip.items.length - 1} mặt hàng khác` 
+                                                        : slip.items[0]?.name || 'Chi phí khác'}
+                                                    <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                                </TableCell>
-                                               <TableCell>{slip.amount.toLocaleString('vi-VN')}đ</TableCell>
+                                               <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
                                                <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
                                                <TableCell className="text-right">
                                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(slip)} disabled={isProcessing}>
@@ -379,13 +380,12 @@ export default function CashierDashboardPage() {
     
     <CashierDialogs
         user={user}
+        inventoryList={inventoryList}
         isExpenseDialogOpen={isExpenseDialogOpen}
         setIsExpenseDialogOpen={setIsExpenseDialogOpen}
         handleSaveSlip={handleSaveSlip}
         isProcessing={isProcessing}
         slipToEdit={slipToEdit}
-        suppliers={suppliers}
-        setSuppliers={setSuppliers}
         isIncidentDialogOpen={isIncidentDialogOpen}
         setIsIncidentDialogOpen={setIsIncidentDialogOpen}
         handleSaveIncident={handleSaveIncident}
@@ -397,3 +397,4 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+

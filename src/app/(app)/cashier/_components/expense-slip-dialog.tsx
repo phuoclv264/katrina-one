@@ -1,17 +1,145 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { ExpenseSlip, PaymentMethod, ExpenseType, OtherCostCategory } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
-import { SupplierCombobox } from '@/components/supplier-combobox';
+import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
+import { Loader2, PlusCircle, Trash2, Camera } from 'lucide-react';
+import { ItemMultiSelect } from './item-multi-select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { extractInvoiceItems } from '@/ai/flows/extract-invoice-items-flow';
+import CameraDialog from '@/components/camera-dialog';
+import { photoStore } from '@/lib/photo-store';
+import { toast } from 'react-hot-toast';
+
+
+function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
+    const [quantity, setQuantity] = useState(item.quantity);
+    const [unitPrice, setUnitPrice] = useState(item.unitPrice);
+
+    const handleSave = () => {
+        onSave({ ...item, quantity, unitPrice });
+    };
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>{children}</PopoverTrigger>
+            <PopoverContent className="w-80">
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-medium leading-none">{item.name}</h4>
+                        <p className="text-sm text-muted-foreground">Nhập số lượng và đơn giá.</p>
+                    </div>
+                    <div className="grid gap-2">
+                        <div className="grid grid-cols-3 items-center gap-4">
+                            <Label htmlFor="quantity">Số lượng</Label>
+                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" />
+                        </div>
+                        <div className="grid grid-cols-3 items-center gap-4">
+                            <Label htmlFor="unitPrice">Đơn giá</Label>
+                            <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" />
+                        </div>
+                    </div>
+                    <Button onClick={handleSave}>Lưu</Button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, onConfirm }: { open: boolean, onOpenChange: (open: boolean) => void, extractedItems: ExtractedInvoiceItem[], inventoryList: InventoryItem[], onConfirm: (items: ExpenseItem[]) => void }) {
+    
+    const handleConfirm = () => {
+        const confirmedItems: ExpenseItem[] = extractedItems
+            .filter(item => item.status === 'matched' && item.matchedItemId)
+            .map(item => {
+                const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId)!;
+                return {
+                    itemId: inventoryItem.id,
+                    name: inventoryItem.name,
+                    supplier: inventoryItem.supplier,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                };
+            });
+        onConfirm(confirmedItems);
+        onOpenChange(false);
+    };
+
+    const matchedItems = extractedItems.filter(item => item.status === 'matched');
+    const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
+                    <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
+                    <div>
+                        <h4 className="font-semibold mb-2 text-green-600">Đã khớp ({matchedItems.length})</h4>
+                        <ScrollArea className="h-72">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tên</TableHead>
+                                        <TableHead>SL</TableHead>
+                                        <TableHead>Đơn giá</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {matchedItems.map((item, index) => (
+                                        <TableRow key={`matched-${index}`}>
+                                            <TableCell>{item.itemName}</TableCell>
+                                            <TableCell>{item.quantity}</TableCell>
+                                            <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </div>
+                     <div>
+                        <h4 className="font-semibold mb-2 text-red-600">Không khớp ({unmatchedItems.length})</h4>
+                         <ScrollArea className="h-72">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tên từ hóa đơn</TableHead>
+                                        <TableHead>SL</TableHead>
+                                        <TableHead>Đơn giá</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {unmatchedItems.map((item, index) => (
+                                        <TableRow key={`unmatched-${index}`}>
+                                            <TableCell>{item.itemName}</TableCell>
+                                            <TableCell>{item.quantity}</TableCell>
+                                            <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                    <Button onClick={handleConfirm} disabled={matchedItems.length === 0}>Xác nhận & Thêm {matchedItems.length} mặt hàng</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 type ExpenseSlipDialogProps = {
     open: boolean;
@@ -19,11 +147,9 @@ type ExpenseSlipDialogProps = {
     onSave: (data: any, id?: string) => void;
     isProcessing: boolean;
     slipToEdit: ExpenseSlip | null;
-    suppliers: string[];
-    onSuppliersChange: (newSuppliers: string[]) => void;
+    inventoryList: InventoryItem[];
+    reporter: AuthUser;
 };
-
-const otherCostCategories: OtherCostCategory[] = ['Lương', 'Điện', 'Nước', 'Dịch vụ', 'Sự cố', 'Khác'];
 
 export default function ExpenseSlipDialog({
     open,
@@ -31,186 +157,254 @@ export default function ExpenseSlipDialog({
     onSave,
     isProcessing,
     slipToEdit,
-    suppliers,
-    onSuppliersChange,
+    inventoryList,
+    reporter
 }: ExpenseSlipDialogProps) {
-    const [type, setType] = useState<ExpenseType>('goods_import');
+    const isMobile = useIsMobile();
+    const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [items, setItems] = useState<ExpenseItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
-    const [amount, setAmount] = useState<number>(0);
     const [notes, setNotes] = useState('');
+    const [invoiceImage, setInvoiceImage] = useState<{id: string, url: string} | null>(null);
 
-    // Goods import fields
-    const [supplier, setSupplier] = useState('');
-    const [itemName, setItemName] = useState('');
-    const [quantity, setQuantity] = useState<number | ''>('');
-    const [unitPrice, setUnitPrice] = useState<number | ''>('');
-
-    // Other cost fields
-    const [otherCostCategory, setOtherCostCategory] = useState<OtherCostCategory>('Khác');
-
-    const totalAmount = useMemo(() => {
-        if (type === 'goods_import' && typeof quantity === 'number' && typeof unitPrice === 'number') {
-            return quantity * unitPrice;
-        }
-        return amount;
-    }, [type, quantity, unitPrice, amount]);
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [extractedItems, setExtractedItems] = useState<ExtractedInvoiceItem[]>([]);
+    const [showAiPreview, setShowAiPreview] = useState(false);
 
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
-                setType(slipToEdit.type);
+                setDate(slipToEdit.date);
+                setItems(slipToEdit.items);
                 setPaymentMethod(slipToEdit.paymentMethod);
-                setAmount(slipToEdit.amount);
                 setNotes(slipToEdit.notes || '');
-                if (slipToEdit.type === 'goods_import') {
-                    setSupplier(slipToEdit.supplier || '');
-                    setItemName(slipToEdit.itemName || '');
-                    setQuantity(slipToEdit.quantity || '');
-                    setUnitPrice(slipToEdit.unitPrice || '');
-                } else {
-                    setOtherCostCategory(slipToEdit.otherCostCategory || 'Khác');
-                }
             } else {
                 // Reset form for new slip
-                setType('goods_import');
+                setDate(format(new Date(), 'yyyy-MM-dd'));
+                setItems([]);
                 setPaymentMethod('cash');
-                setAmount(0);
                 setNotes('');
-                setSupplier('');
-                setItemName('');
-                setQuantity('');
-                setUnitPrice('');
-                setOtherCostCategory('Khác');
+                setInvoiceImage(null);
             }
         }
     }, [open, slipToEdit]);
     
-     const handleSupplierChange = (newSupplier: string) => {
-        setSupplier(newSupplier);
-        if (!suppliers.includes(newSupplier)) {
-            const newSuppliers = [...suppliers, newSupplier].sort();
-            onSuppliersChange(newSuppliers);
-        }
+    const totalAmount = useMemo(() => {
+        return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    }, [items]);
+
+    const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
+        const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
+            const existing = items.find(exItem => exItem.itemId === invItem.id);
+            return existing || {
+                itemId: invItem.id,
+                name: invItem.name,
+                supplier: invItem.supplier,
+                quantity: 1, // default
+                unitPrice: 0 // default
+            };
+        });
+        setItems(newExpenseItems);
     };
 
+    const handleUpdateItem = (updatedItem: ExpenseItem) => {
+        setItems(prevItems => prevItems.map(item => item.itemId === updatedItem.itemId ? updatedItem : item));
+    };
+    
+    const handleRemoveItem = (itemId: string) => {
+        setItems(prevItems => prevItems.filter(item => item.itemId !== itemId));
+    }
 
     const handleSave = () => {
-        const finalAmount = type === 'goods_import' ? totalAmount : amount;
-        if (!finalAmount || finalAmount <= 0) {
-            alert('Vui lòng nhập số tiền hợp lệ.');
+        if (items.length === 0) {
+            alert('Vui lòng chọn ít nhất một mặt hàng.');
             return;
         }
 
-        const commonData = {
-            type,
+        const data = {
+            date,
+            items,
+            totalAmount,
             paymentMethod,
-            amount: finalAmount,
             notes,
+            invoicePhotoId: invoiceImage?.id,
         };
-
-        let specificData = {};
-        if (type === 'goods_import') {
-            specificData = { supplier, itemName, quantity: Number(quantity), unitPrice: Number(unitPrice) };
-        } else {
-            specificData = { otherCostCategory };
-        }
         
-        onSave({ ...commonData, ...specificData }, slipToEdit?.id);
+        onSave(data, slipToEdit?.id);
     };
+    
+    const handleAiInvoiceProcess = async (photoIds: string[]) => {
+        setIsCameraOpen(false);
+        if (photoIds.length === 0) return;
+
+        const photoId = photoIds[0];
+        setIsAiLoading(true);
+        const toastId = toast.loading("AI đang phân tích hóa đơn...");
+        
+        try {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (!photoBlob) throw new Error("Không tìm thấy ảnh đã chụp.");
+
+            const reader = new FileReader();
+            reader.readAsDataURL(photoBlob);
+            reader.onloadend = async () => {
+                const imageDataUri = reader.result as string;
+                setInvoiceImage({id: photoId, url: imageDataUri}); // Keep for submission
+
+                const result = await extractInvoiceItems({
+                    imageDataUri: imageDataUri,
+                    inventoryItems: inventoryList,
+                });
+
+                if (result.items.length === 0) {
+                    toast.error('AI không nhận diện được mặt hàng nào từ hóa đơn.');
+                } else {
+                    setExtractedItems(result.items);
+                    setShowAiPreview(true);
+                }
+                toast.dismiss(toastId);
+                setIsAiLoading(false);
+            };
+        } catch (error) {
+            console.error("AI invoice processing failed:", error);
+            toast.error("Lỗi AI: Không thể xử lý hóa đơn.");
+            toast.dismiss(toastId);
+            setIsAiLoading(false);
+        }
+    };
+    
+    const handleAiConfirm = (confirmedItems: ExpenseItem[]) => {
+         const newItemsMap = new Map(items.map(item => [item.itemId, item]));
+         confirmedItems.forEach(newItem => {
+             newItemsMap.set(newItem.itemId, newItem);
+         });
+         setItems(Array.from(newItemsMap.values()));
+    }
+
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[480px]">
-                <DialogHeader>
-                    <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
-                    <DialogDescription>Nhập thông tin chi tiết cho khoản chi này.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label>Loại chi</Label>
-                        <RadioGroup value={type} onValueChange={(v) => setType(v as ExpenseType)} className="flex gap-4">
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="goods_import" id="r1" />
-                                <Label htmlFor="r1">Nhập hàng</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="other_cost" id="r2" />
-                                <Label htmlFor="r2">Chi phí khác</Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
-
-                    {type === 'goods_import' ? (
-                        <div className="space-y-4 p-4 border rounded-md">
-                            <div className="space-y-2">
-                                <Label htmlFor="supplier">Nhà cung cấp</Label>
-                                <SupplierCombobox suppliers={suppliers} value={supplier} onChange={handleSupplierChange} />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="itemName">Tên mặt hàng</Label>
-                                <Input id="itemName" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="VD: Sữa đặc" />
-                            </div>
-                             <div className="grid grid-cols-2 gap-4">
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
+                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="max-h-[70vh] -mx-6 px-6">
+                        <div className="grid gap-6 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="quantity">Số lượng</Label>
-                                    <Input id="quantity" type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} placeholder="0" />
+                                    <Label>Ngày chứng từ</Label>
+                                    <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="unitPrice">Đơn giá</Label>
-                                    <Input id="unitPrice" type="number" value={unitPrice} onChange={e => setUnitPrice(Number(e.target.value))} placeholder="0" />
+                                 <div className="space-y-2">
+                                    <Label>Người lập phiếu</Label>
+                                    <Input value={reporter.displayName || ''} disabled />
                                 </div>
                             </div>
-                             <div className="space-y-2">
-                                <Label>Thành tiền</Label>
-                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold"/>
-                            </div>
-                        </div>
-                    ) : (
-                         <div className="space-y-4 p-4 border rounded-md">
+                        
                             <div className="space-y-2">
-                                <Label htmlFor="otherCostCategory">Hạng mục chi</Label>
-                                <Select value={otherCostCategory} onValueChange={(v) => setOtherCostCategory(v as OtherCostCategory)}>
-                                    <SelectTrigger id="otherCostCategory"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {otherCostCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <Label>Chọn mặt hàng</Label>
+                                <div className="flex gap-2">
+                                     <ItemMultiSelect
+                                        inventoryItems={inventoryList}
+                                        selectedItems={items}
+                                        onChange={handleItemsSelected}
+                                    />
+                                    <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading}>
+                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
+                                    </Button>
+                                </div>
                             </div>
+
+                            <div className="space-y-2">
+                                <Label>Chi tiết các mặt hàng</Label>
+                                {items.length === 0 ? (
+                                    <div className="text-center text-sm text-muted-foreground p-4 border rounded-md border-dashed">
+                                        Chưa có mặt hàng nào được chọn.
+                                    </div>
+                                ) : (
+                                    <div className="border rounded-md">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Tên mặt hàng</TableHead>
+                                                    <TableHead>SL</TableHead>
+                                                    <TableHead>Đơn giá</TableHead>
+                                                    <TableHead>Thành tiền</TableHead>
+                                                    <TableHead className="text-right">Xóa</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {items.map(item => (
+                                                    <EditItemPopover key={item.itemId} item={item} onSave={handleUpdateItem}>
+                                                         <TableRow className="cursor-pointer">
+                                                            <TableCell>
+                                                                <p className="font-medium">{item.name}</p>
+                                                                <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                            </TableCell>
+                                                            <TableCell>{item.quantity}</TableCell>
+                                                            <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
+                                                            <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
+                                                            <TableCell className="text-right">
+                                                                <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </EditItemPopover>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </div>
+
                              <div className="space-y-2">
-                                <Label htmlFor="amount">Số tiền</Label>
-                                <Input id="amount" type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} placeholder="0" />
+                                <Label>Tổng cộng</Label>
+                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right" />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Hình thức thanh toán</Label>
+                                    <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="cash" id="pm1" />
+                                            <Label htmlFor="pm1">Tiền mặt</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="bank_transfer" id="pm2" />
+                                            <Label htmlFor="pm2">Chuyển khoản</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="notes">Ghi chú</Label>
+                                    <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." />
+                                </div>
                             </div>
                         </div>
-                    )}
-                    
-                     <div className="space-y-2">
-                        <Label>Hình thức thanh toán</Label>
-                        <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-4">
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="cash" id="pm1" />
-                                <Label htmlFor="pm1">Tiền mặt</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="bank_transfer" id="pm2" />
-                                <Label htmlFor="pm2">Chuyển khoản</Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="notes">Ghi chú</Label>
-                        <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." />
-                    </div>
-
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                    <Button onClick={handleSave} disabled={isProcessing}>
-                        {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Lưu Phiếu chi
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    </ScrollArea>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                        <Button onClick={handleSave} disabled={isProcessing}>
+                            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Lưu Phiếu chi
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleAiInvoiceProcess} singlePhotoMode={true} />
+            <AiPreviewDialog 
+                open={showAiPreview} 
+                onOpenChange={setShowAiPreview}
+                extractedItems={extractedItems}
+                inventoryList={inventoryList}
+                onConfirm={handleAiConfirm}
+            />
+        </>
     );
 }
+

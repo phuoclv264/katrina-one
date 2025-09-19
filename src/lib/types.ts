@@ -301,30 +301,30 @@ export type ExpenseType = 'goods_import' | 'other_cost';
 export type OtherCostCategory = 'Lương' | 'Điện' | 'Nước' | 'Dịch vụ' | 'Sự cố' | 'Khác';
 export type PaymentMethod = 'cash' | 'bank_transfer';
 
+export type ExpenseItem = {
+    itemId: string;
+    name: string;
+    supplier: string;
+    quantity: number;
+    unitPrice: number;
+}
+
 export type ExpenseSlip = {
   id: string;
   date: string; // YYYY-MM-DD
-  type: ExpenseType;
+  // New structure
+  items: ExpenseItem[];
+  totalAmount: number;
+
   paymentMethod: PaymentMethod;
-  amount: number;
-  
-  // For 'goods_import'
-  supplier?: string;
-  itemName?: string;
-  quantity?: number;
-  unitPrice?: number;
-  
-  // For 'other_cost'
-  otherCostCategory?: OtherCostCategory;
-  
   notes?: string;
-  invoiceImageUrl?: string;
+  invoiceImageUrl?: string; // URL to the invoice image if provided
   
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
   lastModified?: string | Timestamp;
-  editHistory?: any[];
 };
+
 
 export type HandoverReport = {
   id: string; // cashier-handover-{date}
@@ -375,3 +375,11 @@ export type RevenueStats = {
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
 };
+
+export type ExtractedInvoiceItem = {
+    itemName: string; // Tên sản phẩm đọc được từ hóa đơn
+    quantity: number;
+    unitPrice: number;
+    matchedItemId: string | null; // ID của sản phẩm trong kho nếu khớp
+    status: 'matched' | 'unmatched'; // Trạng thái khớp
+}
