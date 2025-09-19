@@ -23,6 +23,7 @@ import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -91,17 +92,20 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
     const matchedItems = extractedItems.filter(item => item.status === 'matched');
     const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
 
-    const ItemCard = ({ item, isUnmatched = false }: { item: ExtractedInvoiceItem, isUnmatched?: boolean }) => {
+     const ItemCard = ({ item, isUnmatched = false }: { item: ExtractedInvoiceItem, isUnmatched?: boolean }) => {
         const inventoryItem = isUnmatched ? null : inventoryList.find(i => i.id === item.matchedItemId);
         return (
-            <div className="text-sm rounded-md border bg-card p-3">
+             <div className="text-sm rounded-md border bg-card p-3">
                 <p className="font-semibold">{item.itemName}</p>
-                {!isUnmatched && inventoryItem && (
+                 {inventoryItem && (
                     <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>
                 )}
-                <div className="flex justify-between items-center text-xs text-muted-foreground mt-2 border-t pt-2">
-                    <span>SL: <span className="font-medium text-foreground">{item.quantity}</span></span>
-                    <span>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}</span></span>
+                <div className="flex justify-between items-end text-xs text-muted-foreground mt-2 border-t pt-2">
+                    <div className='space-y-1'>
+                        <p>Số lượng: <span className="font-medium text-foreground text-sm">{item.quantity}</span></p>
+                        <p>Đơn giá: <span className="font-medium text-foreground text-sm">{item.unitPrice.toLocaleString('vi-VN')}đ</span></p>
+                    </div>
+                    <p className='text-right font-bold text-base text-primary'>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
                 </div>
             </div>
         )
@@ -120,7 +124,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
                         </h4>
-                        <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
+                        <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
                            <div className="space-y-2">
                              {matchedItems.length > 0 ? (
                                 matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} />)
@@ -135,7 +139,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                          <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
                         </h4>
-                         <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
+                         <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
                            <div className="space-y-2">
                              {unmatchedItems.length > 0 ? (
                                 unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isUnmatched={true} />)
@@ -347,30 +351,38 @@ export default function ExpenseSlipDialog({
                             </div>
                         
                             <div className="space-y-2">
-                                <Label>Chọn mặt hàng</Label>
-                                <div className="flex flex-col sm:flex-row gap-4 items-center">
-                                     <ItemMultiSelect
-                                        inventoryItems={inventoryList}
-                                        selectedItems={items}
-                                        onChange={handleItemsSelected}
-                                        className="flex-1 min-w-[200px]"
+                                <Label>Chọn mặt hàng (thủ công)</Label>
+                                <ItemMultiSelect
+                                    inventoryItems={inventoryList}
+                                    selectedItems={items}
+                                    onChange={handleItemsSelected}
+                                    className="w-full"
+                                />
+                            </div>
+
+                            <div className='relative my-4'>
+                                <Separator />
+                                <span className='absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-2 text-sm text-muted-foreground'>HOẶC</span>
+                            </div>
+
+                            <div className="space-y-4 text-center">
+                                <Label>Dùng AI quét hóa đơn</Label>
+                                <div className="flex gap-4 justify-center">
+                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="bg-card">
+                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-2' />}
+                                        Tải ảnh hóa đơn
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handlePhotoUpload}
+                                        className="hidden"
+                                        accept="image/*"
                                     />
-                                    <div className="flex gap-2 items-center w-full sm:w-auto">
-                                        <p className="text-sm text-muted-foreground">hoặc dùng AI</p>
-                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="bg-card">
-                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload />}
-                                        </Button>
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            onChange={handlePhotoUpload}
-                                            className="hidden"
-                                            accept="image/*"
-                                        />
-                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="bg-card">
-                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
-                                        </Button>
-                                    </div>
+                                    <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="bg-card">
+                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-2' />}
+                                        Chụp ảnh hóa đơn
+                                    </Button>
                                 </div>
                             </div>
 
@@ -496,3 +508,4 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
+
