@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -59,6 +60,17 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
     originalValue?: number;
     isImportant?: boolean;
 }) => {
+    const [localValue, setLocalValue] = useState(String(value));
+    
+    useEffect(() => {
+        setLocalValue(String(value));
+    }, [value]);
+
+    const handleBlur = () => {
+        if (String(value) !== localValue) {
+            onChange(localValue);
+        }
+    };
     
     const isEdited = originalValue !== undefined && value !== originalValue;
 
@@ -71,8 +83,9 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
             <Input 
               id={id} 
               type="number" 
-              value={value} 
-              onChange={e => onChange(e.target.value)}
+              value={localValue}
+              onChange={e => setLocalValue(e.target.value)}
+              onBlur={handleBlur}
               placeholder="0" 
               className={cn("h-9", isImportant && "font-bold text-base")} 
             />
