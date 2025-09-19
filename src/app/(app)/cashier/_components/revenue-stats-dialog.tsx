@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,15 +50,15 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
 };
 
 // Sub-component for input fields to prevent re-render focus loss issue
-const InputField = ({ id, label, value, onChange, originalValue, isImportant, isEdited }: {
+const InputField = ({ id, label, value, onChange, originalValue, isImportant }: {
     id: string;
     label: string;
     value: number;
     onChange: (val: string) => void;
     originalValue?: number;
     isImportant?: boolean;
-    isEdited: boolean;
 }) => {
+    const isEdited = originalValue !== undefined && value !== originalValue;
     return (
         <div key={id} className="grid grid-cols-2 items-center gap-2">
             <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
@@ -102,10 +101,7 @@ export default function RevenueStatsDialog({
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
 
-    // In create mode (existingStats is null), the image comes from newImageDataUri
-    // In update mode, we initially show the existing image, but any new image will populate newImageDataUri
-    const displayImageDataUri = newImageDataUri || existingStats?.invoiceImageUrl;
-    const isCreating = !existingStats;
+    const displayImageDataUri = newImageDataUri;
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -127,25 +123,22 @@ export default function RevenueStatsDialog({
     }, [isLightboxOpen]);
 
 
-    const resetFormState = () => {
+    const resetFormState = useCallback(() => {
         setNetRevenue(0);
         setDeliveryPartnerPayout(0);
         setRevenueByPaymentMethod(initialPaymentMethods);
         setOriginalData(null); 
-    };
+        setNewImageDataUri(null); 
+        setOldReceiptInfo(null);
+        setActiveTab('image'); // Reset to image tab when dialog opens
+        setServerErrorDialog({ open: false, imageUri: null });
+    }, []);
 
     useEffect(() => {
         if (open) {
-            // ALWAYS reset when opening the dialog.
-            // For creating, it starts fresh.
-            // For updating, it also starts fresh, forcing a new image and data entry.
             resetFormState();
-            setNewImageDataUri(null); 
-            setOldReceiptInfo(null);
-            setActiveTab('image'); // Reset to image tab when dialog opens
-            setServerErrorDialog({ open: false, imageUri: null });
         }
-    }, [open]);
+    }, [open, resetFormState]);
 
     const handleTabChange = (value: string) => {
         if (isMobile && value === 'data' && !newImageDataUri) {
@@ -395,7 +388,6 @@ export default function RevenueStatsDialog({
                 onChange={(val) => setNetRevenue(Number(val))}
                 originalValue={originalData?.netRevenue}
                 isImportant={true}
-                isEdited={hasBeenEdited}
             />
             <Card>
                 <CardHeader className="pb-2 pt-4">
@@ -410,7 +402,6 @@ export default function RevenueStatsDialog({
                             value={value}
                             onChange={(val) => handlePaymentMethodChange(key as any, val)}
                             originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
-                            isEdited={hasBeenEdited}
                         />
                     )}
                     <div className="text-right pt-2">
@@ -428,7 +419,6 @@ export default function RevenueStatsDialog({
                 value={deliveryPartnerPayout}
                 onChange={(val) => setDeliveryPartnerPayout(Number(val))}
                 originalValue={originalData?.deliveryPartnerPayout}
-                isEdited={hasBeenEdited}
             />
             <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
                 <Info className="h-3 w-3 mt-0.5 shrink-0"/>
@@ -454,10 +444,7 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                           {isCreating
-                            ? "Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu."
-                            : "Vui lòng cung cấp ảnh và số liệu mới để cập nhật doanh thu cho ngày hôm nay."
-                           }
+                           Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.
                         </DialogDescription>
                     </DialogHeader>
                     
