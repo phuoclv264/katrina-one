@@ -21,7 +21,7 @@ import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 
@@ -92,21 +92,21 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
     const matchedItems = extractedItems.filter(item => item.status === 'matched');
     const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
 
-    const ItemCard = ({ item }: { item: ExtractedInvoiceItem }) => {
-        const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId);
+    const ItemCard = ({ item, isMatched }: { item: ExtractedInvoiceItem, isMatched: boolean }) => {
+        const inventoryItem = isMatched ? inventoryList.find(i => i.id === item.matchedItemId) : null;
         return (
-          <Card>
+          <Card className="shadow-sm">
             <CardContent className="p-3">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-start gap-3">
                  <div className="flex-1">
                     <p className="font-semibold">{item.itemName}</p>
                     {inventoryItem && <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>}
                  </div>
                  <div className="text-right ml-2 shrink-0">
-                     <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
+                     <p className="font-semibold text-base">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
                  </div>
               </div>
-              <div className="flex justify-between items-end text-xs text-muted-foreground mt-2 border-t pt-2">
+              <div className="flex justify-between items-end text-xs text-muted-foreground mt-1">
                 <p>SL: <span className="font-medium text-foreground">{item.quantity}</span></p>
                 <p>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}đ</span></p>
               </div>
@@ -128,10 +128,10 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
                         </h4>
-                        <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
+                        <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
                            <div className="space-y-2">
                              {matchedItems.length > 0 ? (
-                                matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} />)
+                                matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} isMatched={true} />)
                              ) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">Không có mặt hàng nào khớp.</p>
                              )}
@@ -143,10 +143,10 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                          <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
                         </h4>
-                         <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
+                         <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
                            <div className="space-y-2">
                              {unmatchedItems.length > 0 ? (
-                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} />)
+                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isMatched={false} />)
                              ) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
                              )}
