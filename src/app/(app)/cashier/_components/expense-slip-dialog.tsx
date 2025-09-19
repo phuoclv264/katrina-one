@@ -99,7 +99,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
             <CardContent className="p-3">
               <div className="flex justify-between items-start gap-3">
                  <div className="flex-1">
-                    <p className="font-semibold">{item.itemName}</p>
+                    <p className="font-semibold whitespace-normal">{item.itemName}</p>
                     {inventoryItem && <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>}
                  </div>
                  <div className="text-right ml-2 shrink-0">
@@ -128,7 +128,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
                         </h4>
-                        <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
+                        <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
                            <div className="space-y-2">
                              {matchedItems.length > 0 ? (
                                 matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} isMatched={true} />)
@@ -143,7 +143,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                          <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
                         </h4>
-                         <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
+                         <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
                            <div className="space-y-2">
                              {unmatchedItems.length > 0 ? (
                                 unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isMatched={false} />)
@@ -341,40 +341,42 @@ export default function ExpenseSlipDialog({
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
                         <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[70vh] -mx-6 px-6">
+                    <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} disabled className="bg-card"/>
+                                    <Input value={date} disabled className="bg-muted"/>
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
-                                    <Input value={reporter.displayName || ''} disabled className="bg-card"/>
+                                    <Input value={reporter.displayName || ''} disabled className="bg-muted"/>
                                 </div>
                             </div>
                         
-                            <Card className="border-primary/50 border-2 bg-muted/30">
+                            <Card className="border-primary/50 border-2 bg-card">
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Dùng AI quét hóa đơn</CardTitle>
                                     <CardDescription>Cách nhanh nhất để nhập liệu. Chụp hoặc tải ảnh hóa đơn và AI sẽ tự động điền các mặt hàng.</CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full h-12 text-base">
-                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-3 h-5 w-5' />}
-                                        Tải ảnh hóa đơn
-                                    </Button>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handlePhotoUpload}
-                                        className="hidden"
-                                        accept="image/*"
-                                    />
-                                    <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="w-full h-12 text-base">
-                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-3 h-5 w-5' />}
-                                        Chụp ảnh hóa đơn
-                                    </Button>
+                                <CardContent>
+                                    <div className="flex flex-col sm:flex-row gap-2 flex-wrap sm:flex-nowrap justify-center">
+                                         <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full h-12 text-base">
+                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-3 h-5 w-5' />}
+                                            Tải ảnh hóa đơn
+                                        </Button>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handlePhotoUpload}
+                                            className="hidden"
+                                            accept="image/*"
+                                        />
+                                        <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="w-full h-12 text-base">
+                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-3 h-5 w-5' />}
+                                            Chụp ảnh hóa đơn
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
 
@@ -397,7 +399,7 @@ export default function ExpenseSlipDialog({
                                 ) : (
                                     <>
                                         {/* Mobile view */}
-                                        <div className="md:hidden space-y-3 p-3 rounded-md bg-white dark:bg-card">
+                                        <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
                                             {items.map(item => (
                                                 <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
                                                     <Card className="cursor-pointer bg-muted/50">
@@ -427,7 +429,7 @@ export default function ExpenseSlipDialog({
                                         </div>
 
                                         {/* Desktop view */}
-                                        <div className="hidden md:block border rounded-md bg-white dark:bg-card">
+                                        <div className="hidden md:block border rounded-md bg-card">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -466,7 +468,7 @@ export default function ExpenseSlipDialog({
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
-                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-card" />
+                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-muted" />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -510,3 +512,4 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
+
