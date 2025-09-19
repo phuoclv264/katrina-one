@@ -375,15 +375,19 @@ export type RevenueStats = {
   createdAt: string | Timestamp;
 };
 
+// --- AI Invoice Extraction Types ---
 export type ExtractedInvoiceItem = {
-    itemName: string; // Tên sản phẩm đọc được từ hóa đơn
+    itemName: string;
     quantity: number;
     unitPrice: number;
-    matchedItemId: string | null; // ID của sản phẩm trong kho nếu khớp
-    status: 'matched' | 'unmatched'; // Trạng thái khớp
-}
+    matchedItemId: string | null;
+    status: 'matched' | 'unmatched';
+};
 
 export type InvoiceExtractionResult = {
-  isInvoiceFound: boolean;
-  items: ExtractedInvoiceItem[];
-}
+    isInvoiceFound: boolean;
+    results: {
+        invoiceTitle: string;
+        items: ExtractedInvoiceItem[];
+    }[];
+};

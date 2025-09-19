@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
+import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult } from '@/lib/types';
 import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2 } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -70,10 +71,11 @@ function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave
     );
 }
 
-function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, onConfirm }: { open: boolean, onOpenChange: (open: boolean) => void, extractedItems: ExtractedInvoiceItem[], inventoryList: InventoryItem[], onConfirm: (items: ExpenseItem[]) => void }) {
+function AiPreviewDialog({ open, onOpenChange, extractionResult, inventoryList, onConfirm }: { open: boolean, onOpenChange: (open: boolean) => void, extractionResult: InvoiceExtractionResult, inventoryList: InventoryItem[], onConfirm: (items: ExpenseItem[]) => void }) {
     
     const handleConfirm = () => {
-        const confirmedItems: ExpenseItem[] = extractedItems
+        const confirmedItems: ExpenseItem[] = (extractionResult.results || [])
+            .flatMap(result => result.items)
             .filter(item => item.status === 'matched' && item.matchedItemId)
             .map(item => {
                 const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId)!;
@@ -90,8 +92,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
         onOpenChange(false);
     };
 
-    const matchedItems = extractedItems.filter(item => item.status === 'matched');
-    const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
+    const totalMatchedItems = extractionResult.results.reduce((acc, result) => acc + result.items.filter(item => item.status === 'matched').length, 0);
 
     const ItemCard = ({ item, isMatched }: { item: ExtractedInvoiceItem, isMatched: boolean }) => {
         const inventoryItem = isMatched ? inventoryList.find(i => i.id === item.matchedItemId) : null;
@@ -123,39 +124,40 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                     <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                        {/* Matched Items */}
-                        <div className="flex flex-col">
-                            <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
-                            </h4>
-                            <div className="flex-1 rounded-md border p-2 bg-card space-y-2">
-                                {matchedItems.length > 0 ? (
-                                    matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} isMatched={true} />)
-                                ) : (
-                                    <p className="text-sm text-muted-foreground text-center py-4">Không có mặt hàng nào khớp.</p>
-                                )}
-                            </div>
-                        </div>
-                        {/* Unmatched Items */}
-                        <div className="flex flex-col">
-                            <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
-                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
-                            </h4>
-                            <div className="flex-1 rounded-md border p-2 bg-card space-y-2">
-                                {unmatchedItems.length > 0 ? (
-                                    unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isMatched={false} />)
-                                ) : (
-                                    <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                <ScrollArea className="max-h-[60vh] -mx-6 px-6">
+                    <Accordion type="multiple" defaultValue={extractionResult.results.map(r => r.invoiceTitle)} className="w-full space-y-4 py-4">
+                        {extractionResult.results.map((result, resultIndex) => (
+                           <AccordionItem value={result.invoiceTitle} key={resultIndex}>
+                             <AccordionTrigger className="text-lg font-semibold">{result.invoiceTitle}</AccordionTrigger>
+                             <AccordionContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
+                                    {/* Matched Items */}
+                                    <div className="flex flex-col">
+                                        <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
+                                        <CheckCircle className="h-5 w-5" /> Đã khớp ({result.items.filter(i => i.status === 'matched').length})
+                                        </h4>
+                                        <div className="flex-1 rounded-md space-y-2">
+                                            {result.items.filter(i => i.status === 'matched').map((item, index) => <ItemCard key={`matched-${resultIndex}-${index}`} item={item} isMatched={true} />)}
+                                        </div>
+                                    </div>
+                                    {/* Unmatched Items */}
+                                    <div className="flex flex-col">
+                                        <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
+                                        <XCircle className="h-5 w-5" /> Không khớp ({result.items.filter(i => i.status === 'unmatched').length})
+                                        </h4>
+                                        <div className="flex-1 rounded-md space-y-2">
+                                             {result.items.filter(i => i.status === 'unmatched').map((item, index) => <ItemCard key={`unmatched-${resultIndex}-${index}`} item={item} isMatched={false} />)}
+                                        </div>
+                                    </div>
+                                </div>
+                             </AccordionContent>
+                           </AccordionItem>
+                        ))}
+                    </Accordion>
                 </ScrollArea>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                    <Button onClick={handleConfirm} disabled={matchedItems.length === 0}>Xác nhận & Thêm {matchedItems.length} mặt hàng</Button>
+                    <Button onClick={handleConfirm} disabled={totalMatchedItems === 0}>Xác nhận & Thêm {totalMatchedItems} mặt hàng</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -199,7 +201,7 @@ export default function ExpenseSlipDialog({
 
     // --- State for AI scanning ---
     const [isAiLoading, setIsAiLoading] = useState(false);
-    const [extractedItems, setExtractedItems] = useState<ExtractedInvoiceItem[]>([]);
+    const [extractionResult, setExtractionResult] = useState<InvoiceExtractionResult | null>(null);
     const [showAiPreview, setShowAiPreview] = useState(false);
     
     // Reset form state when dialog opens
@@ -282,8 +284,8 @@ export default function ExpenseSlipDialog({
     
     // --- AI Scanning Logic ---
     const handleAiScan = async () => {
-        const allAttachedPhotos = [...existingPhotos, ...localPhotos.map(p => p.url)];
-        if(allAttachedPhotos.length === 0) {
+        const allAttachedPhotoIds = localPhotos.map(p => p.id);
+        if(existingPhotos.length === 0 && allAttachedPhotoIds.length === 0) {
             toast.error("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
@@ -293,12 +295,10 @@ export default function ExpenseSlipDialog({
         const toastId = toast.loading("AI đang phân tích hóa đơn...");
 
         try {
-            // This is a simplification. In a real app, converting remote URLs to data URIs
-            // would require a server-side proxy to avoid CORS issues.
-            // For now, we'll only process local photos.
+            // For now, we'll only process local photos as converting remote URLs to data URIs is complex client-side.
             const localDataUris = await Promise.all(
-                localPhotos.map(async p => {
-                    const blob = await photoStore.getPhoto(p.id);
+                allAttachedPhotoIds.map(async id => {
+                    const blob = await photoStore.getPhoto(id);
                     if (!blob) return null;
                     return new Promise<string>((resolve) => {
                         const reader = new FileReader();
@@ -308,10 +308,12 @@ export default function ExpenseSlipDialog({
                 })
             );
 
-            // Filtering out nulls in case a blob couldn't be read
+            // TODO: In the future, add logic to fetch existingPhotos (remote URLs) via a server-side proxy
+            // to convert them to data URIs as well.
+
             const validDataUris = localDataUris.filter((uri): uri is string => !!uri);
 
-            if (validDataUris.length === 0) {
+            if (validDataUris.length === 0 && existingPhotos.length === 0) {
                  toast.error("Không tìm thấy ảnh hóa đơn nào trong các ảnh đã đính kèm.");
                  attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                  setIsAiLoading(false);
@@ -320,14 +322,14 @@ export default function ExpenseSlipDialog({
             }
 
             const result = await extractInvoiceItems({
-                imageUris: validDataUris, // Sending all local images
+                imageUris: validDataUris, // For now, only send new local images
                 inventoryItems: inventoryList,
             });
 
-            if (!result.isInvoiceFound || result.items.length === 0) {
+            if (!result.isInvoiceFound || result.results.length === 0) {
                 toast.error('AI không nhận diện được mặt hàng nào từ các ảnh hóa đơn đã cung cấp.');
             } else {
-                setExtractedItems(result.items);
+                setExtractionResult(result);
                 setShowAiPreview(true);
             }
         } catch (error) {
@@ -584,13 +586,15 @@ export default function ExpenseSlipDialog({
             {/* Attachment Camera Dialog */}
             <CameraDialog isOpen={isAttachmentCameraOpen} onClose={() => setIsAttachmentCameraOpen(false)} onSubmit={handleAttachmentPhotoCapture} />
 
-            <AiPreviewDialog 
-                open={showAiPreview} 
-                onOpenChange={setShowAiPreview}
-                extractedItems={extractedItems}
-                inventoryList={inventoryList}
-                onConfirm={handleAiConfirm}
-            />
+            {extractionResult && (
+                <AiPreviewDialog 
+                    open={showAiPreview} 
+                    onOpenChange={setShowAiPreview}
+                    extractionResult={extractionResult}
+                    inventoryList={inventoryList}
+                    onConfirm={handleAiConfirm}
+                />
+            )}
 
             <AlertDialog open={showMissingAttachmentAlert} onOpenChange={setShowMissingAttachmentAlert}>
                  <AlertDialogContent>
@@ -611,5 +615,3 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
-
-    
