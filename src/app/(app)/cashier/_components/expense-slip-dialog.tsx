@@ -599,7 +599,9 @@ export default function ExpenseSlipDialog({
                             <AlertCircle className="text-destructive"/>
                             Yêu cầu ảnh đính kèm
                         </AlertDialogTitleComponent>
-                        <AlertDialogDescriptionComponent>Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa để làm bằng chứng cho phiếu chi.</AlertDialogDescriptionComponent>
+                        <AlertDialogDescriptionComponent>
+                            <div>Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa để làm bằng chứng cho phiếu chi.</div>
+                        </AlertDialogDescriptionComponent>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setShowMissingAttachmentAlert(false)}>Đã hiểu</AlertDialogAction>
@@ -609,3 +611,5 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
+
+    
