@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -121,7 +122,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
-                    <DialogDescriptionComponent>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescriptionComponent>
+                    <AlertDialogDescriptionComponent>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</AlertDialogDescriptionComponent>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
@@ -398,7 +399,7 @@ export default function ExpenseSlipDialog({
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
-                        <DialogDescriptionComponent>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescriptionComponent>
+                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
@@ -414,10 +415,10 @@ export default function ExpenseSlipDialog({
                             </div>
 
                             {/* --- Attachment Section --- */}
-                             <Card className="border-primary/50 border-2">
+                            <Card className="border-primary/50 border-2">
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
-                                    <CardDescriptionComponent>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescriptionComponent>
+                                    <CardDescription>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -452,42 +453,38 @@ export default function ExpenseSlipDialog({
                             <Separator />
 
                             {/* --- Item Selection Section --- */}
-                            <div>
-                                <Card className="bg-muted/30">
-                                    <CardHeader className="pb-4">
-                                        <CardTitle className="text-base">Mặt hàng</CardTitle>
-                                        <CardDescriptionComponent>Chọn hoặc quét hóa đơn để thêm mặt hàng.</CardDescriptionComponent>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <Label className="text-sm">Hoặc chọn thủ công</Label>
-                                                <ItemMultiSelect
-                                                    inventoryItems={inventoryList}
-                                                    selectedItems={items}
-                                                    onChange={handleItemsSelected}
-                                                    className="w-full mt-1"
-                                                />
-                                            </div>
-                                            <div className="text-center text-sm text-muted-foreground">HOẶC</div>
-                                            <div>
-                                                <Label className="text-sm">Dùng AI quét hóa đơn (tiện ích)</Label>
-                                                <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                                                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full">
-                                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-3 h-5 w-5' />}
-                                                        Tải ảnh hóa đơn
-                                                    </Button>
-                                                    <input type="file" ref={fileInputRef} onChange={handleAiPhotoUpload} className="hidden" accept="image/*" />
-                                                    <Button variant="outline" onClick={() => setIsAiCameraOpen(true)} disabled={isAiLoading} className="w-full">
-                                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-3 h-5 w-5' />}
-                                                        Chụp ảnh hóa đơn
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
+                            <div className="space-y-4">
+                                <Card className="border-primary/50 border-2 bg-muted/30">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-base text-primary">Dùng AI quét hóa đơn</CardTitle>
+                                    <CardDescription>Cách nhanh nhất để nhập liệu. Chụp hoặc tải ảnh hóa đơn và AI sẽ tự động điền các mặt hàng.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full flex-col h-auto py-3">
+                                            {isAiLoading ? <Loader2 className="animate-spin h-6 w-6 mb-1" /> : <Upload className='h-6 w-6 mb-1' />}
+                                            Tải ảnh hóa đơn
+                                        </Button>
+                                        <input type="file" ref={fileInputRef} onChange={handleAiPhotoUpload} className="hidden" accept="image/*" />
+                                        <Button variant="outline" onClick={() => setIsAiCameraOpen(true)} disabled={isAiLoading} className="w-full flex-col h-auto py-3">
+                                            {isAiLoading ? <Loader2 className="animate-spin h-6 w-6 mb-1" /> : <Camera className='h-6 w-6 mb-1' />}
+                                            Chụp ảnh hóa đơn
+                                        </Button>
+                                    </div>
+                                </CardContent>
                                 </Card>
+
+                                <div className="space-y-2">
+                                    <Label className="text-sm">Hoặc chọn thủ công</Label>
+                                    <ItemMultiSelect
+                                        inventoryItems={inventoryList}
+                                        selectedItems={items}
+                                        onChange={handleItemsSelected}
+                                        className="w-full mt-1"
+                                    />
+                                </div>
                             </div>
+
 
                             <div className="space-y-2">
                                 <Label>Chi tiết các mặt hàng</Label>
