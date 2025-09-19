@@ -122,8 +122,6 @@ export default function RevenueStatsDialog({
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
-    const [showOldReceiptWarning, setShowOldReceiptWarning] = useState(false);
-    const [oldReceiptData, setOldReceiptData] = useState<{ imageUri: string, result: any } | null>(null);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
 
@@ -156,8 +154,6 @@ export default function RevenueStatsDialog({
         setReportTimestamp(null);
         setOriginalData(null); 
         setNewImageDataUri(null); 
-        setShowOldReceiptWarning(false);
-        setOldReceiptData(null);
         setActiveTab('image'); // Reset to image tab when dialog opens
         setServerErrorDialog({ open: false, imageUri: null });
     }, []);
@@ -284,7 +280,6 @@ export default function RevenueStatsDialog({
             }
 
             const reportTime = parseISO(result.reportTimestamp);
-            const now = new Date();
 
             // Block if the receipt is from a previous day
             if (!isToday(reportTime)) {
@@ -294,15 +289,9 @@ export default function RevenueStatsDialog({
                 return;
             }
 
-            // Warn if the receipt is older than 1 hour on the same day
-            const oneHour = 60 * 60 * 1000;
-            if (now.getTime() - reportTime.getTime() > oneHour) {
-                setOldReceiptData({ imageUri, result });
-                setShowOldReceiptWarning(true);
-            } else {
-                // If the receipt is recent, proceed directly
-                proceedWithImageData(imageUri, result);
-            }
+            // If the receipt is valid, proceed directly
+            proceedWithImageData(imageUri, result);
+            
         } catch (error: any) {
              if (error.message && error.message.includes('503 Service Unavailable')) {
                 setServerErrorDialog({ open: true, imageUri });
@@ -595,30 +584,6 @@ export default function RevenueStatsDialog({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            
-            <AlertDialog open={showOldReceiptWarning} onOpenChange={setShowOldReceiptWarning}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <Clock className="text-destructive"/>
-                            Cảnh báo: Phiếu thống kê có thể đã cũ
-                        </AlertDialogTitle>
-                         <AlertDialogDescription>
-                           Hệ thống phát hiện phiếu này đã được in cách đây hơn 1 giờ. Bạn có chắc chắn muốn tiếp tục với phiếu này không?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setShowOldReceiptWarning(null)}>Hủy bỏ</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => {
-                            if (oldReceiptData) {
-                                proceedWithImageData(oldReceiptData.imageUri, oldReceiptData.result);
-                            }
-                            setShowOldReceiptWarning(false);
-                        }}>Vẫn tiếp tục</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
 
             <CameraDialog 
                 isOpen={isCameraOpen}
