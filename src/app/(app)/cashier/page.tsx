@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -13,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
@@ -70,7 +69,6 @@ CashierDialogs.displayName = 'CashierDialogs';
 export default function CashierDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
@@ -134,24 +132,24 @@ export default function CashierDashboardPage() {
     try {
         const slipData = { ...data, createdBy: { userId: user.uid, userName: user.displayName }};
         await dataStore.addOrUpdateExpenseSlip(slipData, id);
-        toast({ title: "Thành công", description: `Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.` });
+        toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
         setIsExpenseDialogOpen(false);
     } catch (error) {
         console.error("Failed to save expense slip", error);
-        toast({ title: "Lỗi", description: "Không thể lưu phiếu chi.", variant: "destructive" });
+        toast.error("Không thể lưu phiếu chi.");
     } finally {
         setIsProcessing(false);
     }
-  }, [user, toast]);
+  }, [user]);
   
   const handleDeleteSlip = async (slipId: string) => {
     setIsProcessing(true);
     try {
         await dataStore.deleteExpenseSlip(slipId);
-        toast({ title: "Đã xóa", description: "Phiếu chi đã được xóa." });
+        toast.success("Phiếu chi đã được xóa.");
     } catch(error) {
         console.error("Failed to delete expense slip", error);
-        toast({ title: "Lỗi", description: "Không thể xóa phiếu chi.", variant: "destructive" });
+        toast.error("Không thể xóa phiếu chi.");
     } finally {
         setIsProcessing(false);
     }
@@ -162,33 +160,33 @@ export default function CashierDashboardPage() {
       setIsProcessing(true);
       try {
           await dataStore.addIncidentReport(data, user);
-          toast({ title: "Thành công", description: "Đã ghi nhận sự cố." });
+          toast.success("Đã ghi nhận sự cố.");
           if(data.cost > 0) {
-              toast({ title: "Thông báo", description: "Một phiếu chi tương ứng đã được tạo tự động." });
+              toast("Một phiếu chi tương ứng đã được tạo tự động.", { icon: 'ℹ️' });
           }
           setIsIncidentDialogOpen(false);
       } catch (error) {
           console.error("Failed to save incident report", error);
-          toast({ title: "Lỗi", description: "Không thể lưu báo cáo sự cố.", variant: "destructive" });
+          toast.error("Không thể lưu báo cáo sự cố.");
       } finally {
           setIsProcessing(false);
       }
-  }, [user, toast]);
+  }, [user]);
   
   const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
     setIsProcessing(true);
     try {
         await dataStore.addOrUpdateRevenueStats(data, user, isEdited);
-        toast({ title: "Thành công", description: "Đã cập nhật doanh thu." });
+        toast.success("Đã cập nhật doanh thu.");
         setIsRevenueDialogOpen(false);
     } catch(error) {
         console.error("Failed to save revenue stats", error);
-        toast({ title: "Lỗi", description: "Không thể lưu doanh thu.", variant: "destructive" });
+        toast.error("Không thể lưu doanh thu.");
     } finally {
         setIsProcessing(false);
     }
-  }, [user, toast]);
+  }, [user]);
   
   const handleEditClick = (slip: ExpenseSlip) => {
       setSlipToEdit(slip);

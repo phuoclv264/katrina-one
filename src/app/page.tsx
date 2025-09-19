@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserRole } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
@@ -21,7 +19,6 @@ import type { AppSettings } from '@/lib/types';
 
 export default function AuthPage() {
   const { user, login, register, loading } = useAuth();
-  const { toast } = useToast();
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -40,7 +37,7 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
-      toast({ title: 'Lỗi', description: 'Vui lòng nhập email và mật khẩu.', variant: 'destructive' });
+      toast.error('Vui lòng nhập email và mật khẩu.');
       return;
     }
     setIsProcessingAuth(true);
@@ -55,7 +52,7 @@ export default function AuthPage() {
     e.preventDefault();
     
      if (!registerEmail || !registerPassword || !registerName || !registerRole) {
-      toast({ title: 'Lỗi', description: 'Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.', variant: 'destructive' });
+      toast.error('Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.');
       return;
     }
     setIsProcessingAuth(true);
@@ -63,12 +60,7 @@ export default function AuthPage() {
     try {
         const settings = await dataStore.getAppSettings();
         if (settings.isRegistrationEnabled === false) {
-          toast({
-            title: 'Tính năng đăng ký đã tắt',
-            description: 'Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.',
-            variant: 'destructive',
-            duration: 5000,
-          });
+          toast.error('Tính năng đăng ký đã tắt. Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.', { duration: 5000 });
           setIsProcessingAuth(false);
           return;
         }
@@ -79,11 +71,7 @@ export default function AuthPage() {
         }
     } catch (error) {
         console.error("Registration check failed", error);
-        toast({
-            title: 'Lỗi',
-            description: 'Không thể kiểm tra cài đặt đăng ký. Vui lòng thử lại.',
-            variant: 'destructive',
-        });
+        toast.error('Không thể kiểm tra cài đặt đăng ký. Vui lòng thử lại.');
         setIsProcessingAuth(false);
     }
   };

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
 import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
@@ -59,17 +59,6 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
     originalValue?: number;
     isImportant?: boolean;
 }) => {
-    const [localValue, setLocalValue] = useState(String(value));
-
-    useEffect(() => {
-        setLocalValue(String(value));
-    }, [value]);
-
-    const handleBlur = () => {
-        if (String(value) !== localValue) {
-            onChange(localValue);
-        }
-    };
     
     const isEdited = originalValue !== undefined && value !== originalValue;
 
@@ -82,9 +71,8 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
             <Input 
               id={id} 
               type="number" 
-              value={localValue} 
-              onChange={e => setLocalValue(e.target.value)} 
-              onBlur={handleBlur}
+              value={value} 
+              onChange={e => onChange(e.target.value)}
               placeholder="0" 
               className={cn("h-9", isImportant && "font-bold text-base")} 
             />
@@ -101,7 +89,6 @@ export default function RevenueStatsDialog({
     isProcessing,
     existingStats
 }: RevenueStatsDialogProps) {
-    const { toast } = useToast();
     const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState('image');
     
@@ -165,19 +152,15 @@ export default function RevenueStatsDialog({
 
     const handleTabChange = (value: string) => {
         if (isMobile && value === 'data' && !newImageDataUri) {
-            toast({
-                title: "Vui lòng cung cấp ảnh",
-                description: "Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.",
-                variant: "default"
-            });
+            toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.");
             return;
         }
         setActiveTab(value);
     }
 
-    const handlePaymentMethodChange = (key: keyof typeof revenueByPaymentMethod, value: string) => {
+    const handlePaymentMethodChange = useCallback((key: keyof typeof revenueByPaymentMethod, value: string) => {
         setRevenueByPaymentMethod(prev => ({ ...prev, [key]: Number(value) }));
-    };
+    }, []);
 
     const totalPaymentMethods = useMemo(() => {
         return Object.values(revenueByPaymentMethod).reduce((sum, val) => sum + val, 0);
@@ -199,11 +182,7 @@ export default function RevenueStatsDialog({
 
     const executeSave = () => {
         if (isRevenueMismatch) {
-            toast({
-                title: "Số liệu không khớp",
-                description: "Tổng doanh thu theo phương thức thanh toán phải bằng Doanh thu Net.",
-                variant: "destructive"
-            });
+            toast.error("Tổng doanh thu theo phương thức thanh toán phải bằng Doanh thu Net.");
             return;
         }
 
@@ -245,27 +224,29 @@ export default function RevenueStatsDialog({
         // Store original AI data for comparison
         setOriginalData(aiData);
 
-        toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu. Vui lòng kiểm tra lại.' });
+        toast.success('Đã điền dữ liệu từ ảnh phiếu. Vui lòng kiểm tra lại.');
         setActiveTab('data'); // Switch to data tab on success
     }
 
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
-        toast({ title: 'AI đang phân tích phiếu...' });
+        const toastId = toast.loading('AI đang phân tích phiếu...');
         setServerErrorDialog({ open: false, imageUri: null }); // Close previous error dialog
 
         try {
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
 
             if (!result.isReceipt) {
-                toast({ variant: 'destructive', title: 'Ảnh không hợp lệ', description: result.rejectionReason || 'Vui lòng thử lại với ảnh khác.' });
+                toast.error(result.rejectionReason || 'Ảnh không hợp lệ. Vui lòng thử lại với ảnh khác.');
                 setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
 
             if (!result.reportTimestamp) {
-                toast({ variant: 'destructive', title: 'Không đọc được ngày', description: 'AI không thể xác định ngày giờ trên phiếu. Vui lòng chụp lại ảnh rõ hơn.' });
+                toast.error('AI không thể xác định ngày giờ trên phiếu. Vui lòng chụp lại ảnh rõ hơn.');
                 setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
 
@@ -274,13 +255,9 @@ export default function RevenueStatsDialog({
 
             // Block if the receipt is from a previous day
             if (isBefore(reportTime, startOfDay(now))) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Phiếu thống kê đã cũ',
-                    description: `Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`,
-                    duration: 7000
-                });
+                toast.error(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`, { duration: 7000 });
                 setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
 
@@ -302,10 +279,11 @@ export default function RevenueStatsDialog({
                 setServerErrorDialog({ open: true, imageUri });
              } else {
                 console.error('OCR Error:', error);
-                toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+                toast.error('Lỗi AI: Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.');
              }
         } finally {
             setIsOcrLoading(false);
+            toast.dismiss(toastId);
         }
     };
     
@@ -326,10 +304,7 @@ export default function RevenueStatsDialog({
     
         setActiveTab('data');
         setServerErrorDialog({ open: false, imageUri: null });
-        toast({
-            title: "Chuyển sang nhập thủ công",
-            description: "Vui lòng nhập các số liệu từ phiếu thống kê."
-        });
+        toast.success("Chuyển sang nhập thủ công. Vui lòng nhập các số liệu từ phiếu thống kê.");
     };
 
 
@@ -366,7 +341,7 @@ export default function RevenueStatsDialog({
             reader.readAsDataURL(photoBlob);
         } catch(error) {
              console.error('OCR Error:', error);
-             toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
+             toast.error('Lỗi AI: Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.');
         } finally {
             await photoStore.deletePhoto(photoId);
         }
