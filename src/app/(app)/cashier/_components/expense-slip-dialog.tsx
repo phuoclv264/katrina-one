@@ -94,7 +94,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
     const ItemCard = ({ item }: { item: ExtractedInvoiceItem }) => (
         <Card className="bg-card">
             <CardContent className="p-3 text-sm">
-                <p className="font-semibold truncate">{item.itemName}</p>
+                <p className="font-semibold">{item.itemName}</p>
                 <div className="flex justify-between items-center mt-1 text-muted-foreground">
                     <span>SL: <span className="font-medium text-foreground">{item.quantity}</span></span>
                     <span>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}</span></span>
