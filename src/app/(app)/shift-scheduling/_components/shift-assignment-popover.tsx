@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
@@ -63,7 +63,6 @@ export default function ShiftAssignmentDialog({
   passRequestingUser,
 }: ShiftAssignmentDialogProps) {
     
-  const { toast } = useToast();
   const isPassAssignmentMode = !!passRequestingUser;
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
@@ -117,11 +116,7 @@ export default function ShiftAssignmentDialog({
     // Prevent manager from selecting busy users. Only owner can.
     const isAvailable = isUserAvailable(user.uid, shift.timeSlot, dailyAvailability);
     if (currentUserRole === 'Quản lý' && !isAvailable) {
-        toast({
-            title: "Không thể chọn",
-            description: "Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.",
-            variant: "default",
-        });
+        toast.error("Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.");
         return;
     }
 

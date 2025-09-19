@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -362,7 +362,6 @@ function CommentSection({
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -436,12 +435,12 @@ export default function ViolationsPage() {
     setIsProcessing(true);
     try {
         await dataStore.addOrUpdateViolation(data, id);
-        toast({ title: 'Thành công', description: 'Đã lưu lại vi phạm.' });
+        toast.success('Đã lưu lại vi phạm.');
         setIsDialogOpen(false);
         setViolationToEdit(null);
     } catch(error) {
         console.error("Failed to save violation:", error);
-        toast({ title: 'Lỗi', description: 'Không thể lưu vi phạm.', variant: 'destructive' });
+        toast.error('Không thể lưu vi phạm.');
     } finally {
         setIsProcessing(false);
     }
@@ -455,10 +454,10 @@ export default function ViolationsPage() {
     setIsProcessing(true);
     try {
         await dataStore.deleteViolation(violation);
-        toast({ title: 'Đã xóa', description: 'Đã xóa ghi nhận vi phạm.' });
+        toast.success('Đã xóa ghi nhận vi phạm.');
     } catch (error) {
         console.error("Failed to delete violation:", error);
-        toast({ title: 'Lỗi', description: 'Không thể xóa vi phạm.', variant: 'destructive' });
+        toast.error('Không thể xóa vi phạm.');
     } finally {
         setIsProcessing(false);
     }
@@ -469,13 +468,10 @@ export default function ViolationsPage() {
         setProcessingViolationId(violation.id);
         try {
             await dataStore.toggleViolationFlag(violation.id, !!violation.isFlagged);
-            toast({
-                title: 'Thành công',
-                description: violation.isFlagged ? 'Đã bỏ gắn cờ vi phạm.' : 'Đã gắn cờ vi phạm.',
-            });
+            toast.success(violation.isFlagged ? 'Đã bỏ gắn cờ vi phạm.' : 'Đã gắn cờ vi phạm.');
         } catch (error) {
             console.error("Failed to toggle flag:", error);
-            toast({ title: 'Lỗi', description: 'Không thể thay đổi trạng thái gắn cờ.', variant: 'destructive' });
+            toast.error('Không thể thay đổi trạng thái gắn cờ.');
         } finally {
             setProcessingViolationId(null);
         }
@@ -486,13 +482,10 @@ export default function ViolationsPage() {
         setProcessingViolationId(violation.id);
         try {
             await dataStore.toggleViolationPenaltyWaived(violation.id, !!violation.isPenaltyWaived);
-            toast({
-                title: 'Thành công',
-                description: violation.isPenaltyWaived ? 'Đã hủy miễn phạt.' : 'Đã miễn phạt cho vi phạm này.',
-            });
+            toast.success(violation.isPenaltyWaived ? 'Đã hủy miễn phạt.' : 'Đã miễn phạt cho vi phạm này.');
         } catch (error) {
             console.error("Failed to waive penalty:", error);
-            toast({ title: 'Lỗi', description: 'Không thể thay đổi trạng thái miễn phạt.', variant: 'destructive' });
+            toast.error('Không thể thay đổi trạng thái miễn phạt.');
         } finally {
             setProcessingViolationId(null);
         }
@@ -508,10 +501,10 @@ export default function ViolationsPage() {
           text: commentText,
         };
         await dataStore.addCommentToViolation(violationId, commentData, photoIds);
-        toast({ title: 'Đã gửi bình luận' });
+        toast.success('Đã gửi bình luận');
       } catch (error) {
         console.error("Failed to submit comment:", error);
-        toast({ title: 'Lỗi', description: 'Không thể gửi bình luận.', variant: 'destructive' });
+        toast.error('Không thể gửi bình luận.');
       } finally {
         setProcessingViolationId(null);
       }
@@ -521,10 +514,10 @@ export default function ViolationsPage() {
         setProcessingViolationId(violationId);
         try {
             await dataStore.editCommentInViolation(violationId, commentId, newText);
-            toast({ title: 'Đã cập nhật bình luận' });
+            toast.success('Đã cập nhật bình luận');
         } catch (error) {
             console.error("Failed to edit comment:", error);
-            toast({ title: 'Lỗi', description: 'Không thể cập nhật bình luận.', variant: 'destructive' });
+            toast.error('Không thể cập nhật bình luận.');
         } finally {
             setProcessingViolationId(null);
         }
@@ -534,10 +527,10 @@ export default function ViolationsPage() {
         setProcessingViolationId(violationId);
         try {
             await dataStore.deleteCommentInViolation(violationId, commentId);
-            toast({ title: 'Đã xóa bình luận' });
+            toast.success('Đã xóa bình luận');
         } catch (error) {
             console.error("Failed to delete comment:", error);
-            toast({ title: 'Lỗi', description: 'Không thể xóa bình luận.', variant: 'destructive' });
+            toast.error('Không thể xóa bình luận.');
         } finally {
             setProcessingViolationId(null);
         }
@@ -551,7 +544,7 @@ export default function ViolationsPage() {
         
         setProcessingViolationId(activeViolationForPenalty.id);
         const violationId = activeViolationForPenalty.id;
-        toast({ title: 'Đang xử lý...', description: 'Bằng chứng nộp phạt đang được tải lên.' });
+        toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
         try {
             const newPhotoUrls = await dataStore.submitPenaltyProof(violationId, photoIds);
@@ -571,11 +564,12 @@ export default function ViolationsPage() {
                 })
             );
 
-            toast({ title: 'Thành công', description: 'Đã cập nhật bằng chứng nộp phạt.' });
+            toast.success('Đã cập nhật bằng chứng nộp phạt.');
         } catch (error) {
             console.error("Failed to submit penalty proof:", error);
-            toast({ title: 'Lỗi', description: 'Không thể gửi bằng chứng nộp phạt.', variant: 'destructive' });
+            toast.error('Không thể gửi bằng chứng nộp phạt.');
         } finally {
+            toast.dismiss();
             setProcessingViolationId(null);
             setActiveViolationForPenalty(null);
         }

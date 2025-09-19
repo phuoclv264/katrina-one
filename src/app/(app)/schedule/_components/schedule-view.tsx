@@ -8,7 +8,7 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
@@ -46,7 +46,6 @@ import ShiftInfoDialog from './shift-info-dialog';
 export default function ScheduleView() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
-    const { toast } = useToast();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -178,10 +177,10 @@ export default function ScheduleView() {
 
         try {
             await dataStore.updateSchedule(weekId, dataToSave);
-            toast({ title: 'Thành công', description: 'Đã cập nhật thời gian rảnh của bạn.' });
+            toast.success('Đã cập nhật thời gian rảnh của bạn.');
         } catch (error) {
             console.error("Failed to save availability:", error);
-            toast({ title: 'Lỗi', description: 'Không thể lưu thời gian rảnh.', variant: 'destructive' });
+            toast.error('Không thể lưu thời gian rảnh.');
         }
     
         setIsAvailabilityDialogOpen(false);
@@ -191,11 +190,11 @@ export default function ScheduleView() {
         if (!user || !schedule) return;
         try {
             await dataStore.requestPassShift(shift, user);
-            toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.'});
+            toast.success('Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.');
         } catch (error: any) {
             console.error("Failed to pass shift:", error);
             const errorMessage = error.message || 'Không thể gửi yêu cầu pass ca.';
-            toast({ title: 'Lỗi', description: errorMessage, variant: 'destructive' });
+            toast.error(errorMessage);
         }
     }
     
@@ -204,10 +203,10 @@ export default function ScheduleView() {
         setIsProcessing(true);
         try {
             await dataStore.requestDirectPassShift(shift, user, targetUser);
-            toast({ title: "Đã gửi yêu cầu", description: `Yêu cầu đổi ca đã được gửi trực tiếp đến ${targetUser.displayName}.`});
+            toast.success(`Yêu cầu đổi ca đã được gửi trực tiếp đến ${targetUser.displayName}.`);
         } catch(error: any) {
             console.error("Failed to send direct pass request:", error);
-            toast({ title: 'Lỗi', description: `Không thể gửi yêu cầu: ${error.message}`, variant: 'destructive' });
+            toast.error(`Không thể gửi yêu cầu: ${error.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -236,10 +235,7 @@ export default function ScheduleView() {
         const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
         
         if (conflict) {
-            toast({
-                title: 'Không thể nhận ca',
-                description: `Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`,
-                variant: 'destructive',
+            toast.error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`, {
                 duration: 7000,
             });
             setIsProcessing(false);
@@ -266,10 +262,10 @@ export default function ScheduleView() {
                 return n;
             }));
 
-            toast({ title: 'Thành công!', description: 'Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.'});
+            toast.success('Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.');
         } catch (error: any) {
             console.error("Failed to take shift:", error);
-            toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+            toast.error(error.message);
         } finally {
             setIsProcessing(false);
             delete (window as any).processingNotificationId;
@@ -280,9 +276,9 @@ export default function ScheduleView() {
         if (!user) return;
         try {
             await dataStore.declinePassShift(notification.id, user.uid);
-            toast({ title: 'Đã từ chối', description: 'Bạn sẽ không thấy lại yêu cầu này.'});
+            toast.success('Đã từ chối. Bạn sẽ không thấy lại yêu cầu này.');
         } catch (error: any) {
-            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive' });
+            toast.error('Không thể từ chối yêu cầu.');
         }
     }
 
@@ -290,9 +286,9 @@ export default function ScheduleView() {
         if (!user) return;
         try {
             await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
-             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca của bạn.'});
+             toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
-             toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
+             toast.error('Không thể hủy yêu cầu.');
         }
     }
 
@@ -300,10 +296,10 @@ export default function ScheduleView() {
         if (!user) return;
          try {
             await dataStore.revertPassRequest(notification, user);
-            toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
+            toast.success('Đã hoàn tác yêu cầu pass ca thành công.');
         } catch (error) {
             console.error(error);
-            toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+            toast.error('Không thể hoàn tác yêu cầu.');
         }
     }
 
@@ -313,10 +309,10 @@ export default function ScheduleView() {
         setIsProcessing(true);
         try {
             await dataStore.approvePassRequest(notification, user);
-            toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
+            toast.success('Đã phê duyệt yêu cầu đổi ca.');
         } catch (error: any) {
             console.error(error);
-            toast({ title: 'Lỗi', description: `Không thể phê duyệt: ${error.message}`, variant: 'destructive'});
+            toast.error(`Không thể phê duyệt: ${error.message}`);
         } finally {
             setIsProcessing(false);
             delete (window as any).processingNotificationId;
@@ -329,10 +325,10 @@ export default function ScheduleView() {
         setIsProcessing(true);
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
-            toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
+            toast.success('Yêu cầu đổi ca đã được trả lại.');
         } catch (error: any) {
             console.error(error);
-            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
+            toast.error('Không thể từ chối yêu cầu.');
         } finally {
             setIsProcessing(false);
             delete (window as any).processingNotificationId;
@@ -633,6 +629,7 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
 
 

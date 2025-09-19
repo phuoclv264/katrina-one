@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Trash2, Plus, Edit, Loader2, Check, Users } from 'lucide-react';
 import type { ShiftTemplate, UserRole } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,6 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<Partial<ShiftTemplate>>({});
-  const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -65,11 +64,11 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
 
       try {
         await dataStore.updateShiftTemplates(finalTemplates);
-        toast({ title: 'Đã lưu', description: 'Đã cập nhật danh sách ca mẫu.' });
+        toast.success('Đã cập nhật danh sách ca mẫu.');
         setIsEditing(null);
         setCurrentTemplate({});
       } catch (error) {
-        toast({ title: 'Lỗi', description: 'Không thể lưu ca mẫu.', variant: 'destructive'});
+        toast.error('Không thể lưu ca mẫu.');
       }
   }
   
@@ -86,9 +85,9 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
     const finalTemplates = templates.filter(t => t.id !== id);
     try {
         await dataStore.updateShiftTemplates(finalTemplates);
-        toast({ title: 'Đã xóa', description: 'Đã xóa ca làm việc mẫu.'});
+        toast.success('Đã xóa ca làm việc mẫu.');
     } catch (error) {
-        toast({ title: 'Lỗi', description: 'Không thể xóa ca mẫu.', variant: 'destructive'});
+        toast.error('Không thể xóa ca mẫu.');
     }
   }
 

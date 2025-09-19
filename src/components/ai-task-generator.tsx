@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -5,7 +6,7 @@ import { generateStartingTaskList } from '@/ai/flows/generate-starting-task-list
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Sparkles, Wand2 } from 'lucide-react';
 import type { Task } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
@@ -17,7 +18,6 @@ type Props = {
 export default function AiTaskGenerator({ onGenerate }: Props) {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   const handleGenerate = async () => {
     if (prompt.trim() === '') return;
@@ -28,21 +28,15 @@ export default function AiTaskGenerator({ onGenerate }: Props) {
         const newTasks: Task[] = result.taskList.map(text => ({
           id: `task-${Date.now()}-${Math.random()}`,
           text,
+          type: 'photo', // Default type
         }));
         onGenerate(newTasks);
         setPrompt('');
-        toast({
-          title: "Tasks Generated!",
-          description: `${newTasks.length} new tasks have been added to your list.`,
-        });
+        toast.success(`${newTasks.length} new tasks have been added to your list.`);
       }
     } catch (error) {
       console.error(error);
-      toast({
-        title: "Error",
-        description: "Failed to generate tasks. Please try again.",
-        variant: "destructive"
-      })
+      toast.error("Failed to generate tasks. Please try again.");
     } finally {
       setIsLoading(false);
     }

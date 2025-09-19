@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Camera, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { photoStore } from '@/lib/photo-store';
@@ -25,7 +25,6 @@ type CameraDialogProps = {
 };
 
 export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMode = false }: CameraDialogProps) {
-  const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -72,15 +71,11 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
     } catch (error: any) {
       console.error('Error accessing camera:', error);
       setHasCameraPermission(false);
-       toast({
-        variant: 'destructive',
-        title: 'Không thể truy cập camera',
-        description: 'Vui lòng cho phép truy cập camera trong cài đặt trình duyệt của bạn.',
-      });
+       toast.error('Không thể truy cập camera. Vui lòng cho phép truy cập camera trong cài đặt trình duyệt của bạn.');
     } finally {
         setIsStarting(false);
     }
-  }, [isStarting, stopCameraStream, toast]);
+  }, [isStarting, stopCameraStream]);
 
   
   useEffect(() => {
@@ -155,11 +150,7 @@ export default function CameraDialog({ isOpen, onClose, onSubmit, singlePhotoMod
                     }
                 } catch(error) {
                     console.error("Failed to save photo to IndexedDB", error);
-                    toast({
-                        title: "Lỗi lưu ảnh",
-                        description: "Không thể lưu ảnh tạm thời. Vui lòng thử lại.",
-                        variant: "destructive"
-                    });
+                    toast.error("Lỗi lưu ảnh: Không thể lưu ảnh tạm thời. Vui lòng thử lại.");
                 }
             }
         }, 'image/jpeg', 1); // 100% quality

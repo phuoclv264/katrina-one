@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,7 +114,6 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
 export default function UsersPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
-    const { toast } = useToast();
     const [users, setUsers] = useState<ManagedUser[]>([]);
     const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -165,10 +164,10 @@ export default function UsersPage() {
         setIsProcessing(true);
         try {
             await dataStore.updateUserData(editingUser.uid, data);
-            toast({ title: "Thành công", description: "Đã cập nhật thông tin người dùng." });
+            toast.success("Đã cập nhật thông tin người dùng.");
         } catch(error) {
             console.error("Failed to update user:", error);
-            toast({ title: "Lỗi", description: "Không thể cập nhật thông tin người dùng.", variant: "destructive" });
+            toast.error("Không thể cập nhật thông tin người dùng.");
         } finally {
             setIsProcessing(false);
             setEditingUser(null);
@@ -178,16 +177,16 @@ export default function UsersPage() {
     
     const handleDeleteUser = async (userToDelete: ManagedUser) => {
         if (userToDelete.uid === user?.uid) {
-            toast({ title: "Lỗi", description: "Bạn không thể xóa chính mình.", variant: "destructive" });
+            toast.error("Bạn không thể xóa chính mình.");
             return;
         }
         setIsProcessing(true);
         try {
             await dataStore.deleteUser(userToDelete.uid);
-            toast({ title: "Đã xóa", description: `Đã xóa người dùng ${userToDelete.displayName}.` });
+            toast.success(`Đã xóa người dùng ${userToDelete.displayName}.`);
         } catch(error) {
             console.error("Failed to delete user:", error);
-            toast({ title: "Lỗi", description: "Không thể xóa người dùng.", variant: "destructive" });
+            toast.error("Không thể xóa người dùng.");
         } finally {
             setIsProcessing(false);
         }
@@ -196,10 +195,7 @@ export default function UsersPage() {
     const handleRegistrationToggle = async (isEnabled: boolean) => {
         setAppSettings(prev => ({...prev!, isRegistrationEnabled: isEnabled})); // Optimistic update
         await dataStore.updateAppSettings({ isRegistrationEnabled: isEnabled });
-        toast({
-            title: `Đã ${isEnabled ? 'bật' : 'tắt'} tính năng đăng ký`,
-            description: `Người dùng mới ${isEnabled ? 'có thể' : 'không thể'} tạo tài khoản.`,
-        })
+        toast.success(`Đã ${isEnabled ? 'bật' : 'tắt'} tính năng đăng ký. Người dùng mới ${isEnabled ? 'có thể' : 'không thể'} tạo tài khoản.`);
     }
     
     if(isLoading || authLoading) {

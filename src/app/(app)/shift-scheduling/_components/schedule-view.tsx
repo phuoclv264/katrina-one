@@ -47,7 +47,7 @@ import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursTracker from './total-hours-tracker';
@@ -87,7 +87,6 @@ const roleOrder: Record<UserRole, number> = {
 
 export default function ScheduleView() {
     const { user } = useAuth();
-    const { toast } = useToast();
     const isMobile = useIsMobile();
     
     const getInitialDate = () => {
@@ -302,9 +301,9 @@ export default function ScheduleView() {
                 setIsSubmitting(true);
                 try {
                     await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign, user);
-                    toast({ title: 'Thành công!', description: `Đã chỉ định ca cho ${userToAssign.userName}.` });
+                    toast.success(`Đã chỉ định ca cho ${userToAssign.userName}.`);
                 } catch (error: any) {
-                    toast({ title: 'Lỗi', description: `Không thể chỉ định ca: ${error.message}`, variant: 'destructive' });
+                    toast.error(`Không thể chỉ định ca: ${error.message}`);
                 } finally {
                     setIsSubmitting(false);
                     setActiveNotification(null);
@@ -331,19 +330,19 @@ export default function ScheduleView() {
             }
         }
         handleLocalScheduleUpdate({ ...baseSchedule, shifts: updatedShifts });
-    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, toast, weekId, user]);
+    }, [localSchedule, handleLocalScheduleUpdate, activeNotification, weekId, user]);
 
     const handleSaveChanges = async () => {
         if (!localSchedule || !hasUnsavedChanges) return;
         setIsSubmitting(true);
         try {
             await dataStore.updateSchedule(weekId, localSchedule);
-            toast({ title: "Đã lưu!", description: "Lịch làm việc đã được cập nhật." });
+            toast.success("Lịch làm việc đã được cập nhật.");
             setHasUnsavedChanges(false);
             setServerSchedule(localSchedule); // Sync server state with local
         } catch (error) {
             console.error("Failed to save changes:", error);
-            toast({ title: 'Lỗi', description: 'Không thể lưu thay đổi.', variant: 'destructive' });
+            toast.error('Không thể lưu thay đổi.');
         } finally {
             setIsSubmitting(false);
         }
@@ -361,10 +360,10 @@ export default function ScheduleView() {
             };
             await dataStore.updateSchedule(weekId, newSchedule);
             // The onSnapshot listener will then pick up this new schedule and update the state.
-            toast({ title: 'Thành công', description: 'Đã tạo lịch nháp mới cho tuần.' });
+            toast.success('Đã tạo lịch nháp mới cho tuần.');
         } catch (error) {
             console.error("Failed to create draft schedule:", error);
-            toast({ title: 'Lỗi', description: 'Không thể tạo lịch nháp.', variant: 'destructive' });
+            toast.error('Không thể tạo lịch nháp.');
         } finally {
             setIsSubmitting(false);
         }
@@ -414,18 +413,18 @@ export default function ScheduleView() {
         try {
             const dataToUpdate = { ...localSchedule, status: newStatus };
             await dataStore.updateSchedule(weekId, dataToUpdate);
-            toast({ title: 'Thành công!', description: `Đã cập nhật trạng thái lịch thành: ${newStatus}` });
+            toast.success(`Đã cập nhật trạng thái lịch thành: ${newStatus}`);
             setHasUnsavedChanges(false);
     
             if (newStatus === 'published' && user.role === 'Chủ nhà hàng') {
                 const nextWeekDate = addDays(currentDate, 7);
                 await dataStore.createDraftScheduleForNextWeek(nextWeekDate, shiftTemplates);
-                toast({ title: 'Đã tạo lịch nháp', description: 'Lịch cho tuần kế tiếp đã được tự động tạo.' });
+                toast.success('Lịch cho tuần kế tiếp đã được tự động tạo.');
             }
     
         } catch (error) {
             console.error("Failed to update schedule status:", error);
-            toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái lịch.', variant: 'destructive' });
+            toast.error('Không thể cập nhật trạng thái lịch.');
         } finally {
             setIsSubmitting(false);
         }
@@ -456,9 +455,9 @@ export default function ScheduleView() {
         if (!user) return;
         try {
             await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
-             toast({ title: 'Thành công', description: 'Đã hủy yêu cầu pass ca.'});
+             toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
-             toast({ title: 'Lỗi', description: 'Không thể hủy yêu cầu.', variant: 'destructive' });
+             toast.error('Không thể hủy yêu cầu.');
         }
     }
     
@@ -466,10 +465,10 @@ export default function ScheduleView() {
         if (!user) return;
          try {
             await dataStore.revertPassRequest(notification, user);
-            toast({ title: 'Thành công', description: 'Đã hoàn tác yêu cầu pass ca thành công.'});
+            toast.success('Đã hoàn tác yêu cầu pass ca thành công.');
         } catch (error) {
             console.error(error);
-            toast({ title: 'Lỗi', description: 'Không thể hoàn tác yêu cầu.', variant: 'destructive'});
+            toast.error('Không thể hoàn tác yêu cầu.');
         }
     }
 
@@ -479,7 +478,7 @@ export default function ScheduleView() {
         setIsSubmitting(true);
         try {
             await dataStore.approvePassRequest(notification, user);
-            toast({ title: 'Thành công', description: 'Đã phê duyệt yêu cầu đổi ca.'});
+            toast.success('Đã phê duyệt yêu cầu đổi ca.');
         } catch (error: any) {
             console.error(error);
             let errorMessage = 'Không thể phê duyệt yêu cầu.';
@@ -490,7 +489,7 @@ export default function ScheduleView() {
                     errorMessage = error.message.replace('ALREADY_RESOLVED:', '').trim();
                 }
             }
-            toast({ title: 'Lỗi Phê duyệt', description: errorMessage, variant: 'destructive'});
+            toast.error(errorMessage);
         } finally {
             setIsSubmitting(false);
             delete (window as any).processingNotificationId;
@@ -503,10 +502,10 @@ export default function ScheduleView() {
         setIsSubmitting(true);
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
-            toast({ title: 'Đã từ chối', description: 'Yêu cầu đổi ca đã được trả lại.'});
+            toast.success('Yêu cầu đổi ca đã được trả lại.');
         } catch (error: any) {
             console.error(error);
-            toast({ title: 'Lỗi', description: 'Không thể từ chối yêu cầu.', variant: 'destructive'});
+            toast.error('Không thể từ chối yêu cầu.');
         } finally {
             setIsSubmitting(false);
             delete (window as any).processingNotificationId;
@@ -519,7 +518,7 @@ export default function ScheduleView() {
         if (shiftToAssign) {
             handleOpenAssignmentDialog(shiftToAssign, notification);
         } else {
-             toast({ title: 'Lỗi', description: 'Không tìm thấy ca làm việc để chỉ định.', variant: 'destructive'});
+             toast.error('Không tìm thấy ca làm việc để chỉ định.');
         }
     }
 
