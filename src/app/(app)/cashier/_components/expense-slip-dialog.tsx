@@ -101,7 +101,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
                     <div>
                         <h4 className="font-semibold mb-2 text-green-600">Đã khớp ({matchedItems.length})</h4>
-                        <ScrollArea className="h-72">
+                        <ScrollArea className="h-72 rounded-md border bg-background">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -124,7 +124,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                     </div>
                      <div>
                         <h4 className="font-semibold mb-2 text-red-600">Không khớp ({unmatchedItems.length})</h4>
-                         <ScrollArea className="h-72">
+                         <ScrollArea className="h-72 rounded-md border bg-background">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
