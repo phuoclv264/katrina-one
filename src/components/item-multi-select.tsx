@@ -70,7 +70,7 @@ export function ItemMultiSelect({
                   <Badge
                     key={item.itemId}
                     variant="secondary"
-                    className="mr-1 mb-1 whitespace-normal h-auto bg-background text-foreground"
+                    className="mr-1 mb-1 whitespace-normal h-auto bg-card text-card-foreground"
                   >
                     {item.name}
                   </Badge>
