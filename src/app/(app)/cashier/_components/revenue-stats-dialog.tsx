@@ -51,7 +51,7 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
 };
 
 // Sub-component for input fields to prevent re-render focus loss issue
-const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant, isSubtle }: {
+const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant, isSubtle, inputClassName }: {
     id: string;
     label: string;
     value: number;
@@ -59,6 +59,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
     originalValue?: number;
     isImportant?: boolean;
     isSubtle?: boolean;
+    inputClassName?: string;
 }) => {
     const [localValue, setLocalValue] = useState(String(value));
     
@@ -88,7 +89,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
               onBlur={handleBlur}
               onFocus={(e) => e.target.select()}
               placeholder="0" 
-              className={cn(isImportant ? "h-11 text-lg font-bold" : "h-9", "text-right")} 
+              className={cn(isImportant ? "h-11 font-bold" : "h-9", "text-right", inputClassName)} 
             />
         </div>
     );
@@ -442,6 +443,7 @@ export default function RevenueStatsDialog({
                                                 onChange={(val) => setNetRevenue(Number(val))}
                                                 originalValue={originalData?.netRevenue}
                                                 isImportant={true}
+                                                inputClassName="text-base"
                                             />
                                         </CardContent>
                                     </Card>
@@ -584,4 +586,5 @@ export default function RevenueStatsDialog({
         </>
     );
 }
+
 
