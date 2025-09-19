@@ -412,70 +412,68 @@ export default function RevenueStatsDialog({
                             </Card>
 
                             {/* --- Data Section (Conditional) --- */}
-                            {displayImageDataUri && (
-                                <ScrollArea className="max-h-[50vh] w-full rounded-md border bg-muted/30 shadow-inner">
-                                    <div className="p-4 space-y-4">
-                                        {reportTimestamp && (
-                                            <div className="grid grid-cols-2 items-center gap-2">
-                                                <Label className="text-sm text-right flex items-center gap-2 justify-end">Thời gian trên phiếu</Label>
-                                                <div className="text-sm font-semibold p-2 bg-background rounded-md text-center">{format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}</div>
-                                            </div>
-                                        )}
-                                        <InputField
-                                            id="netRevenue"
-                                            label="Doanh thu Net"
-                                            value={netRevenue}
-                                            onChange={(val) => setNetRevenue(Number(val))}
-                                            originalValue={originalData?.netRevenue}
-                                            isImportant={true}
-                                        />
-                                        <Card>
-                                            <CardHeader className="pb-2 pt-4">
-                                                <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-2">
-                                                {Object.entries(revenueByPaymentMethod).map(([key, value]) =>
-                                                    <InputField
-                                                        key={`pm-${key}`}
-                                                        id={`pm-${key}`}
-                                                        label={paymentMethodLabels[key as keyof typeof paymentMethodLabels]}
-                                                        value={value}
-                                                        onChange={(val) => handlePaymentMethodChange(key as any, val)}
-                                                        originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
-                                                    />
+                             {displayImageDataUri && (
+                                <div className="rounded-md border bg-muted/30 shadow-inner p-4 space-y-4">
+                                    {reportTimestamp && (
+                                        <div className="grid grid-cols-2 items-center gap-2">
+                                            <Label className="text-sm text-right flex items-center gap-2 justify-end">Thời gian trên phiếu</Label>
+                                            <div className="text-sm font-semibold p-2 bg-background rounded-md text-center">{format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}</div>
+                                        </div>
+                                    )}
+                                    <InputField
+                                        id="netRevenue"
+                                        label="Doanh thu Net"
+                                        value={netRevenue}
+                                        onChange={(val) => setNetRevenue(Number(val))}
+                                        originalValue={originalData?.netRevenue}
+                                        isImportant={true}
+                                    />
+                                    <Card>
+                                        <CardHeader className="pb-2 pt-4">
+                                            <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            {Object.entries(revenueByPaymentMethod).map(([key, value]) =>
+                                                <InputField
+                                                    key={`pm-${key}`}
+                                                    id={`pm-${key}`}
+                                                    label={paymentMethodLabels[key as keyof typeof paymentMethodLabels]}
+                                                    value={value}
+                                                    onChange={(val) => handlePaymentMethodChange(key as any, val)}
+                                                    originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
+                                                />
+                                            )}
+                                            <div className="text-right pt-2">
+                                                <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+                                                {isRevenueMismatch && (
+                                                    <p className="text-xs text-destructive font-semibold">Không khớp Doanh thu Net!</p>
                                                 )}
-                                                <div className="text-right pt-2">
-                                                    <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
-                                                    {isRevenueMismatch && (
-                                                        <p className="text-xs text-destructive font-semibold">Không khớp Doanh thu Net!</p>
-                                                    )}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
 
-                                        <InputField
-                                            id="deliveryPayout"
-                                            label="Trả cho ĐTGH"
-                                            value={deliveryPartnerPayout}
-                                            onChange={(val) => setDeliveryPartnerPayout(Number(val))}
-                                            originalValue={originalData?.deliveryPartnerPayout}
-                                        />
-                                        <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
-                                            <Info className="h-3 w-3 mt-0.5 shrink-0" />
-                                            <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
-                                        </p>
+                                    <InputField
+                                        id="deliveryPayout"
+                                        label="Trả cho ĐTGH"
+                                        value={deliveryPartnerPayout}
+                                        onChange={(val) => setDeliveryPartnerPayout(Number(val))}
+                                        originalValue={originalData?.deliveryPartnerPayout}
+                                    />
+                                    <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
+                                        <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                                        <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
+                                    </p>
 
-                                        {hasBeenEdited && (
-                                            <Alert variant="default" className="mt-4 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
-                                                <Edit className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
-                                                <AlertTitle>Đã chỉnh sửa thủ công</AlertTitle>
-                                                <AlertDescription>
-                                                    Số liệu đã được thay đổi so với kết quả AI đọc được.
-                                                </AlertDescription>
-                                            </Alert>
-                                        )}
-                                    </div>
-                                </ScrollArea>
+                                    {hasBeenEdited && (
+                                        <Alert variant="default" className="mt-4 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
+                                            <Edit className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
+                                            <AlertTitle>Đã chỉnh sửa thủ công</AlertTitle>
+                                            <AlertDescription>
+                                                Số liệu đã được thay đổi so với kết quả AI đọc được.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
