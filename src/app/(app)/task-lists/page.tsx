@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sun, Moon, Sunset } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -51,8 +51,6 @@ function AiAssistant({
     const [showSortPreview, setShowSortPreview] = useState(false);
     const [sortPreview, setSortPreview] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
 
-    const { toast } = useToast();
-
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -80,12 +78,12 @@ function AiAssistant({
                 : { source, imageDataUri: imageInput! };
 
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
-                toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
+                toast.error("Vui lòng cung cấp đầu vào.");
                 setIsGenerating(false);
                 return;
             }
 
-            toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian." });
+            toast.loading("AI đang xử lý...");
 
             const result = await generateServerTasks(input);
 
@@ -98,16 +96,17 @@ function AiAssistant({
 
         } catch (error) {
             console.error("Failed to generate server tasks:", error);
-            toast({ title: "Lỗi", description: "Không thể tạo danh sách công việc. Vui lòng thử lại.", variant: "destructive" });
+            toast.error("Không thể tạo danh sách công việc. Vui lòng thử lại.");
         } finally {
             setIsGenerating(false);
+            toast.dismiss();
         }
     };
     
     const handleConfirmAdd = () => {
         // AI will determine the shift and section from the text, but we need a fallback
         onAddTasks(addPreviewTasks, targetShift, targetSection);
-        toast({ title: "Hoàn tất!", description: `Đã thêm ${addPreviewTasks.length} công việc mới.` });
+        toast.success(`Đã thêm ${addPreviewTasks.length} công việc mới.`);
         resetAddState();
         setShowAddPreview(false);
         setAddPreviewTasks([]);
@@ -115,22 +114,22 @@ function AiAssistant({
 
     const handleGenerateSort = async () => {
         if (!targetShift || !targetSection) {
-            toast({ title: "Lỗi", description: "Vui lòng chọn ca và mục để sắp xếp.", variant: "destructive" });
+            toast.error("Vui lòng chọn ca và mục để sắp xếp.");
             return;
         }
         if (!sortInstruction.trim()) {
-            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu sắp xếp.", variant: "destructive" });
+            toast.error("Vui lòng nhập yêu cầu sắp xếp.");
             return;
         }
 
         const sectionToSort = tasksByShift?.[targetShift]?.sections.find(s => s.title === targetSection);
         if (!sectionToSort || sectionToSort.tasks.length < 2) {
-            toast({ title: "Không cần sắp xếp", description: "Mục này có ít hơn 2 công việc.", variant: "default" });
+            toast("Mục này có ít hơn 2 công việc.", { icon: 'ℹ️' });
             return;
         }
         
         setIsGenerating(true);
-        toast({ title: "AI đang sắp xếp...", description: "Vui lòng đợi một lát." });
+        toast.loading("AI đang sắp xếp...");
 
         try {
             const currentTasks = sectionToSort.tasks.map(t => t.text);
@@ -149,15 +148,16 @@ function AiAssistant({
 
         } catch (error) {
             console.error("Failed to sort tasks:", error);
-            toast({ title: "Lỗi", description: "Không thể sắp xếp công việc. Vui lòng thử lại.", variant: "destructive" });
+            toast.error("Không thể sắp xếp công việc. Vui lòng thử lại.");
         } finally {
             setIsGenerating(false);
+            toast.dismiss();
         }
     };
     
     const handleConfirmSort = () => {
         onSortTasks(sortPreview.newOrder, targetShift, targetSection);
-        toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại công việc.` });
+        toast.success(`Đã sắp xếp lại công việc.`);
         setShowSortPreview(false);
         setSortInstruction('');
     };
@@ -331,7 +331,6 @@ function AiAssistant({
 export default function TaskListsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
@@ -369,17 +368,10 @@ export default function TaskListsPage() {
     setTasksByShift(newTasks); 
     dataStore.updateTasks(newTasks).then(() => {
         if(showToast) {
-            toast({
-                title: "Đã lưu thay đổi!",
-                description: "Danh sách công việc đã được cập nhật trên cloud.",
-            });
+            toast.success("Đã lưu thay đổi!");
         }
     }).catch(err => {
-       toast({
-          title: "Lỗi!",
-          description: "Không thể lưu thay đổi. Vui lòng thử lại.",
-          variant: "destructive"
-      });
+       toast.error("Không thể lưu thay đổi. Vui lòng thử lại.");
       console.error(err);
     });
   }
@@ -411,7 +403,7 @@ export default function TaskListsPage() {
               });
           }
       } else {
-          toast({ title: "Lỗi", description: "Không tìm thấy ca hoặc mục để thêm công việc vào.", variant: "destructive"});
+          toast.error("Không tìm thấy ca hoặc mục để thêm công việc vào.");
       }
   };
 
@@ -428,7 +420,7 @@ export default function TaskListsPage() {
             section.tasks = sortedTasks;
             handleUpdateAndSave(newTasksState);
         } else {
-            toast({ title: "Lỗi sắp xếp", description: "Không thể khớp các công việc đã sắp xếp. Thay đổi đã bị hủy.", variant: "destructive" });
+            toast.error("Không thể khớp các công việc đã sắp xếp. Thay đổi đã bị hủy.");
         }
     }
   };
@@ -545,9 +537,7 @@ export default function TaskListsPage() {
     const newSortState = !isSorting;
     setIsSorting(newSortState);
     if (!newSortState) {
-        toast({
-            title: "Đã lưu thứ tự mới!",
-        });
+        toast.success("Đã lưu thứ tự mới!");
     }
   }
 
@@ -561,16 +551,9 @@ export default function TaskListsPage() {
             ).join('\n\n');
 
         navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({
-                title: "Đã sao chép!",
-                description: `Danh sách công việc của ${shift.name} đã được sao chép.`,
-            });
+            toast.success(`Danh sách công việc của ${shift.name} đã được sao chép.`);
         }).catch(err => {
-            toast({
-                title: "Lỗi",
-                description: "Không thể sao chép.",
-                variant: "destructive",
-            });
+            toast.error("Không thể sao chép.");
         });
     };
 
