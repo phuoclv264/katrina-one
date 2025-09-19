@@ -89,7 +89,7 @@ function ViolationDialog({
 
   const handleSave = () => {
     if (!content || selectedUsers.length === 0 || !selectedCategory) {
-      alert('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
+      toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
     

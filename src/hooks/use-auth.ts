@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -105,7 +106,11 @@ export const useAuth = () => {
        return true;
     } catch (error: any) {
        console.error(error);
-      toast.error(error.message);
+      let errorMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Email này đã được sử dụng.';
+      }
+      toast.error(errorMessage);
       return false;
     }
   }, []);

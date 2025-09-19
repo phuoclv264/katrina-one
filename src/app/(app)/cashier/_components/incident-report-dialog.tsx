@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { IncidentReport } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
 
 type IncidentReportDialogProps = {
     open: boolean;
@@ -35,7 +37,7 @@ export default function IncidentReportDialog({
 
     const handleSave = () => {
         if (!content) {
-            alert('Vui lòng nhập nội dung sự cố.');
+            toast.error('Vui lòng nhập nội dung sự cố.');
             return;
         }
 

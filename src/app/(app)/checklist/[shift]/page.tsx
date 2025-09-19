@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Send, ArrowLeft, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, MessageSquareWarning, ShieldAlert } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -40,7 +40,6 @@ const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
 };
 
 export default function ChecklistPage() {
-  const { toast } = useToast();
   const { user, loading: isAuthLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
@@ -193,7 +192,7 @@ export default function ChecklistPage() {
                 };
                 setReport(newReport);
                 setSyncStatus('error');
-                toast({ title: "Lỗi", description: "Không thể tải báo cáo đã nộp.", variant: "destructive"});
+                toast.error("Không thể tải báo cáo đã nộp.");
             }
         } finally {
             if(isMounted) setIsLoading(false);
@@ -217,11 +216,7 @@ export default function ChecklistPage() {
             console.error("Error loading report:", error);
             if(isMounted) {
               setSyncStatus('error');
-              toast({
-                  title: "Lỗi tải dữ liệu",
-                  description: "Không thể tải hoặc đồng bộ báo cáo. Vui lòng thử lại.",
-                  variant: "destructive"
-              });
+              toast.error("Lỗi tải dữ liệu. Không thể tải hoặc đồng bộ báo cáo.");
             }
         } finally {
             if(isMounted) setIsLoading(false);
@@ -231,7 +226,7 @@ export default function ChecklistPage() {
 
     loadData();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, isReadonly, isReadonlyChecked, toast]);
+  }, [isAuthLoading, user, shiftKey, isReadonly, isReadonlyChecked]);
   
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -443,11 +438,7 @@ export default function ChecklistPage() {
 
         // Final check before submitting
         if (isReadonly) {
-            toast({
-                title: "Đã hết giờ làm việc",
-                description: "Bạn không thể gửi báo cáo ngoài giờ làm việc cho phép.",
-                variant: "destructive",
-            });
+            toast.error("Đã hết giờ làm việc. Bạn không thể gửi báo cáo ngoài giờ làm việc cho phép.");
             router.refresh();
             return;
         }
@@ -461,11 +452,7 @@ export default function ChecklistPage() {
             );
 
             if (hasCompletedEndOfShiftTask && (!submissionNotes || submissionNotes.trim() === '')) {
-                toast({
-                    title: "Thiếu thông tin",
-                    description: "Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.",
-                    variant: "destructive",
-                });
+                toast.error("Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.");
                 setNotesError(true);
                 notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
@@ -476,10 +463,7 @@ export default function ChecklistPage() {
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        toast({
-            title: "Đang gửi báo cáo...",
-            description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
-        });
+        const toastId = toast.loading("Đang gửi báo cáo...");
 
         const finalReport = { ...report, issues: submissionNotes || null };
 
@@ -491,18 +475,11 @@ export default function ChecklistPage() {
             setSyncStatus('synced');
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
-            toast({
-                title: "Gửi báo cáo thành công!",
-                description: `Báo cáo đã được đồng bộ. (Thời gian: ${duration} giây)`,
-            });
+            toast.success(`Gửi báo cáo thành công! (Thời gian: ${duration} giây)`, { id: toastId });
         } catch (error) {
             console.error("Failed to submit report:", error);
             setSyncStatus('error');
-            toast({
-                variant: "destructive",
-                title: "Gửi báo cáo thất bại",
-                description: "Đã xảy ra lỗi khi gửi báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
-            });
+            toast.error("Gửi báo cáo thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.", { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -512,27 +489,18 @@ export default function ChecklistPage() {
       if (!user) return;
       setIsSubmitting(true);
       setShowSyncDialog(false);
-       toast({
-            title: "Đang tải dữ liệu từ máy chủ...",
-        });
+      const toastId = toast.loading("Đang tải dữ liệu từ máy chủ...");
       try {
         const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
         setReport(serverReport);
         setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
-         toast({
-            title: "Tải thành công!",
-            description: "Báo cáo đã được cập nhật với phiên bản mới nhất từ máy chủ.",
-        });
+         toast.success("Tải thành công! Báo cáo đã được cập nhật.", { id: toastId });
       } catch (error) {
          console.error("Failed to download report:", error);
          setSyncStatus('error');
-         toast({
-            variant: "destructive",
-            title: "Tải thất bại",
-            description: "Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.",
-        });
+         toast.error("Tải thất bại. Không thể tải dữ liệu từ máy chủ.", { id: toastId });
       } finally {
         setIsSubmitting(false);
       }

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { InventoryItem, InventoryReport, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy, Trash2, Loader2, RefreshCw } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
 import Lightbox from "yet-another-react-lightbox";
@@ -31,7 +31,6 @@ type CategorizedList = {
 function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
   
   const [allReports, setAllReports] = useState<InventoryReport[]>([]);
@@ -204,17 +203,10 @@ function InventoryReportView() {
             .join('\n\n');
             
         navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({
-                title: "Thành công",
-                description: "Đã sao chép danh sách đặt hàng vào bộ nhớ tạm."
-            });
+            toast.success("Đã sao chép danh sách đặt hàng.");
         }, (err) => {
             console.error('Could not copy text: ', err);
-            toast({
-                title: "Lỗi",
-                description: "Không thể sao chép danh sách.",
-                variant: "destructive"
-            });
+            toast.error("Không thể sao chép danh sách.");
         });
     };
 
@@ -255,10 +247,7 @@ function InventoryReportView() {
     const handleRegenerateSuggestions = async () => {
         if (!reportToView) return;
         setIsGenerating(true);
-        toast({
-            title: "Đang tạo lại đề xuất...",
-            description: "Hệ thống đang phân tích lại dữ liệu tồn kho."
-        });
+        toast.loading("Đang tạo lại đề xuất...");
 
         try {
             const orders = generateSuggestionsFromLogic();
@@ -275,19 +264,13 @@ function InventoryReportView() {
 
             setSelectedReport(prev => prev ? { ...prev, suggestions: newSuggestions } : null);
 
-            toast({
-                title: "Thành công!",
-                description: "Đã tạo lại và cập nhật đề xuất đặt hàng."
-            });
+            toast.success("Đã tạo lại và cập nhật đề xuất đặt hàng.");
         } catch (error) {
             console.error("Error regenerating suggestions:", error);
-            toast({
-                title: "Lỗi",
-                description: "Không thể tạo lại đề xuất. Vui lòng thử lại.",
-                variant: "destructive"
-            });
+            toast.error("Lỗi: Không thể tạo lại đề xuất.");
         } finally {
             setIsGenerating(false);
+            toast.dismiss();
         }
     };
 
@@ -308,17 +291,10 @@ function InventoryReportView() {
         setIsProcessing(true);
         try {
             await dataStore.deleteInventoryReport(reportId);
-            toast({
-                title: 'Thành công',
-                description: 'Đã xóa báo cáo kiểm kê.'
-            });
+            toast.success('Đã xóa báo cáo kiểm kê.');
         } catch(error) {
             console.error("Error deleting inventory report:", error);
-            toast({
-                title: 'Lỗi',
-                description: 'Không thể xóa báo cáo. Vui lòng thử lại.',
-                variant: 'destructive'
-            });
+            toast.error('Lỗi: Không thể xóa báo cáo.');
         } finally {
             setIsProcessing(false);
         }

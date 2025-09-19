@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -129,7 +130,7 @@ export default function CashierDashboardPage() {
   const { totalCashExpense, totalBankExpense } = useMemo(() => {
     return dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
-        acc.totalAmount += slip.totalAmount;
+        acc.totalCashExpense += slip.totalAmount;
       } else if (slip.paymentMethod === 'bank_transfer') {
         acc.totalBankExpense += slip.totalAmount;
       }
@@ -407,6 +408,7 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
 
 
 

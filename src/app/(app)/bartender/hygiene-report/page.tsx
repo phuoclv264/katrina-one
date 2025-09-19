@@ -8,7 +8,7 @@ import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, FilePlus2, ThumbsUp, ThumbsDown, FilePen } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -33,7 +33,6 @@ import { format } from 'date-fns';
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
 export default function HygieneReportPage() {
-  const { toast } = useToast();
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
   const shiftKey = 'bartender_hygiene';
@@ -124,17 +123,13 @@ export default function HygieneReportPage() {
         } catch (error) {
             console.error("Error loading report:", error);
             setSyncStatus('error');
-            toast({
-                title: "Lỗi tải dữ liệu",
-                description: "Không thể tải hoặc đồng bộ báo cáo. Vui lòng thử lại.",
-                variant: "destructive"
-            });
+            toast.error("Lỗi tải dữ liệu. Không thể tải hoặc đồng bộ báo cáo.");
         }
         setIsLoading(false);
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, toast]);
+  }, [isAuthLoading, user, shiftKey]);
 
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -336,11 +331,7 @@ export default function HygieneReportPage() {
         // --- Validation for notes ---
         const hasCompletedTask = Object.values(report.completedTasks).some(completions => completions.length > 0);
         if (hasCompletedTask && (!submissionNotes || submissionNotes.trim() === '')) {
-            toast({
-                title: "Thiếu thông tin",
-                description: "Vui lòng nhập ghi chú trước khi gửi báo cáo.",
-                variant: "destructive",
-            });
+            toast.error("Vui lòng nhập ghi chú trước khi gửi báo cáo.");
             setNotesError(true);
             notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
@@ -350,10 +341,7 @@ export default function HygieneReportPage() {
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        toast({
-            title: "Đang gửi báo cáo...",
-            description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
-        });
+        const toastId = toast.loading("Đang gửi báo cáo...");
 
         const finalReport = { ...report, issues: submissionNotes || null };
 
@@ -365,18 +353,11 @@ export default function HygieneReportPage() {
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
-            toast({
-                title: "Gửi báo cáo thành công!",
-                description: `Báo cáo đã được đồng bộ. (Thời gian: ${duration} giây)`,
-            });
+            toast.success(`Gửi báo cáo thành công! (Thời gian: ${duration} giây)`, { id: toastId });
         } catch (error) {
             console.error("Failed to submit report:", error);
             setSyncStatus('error');
-            toast({
-                variant: "destructive",
-                title: "Gửi báo cáo thất bại",
-                description: "Đã xảy ra lỗi khi gửi báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
-            });
+            toast.error("Gửi báo cáo thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.", { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -386,27 +367,18 @@ export default function HygieneReportPage() {
       if (!report) return;
       setIsSubmitting(true);
       setShowSyncDialog(false);
-       toast({
-            title: "Đang tải dữ liệu từ máy chủ...",
-        });
+       const toastId = toast.loading("Đang tải dữ liệu từ máy chủ...");
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
         setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
-         toast({
-            title: "Tải thành công!",
-            description: "Báo cáo đã được cập nhật với phiên bản mới nhất từ máy chủ.",
-        });
+         toast.success("Tải thành công! Báo cáo đã được cập nhật.", { id: toastId });
       } catch (error) {
          console.error("Failed to download report:", error);
          setSyncStatus('error');
-         toast({
-            variant: "destructive",
-            title: "Tải thất bại",
-            description: "Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.",
-        });
+         toast.error("Tải thất bại. Không thể tải dữ liệu từ máy chủ.", { id: toastId });
       } finally {
         setIsSubmitting(false);
       }

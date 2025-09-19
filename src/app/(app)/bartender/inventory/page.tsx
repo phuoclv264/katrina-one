@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'react-hot-toast';
 import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Camera, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -34,7 +34,6 @@ type CategorizedList = {
 export default function InventoryPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
   const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
@@ -299,10 +298,7 @@ export default function InventoryPage() {
       setIsGenerating(true);
       
       try {
-        toast({
-            title: "Đang tính toán đề xuất...",
-            description: "Hệ thống đang tính toán các mặt hàng cần đặt."
-        });
+        toast.loading("Đang tính toán đề xuất...");
 
         // Use the local logic function instead of an AI call
         const result = generateSuggestionsFromLogic();
@@ -317,14 +313,11 @@ export default function InventoryPage() {
 
       } catch (error) {
           console.error("Error generating suggestions:", error);
-          toast({
-              title: "Lỗi",
-              description: "Không thể tạo đề xuất đặt hàng. Vui lòng thử lại.",
-              variant: "destructive"
-          });
+          toast.error("Lỗi: Không thể tạo đề xuất đặt hàng.");
           return null;
       } finally {
           setIsGenerating(false);
+          toast.dismiss();
       }
   }
 
@@ -332,10 +325,7 @@ export default function InventoryPage() {
     if (!report || !user) return;
     const startTime = Date.now();
     setIsSubmitting(true);
-    toast({
-        title: "Đang gửi báo cáo tồn kho...",
-        description: "Vui lòng đợi trong giây lát."
-    });
+    const toastId = toast.loading("Đang gửi báo cáo tồn kho...");
 
     try {
         const generatedSuggestions = await handleGenerateSuggestions();
@@ -352,18 +342,11 @@ export default function InventoryPage() {
 
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
-        toast({
-            title: "Gửi và đề xuất thành công!",
-            description: `Quá trình hoàn tất trong ${duration} giây.`
-        });
+        toast.success(`Gửi và đề xuất thành công! (${duration} giây)`, { id: toastId });
         
     } catch (error) {
          console.error("Error submitting inventory report:", error);
-         toast({
-              title: "Lỗi",
-              description: "Không thể gửi báo cáo. Vui lòng thử lại.",
-              variant: "destructive"
-          });
+         toast.error("Lỗi: Không thể gửi báo cáo.", { id: toastId });
     } finally {
         setIsSubmitting(false);
     }
@@ -381,11 +364,7 @@ export default function InventoryPage() {
         const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
 
         if (item.isImportant && !hasStockValue) {
-            toast({
-                title: "Thiếu thông tin tồn kho",
-                description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
-                variant: "destructive",
-            });
+            toast.error(`Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`);
             const element = itemRowRefs.current.get(item.id);
             element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             element?.focus();
@@ -396,11 +375,7 @@ export default function InventoryPage() {
             const hasLocalPhoto = record?.photoIds && record.photoIds.length > 0;
             const hasServerPhoto = record?.photos && record.photos.length > 0;
             if (!hasLocalPhoto && !hasServerPhoto) {
-                toast({
-                    title: "Thiếu ảnh bằng chứng",
-                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
+                toast.error(`Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`);
                 const element = itemRowRefs.current.get(item.id);
                 element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 element?.focus();
@@ -448,17 +423,10 @@ export default function InventoryPage() {
             .join('\n\n');
             
         navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({
-                title: "Thành công",
-                description: "Đã sao chép danh sách đặt hàng vào bộ nhớ tạm."
-            });
+            toast.success("Đã sao chép danh sách đặt hàng.");
         }, (err) => {
             console.error('Could not copy text: ', err);
-            toast({
-                title: "Lỗi",
-                description: "Không thể sao chép danh sách.",
-                variant: "destructive"
-            });
+            toast.error("Không thể sao chép danh sách.");
         });
     };
 
