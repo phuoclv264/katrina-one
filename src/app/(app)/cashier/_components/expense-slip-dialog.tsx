@@ -26,6 +26,9 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -204,6 +207,10 @@ export default function ExpenseSlipDialog({
     const [extractionResult, setExtractionResult] = useState<InvoiceExtractionResult | null>(null);
     const [showAiPreview, setShowAiPreview] = useState(false);
     
+    // --- Lightbox state ---
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+
     // Reset form state when dialog opens
     useEffect(() => {
         if (open) {
@@ -260,6 +267,7 @@ export default function ExpenseSlipDialog({
         const totalPhotos = existingPhotos.length + localPhotos.length;
         if (totalPhotos === 0) {
             setShowMissingAttachmentAlert(true);
+            attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
@@ -284,10 +292,12 @@ export default function ExpenseSlipDialog({
     
     // --- AI Scanning Logic ---
     const handleAiScan = async () => {
+        setShowMissingAttachmentAlert(false);
         const allAttachedPhotoIds = localPhotos.map(p => p.id);
         if(existingPhotos.length === 0 && allAttachedPhotoIds.length === 0) {
             toast.error("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setShowMissingAttachmentAlert(true);
             return;
         }
 
@@ -316,6 +326,7 @@ export default function ExpenseSlipDialog({
             if (validDataUris.length === 0 && existingPhotos.length === 0) {
                  toast.error("Không tìm thấy ảnh hóa đơn nào trong các ảnh đã đính kèm.");
                  attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 setShowMissingAttachmentAlert(true);
                  setIsAiLoading(false);
                  toast.dismiss(toastId);
                  return;
@@ -351,6 +362,7 @@ export default function ExpenseSlipDialog({
 
     // --- Attachment Management Logic ---
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        setShowMissingAttachmentAlert(false);
         const files = event.target.files;
         if (!files) return;
 
@@ -365,6 +377,7 @@ export default function ExpenseSlipDialog({
     };
     
     const handleAttachmentPhotoCapture = async (capturedPhotoIds: string[]) => {
+        setShowMissingAttachmentAlert(false);
         setIsAttachmentCameraOpen(false);
         for (const photoId of capturedPhotoIds) {
             const photoBlob = await photoStore.getPhoto(photoId);
@@ -391,6 +404,21 @@ export default function ExpenseSlipDialog({
         photoStore.deletePhoto(id);
     };
 
+    const allAttachmentUrls = useMemo(() => {
+        return [
+            ...existingPhotos.map(url => ({ src: url })),
+            ...localPhotos.map(p => ({ src: p.url }))
+        ];
+    }, [existingPhotos, localPhotos]);
+
+    const openLightbox = (clickedUrl: string) => {
+        const index = allAttachmentUrls.findIndex(p => p.src === clickedUrl);
+        if (index > -1) {
+            setLightboxIndex(index);
+            setIsLightboxOpen(true);
+        }
+    };
+
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -413,31 +441,38 @@ export default function ExpenseSlipDialog({
                             </div>
 
                             {/* --- Attachment Section --- */}
-                            <Card className="border-primary/50 border-2" ref={attachmentCardRef}>
+                            <Card 
+                                className={cn('transition-all', showMissingAttachmentAlert && 'border-destructive ring-2 ring-destructive/50 bg-destructive/5')} 
+                                ref={attachmentCardRef}
+                            >
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
                                     <CardDescription>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                                        <Button variant="outline" className="w-full" onClick={() => attachmentFileInputRef.current?.click()}>
+                                        <Button variant="outline" className="w-full" onClick={() => {setShowMissingAttachmentAlert(false); attachmentFileInputRef.current?.click()}}>
                                             <Upload className="mr-2 h-4 w-4"/> Tải ảnh lên
                                         </Button>
                                         <input type="file" ref={attachmentFileInputRef} onChange={handleAttachmentPhotoUpload} className="hidden" accept="image/*" multiple />
-                                        <Button variant="outline" className="w-full" onClick={() => setIsAttachmentCameraOpen(true)}>
+                                        <Button variant="outline" className="w-full" onClick={() => {setShowMissingAttachmentAlert(false); setIsAttachmentCameraOpen(true)}}>
                                             <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
                                         </Button>
                                     </div>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                         {existingPhotos.map(url => (
                                             <div key={url} className="relative aspect-square rounded-md overflow-hidden group">
-                                                <Image src={url} alt="Bằng chứng đã lưu" fill className="object-cover" />
+                                                <button onClick={() => openLightbox(url)} className="w-full h-full">
+                                                    <Image src={url} alt="Bằng chứng đã lưu" fill className="object-cover" />
+                                                </button>
                                                 <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteExistingPhoto(url)}><X className="h-3 w-3" /></Button>
                                             </div>
                                         ))}
                                         {localPhotos.map(photo => (
                                             <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
-                                                <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover" />
+                                                 <button onClick={() => openLightbox(photo.url)} className="w-full h-full">
+                                                    <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover" />
+                                                </button>
                                                 <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10" onClick={() => handleDeleteLocalPhoto(photo.id)}><X className="h-3 w-3" /></Button>
                                             </div>
                                         ))}
@@ -596,7 +631,7 @@ export default function ExpenseSlipDialog({
                 />
             )}
 
-            <AlertDialog open={showMissingAttachmentAlert} onOpenChange={setShowMissingAttachmentAlert}>
+            <AlertDialog open={showMissingAttachmentAlert && !isAttachmentCameraOpen} onOpenChange={setShowMissingAttachmentAlert}>
                  <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitleComponent className="flex items-center gap-2">
@@ -612,6 +647,13 @@ export default function ExpenseSlipDialog({
                     </AlertDialogFooter>
                  </AlertDialogContent>
             </AlertDialog>
+            <Lightbox
+                open={isLightboxOpen}
+                close={() => setIsLightboxOpen(false)}
+                index={lightboxIndex}
+                slides={allAttachmentUrls}
+                plugins={[Zoom]}
+            />
         </>
     );
 }
