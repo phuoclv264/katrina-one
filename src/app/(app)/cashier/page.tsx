@@ -281,17 +281,19 @@ export default function CashierDashboardPage() {
             </div>
 
             <div className="space-y-6">
-                 <Card className="bg-primary/5 text-primary-foreground border-primary/20 shadow-lg">
+                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-primary">Thống kê Doanh thu</CardTitle>
-                        <CardDescription className="text-primary/80">Nhập số liệu từ bill tổng kết trên máy POS.
-                        <br/>
-                        <span className="font-semibold text-xs">{(revenueStats?.netRevenue || 0).toLocaleString('vi-VN')}đ</span>
-                        <span className="text-xs"> - {revenueStats ? `lúc ${format(new Date(revenueStats.createdAt as string), 'HH:mm')}` : 'Chưa nhập liệu'}</span>
+                        <CardTitle>Thống kê Doanh thu</CardTitle>
+                        <CardDescription>
+                            Nhập số liệu từ bill tổng kết trên máy POS. 
+                            <span className="block font-semibold text-xs mt-1">
+                                {(revenueStats?.netRevenue || 0).toLocaleString('vi-VN')}đ
+                                <span className="font-normal text-muted-foreground"> - {revenueStats ? `lúc ${format(new Date(revenueStats.createdAt as string), 'HH:mm')}` : 'Chưa nhập'}</span>
+                            </span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <Button variant="outline" className="w-full bg-background/80 text-primary hover:bg-background" onClick={() => setIsRevenueDialogOpen(true)}>
+                       <Button className="w-full" onClick={() => setIsRevenueDialogOpen(true)}>
                             <Receipt className="mr-2 h-4 w-4" />
                             {revenueStats ? 'Cập nhật' : 'Nhập'} Doanh thu
                         </Button>
@@ -354,3 +356,4 @@ export default function CashierDashboardPage() {
   );
 }
 
+    
