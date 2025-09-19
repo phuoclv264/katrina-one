@@ -338,11 +338,11 @@ export default function ExpenseSlipDialog({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} disabled className="bg-muted"/>
+                                    <Input value={date} disabled className="bg-card"/>
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
-                                    <Input value={reporter.displayName || ''} disabled className="bg-muted"/>
+                                    <Input value={reporter.displayName || ''} disabled className="bg-card"/>
                                 </div>
                             </div>
                         
@@ -356,7 +356,7 @@ export default function ExpenseSlipDialog({
                                         className="flex-1 min-w-[200px]"
                                     />
                                     <div className="flex gap-2 w-full sm:w-auto">
-                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="flex-1">
+                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="flex-1 bg-card">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload />}
                                         </Button>
                                         <input
@@ -366,7 +366,7 @@ export default function ExpenseSlipDialog({
                                             className="hidden"
                                             accept="image/*"
                                         />
-                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="flex-1">
+                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="flex-1 bg-card">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
                                         </Button>
                                     </div>
@@ -382,7 +382,7 @@ export default function ExpenseSlipDialog({
                                 ) : (
                                     <>
                                         {/* Mobile view */}
-                                        <div className="md:hidden space-y-3 p-3 rounded-md">
+                                        <div className="md:hidden space-y-3 p-3 rounded-md bg-white dark:bg-card">
                                             {items.map(item => (
                                                 <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
                                                     <Card className="cursor-pointer bg-muted/50">
@@ -397,18 +397,13 @@ export default function ExpenseSlipDialog({
                                                                 </Button>
                                                             </div>
                                                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                <div>
-                                                                    <p className="text-muted-foreground">Số lượng ({item.unit})</p>
-                                                                    <p className="font-medium text-base">{item.quantity}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-muted-foreground">Đơn giá</p>
-                                                                    <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-muted-foreground">Thành tiền</p>
-                                                                    <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
-                                                                </div>
+                                                                <p className="text-muted-foreground">Số lượng ({item.unit})</p>
+                                                                <p className="text-muted-foreground">Đơn giá</p>
+                                                                <p className="text-muted-foreground">Thành tiền</p>
+                                                                
+                                                                <p className="font-medium text-base">{item.quantity}</p>
+                                                                <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
                                                             </div>
                                                         </CardContent>
                                                     </Card>
@@ -417,7 +412,7 @@ export default function ExpenseSlipDialog({
                                         </div>
 
                                         {/* Desktop view */}
-                                        <div className="hidden md:block border rounded-md">
+                                        <div className="hidden md:block border rounded-md bg-white dark:bg-card">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -456,7 +451,7 @@ export default function ExpenseSlipDialog({
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
-                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-muted" />
+                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-card" />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
