@@ -18,7 +18,7 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { format } from 'date-fns';
+import { format, isToday, isBefore, startOfDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -119,7 +119,7 @@ export default function RevenueStatsDialog({
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
-    const [oldReceiptInfo, setOldReceiptInfo] = useState<{ reportTime: string; currentTime: string; hoursDiff: number; } | null>(null);
+    const [oldReceiptInfo, setOldReceiptInfo] = useState<{ reportTime: string; hoursDiff: number; imageUri: string; } | null>(null);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
 
@@ -224,6 +224,30 @@ export default function RevenueStatsDialog({
         executeSave();
     };
 
+    const proceedWithImageData = (imageUri: string, result: any) => {
+        setNewImageDataUri(imageUri);
+
+        const aiData = {
+            netRevenue: result.netRevenue || 0,
+            deliveryPartnerPayout: result.deliveryPartnerPayout || 0,
+            revenueByPaymentMethod: {
+                ...initialPaymentMethods,
+                ...result.revenueByPaymentMethod,
+            },
+        };
+        
+        // Set form state
+        setNetRevenue(aiData.netRevenue);
+        setDeliveryPartnerPayout(aiData.deliveryPartnerPayout);
+        setRevenueByPaymentMethod(aiData.revenueByPaymentMethod);
+        
+        // Store original AI data for comparison
+        setOriginalData(aiData);
+
+        toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu. Vui lòng kiểm tra lại.' });
+        setActiveTab('data'); // Switch to data tab on success
+    }
+
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
         toast({ title: 'AI đang phân tích phiếu...' });
@@ -238,48 +262,40 @@ export default function RevenueStatsDialog({
                 return;
             }
 
-            if (result.reportTimestamp) {
-                const reportTime = new Date(result.reportTimestamp);
-                const now = new Date();
-                const oneHour = 60 * 60 * 1000;
-                const nowInVietnam = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-                const timeDiff = nowInVietnam.getTime() - reportTime.getTime();
-
-                if (timeDiff > oneHour) {
-                    setOldReceiptInfo({
-                        reportTime: format(reportTime, 'HH:mm:ss, dd/MM/yyyy'),
-                        currentTime: format(nowInVietnam, 'HH:mm:ss, dd/MM/yyyy'),
-                        hoursDiff: parseFloat((timeDiff / oneHour).toFixed(1)),
-                    });
-                    setIsOcrLoading(false);
-                    return;
-                }
-            } else {
-                 toast({ variant: 'destructive', title: 'Cảnh báo', description: 'Không tìm thấy ngày giờ trên phiếu. Vui lòng kiểm tra lại ảnh.' });
+            if (!result.reportTimestamp) {
+                toast({ variant: 'destructive', title: 'Không đọc được ngày', description: 'AI không thể xác định ngày giờ trên phiếu. Vui lòng chụp lại ảnh rõ hơn.' });
+                setIsOcrLoading(false);
+                return;
             }
 
-            setNewImageDataUri(imageUri);
+            const reportTime = new Date(result.reportTimestamp);
+            const now = new Date();
 
-            const aiData = {
-                netRevenue: result.netRevenue || 0,
-                deliveryPartnerPayout: result.deliveryPartnerPayout || 0,
-                revenueByPaymentMethod: {
-                    ...initialPaymentMethods,
-                    ...result.revenueByPaymentMethod,
-                },
-            };
-            
-            // Set form state
-            setNetRevenue(aiData.netRevenue);
-            setDeliveryPartnerPayout(aiData.deliveryPartnerPayout);
-            setRevenueByPaymentMethod(aiData.revenueByPaymentMethod);
-            
-            // Store original AI data for comparison
-            setOriginalData(aiData);
+            // Block if the receipt is from a previous day
+            if (isBefore(reportTime, startOfDay(now))) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Phiếu thống kê đã cũ',
+                    description: `Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`,
+                    duration: 7000
+                });
+                setIsOcrLoading(false);
+                return;
+            }
 
-            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu. Vui lòng kiểm tra lại.' });
-            setActiveTab('data'); // Switch to data tab on success
-
+            // Warn if the receipt is older than 1 hour on the same day
+            const oneHour = 60 * 60 * 1000;
+            const timeDiff = now.getTime() - reportTime.getTime();
+            if (timeDiff > oneHour) {
+                setOldReceiptInfo({
+                    reportTime: format(reportTime, 'HH:mm, dd/MM/yyyy'),
+                    hoursDiff: parseFloat((timeDiff / oneHour).toFixed(1)),
+                    imageUri: imageUri, // Pass imageUri to the warning dialog
+                });
+            } else {
+                // If the receipt is recent, proceed directly
+                proceedWithImageData(imageUri, result);
+            }
         } catch (error: any) {
              if (error.message && error.message.includes('503 Service Unavailable')) {
                 setServerErrorDialog({ open: true, imageUri });
@@ -572,26 +588,21 @@ export default function RevenueStatsDialog({
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
                             <Clock className="text-destructive"/>
-                            Cảnh báo: Phiếu thống kê đã cũ
+                            Cảnh báo: Phiếu thống kê có thể đã cũ
                         </AlertDialogTitle>
                          <AlertDialogDescription>
-                            Hệ thống phát hiện phiếu thống kê này có thể đã cũ.
+                           Hệ thống phát hiện phiếu này được in vào lúc <span className="font-bold">{oldReceiptInfo?.reportTime}</span>, đã trễ hơn <span className="font-bold">{oldReceiptInfo?.hoursDiff} giờ</span> so với hiện tại. Bạn có chắc chắn muốn tiếp tục với phiếu này không?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="space-y-2 mt-2 text-sm">
-                        <ul className="list-disc pl-5 space-y-1">
-                            <li>Thời gian trên phiếu: <span className="font-semibold">{oldReceiptInfo?.reportTime}</span></li>
-                            <li>Thời gian hiện tại: <span className="font-semibold">{oldReceiptInfo?.currentTime}</span></li>
-                            <li>Đã qua: <span className="font-semibold">{oldReceiptInfo?.hoursDiff} giờ</span></li>
-                        </ul>
-                        <div className="pt-2 font-medium">Để đảm bảo số liệu chính xác:</div>
-                        <ul className="list-disc pl-5 space-y-1">
-                            <li>Nếu thời gian trên là đúng, vui lòng <span className="font-bold">in phiếu mới</span> và thử lại.</li>
-                            <li>Nếu AI nhận diện sai, vui lòng <span className="font-bold">chụp lại ảnh rõ hơn</span>.</li>
-                        </ul>
-                    </div>
                     <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setOldReceiptInfo(null)}>Đã hiểu</AlertDialogAction>
+                        <AlertDialogCancel onClick={() => setOldReceiptInfo(null)}>Hủy bỏ</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => {
+                            if (oldReceiptInfo?.imageUri) {
+                                const result = await extractRevenueFromImage({ imageDataUri: oldReceiptInfo.imageUri });
+                                proceedWithImageData(oldReceiptInfo.imageUri, result);
+                            }
+                            setOldReceiptInfo(null);
+                        }}>Vẫn tiếp tục</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

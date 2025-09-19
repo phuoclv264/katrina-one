@@ -18,7 +18,7 @@ export type ExtractRevenueInput = z.infer<typeof ExtractRevenueInputSchema>;
 const ExtractRevenueOutputSchema = z.object({
     isReceipt: z.boolean().describe('Whether or not the image is a valid daily sales receipt.'),
     rejectionReason: z.string().optional().describe('The reason why the image was rejected. Provided only if isReceipt is false.'),
-    reportTimestamp: z.string().optional().describe('The date and time the report was generated, usually labeled "Ngày giờ". Extract it exactly as seen in "YYYY-MM-DD HH:mm:ss" format.'),
+    reportTimestamp: z.string().optional().describe('The date and time the report was generated, usually labeled "Ngày giờ". Extract it exactly as seen in "YYYY-MM-DD HH:mm:ss" format. This is the most critical field.'),
     netRevenue: z.number().optional().describe('The total net revenue amount. This is often labeled as "Doanh thu Net" or a similar term.'),
     deliveryPartnerPayout: z.number().optional().describe('The amount paid to delivery partners. Look for "Tiền trả ĐTGH" or similar labels.'),
     revenueByPaymentMethod: z.object({
@@ -55,7 +55,7 @@ Then, you MUST assess the image quality. Is it clear enough to read all numbers 
 
 If and only if the image is a valid and clear sales report, set \`isReceipt\` to \`true\` and meticulously extract the following fields. All values must be numbers, without currency symbols or formatting. If a field is not present, omit it or use 0.
 
-1.  **reportTimestamp**: Find the report's generation date and time. Look for a label like "Ngày giờ". Return it as a string in "YYYY-MM-DD HH:mm:ss" format. This is critical.
+1.  **reportTimestamp**: This is the MOST IMPORTANT field. Find the report's generation date and time. Look for a label like "Ngày giờ". You MUST return it as a string in "YYYY-MM-DD HH:mm:ss" format. If you cannot find it, return null for this field.
 2.  **netRevenue**: Find the total net revenue. Look for labels like "Doanh thu Net", "Tổng cộng", or "Thực thu".
 3.  **deliveryPartnerPayout**: Find the amount paid to delivery partners. Look for "Tiền trả ĐTGH".
 4.  **revenueByPaymentMethod**: This is an object containing a breakdown of revenue by payment method. You need to find the value for each of the following keys:
