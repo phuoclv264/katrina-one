@@ -397,7 +397,7 @@ export default function ExpenseSlipDialog({
                                                                 </Button>
                                                             </div>
                                                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                <p className="text-muted-foreground">Số lượng ({item.unit})</p>
+                                                                <p className="text-muted-foreground">SL ({item.unit})</p>
                                                                 <p className="text-muted-foreground">Đơn giá</p>
                                                                 <p className="text-muted-foreground">Thành tiền</p>
                                                                 
