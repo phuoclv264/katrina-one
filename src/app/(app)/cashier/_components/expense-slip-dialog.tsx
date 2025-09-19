@@ -23,7 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
 
 
@@ -121,7 +121,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
-                    <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
+                    <DialogDescriptionComponent>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescriptionComponent>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
@@ -398,7 +398,7 @@ export default function ExpenseSlipDialog({
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
-                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
+                        <DialogDescriptionComponent>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescriptionComponent>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
@@ -417,7 +417,7 @@ export default function ExpenseSlipDialog({
                              <Card className="border-primary/50 border-2">
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
-                                    <CardDescription>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
+                                    <CardDescriptionComponent>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescriptionComponent>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -456,7 +456,7 @@ export default function ExpenseSlipDialog({
                                 <Card className="bg-muted/30">
                                     <CardHeader className="pb-4">
                                         <CardTitle className="text-base">Mặt hàng</CardTitle>
-                                        <CardDescription>Chọn hoặc quét hóa đơn để thêm mặt hàng.</CardDescription>
+                                        <CardDescriptionComponent>Chọn hoặc quét hóa đơn để thêm mặt hàng.</CardDescriptionComponent>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-4">
@@ -622,7 +622,7 @@ export default function ExpenseSlipDialog({
                             <AlertCircle className="text-destructive"/>
                             Yêu cầu ảnh đính kèm
                         </AlertDialogTitleComponent>
-                        <div>Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa để làm bằng chứng cho phiếu chi.</div>
+                        <AlertDialogDescriptionComponent>Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa để làm bằng chứng cho phiếu chi.</AlertDialogDescriptionComponent>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setShowMissingAttachmentAlert(false)}>Đã hiểu</AlertDialogAction>
