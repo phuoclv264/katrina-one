@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -329,7 +330,10 @@ export default function CashierDashboardPage() {
             <div className="space-y-6">
                  <Card>
                     <CardHeader>
-                        <CardTitle>Thống kê Doanh thu</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                           Thống kê Doanh thu
+                           {revenueStats?.isOutdated && <AlertTriangle className="h-5 w-5 text-yellow-500" title="Dữ liệu có thể đã cũ"/>}
+                        </CardTitle>
                         <CardDescription>
                             Nhập số liệu từ bill tổng kết trên máy POS. 
                             <span className="block font-semibold text-xs mt-1">

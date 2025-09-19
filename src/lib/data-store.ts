@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -1939,7 +1940,7 @@ export const dataStore = {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
         const storageRef = ref(storage, `penalties/${violationId}/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
+        await uploadBytes(storageRef, blob);
         return getDownloadURL(storageRef);
     });
     

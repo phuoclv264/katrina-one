@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw, ServerCrash } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -19,7 +20,7 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { format, isToday, isBefore, startOfDay } from 'date-fns';
+import { format, isToday, isBefore, startOfDay, parseISO } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -109,6 +110,7 @@ export default function RevenueStatsDialog({
     const [netRevenue, setNetRevenue] = useState(0);
     const [deliveryPartnerPayout, setDeliveryPartnerPayout] = useState(0);
     const [revenueByPaymentMethod, setRevenueByPaymentMethod] = useState(initialPaymentMethods);
+    const [reportTimestamp, setReportTimestamp] = useState<string | null>(null);
 
     // AI Original state for comparison
     const [originalData, setOriginalData] = useState<Partial<RevenueStats> | null>(null);
@@ -120,7 +122,8 @@ export default function RevenueStatsDialog({
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
-    const [oldReceiptInfo, setOldReceiptInfo] = useState<{ reportTime: string; hoursDiff: number; imageUri: string; } | null>(null);
+    const [showOldReceiptWarning, setShowOldReceiptWarning] = useState(false);
+    const [oldReceiptData, setOldReceiptData] = useState<{ imageUri: string, result: any } | null>(null);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
 
@@ -150,9 +153,11 @@ export default function RevenueStatsDialog({
         setNetRevenue(0);
         setDeliveryPartnerPayout(0);
         setRevenueByPaymentMethod(initialPaymentMethods);
+        setReportTimestamp(null);
         setOriginalData(null); 
         setNewImageDataUri(null); 
-        setOldReceiptInfo(null);
+        setShowOldReceiptWarning(false);
+        setOldReceiptData(null);
         setActiveTab('image'); // Reset to image tab when dialog opens
         setServerErrorDialog({ open: false, imageUri: null });
     }, []);
@@ -198,15 +203,28 @@ export default function RevenueStatsDialog({
             toast.error("Tổng doanh thu theo phương thức thanh toán phải bằng Doanh thu Net.");
             return;
         }
+        
+        let isOutdated = false;
+        if (reportTimestamp) {
+            const reportTime = parseISO(reportTimestamp);
+            const now = new Date();
+            const oneHour = 60 * 60 * 1000;
+            if (now.getTime() - reportTime.getTime() > oneHour) {
+                isOutdated = true;
+            }
+        }
+
 
         const dataToSave = {
             netRevenue,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
             invoiceImageUrl: newImageDataUri, // Always use the new image
+            reportTimestamp: reportTimestamp,
+            isOutdated: isOutdated,
         };
 
-        onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited' | 'orderCount'>, hasBeenEdited);
+        onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, hasBeenEdited);
     }
     
     const handleSave = () => {
@@ -219,6 +237,7 @@ export default function RevenueStatsDialog({
 
     const proceedWithImageData = (imageUri: string, result: any) => {
         setNewImageDataUri(imageUri);
+        setReportTimestamp(result.reportTimestamp || null);
 
         const aiData = {
             netRevenue: result.netRevenue || 0,
@@ -227,6 +246,7 @@ export default function RevenueStatsDialog({
                 ...initialPaymentMethods,
                 ...result.revenueByPaymentMethod,
             },
+            reportTimestamp: result.reportTimestamp,
         };
         
         // Set form state
@@ -257,17 +277,17 @@ export default function RevenueStatsDialog({
             }
 
             if (!result.reportTimestamp) {
-                toast.error('AI không thể xác định ngày giờ trên phiếu. Vui lòng chụp lại ảnh rõ hơn.');
+                toast.error('AI không thể xác định ngày giờ trên phiếu. Vui lòng chụp lại ảnh rõ hơn hoặc nhập thủ công.');
                 setIsOcrLoading(false);
                 toast.dismiss(toastId);
                 return;
             }
 
-            const reportTime = new Date(result.reportTimestamp);
+            const reportTime = parseISO(result.reportTimestamp);
             const now = new Date();
 
             // Block if the receipt is from a previous day
-            if (isBefore(reportTime, startOfDay(now))) {
+            if (!isToday(reportTime)) {
                 toast.error(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`, { duration: 7000 });
                 setIsOcrLoading(false);
                 toast.dismiss(toastId);
@@ -276,13 +296,9 @@ export default function RevenueStatsDialog({
 
             // Warn if the receipt is older than 1 hour on the same day
             const oneHour = 60 * 60 * 1000;
-            const timeDiff = now.getTime() - reportTime.getTime();
-            if (timeDiff > oneHour) {
-                setOldReceiptInfo({
-                    reportTime: format(reportTime, 'HH:mm, dd/MM/yyyy'),
-                    hoursDiff: parseFloat((timeDiff / oneHour).toFixed(1)),
-                    imageUri: imageUri, // Pass imageUri to the warning dialog
-                });
+            if (now.getTime() - reportTime.getTime() > oneHour) {
+                setOldReceiptData({ imageUri, result });
+                setShowOldReceiptWarning(true);
             } else {
                 // If the receipt is recent, proceed directly
                 proceedWithImageData(imageUri, result);
@@ -309,10 +325,12 @@ export default function RevenueStatsDialog({
         setNetRevenue(0);
         setDeliveryPartnerPayout(0);
         setRevenueByPaymentMethod(initialPaymentMethods);
+        setReportTimestamp(null);
         setOriginalData({
             netRevenue: 0,
             deliveryPartnerPayout: 0,
             revenueByPaymentMethod: initialPaymentMethods,
+            reportTimestamp: null,
         });
     
         setActiveTab('data');
@@ -408,6 +426,12 @@ export default function RevenueStatsDialog({
 
     const DataSection = () => (
         <div className="space-y-4">
+             {reportTimestamp && (
+                 <div className="grid grid-cols-2 items-center gap-2">
+                    <Label className="text-sm text-right flex items-center gap-2 justify-end">Thời gian trên phiếu</Label>
+                    <div className="text-sm font-semibold p-2 bg-muted rounded-md text-center">{format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}</div>
+                 </div>
+             )}
              <InputField
                 id="netRevenue"
                 label="Doanh thu Net"
@@ -498,7 +522,7 @@ export default function RevenueStatsDialog({
                                 <ImageSection />
                             </div>
                             <div className="w-full md:w-1/2">
-                                <ScrollArea className="h-full max-h-[55vh] pr-4">
+                                <ScrollArea className="h-full max-h-[60vh] pr-4">
                                     <DataSection />
                                 </ScrollArea>
                             </div>
@@ -553,7 +577,7 @@ export default function RevenueStatsDialog({
                 <AlertDialogContent>
                     <AlertDialogHeader>
                          <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertCircle className="text-destructive"/>
+                            <ServerCrash className="text-destructive"/>
                             Lỗi phân tích ảnh
                         </AlertDialogTitle>
                         <AlertDialogDescription>
@@ -572,7 +596,7 @@ export default function RevenueStatsDialog({
                 </AlertDialogContent>
             </AlertDialog>
             
-            <AlertDialog open={!!oldReceiptInfo} onOpenChange={(open) => !open && setOldReceiptInfo(null)}>
+            <AlertDialog open={showOldReceiptWarning} onOpenChange={setShowOldReceiptWarning}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
@@ -580,17 +604,16 @@ export default function RevenueStatsDialog({
                             Cảnh báo: Phiếu thống kê có thể đã cũ
                         </AlertDialogTitle>
                          <AlertDialogDescription>
-                           Hệ thống phát hiện phiếu này được in vào lúc <span className="font-bold">{oldReceiptInfo?.reportTime}</span>, đã trễ hơn <span className="font-bold">{oldReceiptInfo?.hoursDiff} giờ</span> so với hiện tại. Bạn có chắc chắn muốn tiếp tục với phiếu này không?
+                           Hệ thống phát hiện phiếu này đã được in cách đây hơn 1 giờ. Bạn có chắc chắn muốn tiếp tục với phiếu này không?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setOldReceiptInfo(null)}>Hủy bỏ</AlertDialogCancel>
-                        <AlertDialogAction onClick={async () => {
-                            if (oldReceiptInfo?.imageUri) {
-                                const result = await extractRevenueFromImage({ imageDataUri: oldReceiptInfo.imageUri });
-                                proceedWithImageData(oldReceiptInfo.imageUri, result);
+                        <AlertDialogCancel onClick={() => setShowOldReceiptWarning(null)}>Hủy bỏ</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (oldReceiptData) {
+                                proceedWithImageData(oldReceiptData.imageUri, oldReceiptData.result);
                             }
-                            setOldReceiptInfo(null);
+                            setShowOldReceiptWarning(false);
                         }}>Vẫn tiếp tục</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
