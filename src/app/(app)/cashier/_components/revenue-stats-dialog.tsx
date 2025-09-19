@@ -481,24 +481,24 @@ export default function RevenueStatsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                 <DialogContent className={cn("max-w-4xl", isMobile && "max-w-[95vw]")}>
-                    <DialogHeader>
+                 <DialogContent className={cn("max-w-4xl h-[90svh] flex flex-col", isMobile && "max-w-[95vw] h-[95svh]")}>
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="max-h-[70vh] -mx-6 px-6">
-                        <div className="py-4">
+                    <div className="flex-grow overflow-y-auto -mx-6 px-6">
+                        <div className="py-4 h-full">
                         {isMobile ? (
-                            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                                <TabsList className="grid w-full grid-cols-2">
+                            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full flex flex-col">
+                                <TabsList className="grid w-full grid-cols-2 shrink-0">
                                     <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" /> Ảnh phiếu</TabsTrigger>
                                     <TabsTrigger value="data"><FileText className="mr-2 h-4 w-4" /> Số liệu</TabsTrigger>
                                 </TabsList>
-                                <TabsContent value="image" className="mt-4">
-                                    <div className="flex flex-col gap-4">
+                                <TabsContent value="image" className="mt-4 flex-grow">
+                                    <div className="flex flex-col gap-4 h-full">
                                         <ImageSection />
                                     </div>
                                 </TabsContent>
@@ -507,7 +507,7 @@ export default function RevenueStatsDialog({
                                 </TabsContent>
                             </Tabs>
                         ) : (
-                            <div className="flex flex-col md:flex-row gap-6">
+                            <div className="flex flex-col md:flex-row gap-6 h-full">
                                 <div className="w-full md:w-1/2 flex flex-col gap-4">
                                     <ImageSection />
                                 </div>
@@ -517,9 +517,9 @@ export default function RevenueStatsDialog({
                             </div>
                         )}
                         </div>
-                    </ScrollArea>
+                    </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="shrink-0">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
