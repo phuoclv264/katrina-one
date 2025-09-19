@@ -58,6 +58,18 @@ const InputField = ({ id, label, value, onChange, originalValue, isImportant }: 
     originalValue?: number;
     isImportant?: boolean;
 }) => {
+    const [localValue, setLocalValue] = useState(String(value));
+
+    useEffect(() => {
+        setLocalValue(String(value));
+    }, [value]);
+
+    const handleBlur = () => {
+        if (String(value) !== localValue) {
+            onChange(localValue);
+        }
+    };
+    
     const isEdited = originalValue !== undefined && value !== originalValue;
     return (
         <div key={id} className="grid grid-cols-2 items-center gap-2">
@@ -65,7 +77,15 @@ const InputField = ({ id, label, value, onChange, originalValue, isImportant }: 
                  {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
                 {label}
             </Label>
-            <Input id={id} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className={cn("h-9", isImportant && "font-bold text-base")} />
+            <Input 
+              id={id} 
+              type="number" 
+              value={localValue} 
+              onChange={e => setLocalValue(e.target.value)} 
+              onBlur={handleBlur}
+              placeholder="0" 
+              className={cn("h-9", isImportant && "font-bold text-base")} 
+            />
         </div>
     );
 };
