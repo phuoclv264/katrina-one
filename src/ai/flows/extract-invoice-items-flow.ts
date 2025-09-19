@@ -14,7 +14,7 @@ import type { InventoryItem } from '@/lib/types';
 const ExtractedItemSchema = z.object({
     itemName: z.string().describe("The exact name of the item as it appears on the invoice."),
     quantity: z.number().describe("The quantity of the item."),
-    unitPrice: z.number().describe("The price for a single unit of the item. IMPORTANT: You must correctly parse numbers regardless of formatting. For example, both '100.000' and '100,000' should be interpreted as the number 100000."),
+    unitPrice: z.number().describe("The price for a single unit of the item. It is CRITICAL that you parse numbers correctly, ignoring thousand separators (like '.' or ',') and correctly identifying the decimal separator. For example: '100.000,00' and '100,000.00' must both be interpreted as the number 100000. A value of '100.000' should be interpreted as 100000."),
     matchedItemId: z.string().nullable().describe("The ID of the inventory item that this invoice item most closely matches. Null if no confident match is found."),
     status: z.enum(['matched', 'unmatched']).describe("The status of the match. 'matched' if a confident match was found, 'unmatched' otherwise."),
 });
@@ -44,7 +44,7 @@ Your task is to analyze the provided image of an invoice and a list of available
 1.  **Extract Invoice Data:** Read the invoice image and identify all line items. For each line item, extract the following information with perfect accuracy:
     *   **Item Name:** The full name of the product as written on the invoice.
     *   **Quantity:** The number of units purchased.
-    *   **Unit Price:** The price per single unit. Do not extract the total price for the line. **Crucially, you must correctly parse numbers regardless of formatting. For example, if the invoice shows "100.000" or "100,000", you must recognize this as the number 100000 and return it as such in the JSON.**
+    *   **Unit Price:** The price per single unit. Do not extract the total price for the line. It is CRITICAL that you parse numbers correctly, ignoring thousand separators (like '.' or ',') and correctly identifying the decimal separator. For example: '100.000,00' and '100,000.00' must both be interpreted as the number 100000. A value of '100.000' should be interpreted as 100000.
 
 2.  **Match with Inventory:** For each item you extract from the invoice, you must compare its name against the provided list of inventory items.
     *   Use fuzzy matching and semantic understanding to find the best possible match. For example, "Cafe Robusta" on the invoice should match "Cà phê Robusta" in the inventory. "Hạt dưa loại 1" should match "Hạt dưa".
