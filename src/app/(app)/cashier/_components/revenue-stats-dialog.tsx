@@ -89,7 +89,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
               onBlur={handleBlur}
               onFocus={(e) => e.target.select()}
               placeholder="0" 
-              className={cn(isImportant ? "h-11 font-bold" : "h-9", "text-right", inputClassName)} 
+              className={cn(isImportant ? "h-11" : "h-9", "text-right", inputClassName)} 
             />
         </div>
     );
@@ -162,14 +162,14 @@ export default function RevenueStatsDialog({
         }
     }, [open, resetFormState]);
 
-    // Auto-scroll to data section when image is available
+    // Auto-scroll to data section when original data is populated
     useEffect(() => {
-        if (newImageDataUri && dataSectionRef.current) {
+        if (originalData && dataSectionRef.current) {
             setTimeout(() => {
                 dataSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
         }
-    }, [newImageDataUri]);
+    }, [originalData]);
 
 
     const handlePaymentMethodChange = useCallback((key: keyof typeof revenueByPaymentMethod, value: string) => {
@@ -586,5 +586,6 @@ export default function RevenueStatsDialog({
         </>
     );
 }
+
 
 
