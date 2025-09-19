@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,7 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
 };
 
 // Sub-component for input fields to prevent re-render focus loss issue
-const InputField = ({ id, label, value, onChange, originalValue, isImportant }: {
+const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant }: {
     id: string;
     label: string;
     value: number;
@@ -88,7 +89,8 @@ const InputField = ({ id, label, value, onChange, originalValue, isImportant }: 
             />
         </div>
     );
-};
+});
+InputField.displayName = 'InputField';
 
 
 export default function RevenueStatsDialog({
