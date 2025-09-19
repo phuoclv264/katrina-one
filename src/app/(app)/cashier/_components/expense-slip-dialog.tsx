@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -268,6 +269,7 @@ export default function ExpenseSlipDialog({
         if (totalPhotos === 0) {
             setShowMissingAttachmentAlert(true);
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            toast.error("Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa.");
             return;
         }
 
@@ -631,22 +633,6 @@ export default function ExpenseSlipDialog({
                 />
             )}
 
-            <AlertDialog open={showMissingAttachmentAlert && !isAttachmentCameraOpen} onOpenChange={setShowMissingAttachmentAlert}>
-                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitleComponent className="flex items-center gap-2">
-                            <AlertCircle className="text-destructive"/>
-                            Yêu cầu ảnh đính kèm
-                        </AlertDialogTitleComponent>
-                        <AlertDialogDescriptionComponent>
-                            <div>Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa để làm bằng chứng cho phiếu chi.</div>
-                        </AlertDialogDescriptionComponent>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setShowMissingAttachmentAlert(false)}>Đã hiểu</AlertDialogAction>
-                    </AlertDialogFooter>
-                 </AlertDialogContent>
-            </AlertDialog>
             <Lightbox
                 open={isLightboxOpen}
                 close={() => setIsLightboxOpen(false)}
