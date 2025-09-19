@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2 } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -183,7 +183,7 @@ export default function ExpenseSlipDialog({
     reporter
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const attachmentCardRef = useRef<HTMLDivElement>(null);
     const attachmentFileInputRef = useRef<HTMLInputElement>(null);
 
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -200,7 +200,6 @@ export default function ExpenseSlipDialog({
 
     // --- State for AI scanning ---
     const [isAiLoading, setIsAiLoading] = useState(false);
-    const [isAiCameraOpen, setIsAiCameraOpen] = useState(false);
     const [extractedItems, setExtractedItems] = useState<ExtractedInvoiceItem[]>([]);
     const [showAiPreview, setShowAiPreview] = useState(false);
     
@@ -283,18 +282,51 @@ export default function ExpenseSlipDialog({
     };
     
     // --- AI Scanning Logic ---
-    const processInvoiceImage = async (imageUri: string) => {
+    const handleAiScan = async () => {
+        const allAttachedPhotos = [...existingPhotos, ...localPhotos.map(p => p.url)];
+        if(allAttachedPhotos.length === 0) {
+            toast.error("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
+            attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
         setIsAiLoading(true);
         const toastId = toast.loading("AI đang phân tích hóa đơn...");
-        
+
         try {
+            // This is a simplification. In a real app, converting remote URLs to data URIs
+            // would require a server-side proxy to avoid CORS issues.
+            // For now, we'll only process local photos.
+            const localDataUris = await Promise.all(
+                localPhotos.map(async p => {
+                    const blob = await photoStore.getPhoto(p.id);
+                    if (!blob) return null;
+                    return new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.readAsDataURL(blob);
+                    });
+                })
+            );
+
+            // Filtering out nulls in case a blob couldn't be read
+            const validDataUris = localDataUris.filter((uri): uri is string => !!uri);
+
+            if (validDataUris.length === 0) {
+                 toast.error("Không tìm thấy ảnh hóa đơn nào trong các ảnh đã đính kèm.");
+                 attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 setIsAiLoading(false);
+                 toast.dismiss(toastId);
+                 return;
+            }
+
             const result = await extractInvoiceItems({
-                imageDataUri: imageUri,
+                imageUris: validDataUris, // Sending all local images
                 inventoryItems: inventoryList,
             });
 
-            if (result.items.length === 0) {
-                toast.error('AI không nhận diện được mặt hàng nào từ hóa đơn.');
+            if (!result.isInvoiceFound || result.items.length === 0) {
+                toast.error('AI không nhận diện được mặt hàng nào từ các ảnh hóa đơn đã cung cấp.');
             } else {
                 setExtractedItems(result.items);
                 setShowAiPreview(true);
@@ -305,41 +337,6 @@ export default function ExpenseSlipDialog({
         } finally {
             toast.dismiss(toastId);
             setIsAiLoading(false);
-        }
-    };
-
-    const handleAiPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = () => {
-            const imageDataUri = reader.result as string;
-            processInvoiceImage(imageDataUri);
-        };
-        if(fileInputRef.current) fileInputRef.current.value = '';
-    };
-
-    const handleAiPhotoCapture = async (photoIds: string[]) => {
-        setIsAiCameraOpen(false);
-        if (photoIds.length === 0) return;
-
-        const photoId = photoIds[0];
-        try {
-            const photoBlob = await photoStore.getPhoto(photoId);
-            if (!photoBlob) throw new Error("Không tìm thấy ảnh đã chụp.");
-
-            const reader = new FileReader();
-            reader.readAsDataURL(photoBlob);
-            reader.onloadend = () => {
-                const imageDataUri = reader.result as string;
-                processInvoiceImage(imageDataUri);
-            };
-            await photoStore.deletePhoto(photoId);
-        } catch (error) {
-            console.error("Failed to process captured photo for AI", error);
-            toast.error("Lỗi xử lý ảnh chụp.");
         }
     };
 
@@ -415,7 +412,7 @@ export default function ExpenseSlipDialog({
                             </div>
 
                             {/* --- Attachment Section --- */}
-                            <Card className="border-primary/50 border-2">
+                            <Card className="border-primary/50 border-2" ref={attachmentCardRef}>
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
                                     <CardDescription>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
@@ -454,28 +451,18 @@ export default function ExpenseSlipDialog({
 
                             {/* --- Item Selection Section --- */}
                             <div className="space-y-4">
-                                <Card className="border-primary/50 border-2 bg-muted/30">
-                                <CardHeader className="pb-4">
-                                    <CardTitle className="text-base text-primary">Dùng AI quét hóa đơn</CardTitle>
-                                    <CardDescription>Cách nhanh nhất để nhập liệu. Chụp hoặc tải ảnh hóa đơn và AI sẽ tự động điền các mặt hàng.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex flex-col sm:flex-row gap-2">
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full flex-col h-auto py-3">
-                                            {isAiLoading ? <Loader2 className="animate-spin h-6 w-6 mb-1" /> : <Upload className='h-6 w-6 mb-1' />}
-                                            Tải ảnh hóa đơn
-                                        </Button>
-                                        <input type="file" ref={fileInputRef} onChange={handleAiPhotoUpload} className="hidden" accept="image/*" />
-                                        <Button variant="outline" onClick={() => setIsAiCameraOpen(true)} disabled={isAiLoading} className="w-full flex-col h-auto py-3">
-                                            {isAiLoading ? <Loader2 className="animate-spin h-6 w-6 mb-1" /> : <Camera className='h-6 w-6 mb-1' />}
-                                            Chụp ảnh hóa đơn
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                                </Card>
-
                                 <div className="space-y-2">
-                                    <Label className="text-sm">Hoặc chọn thủ công</Label>
+                                     <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
+                                        {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                        Dùng AI quét hóa đơn
+                                    </Button>
+                                </div>
+                                <div className="relative text-center my-4">
+                                    <Separator />
+                                    <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-sm text-muted-foreground">Hoặc</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm">Chọn thủ công</Label>
                                     <ItemMultiSelect
                                         inventoryItems={inventoryList}
                                         selectedItems={items}
@@ -597,9 +584,6 @@ export default function ExpenseSlipDialog({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {/* AI Camera Dialog */}
-            <CameraDialog isOpen={isAiCameraOpen} onClose={() => setIsAiCameraOpen(false)} onSubmit={handleAiPhotoCapture} singlePhotoMode={true} />
             
             {/* Attachment Camera Dialog */}
             <CameraDialog isOpen={isAttachmentCameraOpen} onClose={() => setIsAttachmentCameraOpen(false)} onSubmit={handleAttachmentPhotoCapture} />

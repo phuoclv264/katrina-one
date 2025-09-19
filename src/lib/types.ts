@@ -382,3 +382,8 @@ export type ExtractedInvoiceItem = {
     matchedItemId: string | null; // ID của sản phẩm trong kho nếu khớp
     status: 'matched' | 'unmatched'; // Trạng thái khớp
 }
+
+export type InvoiceExtractionResult = {
+  isInvoiceFound: boolean;
+  items: ExtractedInvoiceItem[];
+}
