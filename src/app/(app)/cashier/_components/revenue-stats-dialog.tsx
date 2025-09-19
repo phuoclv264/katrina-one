@@ -127,7 +127,7 @@ export default function RevenueStatsDialog({
     }, [open]);
 
     const handleTabChange = (value: string) => {
-        if (isCreating && isMobile && value === 'data' && !newImageDataUri) {
+        if (isMobile && value === 'data' && !newImageDataUri) {
             toast({
                 title: "Vui lòng cung cấp ảnh",
                 description: "Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.",
