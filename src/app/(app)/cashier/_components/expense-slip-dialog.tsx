@@ -92,24 +92,28 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
     const matchedItems = extractedItems.filter(item => item.status === 'matched');
     const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
 
-     const ItemCard = ({ item, isUnmatched = false }: { item: ExtractedInvoiceItem, isUnmatched?: boolean }) => {
-        const inventoryItem = isUnmatched ? null : inventoryList.find(i => i.id === item.matchedItemId);
+    const ItemCard = ({ item }: { item: ExtractedInvoiceItem }) => {
+        const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId);
         return (
-             <div className="text-sm rounded-md border bg-card p-3">
-                <p className="font-semibold">{item.itemName}</p>
-                 {inventoryItem && (
-                    <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>
-                )}
-                <div className="flex justify-between items-end text-xs text-muted-foreground mt-2 border-t pt-2">
-                    <div className='space-y-1'>
-                        <p>Số lượng: <span className="font-medium text-foreground text-sm">{item.quantity}</span></p>
-                        <p>Đơn giá: <span className="font-medium text-foreground text-sm">{item.unitPrice.toLocaleString('vi-VN')}đ</span></p>
-                    </div>
-                    <p className='text-right font-bold text-base text-primary'>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
-                </div>
-            </div>
-        )
-    };
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex justify-between items-start">
+                 <div className="flex-1">
+                    <p className="font-semibold">{item.itemName}</p>
+                    {inventoryItem && <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>}
+                 </div>
+                 <div className="text-right ml-2 shrink-0">
+                     <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
+                 </div>
+              </div>
+              <div className="flex justify-between items-end text-xs text-muted-foreground mt-2 border-t pt-2">
+                <p>SL: <span className="font-medium text-foreground">{item.quantity}</span></p>
+                <p>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}đ</span></p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,7 +128,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
                         </h4>
-                        <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
+                        <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
                            <div className="space-y-2">
                              {matchedItems.length > 0 ? (
                                 matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} />)
@@ -139,10 +143,10 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                          <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
                         </h4>
-                         <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
+                         <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
                            <div className="space-y-2">
                              {unmatchedItems.length > 0 ? (
-                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isUnmatched={true} />)
+                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} />)
                              ) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
                              )}
@@ -337,7 +341,7 @@ export default function ExpenseSlipDialog({
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
                         <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-white dark:bg-black">
+                    <ScrollArea className="max-h-[70vh] -mx-6 px-6">
                         <div className="grid gap-6 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
@@ -350,26 +354,14 @@ export default function ExpenseSlipDialog({
                                 </div>
                             </div>
                         
-                             <div className="space-y-2">
-                                <Label>Chọn mặt hàng (thủ công)</Label>
-                                <ItemMultiSelect
-                                    inventoryItems={inventoryList}
-                                    selectedItems={items}
-                                    onChange={handleItemsSelected}
-                                    className="w-full"
-                                />
-                            </div>
-
-                            <div className='relative my-4'>
-                                <Separator />
-                                <span className='absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-2 text-sm text-muted-foreground'>HOẶC</span>
-                            </div>
-
-                            <div className="space-y-2 text-center">
-                                <Label className="text-sm text-muted-foreground">Dùng AI quét hóa đơn</Label>
-                                <div className="flex flex-wrap sm:flex-nowrap gap-4 justify-center">
-                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="bg-card">
-                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-2' />}
+                            <Card className="border-primary/50 border-2 bg-muted/30">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-base text-primary">Dùng AI quét hóa đơn</CardTitle>
+                                    <CardDescription>Cách nhanh nhất để nhập liệu. Chụp hoặc tải ảnh hóa đơn và AI sẽ tự động điền các mặt hàng.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full h-12 text-base">
+                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-3 h-5 w-5' />}
                                         Tải ảnh hóa đơn
                                     </Button>
                                     <input
@@ -379,11 +371,21 @@ export default function ExpenseSlipDialog({
                                         className="hidden"
                                         accept="image/*"
                                     />
-                                    <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="bg-card">
-                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-2' />}
+                                    <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="w-full h-12 text-base">
+                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-3 h-5 w-5' />}
                                         Chụp ảnh hóa đơn
                                     </Button>
-                                </div>
+                                </CardContent>
+                            </Card>
+
+                            <div className="space-y-2">
+                                <Label className="text-sm text-muted-foreground">Hoặc chọn thủ công</Label>
+                                <ItemMultiSelect
+                                    inventoryItems={inventoryList}
+                                    selectedItems={items}
+                                    onChange={handleItemsSelected}
+                                    className="w-full"
+                                />
                             </div>
 
                             <div className="space-y-2">
