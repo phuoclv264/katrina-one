@@ -72,6 +72,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
     };
     
     const isEdited = originalValue !== undefined && value !== originalValue;
+
     return (
         <div key={id} className="grid grid-cols-2 items-center gap-2">
             <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
