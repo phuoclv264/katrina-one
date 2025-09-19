@@ -3,7 +3,6 @@
 
 // Inspired by react-hot-toast library
 import * as React from "react"
-import { useSyncExternalStore } from 'react';
 
 import type {
   ToastActionElement,
@@ -174,7 +173,7 @@ function toast({ ...props }: Toast) {
 }
 
 function useToast() {
-  const state = useSyncExternalStore(
+   const state = React.useSyncExternalStore(
     (onStoreChange) => {
       listeners.push(onStoreChange);
       return () => {
