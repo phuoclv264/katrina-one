@@ -73,12 +73,12 @@ export function ItemMultiSelect({
   }
 
   const selectableItems = React.useMemo(() => {
-      const selectedSet = new Set(tempSelected.map(item => item.itemId));
+      const selectedIds = new Set(tempSelected.map(item => item.itemId));
       
-      const selectedInOrder = inventoryItems.filter(item => selectedSet.has(item.id));
-      const unselectedInOrder = inventoryItems.filter(item => !selectedSet.has(item.id));
+      const selected = inventoryItems.filter(item => selectedIds.has(item.id));
+      const unselected = inventoryItems.filter(item => !selectedIds.has(item.id));
 
-      return [...selectedInOrder, ...unselectedInOrder];
+      return [...selected, ...unselected];
   }, [inventoryItems, tempSelected]);
 
 
