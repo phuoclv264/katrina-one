@@ -166,7 +166,7 @@ export default function RevenueStatsDialog({
     }, [open, resetFormState]);
 
     const handleTabChange = (value: string) => {
-        if (isMobile && value === 'data' && !newImageDataUri) {
+        if (value === 'data' && !newImageDataUri) {
             toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.", { id: 'revenue-image-required' });
             return;
         }
@@ -488,41 +488,38 @@ export default function RevenueStatsDialog({
                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.
                         </DialogDescription>
                     </DialogHeader>
-                    
-                    {isMobile ? (
-                        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" /> Ảnh phiếu</TabsTrigger>
-                                <TabsTrigger value="data"><FileText className="mr-2 h-4 w-4" /> Số liệu</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="image" className="mt-4">
-                                <div className="flex flex-col gap-4">
+
+                    <ScrollArea className="max-h-[70vh] -mx-6 px-6">
+                        <div className="py-4">
+                        {isMobile ? (
+                            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" /> Ảnh phiếu</TabsTrigger>
+                                    <TabsTrigger value="data"><FileText className="mr-2 h-4 w-4" /> Số liệu</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="image" className="mt-4">
+                                    <div className="flex flex-col gap-4">
+                                        <ImageSection />
+                                    </div>
+                                </TabsContent>
+                                <TabsContent value="data" className="mt-4">
+                                    <DataSection />
+                                </TabsContent>
+                            </Tabs>
+                        ) : (
+                            <div className="flex flex-col md:flex-row gap-6">
+                                <div className="w-full md:w-1/2 flex flex-col gap-4">
                                     <ImageSection />
                                 </div>
-                            </TabsContent>
-                            <TabsContent value="data" className="mt-4">
-                                {activeTab === 'data' && (
-                                    <ScrollArea className="h-[55vh] pr-4">
-                                        <DataSection />
-                                    </ScrollArea>
-                                )}
-                            </TabsContent>
-                        </Tabs>
-                    ) : (
-                        <div className="flex flex-col md:flex-row gap-6">
-                            <div className="w-full md:w-1/2 flex flex-col gap-4">
-                                <ImageSection />
-                            </div>
-                            <div className="w-full md:w-1/2">
-                                <ScrollArea className="h-full max-h-[60vh] pr-4">
+                                <div className="w-full md:w-1/2">
                                     <DataSection />
-                                </ScrollArea>
+                                </div>
                             </div>
+                        )}
                         </div>
-                    )}
+                    </ScrollArea>
 
-
-                    <DialogFooter className="mt-6">
+                    <DialogFooter>
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
