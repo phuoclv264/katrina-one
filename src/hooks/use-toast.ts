@@ -1,7 +1,9 @@
+
 "use client"
 
 // Inspired by react-hot-toast library
 import * as React from "react"
+import { useSyncExternalStore } from 'react';
 
 import type {
   ToastActionElement,
@@ -172,17 +174,19 @@ function toast({ ...props }: Toast) {
 }
 
 function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
-
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
-    }
-  }, [state])
+  const state = useSyncExternalStore(
+    (onStoreChange) => {
+      listeners.push(onStoreChange);
+      return () => {
+        const index = listeners.indexOf(onStoreChange);
+        if (index > -1) {
+          listeners.splice(index, 1);
+        }
+      };
+    },
+    () => memoryState,
+    () => memoryState
+  );
 
   return {
     ...state,
