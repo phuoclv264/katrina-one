@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -91,6 +91,18 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
     const matchedItems = extractedItems.filter(item => item.status === 'matched');
     const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
 
+    const ItemCard = ({ item }: { item: ExtractedInvoiceItem }) => (
+        <Card className="bg-card">
+            <CardContent className="p-3 text-sm">
+                <p className="font-semibold truncate">{item.itemName}</p>
+                <div className="flex justify-between items-center mt-1 text-muted-foreground">
+                    <span>SL: <span className="font-medium text-foreground">{item.quantity}</span></span>
+                    <span>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}</span></span>
+                </div>
+            </CardContent>
+        </Card>
+    );
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl">
@@ -98,51 +110,35 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                     <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
-                    <div>
-                        <h4 className="font-semibold mb-2 text-green-600">Đã khớp ({matchedItems.length})</h4>
-                        <ScrollArea className="h-72 rounded-md border bg-background">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tên</TableHead>
-                                        <TableHead>SL</TableHead>
-                                        <TableHead>Đơn giá</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {matchedItems.map((item, index) => (
-                                        <TableRow key={`matched-${index}`}>
-                                            <TableCell>{item.itemName}</TableCell>
-                                            <TableCell>{item.quantity}</TableCell>
-                                            <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh]">
+                    {/* Matched Items */}
+                    <div className="flex flex-col">
+                        <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
+                           <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
+                        </h4>
+                        <ScrollArea className="flex-1 rounded-md border bg-white dark:bg-card p-2">
+                           <div className="space-y-2">
+                             {matchedItems.length > 0 ? (
+                                matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} />)
+                             ) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">Không có mặt hàng nào khớp.</p>
+                             )}
+                           </div>
                         </ScrollArea>
                     </div>
-                     <div>
-                        <h4 className="font-semibold mb-2 text-red-600">Không khớp ({unmatchedItems.length})</h4>
-                         <ScrollArea className="h-72 rounded-md border bg-background">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tên từ hóa đơn</TableHead>
-                                        <TableHead>SL</TableHead>
-                                        <TableHead>Đơn giá</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {unmatchedItems.map((item, index) => (
-                                        <TableRow key={`unmatched-${index}`}>
-                                            <TableCell>{item.itemName}</TableCell>
-                                            <TableCell>{item.quantity}</TableCell>
-                                            <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                     {/* Unmatched Items */}
+                    <div className="flex flex-col">
+                         <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
+                           <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
+                        </h4>
+                         <ScrollArea className="flex-1 rounded-md border bg-white dark:bg-card p-2">
+                           <div className="space-y-2">
+                             {unmatchedItems.length > 0 ? (
+                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} />)
+                             ) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
+                             )}
+                           </div>
                         </ScrollArea>
                     </div>
                 </div>
