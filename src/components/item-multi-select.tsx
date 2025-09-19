@@ -73,15 +73,12 @@ export function ItemMultiSelect({
   }
 
   const selectableItems = React.useMemo(() => {
-      return [...inventoryItems].sort((a, b) => {
-          const aIsSelected = tempSelected.some(item => item.itemId === a.id);
-          const bIsSelected = tempSelected.some(item => item.itemId === b.id);
+      const selectedSet = new Set(tempSelected.map(item => item.itemId));
+      
+      const selectedInOrder = inventoryItems.filter(item => selectedSet.has(item.id));
+      const unselectedInOrder = inventoryItems.filter(item => !selectedSet.has(item.id));
 
-          if (aIsSelected && !bIsSelected) return -1;
-          if (!aIsSelected && bIsSelected) return 1;
-
-          return a.name.localeCompare(b.name, 'vi');
-      });
+      return [...selectedInOrder, ...unselectedInOrder];
   }, [inventoryItems, tempSelected]);
 
 
