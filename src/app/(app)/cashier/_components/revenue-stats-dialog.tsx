@@ -50,6 +50,27 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
     bankTransfer: "Chuyển Khoản",
 };
 
+// Sub-component for input fields to prevent re-render focus loss issue
+const InputField = ({ id, label, value, onChange, originalValue, isImportant, isEdited }: {
+    id: string;
+    label: string;
+    value: number;
+    onChange: (val: string) => void;
+    originalValue?: number;
+    isImportant?: boolean;
+    isEdited: boolean;
+}) => {
+    return (
+        <div key={id} className="grid grid-cols-2 items-center gap-2">
+            <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
+                 {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
+                {label}
+            </Label>
+            <Input id={id} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className={cn("h-9", isImportant && "font-bold text-base")} />
+        </div>
+    );
+};
+
 
 export default function RevenueStatsDialog({
     open,
@@ -319,19 +340,6 @@ export default function RevenueStatsDialog({
         }
     }
     
-    const renderInputField = (id: string, label: string, value: number, onChange: (val: string) => void, originalValue?: number, isImportant: boolean = false) => {
-        const isEdited = originalData !== null && value !== originalValue;
-        return (
-            <div key={id} className="grid grid-cols-2 items-center gap-2">
-                <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
-                     {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
-                    {label}
-                </Label>
-                <Input id={id} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className={cn("h-9", isImportant && "font-bold text-base")} />
-            </div>
-        );
-    };
-
     const ImageSection = () => (
         <Card className="bg-card flex-grow flex flex-col">
             <CardHeader className="pb-2">
@@ -380,20 +388,30 @@ export default function RevenueStatsDialog({
 
     const DataSection = () => (
         <div className="space-y-4">
-             {renderInputField("netRevenue", "Doanh thu Net", netRevenue, (val) => setNetRevenue(Number(val)), originalData?.netRevenue, true)}
+             <InputField
+                id="netRevenue"
+                label="Doanh thu Net"
+                value={netRevenue}
+                onChange={(val) => setNetRevenue(Number(val))}
+                originalValue={originalData?.netRevenue}
+                isImportant={true}
+                isEdited={hasBeenEdited}
+            />
             <Card>
                 <CardHeader className="pb-2 pt-4">
                     <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                     {Object.entries(revenueByPaymentMethod).map(([key, value]) => 
-                        renderInputField(
-                            `pm-${key}`, 
-                            paymentMethodLabels[key as keyof typeof paymentMethodLabels], 
-                            value, 
-                            (val) => handlePaymentMethodChange(key as any, val), 
-                            originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]
-                        )
+                        <InputField
+                            key={`pm-${key}`}
+                            id={`pm-${key}`}
+                            label={paymentMethodLabels[key as keyof typeof paymentMethodLabels]}
+                            value={value}
+                            onChange={(val) => handlePaymentMethodChange(key as any, val)}
+                            originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
+                            isEdited={hasBeenEdited}
+                        />
                     )}
                     <div className="text-right pt-2">
                         <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
@@ -404,7 +422,14 @@ export default function RevenueStatsDialog({
                 </CardContent>
             </Card>
 
-            {renderInputField("deliveryPayout", "Trả cho ĐTGH", deliveryPartnerPayout, (val) => setDeliveryPartnerPayout(Number(val)), originalData?.deliveryPartnerPayout)}
+            <InputField
+                id="deliveryPayout"
+                label="Trả cho ĐTGH"
+                value={deliveryPartnerPayout}
+                onChange={(val) => setDeliveryPartnerPayout(Number(val))}
+                originalValue={originalData?.deliveryPartnerPayout}
+                isEdited={hasBeenEdited}
+            />
             <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
                 <Info className="h-3 w-3 mt-0.5 shrink-0"/>
                 <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
