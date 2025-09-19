@@ -14,7 +14,7 @@ import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, Comprehen
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
@@ -471,6 +471,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-
