@@ -155,8 +155,7 @@ export default function CashierDashboardPage() {
             <Skeleton className="h-10 w-3/4 mb-2" />
             <Skeleton className="h-4 w-1/2" />
         </header>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Skeleton className="h-32" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -181,7 +180,7 @@ export default function CashierDashboardPage() {
             </p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
             {/* Summary Cards */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -199,15 +198,6 @@ export default function CashierDashboardPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</div>
                     <p className="text-xs text-muted-foreground">trong hôm nay</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Doanh thu (POS)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{(revenueStats?.netRevenue || 0).toLocaleString('vi-VN')}đ</div>
-                    <p className="text-xs text-muted-foreground">{revenueStats ? `Cập nhật lúc ${format(new Date(revenueStats.createdAt as string), 'HH:mm')}` : 'Chưa nhập liệu'}</p>
                 </CardContent>
             </Card>
             <Card>
@@ -294,7 +284,11 @@ export default function CashierDashboardPage() {
                  <Card className="bg-primary/5 text-primary-foreground border-primary/20 shadow-lg">
                     <CardHeader>
                         <CardTitle className="text-primary">Thống kê Doanh thu</CardTitle>
-                        <CardDescription className="text-primary/80">Nhập số liệu từ bill tổng kết trên máy POS.</CardDescription>
+                        <CardDescription className="text-primary/80">Nhập số liệu từ bill tổng kết trên máy POS.
+                        <br/>
+                        <span className="font-semibold text-xs">{(revenueStats?.netRevenue || 0).toLocaleString('vi-VN')}đ</span>
+                        <span className="text-xs"> - {revenueStats ? `lúc ${format(new Date(revenueStats.createdAt as string), 'HH:mm')}` : 'Chưa nhập liệu'}</span>
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                        <Button variant="outline" className="w-full bg-background/80 text-primary hover:bg-background" onClick={() => setIsRevenueDialogOpen(true)}>
@@ -359,3 +353,4 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
