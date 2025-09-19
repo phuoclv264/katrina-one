@@ -24,8 +24,6 @@ import { format, isToday, isBefore, startOfDay, parseISO } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 type RevenueStatsDialogProps = {
@@ -104,9 +102,6 @@ export default function RevenueStatsDialog({
     isProcessing,
     existingStats
 }: RevenueStatsDialogProps) {
-    const isMobile = useIsMobile();
-    const [activeTab, setActiveTab] = useState('image');
-    
     // Form state
     const [netRevenue, setNetRevenue] = useState(0);
     const [deliveryPartnerPayout, setDeliveryPartnerPayout] = useState(0);
@@ -155,7 +150,6 @@ export default function RevenueStatsDialog({
         setReportTimestamp(null);
         setOriginalData(null); 
         setNewImageDataUri(null); 
-        setActiveTab('image'); // Reset to image tab when dialog opens
         setServerErrorDialog({ open: false, imageUri: null });
     }, []);
 
@@ -165,13 +159,6 @@ export default function RevenueStatsDialog({
         }
     }, [open, resetFormState]);
 
-    const handleTabChange = (value: string) => {
-        if (value === 'data' && !newImageDataUri) {
-            toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.", { id: 'revenue-image-required' });
-            return;
-        }
-        setActiveTab(value);
-    }
 
     const handlePaymentMethodChange = useCallback((key: keyof typeof revenueByPaymentMethod, value: string) => {
         setRevenueByPaymentMethod(prev => ({ ...prev, [key]: Number(value) }));
@@ -255,7 +242,6 @@ export default function RevenueStatsDialog({
         setOriginalData(aiData);
 
         toast.success('Đã điền dữ liệu từ ảnh phiếu. Vui lòng kiểm tra lại.');
-        setActiveTab('data'); // Switch to data tab on success
     }
 
     const processImage = async (imageUri: string) => {
@@ -323,7 +309,6 @@ export default function RevenueStatsDialog({
             reportTimestamp: null,
         });
     
-        setActiveTab('data');
         setServerErrorDialog({ open: false, imageUri: null });
         toast.success("Chuyển sang nhập thủ công. Vui lòng nhập các số liệu từ phiếu thống kê.");
     };
@@ -368,120 +353,10 @@ export default function RevenueStatsDialog({
         }
     }
     
-    const ImageSection = () => (
-        <Card className="bg-card flex-grow flex flex-col">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-base">Ảnh phiếu thống kê</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
-                 {displayImageDataUri ? (
-                    <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
-                         <Image src={displayImageDataUri} alt="Ảnh phiếu thống kê" fill className="object-contain rounded-md" />
-                    </div>
-                ) : (
-                    <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
-                        <p className="text-sm text-muted-foreground">Chưa có ảnh</p>
-                    </div>
-                )}
-                <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
-                    <Button
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isOcrLoading || isProcessing}
-                        className="w-full"
-                    >
-                        {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                        Tải ảnh phiếu
-                    </Button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept="image/*"
-                    />
-                    <Button
-                        variant="secondary"
-                        onClick={() => setIsCameraOpen(true)}
-                        disabled={isOcrLoading || isProcessing}
-                        className="w-full"
-                    >
-                        <Camera className="mr-2 h-4 w-4" />
-                        Chụp ảnh phiếu
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    );
-
-    const DataSection = () => (
-        <div className="space-y-4">
-             {reportTimestamp && (
-                 <div className="grid grid-cols-2 items-center gap-2">
-                    <Label className="text-sm text-right flex items-center gap-2 justify-end">Thời gian trên phiếu</Label>
-                    <div className="text-sm font-semibold p-2 bg-muted rounded-md text-center">{format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}</div>
-                 </div>
-             )}
-             <InputField
-                id="netRevenue"
-                label="Doanh thu Net"
-                value={netRevenue}
-                onChange={(val) => setNetRevenue(Number(val))}
-                originalValue={originalData?.netRevenue}
-                isImportant={true}
-            />
-            <Card>
-                <CardHeader className="pb-2 pt-4">
-                    <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                    {Object.entries(revenueByPaymentMethod).map(([key, value]) => 
-                        <InputField
-                            key={`pm-${key}`}
-                            id={`pm-${key}`}
-                            label={paymentMethodLabels[key as keyof typeof paymentMethodLabels]}
-                            value={value}
-                            onChange={(val) => handlePaymentMethodChange(key as any, val)}
-                            originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
-                        />
-                    )}
-                    <div className="text-right pt-2">
-                        <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
-                        {isRevenueMismatch && (
-                            <p className="text-xs text-destructive font-semibold">Không khớp Doanh thu Net!</p>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            <InputField
-                id="deliveryPayout"
-                label="Trả cho ĐTGH"
-                value={deliveryPartnerPayout}
-                onChange={(val) => setDeliveryPartnerPayout(Number(val))}
-                originalValue={originalData?.deliveryPartnerPayout}
-            />
-            <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
-                <Info className="h-3 w-3 mt-0.5 shrink-0"/>
-                <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
-            </p>
-            
-             {hasBeenEdited && (
-                <Alert variant="default" className="mt-4 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
-                    <Edit className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
-                    <AlertTitle>Đã chỉnh sửa thủ công</AlertTitle>
-                    <AlertDescription>
-                        Số liệu đã được thay đổi so với kết quả AI đọc được.
-                    </AlertDescription>
-                </Alert>
-            )}
-        </div>
-    );
-
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                 <DialogContent className={cn("max-w-4xl h-[90svh] flex flex-col", isMobile && "max-w-[95vw] h-[95svh]")}>
+                 <DialogContent className="max-w-xl h-[95svh] flex flex-col">
                     <DialogHeader className="shrink-0">
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
@@ -490,34 +365,121 @@ export default function RevenueStatsDialog({
                     </DialogHeader>
 
                     <div className="flex-grow overflow-y-auto -mx-6 px-6">
-                        <div className="py-4 h-full">
-                        {isMobile ? (
-                            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full flex flex-col">
-                                <TabsList className="grid w-full grid-cols-2 shrink-0">
-                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" /> Ảnh phiếu</TabsTrigger>
-                                    <TabsTrigger value="data"><FileText className="mr-2 h-4 w-4" /> Số liệu</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="image" className="mt-4 flex-grow">
-                                    <div className="flex flex-col gap-4 h-full">
-                                        <ImageSection />
+                        <div className="py-4 space-y-6">
+                            {/* --- Image Section --- */}
+                            <Card className="bg-card flex-grow flex flex-col">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base flex items-center gap-2"><ImageIcon/> Ảnh phiếu thống kê</CardTitle>
+                                </CardHeader>
+                                <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
+                                    {displayImageDataUri ? (
+                                        <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
+                                            <Image src={displayImageDataUri} alt="Ảnh phiếu thống kê" fill className="object-contain rounded-md" />
+                                        </div>
+                                    ) : (
+                                        <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
+                                            <p className="text-sm text-muted-foreground">Chưa có ảnh</p>
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isOcrLoading || isProcessing}
+                                            className="w-full"
+                                        >
+                                            {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                            Tải ảnh phiếu
+                                        </Button>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                            className="hidden"
+                                            accept="image/*"
+                                        />
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => setIsCameraOpen(true)}
+                                            disabled={isOcrLoading || isProcessing}
+                                            className="w-full"
+                                        >
+                                            <Camera className="mr-2 h-4 w-4" />
+                                            Chụp ảnh phiếu
+                                        </Button>
                                     </div>
-                                </TabsContent>
-                                <TabsContent value="data" className="mt-4">
-                                    <DataSection />
-                                </TabsContent>
-                            </Tabs>
-                        ) : (
-                            <div className="flex flex-col md:flex-row gap-6 h-full">
-                                <div className="w-full md:w-1/2 flex flex-col gap-4">
-                                    <ImageSection />
-                                </div>
-                                <div className="w-full md:w-1/2">
-                                    <DataSection />
-                                </div>
-                            </div>
-                        )}
+                                </CardContent>
+                            </Card>
+
+                            {/* --- Data Section (Conditional) --- */}
+                            {displayImageDataUri && (
+                                <ScrollArea className="max-h-[50vh] w-full rounded-md border bg-muted/30 shadow-inner">
+                                    <div className="p-4 space-y-4">
+                                        {reportTimestamp && (
+                                            <div className="grid grid-cols-2 items-center gap-2">
+                                                <Label className="text-sm text-right flex items-center gap-2 justify-end">Thời gian trên phiếu</Label>
+                                                <div className="text-sm font-semibold p-2 bg-background rounded-md text-center">{format(parseISO(reportTimestamp), 'HH:mm:ss, dd/MM/yyyy')}</div>
+                                            </div>
+                                        )}
+                                        <InputField
+                                            id="netRevenue"
+                                            label="Doanh thu Net"
+                                            value={netRevenue}
+                                            onChange={(val) => setNetRevenue(Number(val))}
+                                            originalValue={originalData?.netRevenue}
+                                            isImportant={true}
+                                        />
+                                        <Card>
+                                            <CardHeader className="pb-2 pt-4">
+                                                <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                {Object.entries(revenueByPaymentMethod).map(([key, value]) =>
+                                                    <InputField
+                                                        key={`pm-${key}`}
+                                                        id={`pm-${key}`}
+                                                        label={paymentMethodLabels[key as keyof typeof paymentMethodLabels]}
+                                                        value={value}
+                                                        onChange={(val) => handlePaymentMethodChange(key as any, val)}
+                                                        originalValue={originalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
+                                                    />
+                                                )}
+                                                <div className="text-right pt-2">
+                                                    <p className="text-xs text-muted-foreground font-semibold">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
+                                                    {isRevenueMismatch && (
+                                                        <p className="text-xs text-destructive font-semibold">Không khớp Doanh thu Net!</p>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        <InputField
+                                            id="deliveryPayout"
+                                            label="Trả cho ĐTGH"
+                                            value={deliveryPartnerPayout}
+                                            onChange={(val) => setDeliveryPartnerPayout(Number(val))}
+                                            originalValue={originalData?.deliveryPartnerPayout}
+                                        />
+                                        <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
+                                            <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                                            <span>Số tiền trả cho ĐTGH sẽ được tự động tạo một phiếu chi tương ứng.</span>
+                                        </p>
+
+                                        {hasBeenEdited && (
+                                            <Alert variant="default" className="mt-4 border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300">
+                                                <Edit className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
+                                                <AlertTitle>Đã chỉnh sửa thủ công</AlertTitle>
+                                                <AlertDescription>
+                                                    Số liệu đã được thay đổi so với kết quả AI đọc được.
+                                                </AlertDescription>
+                                            </Alert>
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            )}
                         </div>
                     </div>
+
 
                     <DialogFooter className="shrink-0">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
