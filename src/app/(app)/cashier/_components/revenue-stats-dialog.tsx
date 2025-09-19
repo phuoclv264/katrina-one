@@ -116,6 +116,7 @@ export default function RevenueStatsDialog({
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const dataSectionRef = useRef<HTMLDivElement>(null);
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
@@ -159,6 +160,15 @@ export default function RevenueStatsDialog({
             resetFormState();
         }
     }, [open, resetFormState]);
+
+    // Auto-scroll to data section when image is available
+    useEffect(() => {
+        if (newImageDataUri && dataSectionRef.current) {
+            setTimeout(() => {
+                dataSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+    }, [newImageDataUri]);
 
 
     const handlePaymentMethodChange = useCallback((key: keyof typeof revenueByPaymentMethod, value: string) => {
@@ -357,18 +367,18 @@ export default function RevenueStatsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                 <DialogContent className="max-w-xl h-[95svh] flex flex-col">
-                    <DialogHeader className="shrink-0">
+                <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0">
+                    <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-grow overflow-y-auto -mx-6 px-6 bg-background">
+                    <div className="flex-grow overflow-y-auto px-6">
                         <div className="py-4 space-y-6">
                             {/* --- Image Section --- */}
-                            <Card className="bg-card flex-grow flex flex-col">
+                            <Card className="flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base flex items-center gap-2"><ImageIcon/> Ảnh phiếu thống kê</CardTitle>
                                 </CardHeader>
@@ -379,7 +389,7 @@ export default function RevenueStatsDialog({
                                         </div>
                                     ) : (
                                         <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
-                                            <p className="text-sm text-muted-foreground">Chưa có ảnh</p>
+                                            <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
                                     )}
                                     <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
@@ -414,7 +424,7 @@ export default function RevenueStatsDialog({
 
                             {/* --- Data Section (Conditional) --- */}
                             {displayImageDataUri && (
-                                <div className="space-y-4">
+                                <div ref={dataSectionRef} className="space-y-4 rounded-md border bg-muted/30 shadow-inner p-4">
                                     {reportTimestamp && (
                                         <Card>
                                             <CardContent className="p-3 text-center text-sm font-semibold">
@@ -452,7 +462,7 @@ export default function RevenueStatsDialog({
                                                     isSubtle={true}
                                                 />
                                             )}
-                                            <div className={cn("text-right pt-2 mt-2 border-t font-semibold", isRevenueMismatch ? "text-destructive" : "text-muted-foreground")}>
+                                             <div className={cn("text-right pt-2 mt-2 border-t font-semibold rounded-b-lg p-2 -mx-4 -mb-3", isRevenueMismatch ? "bg-destructive/10 text-destructive" : "bg-muted/50 text-muted-foreground")}>
                                                 <p className="text-sm">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
                                                 {isRevenueMismatch && <p className="text-xs">Không khớp Doanh thu Net!</p>}
                                             </div>
@@ -489,7 +499,7 @@ export default function RevenueStatsDialog({
                         </div>
                     </div>
 
-                    <DialogFooter className="shrink-0">
+                    <DialogFooter className="shrink-0 p-6 pt-0">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
