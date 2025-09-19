@@ -60,6 +60,7 @@ export default function RevenueStatsDialog({
 }: RevenueStatsDialogProps) {
     const { toast } = useToast();
     const isMobile = useIsMobile();
+    const [activeTab, setActiveTab] = useState('image');
     
     // Form state
     const [netRevenue, setNetRevenue] = useState(0);
@@ -112,6 +113,7 @@ export default function RevenueStatsDialog({
             setNewImageDataUri(null); 
             setOldReceiptInfo(null);
             resetFormState(existingStats);
+            setActiveTab('image'); // Reset to image tab when dialog opens
         }
     }, [open, existingStats]);
 
@@ -230,6 +232,9 @@ export default function RevenueStatsDialog({
              }
         } finally {
             setIsOcrLoading(false);
+            if (isMobile) {
+                setActiveTab('data'); // Switch to data tab on mobile after processing
+            }
         }
     };
 
@@ -391,7 +396,7 @@ export default function RevenueStatsDialog({
                     </DialogHeader>
                     
                     {isMobile ? (
-                        <Tabs defaultValue="image" className="w-full">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-2">
                                 <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" /> Ảnh phiếu</TabsTrigger>
                                 <TabsTrigger value="data"><FileText className="mr-2 h-4 w-4" /> Số liệu</TabsTrigger>
