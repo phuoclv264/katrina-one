@@ -54,11 +54,11 @@ function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave
                     <div className="grid gap-2">
                         <div className="grid grid-cols-3 items-center gap-4">
                             <Label htmlFor="quantity">Số lượng ({item.unit})</Label>
-                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" />
+                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
                         </div>
                         <div className="grid grid-cols-3 items-center gap-4">
                             <Label htmlFor="unitPrice">Đơn giá</Label>
-                            <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" />
+                            <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
                         </div>
                     </div>
                     <Button onClick={handleSave}>Lưu</Button>
@@ -470,7 +470,7 @@ export default function ExpenseSlipDialog({
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="notes">Ghi chú</Label>
-                                    <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." />
+                                    <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." onFocus={(e) => e.target.select()} />
                                 </div>
                             </div>
                         </div>

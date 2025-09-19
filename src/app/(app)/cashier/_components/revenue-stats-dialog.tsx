@@ -87,6 +87,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
               value={localValue}
               onChange={e => setLocalValue(e.target.value)}
               onBlur={handleBlur}
+              onFocus={(e) => e.target.select()}
               placeholder="0" 
               className={cn("h-9", isImportant && "font-bold text-base")} 
             />
@@ -166,7 +167,7 @@ export default function RevenueStatsDialog({
 
     const handleTabChange = (value: string) => {
         if (isMobile && value === 'data' && !newImageDataUri) {
-             toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.", { id: 'revenue-image-required' });
+            toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.", { id: 'revenue-image-required' });
             return;
         }
         setActiveTab(value);
