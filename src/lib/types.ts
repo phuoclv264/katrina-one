@@ -307,6 +307,7 @@ export type ExpenseItem = {
     supplier: string;
     quantity: number;
     unitPrice: number;
+    unit: string;
 }
 
 export type ExpenseSlip = {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -42,7 +43,7 @@ function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave
                     </div>
                     <div className="grid gap-2">
                         <div className="grid grid-cols-3 items-center gap-4">
-                            <Label htmlFor="quantity">Số lượng</Label>
+                            <Label htmlFor="quantity">Số lượng ({item.unit})</Label>
                             <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" />
                         </div>
                         <div className="grid grid-cols-3 items-center gap-4">
@@ -68,6 +69,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
                     supplier: inventoryItem.supplier,
+                    unit: inventoryItem.unit,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                 };
@@ -204,6 +206,7 @@ export default function ExpenseSlipDialog({
                 itemId: invItem.id,
                 name: invItem.name,
                 supplier: invItem.supplier,
+                unit: invItem.unit,
                 quantity: 1, // default
                 unitPrice: 0 // default
             };
@@ -376,7 +379,7 @@ export default function ExpenseSlipDialog({
                                                         <CardContent className="p-4">
                                                             <div className="flex justify-between items-start">
                                                                 <div>
-                                                                    <p className="font-semibold">{item.name}</p>
+                                                                    <p className="font-semibold text-sm">{item.name}</p>
                                                                     <p className="text-xs text-muted-foreground">{item.supplier}</p>
                                                                 </div>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
@@ -385,7 +388,7 @@ export default function ExpenseSlipDialog({
                                                             </div>
                                                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
                                                                 <div>
-                                                                    <p className="text-muted-foreground">Số lượng</p>
+                                                                    <p className="text-muted-foreground">Số lượng ({item.unit})</p>
                                                                     <p className="font-medium">{item.quantity}</p>
                                                                 </div>
                                                                 <div>
@@ -409,7 +412,7 @@ export default function ExpenseSlipDialog({
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>Tên mặt hàng</TableHead>
-                                                        <TableHead>SL</TableHead>
+                                                        <TableHead>SL ({items[0]?.unit})</TableHead>
                                                         <TableHead>Đơn giá</TableHead>
                                                         <TableHead>Thành tiền</TableHead>
                                                         <TableHead className="text-right">Xóa</TableHead>
