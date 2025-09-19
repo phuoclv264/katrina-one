@@ -91,17 +91,21 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
     const matchedItems = extractedItems.filter(item => item.status === 'matched');
     const unmatchedItems = extractedItems.filter(item => item.status === 'unmatched');
 
-    const ItemCard = ({ item }: { item: ExtractedInvoiceItem }) => (
-        <Card className="bg-card">
-            <CardContent className="p-3 text-sm">
+    const ItemCard = ({ item, isUnmatched = false }: { item: ExtractedInvoiceItem, isUnmatched?: boolean }) => {
+        const inventoryItem = isUnmatched ? null : inventoryList.find(i => i.id === item.matchedItemId);
+        return (
+            <div className="text-sm rounded-md border bg-card p-3">
                 <p className="font-semibold">{item.itemName}</p>
-                <div className="flex justify-between items-center mt-1 text-muted-foreground">
+                {!isUnmatched && inventoryItem && (
+                    <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>
+                )}
+                <div className="flex justify-between items-center text-xs text-muted-foreground mt-2 border-t pt-2">
                     <span>SL: <span className="font-medium text-foreground">{item.quantity}</span></span>
                     <span>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}</span></span>
                 </div>
-            </CardContent>
-        </Card>
-    );
+            </div>
+        )
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,7 +120,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
                         </h4>
-                        <ScrollArea className="flex-1 rounded-md border bg-white dark:bg-card p-2">
+                        <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
                            <div className="space-y-2">
                              {matchedItems.length > 0 ? (
                                 matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} />)
@@ -131,10 +135,10 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                          <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
                         </h4>
-                         <ScrollArea className="flex-1 rounded-md border bg-white dark:bg-card p-2">
+                         <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
                            <div className="space-y-2">
                              {unmatchedItems.length > 0 ? (
-                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} />)
+                                unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isUnmatched={true} />)
                              ) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">Tuyệt vời! Tất cả đã được khớp.</p>
                              )}
@@ -344,15 +348,16 @@ export default function ExpenseSlipDialog({
                         
                             <div className="space-y-2">
                                 <Label>Chọn mặt hàng</Label>
-                                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                                <div className="flex flex-col sm:flex-row gap-4 items-center">
                                      <ItemMultiSelect
                                         inventoryItems={inventoryList}
                                         selectedItems={items}
                                         onChange={handleItemsSelected}
                                         className="flex-1 min-w-[200px]"
                                     />
-                                    <div className="flex gap-2 w-full sm:w-auto">
-                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="flex-1 bg-card">
+                                    <div className="flex gap-2 items-center w-full sm:w-auto">
+                                        <p className="text-sm text-muted-foreground">hoặc dùng AI</p>
+                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="bg-card">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload />}
                                         </Button>
                                         <input
@@ -362,7 +367,7 @@ export default function ExpenseSlipDialog({
                                             className="hidden"
                                             accept="image/*"
                                         />
-                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="flex-1 bg-card">
+                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="bg-card">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
                                         </Button>
                                     </div>
