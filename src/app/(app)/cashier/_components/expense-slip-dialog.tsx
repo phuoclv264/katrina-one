@@ -124,7 +124,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
                            <CheckCircle className="h-5 w-5" /> Đã khớp ({matchedItems.length})
                         </h4>
-                        <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
+                        <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
                            <div className="space-y-2">
                              {matchedItems.length > 0 ? (
                                 matchedItems.map((item, index) => <ItemCard key={`matched-${index}`} item={item} />)
@@ -139,7 +139,7 @@ function AiPreviewDialog({ open, onOpenChange, extractedItems, inventoryList, on
                          <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
                            <XCircle className="h-5 w-5" /> Không khớp ({unmatchedItems.length})
                         </h4>
-                         <ScrollArea className="flex-1 rounded-md border p-2 bg-card">
+                         <ScrollArea className="flex-1 rounded-md border p-2 bg-background">
                            <div className="space-y-2">
                              {unmatchedItems.length > 0 ? (
                                 unmatchedItems.map((item, index) => <ItemCard key={`unmatched-${index}`} item={item} isUnmatched={true} />)
@@ -350,7 +350,7 @@ export default function ExpenseSlipDialog({
                                 </div>
                             </div>
                         
-                            <div className="space-y-2">
+                             <div className="space-y-2">
                                 <Label>Chọn mặt hàng (thủ công)</Label>
                                 <ItemMultiSelect
                                     inventoryItems={inventoryList}
@@ -365,9 +365,9 @@ export default function ExpenseSlipDialog({
                                 <span className='absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-2 text-sm text-muted-foreground'>HOẶC</span>
                             </div>
 
-                            <div className="space-y-4 text-center">
-                                <Label>Dùng AI quét hóa đơn</Label>
-                                <div className="flex gap-4 justify-center">
+                            <div className="space-y-2 text-center">
+                                <Label className="text-sm text-muted-foreground">Dùng AI quét hóa đơn</Label>
+                                <div className="flex flex-wrap sm:flex-nowrap gap-4 justify-center">
                                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="bg-card">
                                         {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-2' />}
                                         Tải ảnh hóa đơn
@@ -508,4 +508,3 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
-
