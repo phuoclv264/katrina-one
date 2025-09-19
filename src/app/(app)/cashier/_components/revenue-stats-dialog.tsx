@@ -166,7 +166,7 @@ export default function RevenueStatsDialog({
 
     const handleTabChange = (value: string) => {
         if (isMobile && value === 'data' && !newImageDataUri) {
-            toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.");
+             toast.error("Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.", { id: 'revenue-image-required' });
             return;
         }
         setActiveTab(value);
@@ -500,9 +500,11 @@ export default function RevenueStatsDialog({
                                 </div>
                             </TabsContent>
                             <TabsContent value="data" className="mt-4">
-                                <ScrollArea className="h-[55vh] pr-4">
-                                    <DataSection />
-                                </ScrollArea>
+                                {activeTab === 'data' && (
+                                    <ScrollArea className="h-[55vh] pr-4">
+                                        <DataSection />
+                                    </ScrollArea>
+                                )}
                             </TabsContent>
                         </Tabs>
                     ) : (
