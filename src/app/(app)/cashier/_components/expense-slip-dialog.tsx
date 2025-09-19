@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -447,8 +446,6 @@ export default function ExpenseSlipDialog({
                                 </CardContent>
                             </Card>
                         
-                            <Separator />
-
                             {/* --- Item Selection Section --- */}
                             <div className="space-y-4">
                                 <div className="space-y-2">
@@ -462,7 +459,6 @@ export default function ExpenseSlipDialog({
                                     <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-sm text-muted-foreground">Hoặc</span>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-sm">Chọn thủ công</Label>
                                     <ItemMultiSelect
                                         inventoryItems={inventoryList}
                                         selectedItems={items}

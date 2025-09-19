@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X } from "lucide-react"
+import { Check, ChevronsUpDown, Save } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogClose,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import type { InventoryItem, ExpenseItem } from "@/lib/types"
@@ -39,18 +41,35 @@ export function ItemMultiSelect({
   className,
 }: ItemMultiSelectProps) {
   const [open, setOpen] = React.useState(false)
+  const [tempSelected, setTempSelected] = React.useState<ExpenseItem[]>(selectedItems)
+
+  React.useEffect(() => {
+    if (open) {
+      setTempSelected(selectedItems)
+    }
+  }, [open, selectedItems])
 
   const handleSelect = (inventoryItem: InventoryItem) => {
-    const isSelected = selectedItems.some((selected) => selected.itemId === inventoryItem.id)
+    const isSelected = tempSelected.some((selected) => selected.itemId === inventoryItem.id)
     if (isSelected) {
-      const newSelectedInventory = selectedItems
-        .filter((selected) => selected.itemId !== inventoryItem.id)
-        .map(item => inventoryItems.find(inv => inv.id === item.itemId)!);
-      onChange(newSelectedInventory)
+      setTempSelected(tempSelected.filter((selected) => selected.itemId !== inventoryItem.id))
     } else {
-      const newSelectedInventory = [...selectedItems.map(item => inventoryItems.find(inv => inv.id === item.itemId)!), inventoryItem];
-      onChange(newSelectedInventory);
+      const newExpenseItem: ExpenseItem = {
+        itemId: inventoryItem.id,
+        name: inventoryItem.name,
+        supplier: inventoryItem.supplier,
+        unit: inventoryItem.unit,
+        quantity: 1,
+        unitPrice: 0,
+      }
+      setTempSelected([...tempSelected, newExpenseItem])
     }
+  }
+  
+  const handleSave = () => {
+    const newSelectedInventory = tempSelected.map(item => inventoryItems.find(inv => inv.id === item.itemId)!).filter(Boolean);
+    onChange(newSelectedInventory);
+    setOpen(false);
   }
 
   return (
@@ -76,7 +95,7 @@ export function ItemMultiSelect({
                   </Badge>
                 ))
               ) : (
-                <span className="font-normal text-muted-foreground">Chọn mặt hàng...</span>
+                <span className="font-normal text-muted-foreground">Chọn mặt hàng thủ công...</span>
               )}
             </div>
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -93,7 +112,7 @@ export function ItemMultiSelect({
             <CommandEmpty>Không tìm thấy mặt hàng.</CommandEmpty>
             <CommandGroup>
               {inventoryItems.map((item) => {
-                const isSelected = selectedItems.some(
+                const isSelected = tempSelected.some(
                   (selected) => selected.itemId === item.id
                 )
                 return (
@@ -114,6 +133,15 @@ export function ItemMultiSelect({
             </CommandGroup>
           </CommandList>
         </Command>
+        <DialogFooter className="p-4 border-t">
+          <DialogClose asChild>
+            <Button variant="outline">Hủy</Button>
+          </DialogClose>
+          <Button onClick={handleSave}>
+            <Save className="mr-2 h-4 w-4" />
+            Lưu lựa chọn ({tempSelected.length})
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
