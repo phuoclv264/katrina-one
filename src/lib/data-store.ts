@@ -205,18 +205,54 @@ export const dataStore = {
         } as ExpenseSlip));
     },
 
-    async addOrUpdateExpenseSlip(data: Partial<ExpenseSlip>, id?: string): Promise<void> {
+    async addOrUpdateExpenseSlip(data: any, id?: string): Promise<void> {
+        const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
+        
+        // 1. Handle photos to delete
+        if (photosToDelete && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
+        }
+
+        // 2. Handle new photos to upload
+        let newPhotoUrls: string[] = [];
+        if (newPhotoIds && newPhotoIds.length > 0) {
+            const uploadPromises = newPhotoIds.map(async (photoId: string) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(newPhotoIds);
+        }
+
+        // 3. Combine photo URLs
+        const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
+
+        // 4. Prepare data and save to Firestore
+        const finalData = {
+            ...slipData,
+            attachmentPhotos: finalPhotos,
+        };
+
         if (id) {
             const docRef = doc(db, 'expense_slips', id);
-            await updateDoc(docRef, { ...data, lastModified: serverTimestamp() });
+            finalData.lastModified = serverTimestamp();
+            await updateDoc(docRef, finalData);
         } else {
             const collectionRef = collection(db, 'expense_slips');
-            await addDoc(collectionRef, { ...data, createdAt: serverTimestamp(), date: format(new Date(), 'yyyy-MM-dd') });
+            finalData.createdAt = serverTimestamp();
+            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            await addDoc(collectionRef, finalData);
         }
     },
     
-    async deleteExpenseSlip(id: string): Promise<void> {
-        const docRef = doc(db, 'expense_slips', id);
+    async deleteExpenseSlip(slip: ExpenseSlip): Promise<void> {
+        if (slip.attachmentPhotos && slip.attachmentPhotos.length > 0) {
+            await Promise.all(slip.attachmentPhotos.map(url => this.deletePhotoFromStorage(url)));
+        }
+        const docRef = doc(db, 'expense_slips', slip.id);
         await deleteDoc(docRef);
     },
 

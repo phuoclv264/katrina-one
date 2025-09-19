@@ -129,7 +129,7 @@ export default function CashierDashboardPage() {
   const { totalCashExpense, totalBankExpense } = useMemo(() => {
     return dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
-        acc.totalCashExpense += slip.totalAmount;
+        acc.totalAmount += slip.totalAmount;
       } else if (slip.paymentMethod === 'bank_transfer') {
         acc.totalBankExpense += slip.totalAmount;
       }
@@ -153,10 +153,10 @@ export default function CashierDashboardPage() {
     }
   }, [user]);
   
-  const handleDeleteSlip = async (slipId: string) => {
+  const handleDeleteSlip = async (slip: ExpenseSlip) => {
     setIsProcessing(true);
     try {
-        await dataStore.deleteExpenseSlip(slipId);
+        await dataStore.deleteExpenseSlip(slip);
         toast.success("Phiếu chi đã được xóa.");
     } catch(error) {
         console.error("Failed to delete expense slip", error);
@@ -316,11 +316,11 @@ export default function CashierDashboardPage() {
                                                         <AlertDialogContent>
                                                             <AlertDialogHeader>
                                                                 <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
-                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
                                                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteSlip(slip.id)}>Xóa</AlertDialogAction>
+                                                                <AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction>
                                                             </AlertDialogFooter>
                                                         </AlertDialogContent>
                                                     </AlertDialog>
@@ -407,5 +407,6 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
 
 

@@ -313,13 +313,11 @@ export type ExpenseItem = {
 export type ExpenseSlip = {
   id: string;
   date: string; // YYYY-MM-DD
-  // New structure
   items: ExpenseItem[];
   totalAmount: number;
-
   paymentMethod: PaymentMethod;
   notes?: string;
-  invoiceImageUrl?: string; // URL to the invoice image if provided
+  attachmentPhotos?: string[]; // URLs to the evidence images
   
   createdBy: AssignedUser;
   createdAt: string | Timestamp;

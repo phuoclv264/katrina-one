@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -10,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -24,6 +23,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from '@/components/ui/alert-dialog';
+import Image from 'next/image';
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -182,17 +183,27 @@ export default function ExpenseSlipDialog({
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const attachmentFileInputRef = useRef<HTMLInputElement>(null);
+
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [items, setItems] = useState<ExpenseItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [notes, setNotes] = useState('');
-    const [invoiceImage, setInvoiceImage] = useState<{id: string, url: string} | null>(null);
+    
+    // --- New state for attachments ---
+    const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+    const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
+    const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
+    const [showMissingAttachmentAlert, setShowMissingAttachmentAlert] = useState(false);
+    const [isAttachmentCameraOpen, setIsAttachmentCameraOpen] = useState(false);
 
+    // --- State for AI scanning ---
     const [isAiLoading, setIsAiLoading] = useState(false);
-    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [isAiCameraOpen, setIsAiCameraOpen] = useState(false);
     const [extractedItems, setExtractedItems] = useState<ExtractedInvoiceItem[]>([]);
     const [showAiPreview, setShowAiPreview] = useState(false);
-
+    
+    // Reset form state when dialog opens
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
@@ -200,14 +211,20 @@ export default function ExpenseSlipDialog({
                 setItems(slipToEdit.items);
                 setPaymentMethod(slipToEdit.paymentMethod);
                 setNotes(slipToEdit.notes || '');
+                setExistingPhotos(slipToEdit.attachmentPhotos || []);
             } else {
-                // Reset form for new slip
+                // Reset for new slip
                 setDate(format(new Date(), 'yyyy-MM-dd'));
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
-                setInvoiceImage(null);
+                setExistingPhotos([]);
             }
+            // Always reset local photo state
+            setLocalPhotos([]);
+            setPhotosToDelete([]);
+            setShowMissingAttachmentAlert(false);
+
         }
     }, [open, slipToEdit]);
     
@@ -239,8 +256,14 @@ export default function ExpenseSlipDialog({
     }
 
     const handleSave = () => {
+        const totalPhotos = existingPhotos.length + localPhotos.length;
+        if (totalPhotos === 0) {
+            setShowMissingAttachmentAlert(true);
+            return;
+        }
+
         if (items.length === 0) {
-            alert('Vui lòng chọn ít nhất một mặt hàng.');
+            toast.error('Vui lòng chọn ít nhất một mặt hàng.');
             return;
         }
 
@@ -250,19 +273,20 @@ export default function ExpenseSlipDialog({
             totalAmount,
             paymentMethod,
             notes,
-            invoicePhotoId: invoiceImage?.id,
+            existingPhotos,
+            photosToDelete,
+            newPhotoIds: localPhotos.map(p => p.id),
         };
         
         onSave(data, slipToEdit?.id);
     };
     
-    const processInvoiceImage = async (imageUri: string, photoId: string) => {
+    // --- AI Scanning Logic ---
+    const processInvoiceImage = async (imageUri: string) => {
         setIsAiLoading(true);
         const toastId = toast.loading("AI đang phân tích hóa đơn...");
         
         try {
-            setInvoiceImage({id: photoId, url: imageUri});
-
             const result = await extractInvoiceItems({
                 imageDataUri: imageUri,
                 inventoryItems: inventoryList,
@@ -282,27 +306,22 @@ export default function ExpenseSlipDialog({
             setIsAiLoading(false);
         }
     };
-    
-    const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+
+    const handleAiPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        const photoId = uuidv4();
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onloadend = () => {
             const imageDataUri = reader.result as string;
-            processInvoiceImage(imageDataUri, photoId);
+            processInvoiceImage(imageDataUri);
         };
-        
-        await photoStore.addPhoto(photoId, file);
-        if(fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+        if(fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handlePhotoCapture = async (photoIds: string[]) => {
-        setIsCameraOpen(false);
+    const handleAiPhotoCapture = async (photoIds: string[]) => {
+        setIsAiCameraOpen(false);
         if (photoIds.length === 0) return;
 
         const photoId = photoIds[0];
@@ -314,14 +333,15 @@ export default function ExpenseSlipDialog({
             reader.readAsDataURL(photoBlob);
             reader.onloadend = () => {
                 const imageDataUri = reader.result as string;
-                processInvoiceImage(imageDataUri, photoId);
+                processInvoiceImage(imageDataUri);
             };
+            await photoStore.deletePhoto(photoId);
         } catch (error) {
-            console.error("Failed to process captured photo", error);
+            console.error("Failed to process captured photo for AI", error);
             toast.error("Lỗi xử lý ảnh chụp.");
         }
     };
-    
+
     const handleAiConfirm = (confirmedItems: ExpenseItem[]) => {
          const newItemsMap = new Map(items.map(item => [item.itemId, item]));
          confirmedItems.forEach(newItem => {
@@ -330,6 +350,47 @@ export default function ExpenseSlipDialog({
          setItems(Array.from(newItemsMap.values()));
     }
 
+    // --- Attachment Management Logic ---
+    const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files) return;
+
+        for (const file of Array.from(files)) {
+            const photoId = uuidv4();
+            await photoStore.addPhoto(photoId, file);
+            const objectUrl = URL.createObjectURL(file);
+            setLocalPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+        }
+
+        if(attachmentFileInputRef.current) attachmentFileInputRef.current.value = '';
+    };
+    
+    const handleAttachmentPhotoCapture = async (capturedPhotoIds: string[]) => {
+        setIsAttachmentCameraOpen(false);
+        for (const photoId of capturedPhotoIds) {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (photoBlob) {
+                const objectUrl = URL.createObjectURL(photoBlob);
+                setLocalPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+            }
+        }
+    };
+    
+    const handleDeleteExistingPhoto = (url: string) => {
+        setExistingPhotos(prev => prev.filter(p => p !== url));
+        setPhotosToDelete(prev => [...prev, url]);
+    };
+    
+    const handleDeleteLocalPhoto = (id: string) => {
+        setLocalPhotos(prev => {
+            const photoToDelete = prev.find(p => p.id === id);
+            if (photoToDelete) {
+                URL.revokeObjectURL(photoToDelete.url);
+            }
+            return prev.filter(p => p.id !== id);
+        });
+        photoStore.deletePhoto(id);
+    };
 
     return (
         <>
@@ -351,41 +412,81 @@ export default function ExpenseSlipDialog({
                                     <Input value={reporter.displayName || ''} disabled className="bg-muted"/>
                                 </div>
                             </div>
-                        
-                            <Card className="border-primary/50 border-2 bg-muted/30">
+
+                            {/* --- Attachment Section --- */}
+                             <Card className="border-primary/50 border-2">
                                 <CardHeader className="pb-4">
-                                    <CardTitle className="text-base text-primary">Dùng AI quét hóa đơn</CardTitle>
-                                    <CardDescription>Cách nhanh nhất để nhập liệu. Chụp hoặc tải ảnh hóa đơn và AI sẽ tự động điền các mặt hàng.</CardDescription>
+                                    <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
+                                    <CardDescription>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="flex flex-col sm:flex-row gap-2 flex-wrap sm:flex-nowrap justify-center">
-                                         <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full h-12 text-base">
-                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-3 h-5 w-5' />}
-                                            Tải ảnh hóa đơn
+                                    <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                                        <Button variant="outline" className="w-full" onClick={() => attachmentFileInputRef.current?.click()}>
+                                            <Upload className="mr-2 h-4 w-4"/> Tải ảnh lên
                                         </Button>
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            onChange={handlePhotoUpload}
-                                            className="hidden"
-                                            accept="image/*"
-                                        />
-                                        <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="w-full h-12 text-base">
-                                            {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-3 h-5 w-5' />}
-                                            Chụp ảnh hóa đơn
+                                        <input type="file" ref={attachmentFileInputRef} onChange={handleAttachmentPhotoUpload} className="hidden" accept="image/*" multiple />
+                                        <Button variant="outline" className="w-full" onClick={() => setIsAttachmentCameraOpen(true)}>
+                                            <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
                                         </Button>
                                     </div>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                        {existingPhotos.map(url => (
+                                            <div key={url} className="relative aspect-square rounded-md overflow-hidden group">
+                                                <Image src={url} alt="Bằng chứng đã lưu" fill className="object-cover" />
+                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteExistingPhoto(url)}><X className="h-3 w-3" /></Button>
+                                            </div>
+                                        ))}
+                                        {localPhotos.map(photo => (
+                                            <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
+                                                <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover" />
+                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10" onClick={() => handleDeleteLocalPhoto(photo.id)}><X className="h-3 w-3" /></Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {(existingPhotos.length + localPhotos.length) === 0 && (
+                                        <p className="text-center text-sm text-muted-foreground py-4">Chưa có ảnh nào được đính kèm.</p>
+                                    )}
                                 </CardContent>
                             </Card>
+                        
+                            <Separator />
 
-                            <div className="space-y-2">
-                                <Label className="text-sm text-muted-foreground">Hoặc chọn thủ công</Label>
-                                <ItemMultiSelect
-                                    inventoryItems={inventoryList}
-                                    selectedItems={items}
-                                    onChange={handleItemsSelected}
-                                    className="w-full"
-                                />
+                            {/* --- Item Selection Section --- */}
+                            <div>
+                                <Card className="bg-muted/30">
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="text-base">Mặt hàng</CardTitle>
+                                        <CardDescription>Chọn hoặc quét hóa đơn để thêm mặt hàng.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <Label className="text-sm">Hoặc chọn thủ công</Label>
+                                                <ItemMultiSelect
+                                                    inventoryItems={inventoryList}
+                                                    selectedItems={items}
+                                                    onChange={handleItemsSelected}
+                                                    className="w-full mt-1"
+                                                />
+                                            </div>
+                                            <div className="text-center text-sm text-muted-foreground">HOẶC</div>
+                                            <div>
+                                                <Label className="text-sm">Dùng AI quét hóa đơn (tiện ích)</Label>
+                                                <div className="flex flex-col sm:flex-row gap-2 mt-1">
+                                                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="w-full">
+                                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload className='mr-3 h-5 w-5' />}
+                                                        Tải ảnh hóa đơn
+                                                    </Button>
+                                                    <input type="file" ref={fileInputRef} onChange={handleAiPhotoUpload} className="hidden" accept="image/*" />
+                                                    <Button variant="outline" onClick={() => setIsAiCameraOpen(true)} disabled={isAiLoading} className="w-full">
+                                                        {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera className='mr-3 h-5 w-5' />}
+                                                        Chụp ảnh hóa đơn
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
 
                             <div className="space-y-2">
@@ -499,7 +600,13 @@ export default function ExpenseSlipDialog({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handlePhotoCapture} singlePhotoMode={true} />
+
+            {/* AI Camera Dialog */}
+            <CameraDialog isOpen={isAiCameraOpen} onClose={() => setIsAiCameraOpen(false)} onSubmit={handleAiPhotoCapture} singlePhotoMode={true} />
+            
+            {/* Attachment Camera Dialog */}
+            <CameraDialog isOpen={isAttachmentCameraOpen} onClose={() => setIsAttachmentCameraOpen(false)} onSubmit={handleAttachmentPhotoCapture} />
+
             <AiPreviewDialog 
                 open={showAiPreview} 
                 onOpenChange={setShowAiPreview}
@@ -507,8 +614,21 @@ export default function ExpenseSlipDialog({
                 inventoryList={inventoryList}
                 onConfirm={handleAiConfirm}
             />
+
+            <AlertDialog open={showMissingAttachmentAlert} onOpenChange={setShowMissingAttachmentAlert}>
+                 <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitleComponent className="flex items-center gap-2">
+                            <AlertCircle className="text-destructive"/>
+                            Yêu cầu ảnh đính kèm
+                        </AlertDialogTitleComponent>
+                        <div>Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa để làm bằng chứng cho phiếu chi.</div>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setShowMissingAttachmentAlert(false)}>Đã hiểu</AlertDialogAction>
+                    </AlertDialogFooter>
+                 </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
-
-
