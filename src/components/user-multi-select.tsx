@@ -86,7 +86,7 @@ export function UserMultiSelect({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between h-auto"
+            className={cn("w-full justify-between h-auto min-h-10", className)}
             onClick={() => !disabled && setOpen(!open)}
             disabled={disabled}
           >
