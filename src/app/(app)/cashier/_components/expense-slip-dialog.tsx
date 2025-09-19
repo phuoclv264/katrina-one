@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -20,6 +19,8 @@ import { extractInvoiceItems } from '@/ai/flows/extract-invoice-items-flow';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { toast } from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { Card, CardContent } from '@/components/ui/card';
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -334,15 +335,15 @@ export default function ExpenseSlipDialog({
                         
                             <div className="space-y-2">
                                 <Label>Chọn mặt hàng</Label>
-                                <div className="flex gap-2 flex-wrap">
+                                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                                      <ItemMultiSelect
                                         inventoryItems={inventoryList}
                                         selectedItems={items}
                                         onChange={handleItemsSelected}
                                         className="flex-1 min-w-[200px]"
                                     />
-                                    <div className="flex gap-2">
-                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading}>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="flex-1">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload />}
                                         </Button>
                                         <input
@@ -352,7 +353,7 @@ export default function ExpenseSlipDialog({
                                             className="hidden"
                                             accept="image/*"
                                         />
-                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading}>
+                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="flex-1">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
                                         </Button>
                                     </div>
@@ -366,39 +367,77 @@ export default function ExpenseSlipDialog({
                                         Chưa có mặt hàng nào được chọn.
                                     </div>
                                 ) : (
-                                    <div className="border rounded-md">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Tên mặt hàng</TableHead>
-                                                    <TableHead>SL</TableHead>
-                                                    <TableHead>Đơn giá</TableHead>
-                                                    <TableHead>Thành tiền</TableHead>
-                                                    <TableHead className="text-right">Xóa</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {items.map(item => (
-                                                    <EditItemPopover key={item.itemId} item={item} onSave={handleUpdateItem}>
-                                                         <TableRow className="cursor-pointer">
-                                                            <TableCell>
-                                                                <p className="font-medium">{item.name}</p>
-                                                                <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                            </TableCell>
-                                                            <TableCell>{item.quantity}</TableCell>
-                                                            <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
-                                                            <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
-                                                            <TableCell className="text-right">
-                                                                <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                    <>
+                                        {/* Mobile view */}
+                                        <div className="md:hidden space-y-3">
+                                            {items.map(item => (
+                                                <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                    <Card className="cursor-pointer">
+                                                        <CardContent className="p-4">
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <p className="font-semibold">{item.name}</p>
+                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                </div>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
                                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                                 </Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    </EditItemPopover>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
+                                                            </div>
+                                                            <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
+                                                                <div>
+                                                                    <p className="text-muted-foreground">Số lượng</p>
+                                                                    <p className="font-medium">{item.quantity}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-muted-foreground">Đơn giá</p>
+                                                                    <p className="font-medium">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-muted-foreground">Thành tiền</p>
+                                                                    <p className="font-bold text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                                </div>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                </EditItemPopover>
+                                            ))}
+                                        </div>
+
+                                        {/* Desktop view */}
+                                        <div className="hidden md:block border rounded-md">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Tên mặt hàng</TableHead>
+                                                        <TableHead>SL</TableHead>
+                                                        <TableHead>Đơn giá</TableHead>
+                                                        <TableHead>Thành tiền</TableHead>
+                                                        <TableHead className="text-right">Xóa</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {items.map(item => (
+                                                        <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                            <TableRow className="cursor-pointer">
+                                                                <TableCell>
+                                                                    <p className="font-medium">{item.name}</p>
+                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                </TableCell>
+                                                                <TableCell>{item.quantity}</TableCell>
+                                                                <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
+                                                                <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
+                                                                <TableCell className="text-right">
+                                                                    <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </EditItemPopover>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
