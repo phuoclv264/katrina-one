@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,53 @@ import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+
+
+const CashierDialogs = React.memo(({
+    user,
+    isExpenseDialogOpen,
+    setIsExpenseDialogOpen,
+    handleSaveSlip,
+    isProcessing,
+    slipToEdit,
+    suppliers,
+    setSuppliers,
+    isIncidentDialogOpen,
+    setIsIncidentDialogOpen,
+    handleSaveIncident,
+    isRevenueDialogOpen,
+    setIsRevenueDialogOpen,
+    handleSaveRevenue,
+    revenueStats
+}: any) => {
+    return (
+        <>
+            <ExpenseSlipDialog
+                open={isExpenseDialogOpen}
+                onOpenChange={setIsExpenseDialogOpen}
+                onSave={handleSaveSlip}
+                isProcessing={isProcessing}
+                slipToEdit={slipToEdit}
+                suppliers={suppliers}
+                onSuppliersChange={setSuppliers}
+            />
+            <IncidentReportDialog
+                open={isIncidentDialogOpen}
+                onOpenChange={setIsIncidentDialogOpen}
+                onSave={handleSaveIncident}
+                isProcessing={isProcessing}
+            />
+            <RevenueStatsDialog
+                open={isRevenueDialogOpen}
+                onOpenChange={setIsRevenueDialogOpen}
+                onSave={handleSaveRevenue}
+                isProcessing={isProcessing}
+                existingStats={revenueStats}
+            />
+        </>
+    );
+});
+CashierDialogs.displayName = 'CashierDialogs';
 
 
 export default function CashierDashboardPage() {
@@ -81,7 +128,7 @@ export default function CashierDashboardPage() {
     }, { totalCashExpense: 0, totalBankExpense: 0 });
   }, [dailySlips]);
 
-  const handleSaveSlip = async (data: any, id?: string) => {
+  const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setIsProcessing(true);
     try {
@@ -95,7 +142,7 @@ export default function CashierDashboardPage() {
     } finally {
         setIsProcessing(false);
     }
-  }
+  }, [user, toast]);
   
   const handleDeleteSlip = async (slipId: string) => {
     setIsProcessing(true);
@@ -110,7 +157,7 @@ export default function CashierDashboardPage() {
     }
   }
 
-  const handleSaveIncident = async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>) => {
+  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>) => {
       if (!user) return;
       setIsProcessing(true);
       try {
@@ -126,9 +173,9 @@ export default function CashierDashboardPage() {
       } finally {
           setIsProcessing(false);
       }
-  }
+  }, [user, toast]);
   
-  const handleSaveRevenue = async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
     setIsProcessing(true);
     try {
@@ -141,7 +188,7 @@ export default function CashierDashboardPage() {
     } finally {
         setIsProcessing(false);
     }
-  }
+  }, [user, toast]);
   
   const handleEditClick = (slip: ExpenseSlip) => {
       setSlipToEdit(slip);
@@ -326,34 +373,24 @@ export default function CashierDashboardPage() {
             </div>
         </div>
     </div>
-    {user && (
-        <>
-            <ExpenseSlipDialog
-                open={isExpenseDialogOpen}
-                onOpenChange={setIsExpenseDialogOpen}
-                onSave={handleSaveSlip}
-                isProcessing={isProcessing}
-                slipToEdit={slipToEdit}
-                suppliers={suppliers}
-                onSuppliersChange={setSuppliers}
-            />
-            <IncidentReportDialog
-                open={isIncidentDialogOpen}
-                onOpenChange={setIsIncidentDialogOpen}
-                onSave={handleSaveIncident}
-                isProcessing={isProcessing}
-            />
-            <RevenueStatsDialog
-                open={isRevenueDialogOpen}
-                onOpenChange={setIsRevenueDialogOpen}
-                onSave={handleSaveRevenue}
-                isProcessing={isProcessing}
-                existingStats={revenueStats}
-            />
-        </>
-    )}
+    
+    <CashierDialogs
+        user={user}
+        isExpenseDialogOpen={isExpenseDialogOpen}
+        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
+        handleSaveSlip={handleSaveSlip}
+        isProcessing={isProcessing}
+        slipToEdit={slipToEdit}
+        suppliers={suppliers}
+        setSuppliers={setSuppliers}
+        isIncidentDialogOpen={isIncidentDialogOpen}
+        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
+        handleSaveIncident={handleSaveIncident}
+        isRevenueDialogOpen={isRevenueDialogOpen}
+        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
+        handleSaveRevenue={handleSaveRevenue}
+        revenueStats={revenueStats}
+    />
     </>
   );
 }
-
-    
