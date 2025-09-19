@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,10 +14,12 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import type { InventoryItem, ExpenseItem } from "@/lib/types"
 
@@ -52,15 +54,14 @@ export function ItemMultiSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <div className={cn("relative", className)}>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={open}
             className={cn("w-full justify-between h-auto min-h-10", className)}
-            onClick={() => !disabled && setOpen(!open)}
             disabled={disabled}
           >
             <div className="flex gap-1 flex-wrap">
@@ -81,8 +82,11 @@ export function ItemMultiSelect({
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper">
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogHeader className="p-4 border-b">
+          <DialogTitle>Chọn mặt hàng</DialogTitle>
+        </DialogHeader>
         <Command>
           <CommandInput placeholder="Tìm mặt hàng..." />
           <CommandList>
@@ -110,7 +114,7 @@ export function ItemMultiSelect({
             </CommandGroup>
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
   )
 }

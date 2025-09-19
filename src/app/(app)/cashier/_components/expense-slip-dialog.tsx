@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem } from '@/lib/types';
 import { Loader2, PlusCircle, Trash2, Camera, Upload } from 'lucide-react';
-import { ItemMultiSelect } from './item-multi-select';
+import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -333,16 +333,16 @@ export default function ExpenseSlipDialog({
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
                         <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[70vh] -mx-6 px-6">
+                    <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-white dark:bg-black">
                         <div className="grid gap-6 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} disabled className="bg-card"/>
+                                    <Input value={date} disabled className="bg-muted"/>
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
-                                    <Input value={reporter.displayName || ''} disabled className="bg-card"/>
+                                    <Input value={reporter.displayName || ''} disabled className="bg-muted"/>
                                 </div>
                             </div>
                         
@@ -353,10 +353,10 @@ export default function ExpenseSlipDialog({
                                         inventoryItems={inventoryList}
                                         selectedItems={items}
                                         onChange={handleItemsSelected}
-                                        className="flex-1 min-w-[200px] bg-card"
+                                        className="flex-1 min-w-[200px]"
                                     />
                                     <div className="flex gap-2 w-full sm:w-auto">
-                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="flex-1 bg-card">
+                                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading} className="flex-1">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Upload />}
                                         </Button>
                                         <input
@@ -366,7 +366,7 @@ export default function ExpenseSlipDialog({
                                             className="hidden"
                                             accept="image/*"
                                         />
-                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="flex-1 bg-card">
+                                        <Button variant="outline" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isAiLoading} className="flex-1">
                                             {isAiLoading ? <Loader2 className="animate-spin" /> : <Camera />}
                                         </Button>
                                     </div>
@@ -382,7 +382,7 @@ export default function ExpenseSlipDialog({
                                 ) : (
                                     <>
                                         {/* Mobile view */}
-                                        <div className="md:hidden space-y-3 bg-white dark:bg-card p-3 rounded-md">
+                                        <div className="md:hidden space-y-3 p-3 rounded-md">
                                             {items.map(item => (
                                                 <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
                                                     <Card className="cursor-pointer bg-muted/50">
@@ -417,7 +417,7 @@ export default function ExpenseSlipDialog({
                                         </div>
 
                                         {/* Desktop view */}
-                                        <div className="hidden md:block border rounded-md bg-white dark:bg-card">
+                                        <div className="hidden md:block border rounded-md">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -456,7 +456,7 @@ export default function ExpenseSlipDialog({
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
-                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-card" />
+                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-muted" />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
