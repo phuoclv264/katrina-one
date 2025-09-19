@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -78,8 +78,13 @@ export default function RevenueStatsDialog({
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [oldReceiptInfo, setOldReceiptInfo] = useState<{ reportTime: string; currentTime: string; hoursDiff: number; } | null>(null);
+    const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
+
+    // In create mode (existingStats is null), the image comes from newImageDataUri
+    // In update mode, we initially show the existing image, but any new image will populate newImageDataUri
     const displayImageDataUri = newImageDataUri || existingStats?.invoiceImageUrl;
+    const isCreating = !existingStats;
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -101,21 +106,37 @@ export default function RevenueStatsDialog({
     }, [isLightboxOpen]);
 
 
-    const resetFormState = (stats: RevenueStats | null) => {
-        setNetRevenue(stats?.netRevenue || 0);
-        setDeliveryPartnerPayout(stats?.deliveryPartnerPayout || 0);
-        setRevenueByPaymentMethod({ ...initialPaymentMethods, ...(stats?.revenueByPaymentMethod || {}) });
-        setOriginalData(null); // Clear original data on reset
+    const resetFormState = () => {
+        setNetRevenue(0);
+        setDeliveryPartnerPayout(0);
+        setRevenueByPaymentMethod(initialPaymentMethods);
+        setOriginalData(null); 
     };
 
     useEffect(() => {
         if (open) {
+            // ALWAYS reset when opening the dialog.
+            // For creating, it starts fresh.
+            // For updating, it also starts fresh, forcing a new image and data entry.
+            resetFormState();
             setNewImageDataUri(null); 
             setOldReceiptInfo(null);
-            resetFormState(existingStats);
             setActiveTab('image'); // Reset to image tab when dialog opens
+            setServerErrorDialog({ open: false, imageUri: null });
         }
-    }, [open, existingStats]);
+    }, [open]);
+
+    const handleTabChange = (value: string) => {
+        if (isCreating && isMobile && value === 'data' && !newImageDataUri) {
+            toast({
+                title: "Vui lòng cung cấp ảnh",
+                description: "Bạn cần chụp hoặc tải ảnh phiếu thống kê trước khi nhập số liệu.",
+                variant: "default"
+            });
+            return;
+        }
+        setActiveTab(value);
+    }
 
     const handlePaymentMethodChange = (key: keyof typeof revenueByPaymentMethod, value: string) => {
         setRevenueByPaymentMethod(prev => ({ ...prev, [key]: Number(value) }));
@@ -153,7 +174,7 @@ export default function RevenueStatsDialog({
             netRevenue,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            invoiceImageUrl: newImageDataUri,
+            invoiceImageUrl: newImageDataUri, // Always use the new image
         };
 
         onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited' | 'orderCount'>, hasBeenEdited);
@@ -167,10 +188,10 @@ export default function RevenueStatsDialog({
         executeSave();
     };
 
-
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
         toast({ title: 'AI đang phân tích phiếu...' });
+        setServerErrorDialog({ open: false, imageUri: null }); // Close previous error dialog
 
         try {
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
@@ -220,21 +241,42 @@ export default function RevenueStatsDialog({
             // Store original AI data for comparison
             setOriginalData(aiData);
 
+            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu. Vui lòng kiểm tra lại.' });
+            setActiveTab('data'); // Switch to data tab on success
 
-            toast({ title: 'Thành công!', description: 'Đã điền dữ liệu từ ảnh phiếu.' });
         } catch (error: any) {
              if (error.message && error.message.includes('503 Service Unavailable')) {
-                toast({ variant: 'destructive', title: 'AI đang quá tải', description: 'Mô hình AI đang được sử dụng nhiều. Vui lòng thử lại sau vài giây.' });
+                setServerErrorDialog({ open: true, imageUri });
              } else {
                 console.error('OCR Error:', error);
                 toast({ variant: 'destructive', title: 'Lỗi AI', description: 'Không thể đọc dữ liệu từ ảnh. Vui lòng thử lại hoặc nhập thủ công.' });
              }
         } finally {
             setIsOcrLoading(false);
-            if (isMobile) {
-                setActiveTab('data'); // Switch to data tab on mobile after processing
-            }
         }
+    };
+    
+    const handleManualEntry = () => {
+        const imageUri = serverErrorDialog.imageUri;
+        if (!imageUri) return;
+    
+        setNewImageDataUri(imageUri);
+        // Set form to all zeros, but keep the original data for comparison
+        setNetRevenue(0);
+        setDeliveryPartnerPayout(0);
+        setRevenueByPaymentMethod(initialPaymentMethods);
+        setOriginalData({
+            netRevenue: 0,
+            deliveryPartnerPayout: 0,
+            revenueByPaymentMethod: initialPaymentMethods,
+        });
+    
+        setActiveTab('data');
+        setServerErrorDialog({ open: false, imageUri: null });
+        toast({
+            title: "Chuyển sang nhập thủ công",
+            description: "Vui lòng nhập các số liệu từ phiếu thống kê."
+        });
     };
 
 
@@ -278,7 +320,7 @@ export default function RevenueStatsDialog({
     }
     
     const renderInputField = (id: string, label: string, value: number, onChange: (val: string) => void, originalValue?: number, isImportant: boolean = false) => {
-        const isEdited = originalValue !== undefined && value !== originalValue;
+        const isEdited = originalData !== null && value !== originalValue;
         return (
             <div key={id} className="grid grid-cols-2 items-center gap-2">
                 <Label htmlFor={id} className={cn("text-sm text-right flex items-center gap-2 justify-end", isImportant && "font-bold text-base")}>
@@ -387,12 +429,15 @@ export default function RevenueStatsDialog({
                     <DialogHeader>
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
-                            Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.
+                           {isCreating
+                            ? "Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu."
+                            : "Vui lòng cung cấp ảnh và số liệu mới để cập nhật doanh thu cho ngày hôm nay."
+                           }
                         </DialogDescription>
                     </DialogHeader>
                     
                     {isMobile ? (
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                             <TabsList className="grid w-full grid-cols-2">
                                 <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" /> Ảnh phiếu</TabsTrigger>
                                 <TabsTrigger value="data"><FileText className="mr-2 h-4 w-4" /> Số liệu</TabsTrigger>
@@ -461,6 +506,29 @@ export default function RevenueStatsDialog({
                     </div>
                     <AlertDialogFooter className='sm:justify-start mt-2'>
                         <AlertDialogCancel>Đóng</AlertDialogCancel>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={serverErrorDialog.open}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                         <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertCircle className="text-destructive"/>
+                            Lỗi phân tích ảnh
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                           Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="outline" className="w-full" onClick={() => setServerErrorDialog({ open: false, imageUri: null })}>Hủy</Button>
+                        <Button variant="secondary" className="w-full" onClick={() => processImage(serverErrorDialog.imageUri!)}>
+                           <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
+                        </Button>
+                         <Button className="w-full" onClick={handleManualEntry}>
+                            <FileText className="mr-2 h-4 w-4" /> Nhập thủ công
+                        </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
