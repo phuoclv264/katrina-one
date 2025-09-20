@@ -1,7 +1,7 @@
 
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -957,17 +957,17 @@ export default function InventoryManagementPage() {
                                     </div>
                                     <div className="space-y-2">
                                       <Label htmlFor={`minStock-m-${item.id}`}>Tồn tối thiểu</Label>
-                                      <Input id={`minStock-m-${item.id}`} type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                      <Input id={`minStock-m-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/>
                                     </div>
                                   </div>
                                    <div className="grid grid-cols-2 gap-4">
                                       <div className="space-y-2">
                                           <Label htmlFor={`unitPrice-m-${item.id}`}>Đơn giá</Label>
-                                          <Input id={`unitPrice-m-${item.id}`} type="number" value={item.unitPrice || 0} onChange={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                          <Input id={`unitPrice-m-${item.id}`} type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting}/>
                                       </div>
                                       <div className="space-y-2">
                                           <Label htmlFor={`stock-m-${item.id}`}>Tồn kho</Label>
-                                          <Input id={`stock-m-${item.id}`} type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                          <Input id={`stock-m-${item.id}`} type="number" defaultValue={item.stock || 0} onBlur={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
                                       </div>
                                   </div>
                                   <div className="space-y-2">
@@ -1020,8 +1020,8 @@ export default function InventoryManagementPage() {
                                         <TableHead className="min-w-[300px] whitespace-nowrap">Tên mặt hàng</TableHead>
                                         <TableHead className="whitespace-nowrap">Nhà cung cấp</TableHead>
                                         <TableHead className="min-w-[100px] whitespace-nowrap">Đơn vị</TableHead>
-                                        <TableHead className="min-w-[100px]">Đơn giá</TableHead>
-                                        <TableHead className="min-w-[100px]">Tồn kho</TableHead>
+                                        <TableHead className="min-w-[120px]">Đơn giá</TableHead>
+                                        <TableHead className="min-w-[120px]">Tồn kho</TableHead>
                                         <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
                                         <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
                                         <TableHead className="text-center">Bắt buộc nhập</TableHead>
@@ -1052,10 +1052,10 @@ export default function InventoryManagementPage() {
                                                 <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" value={item.unitPrice || 0} onChange={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
+                                                <Input type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
+                                                <Input type="number" defaultValue={item.stock || 0} onBlur={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
