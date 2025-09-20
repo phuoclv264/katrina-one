@@ -70,7 +70,7 @@ export function AppSidebar() {
           break;
           case 'Chủ nhà hàng': primaryItems.push(
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-            { href: '/reports/financial', label: 'Báo cáo Tài chính', icon: DollarSign },
+            { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: DollarSign },
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
