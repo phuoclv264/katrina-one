@@ -815,7 +815,7 @@ export default function InventoryManagementPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <CardTitle>Danh sách kho hiện tại</CardTitle>
-                <CardDescription>Các thay đổi sẽ được lưu tự động.</CardDescription>
+                <CardDescription>Click vào từng dòng để xem lịch sử giá và tồn kho.</CardDescription>
             </div>
              <div className="flex items-center gap-2 w-full sm:w-auto">
                  <DropdownMenu>
@@ -1009,13 +1009,13 @@ export default function InventoryManagementPage() {
                                     {items.map((item, index) => {
                                         const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                         return (
-                                        <TableRow key={item.id}>
+                                        <TableRow key={item.id} className="cursor-pointer" onClick={() => {/* TODO: Open history dialog */}}>
                                             <TableCell>
                                                <div className="flex items-center gap-2">
-                                                 <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" />
+                                                 <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" onClick={(e) => e.stopPropagation()}/>
                                                </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell onClick={(e) => e.stopPropagation()}>
                                                 <SupplierCombobox
                                                     suppliers={suppliers}
                                                     value={item.supplier}
@@ -1024,35 +1024,35 @@ export default function InventoryManagementPage() {
                                                 />
                                             </TableCell>
                                             <TableCell className="w-[150px]">
-                                                <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
+                                                <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.unitPrice} onBlur={e => handleUpdate(item.id, 'unitPrice', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                                <Input type="number" defaultValue={item.unitPrice} onBlur={e => handleUpdate(item.id, 'unitPrice', parseInt(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.stock} onBlur={e => handleUpdate(item.id, 'stock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                                <Input type="number" defaultValue={item.stock} onBlur={e => handleUpdate(item.id, 'stock', parseInt(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                                <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
+                                                <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
-                                            <TableCell className="text-center w-[120px]">
+                                            <TableCell className="text-center w-[120px]" onClick={(e) => e.stopPropagation()}>
                                                 <Switch
                                                     checked={!!item.isImportant}
                                                     onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
                                                     disabled={isSorting}
                                                 />
                                             </TableCell>
-                                             <TableCell className="text-center w-[100px]">
+                                             <TableCell className="text-center w-[100px]" onClick={(e) => e.stopPropagation()}>
                                                 <Switch
                                                     checked={!!item.requiresPhoto}
                                                     onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
                                                     disabled={isSorting}
                                                 />
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell onClick={(e) => e.stopPropagation()}>
                                                  <div className="flex flex-col gap-2">
                                                     <Select value={item.dataType} onValueChange={(v) => handleUpdate(item.id, 'dataType', v)}>
                                                         <SelectTrigger><SelectValue/></SelectTrigger>
@@ -1071,7 +1071,7 @@ export default function InventoryManagementPage() {
                                                  </div>
                                             </TableCell>
                                             <TableCell className="text-right w-[50px]">
-                                                <div className="flex items-center justify-end gap-0">
+                                                <div className="flex items-center justify-end gap-0" onClick={(e) => e.stopPropagation()}>
                                                 {isSorting ? (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}>
