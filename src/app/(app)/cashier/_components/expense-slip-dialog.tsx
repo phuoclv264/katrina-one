@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -75,7 +75,41 @@ function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave
     );
 }
 
-function AiPreviewDialog({ open, onOpenChange, extractionResult, inventoryList, onConfirm }: { open: boolean, onOpenChange: (open: boolean) => void, extractionResult: InvoiceExtractionResult, inventoryList: InventoryItem[], onConfirm: (items: ExpenseItem[]) => void }) {
+function AiPreviewDialog({ 
+    open, 
+    onOpenChange, 
+    extractionResult, 
+    inventoryList, 
+    onConfirm,
+    allAttachmentPhotos
+}: { 
+    open: boolean, 
+    onOpenChange: (open: boolean) => void, 
+    extractionResult: InvoiceExtractionResult, 
+    inventoryList: InventoryItem[], 
+    onConfirm: (items: ExpenseItem[]) => void,
+    allAttachmentPhotos: {id: string, url: string}[] 
+}) {
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+        if (isLightboxOpen) {
+            event.preventDefault();
+            setIsLightboxOpen(false);
+        }
+        };
+
+        if (isLightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+        }
+
+        return () => {
+        window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isLightboxOpen]);
     
     const handleConfirm = () => {
         const confirmedItems: ExpenseItem[] = (extractionResult.results || [])
@@ -120,19 +154,41 @@ function AiPreviewDialog({ open, onOpenChange, extractionResult, inventoryList, 
           </Card>
         );
       };
+      
+    const handleViewImages = (imageIds: string[]) => {
+        const slides = imageIds
+            .map(id => allAttachmentPhotos.find(p => p.id === id)?.url)
+            .filter((url): url is string => !!url)
+            .map(url => ({ src: url }));
+        
+        if(slides.length > 0) {
+            setLightboxSlides(slides);
+            setIsLightboxOpen(true);
+        } else {
+            toast.error("Không tìm thấy ảnh cho hóa đơn này.");
+        }
+    };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
-                    <DialogDescription>AI đã phân tích hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
+                    <DialogDescription>AI đã phân tích và nhóm các hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh] -mx-6 px-6">
                     <Accordion type="multiple" defaultValue={extractionResult.results.map(r => r.invoiceTitle)} className="w-full space-y-4 py-4">
                         {extractionResult.results.map((result, resultIndex) => (
                            <AccordionItem value={result.invoiceTitle} key={resultIndex}>
-                             <AccordionTrigger className="text-lg font-semibold">{result.invoiceTitle}</AccordionTrigger>
+                             <div className="flex items-center">
+                                <AccordionTrigger className="text-lg font-semibold flex-1">
+                                    {result.invoiceTitle}
+                                </AccordionTrigger>
+                                <Button variant="ghost" size="icon" className="ml-2" onClick={() => handleViewImages(result.imageIds)}>
+                                    <Eye className="h-5 w-5" />
+                                </Button>
+                             </div>
                              <AccordionContent>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
                                     {/* Matched Items */}
@@ -165,6 +221,13 @@ function AiPreviewDialog({ open, onOpenChange, extractionResult, inventoryList, 
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+         <Lightbox
+            open={isLightboxOpen}
+            close={() => setIsLightboxOpen(false)}
+            slides={lightboxSlides}
+            plugins={[Zoom]}
+        />
+        </>
     );
 }
 
@@ -197,7 +260,7 @@ export default function ExpenseSlipDialog({
     const [notes, setNotes] = useState('');
     
     // --- New state for attachments ---
-    const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+    const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
     const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     const [showMissingAttachmentAlert, setShowMissingAttachmentAlert] = useState(false);
@@ -240,7 +303,7 @@ export default function ExpenseSlipDialog({
                 setItems(slipToEdit.items);
                 setPaymentMethod(slipToEdit.paymentMethod);
                 setNotes(slipToEdit.notes || '');
-                setExistingPhotos(slipToEdit.attachmentPhotos || []);
+                setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
             } else {
                 // Reset for new slip
                 setDate(format(new Date(), 'yyyy-MM-dd'));
@@ -304,7 +367,7 @@ export default function ExpenseSlipDialog({
             totalAmount,
             paymentMethod,
             notes,
-            existingPhotos,
+            existingPhotos: existingPhotos.map(p => p.url),
             photosToDelete,
             newPhotoIds: localPhotos.map(p => p.id),
         };
@@ -312,11 +375,14 @@ export default function ExpenseSlipDialog({
         onSave(data, slipToEdit?.id);
     };
     
+    const allAttachmentPhotos = useMemo(() => {
+        return [...existingPhotos, ...localPhotos];
+    }, [existingPhotos, localPhotos]);
+
     // --- AI Scanning Logic ---
     const handleAiScan = async () => {
         setShowMissingAttachmentAlert(false);
-        const allAttachedPhotoIds = localPhotos.map(p => p.id);
-        if(existingPhotos.length === 0 && allAttachedPhotoIds.length === 0) {
+        if(allAttachmentPhotos.length === 0) {
             toast.error("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             setShowMissingAttachmentAlert(true);
@@ -327,35 +393,49 @@ export default function ExpenseSlipDialog({
         const toastId = toast.loading("AI đang phân tích hóa đơn...");
 
         try {
-            // For now, we'll only process local photos as converting remote URLs to data URIs is complex client-side.
-            const localDataUris = await Promise.all(
-                allAttachedPhotoIds.map(async id => {
-                    const blob = await photoStore.getPhoto(id);
+            const imagePromises = allAttachmentPhotos.map(async (photo) => {
+                let uri: string;
+                if (photo.url.startsWith('blob:')) {
+                    // It's a local photo, get blob from IndexedDB and convert
+                    const blob = await photoStore.getPhoto(photo.id);
                     if (!blob) return null;
-                    return new Promise<string>((resolve) => {
+                    uri = await new Promise<string>((resolve) => {
                         const reader = new FileReader();
                         reader.onloadend = () => resolve(reader.result as string);
                         reader.readAsDataURL(blob);
                     });
+                } else {
+                    // It's an existing remote photo, we need a proxy to fetch it as a data URI
+                    // This part is complex and needs a server-side component. For now, we will skip remote images for AI.
+                    // Let's assume for now we only process local images.
+                    return null; // Skipping existing photos for now
+                }
+                return { id: photo.id, uri };
+            });
+
+            const localImages = (await Promise.all(
+                localPhotos.map(async photo => {
+                     const blob = await photoStore.getPhoto(photo.id);
+                     if (!blob) return null;
+                     const uri = await new Promise<string>(resolve => {
+                         const reader = new FileReader();
+                         reader.onloadend = () => resolve(reader.result as string);
+                         reader.readAsDataURL(blob);
+                     });
+                     return { id: photo.id, uri };
                 })
-            );
+            )).filter((img): img is {id: string, uri: string} => !!img);
 
-            // TODO: In the future, add logic to fetch existingPhotos (remote URLs) via a server-side proxy
-            // to convert them to data URIs as well.
 
-            const validDataUris = localDataUris.filter((uri): uri is string => !!uri);
-
-            if (validDataUris.length === 0 && existingPhotos.length === 0) {
-                 toast.error("Không tìm thấy ảnh hóa đơn nào trong các ảnh đã đính kèm.");
-                 attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                 setShowMissingAttachmentAlert(true);
+            if (localImages.length === 0) {
+                 toast.error("Tính năng AI hiện chỉ xử lý được các ảnh mới tải lên.");
                  setIsAiLoading(false);
                  toast.dismiss(toastId);
                  return;
             }
 
             const result = await extractInvoiceItems({
-                imageUris: validDataUris, // For now, only send new local images
+                images: localImages,
                 inventoryItems: inventoryList,
             });
 
@@ -411,7 +491,7 @@ export default function ExpenseSlipDialog({
     };
     
     const handleDeleteExistingPhoto = (url: string) => {
-        setExistingPhotos(prev => prev.filter(p => p !== url));
+        setExistingPhotos(prev => prev.filter(p => p.url !== url));
         setPhotosToDelete(prev => [...prev, url]);
     };
     
@@ -426,15 +506,8 @@ export default function ExpenseSlipDialog({
         photoStore.deletePhoto(id);
     };
 
-    const allAttachmentUrls = useMemo(() => {
-        return [
-            ...existingPhotos.map(url => ({ src: url })),
-            ...localPhotos.map(p => ({ src: p.url }))
-        ];
-    }, [existingPhotos, localPhotos]);
-
     const openLightbox = (clickedUrl: string) => {
-        const index = allAttachmentUrls.findIndex(p => p.src === clickedUrl);
+        const index = allAttachmentPhotos.findIndex(p => p.url === clickedUrl);
         if (index > -1) {
             setLightboxIndex(index);
             setIsLightboxOpen(true);
@@ -482,12 +555,12 @@ export default function ExpenseSlipDialog({
                                         </Button>
                                     </div>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                        {existingPhotos.map(url => (
-                                            <div key={url} className="relative aspect-square rounded-md overflow-hidden group">
-                                                <button onClick={() => openLightbox(url)} className="w-full h-full">
-                                                    <Image src={url} alt="Bằng chứng đã lưu" fill className="object-cover" />
+                                        {existingPhotos.map(photo => (
+                                            <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
+                                                <button onClick={() => openLightbox(photo.url)} className="w-full h-full">
+                                                    <Image src={photo.url} alt="Bằng chứng đã lưu" fill className="object-cover" />
                                                 </button>
-                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteExistingPhoto(url)}><X className="h-3 w-3" /></Button>
+                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
                                             </div>
                                         ))}
                                         {localPhotos.map(photo => (
@@ -650,6 +723,7 @@ export default function ExpenseSlipDialog({
                     extractionResult={extractionResult}
                     inventoryList={inventoryList}
                     onConfirm={handleAiConfirm}
+                    allAttachmentPhotos={allAttachmentPhotos}
                 />
             )}
 
@@ -657,7 +731,7 @@ export default function ExpenseSlipDialog({
                 open={isLightboxOpen}
                 close={() => setIsLightboxOpen(false)}
                 index={lightboxIndex}
-                slides={allAttachmentUrls}
+                slides={allAttachmentPhotos.map(p => ({ src: p.url }))}
                 plugins={[Zoom]}
             />
         </>
