@@ -197,7 +197,7 @@ export default function CashierReportsPage() {
                         <AccordionTrigger className="p-4 text-lg font-medium hover:no-underline">
                            Ngày {new Date(date).toLocaleDateString('vi-VN')}
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-4 p-4 border-t">
+                        <AccordionContent className="space-y-4 p-4 border-t bg-white dark:bg-card">
                            
                             {dayReports.revenue ? (
                                 <Card>
@@ -227,19 +227,23 @@ export default function CashierReportsPage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
+                                                    <TableHead>Thời gian</TableHead>
                                                     <TableHead>Nội dung</TableHead>
                                                     <TableHead>Số tiền</TableHead>
+                                                    <TableHead>Phương thức</TableHead>
                                                     <TableHead className="text-right">Hành động</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {dayReports.expenses.map(expense => (
                                                     <TableRow key={expense.id}>
+                                                        <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
                                                         <TableCell>
                                                           {expense.items.map(i => i.name).join(', ')}
                                                           <p className="text-xs text-muted-foreground">{expense.createdBy.userName}</p>
                                                         </TableCell>
                                                         <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
+                                                        <TableCell className="text-sm">{expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
                                                         <TableCell className="text-right">
                                                           <Button variant="outline" size="sm" onClick={() => handleEditExpense(expense)}>Chi tiết</Button>
                                                         </TableCell>
