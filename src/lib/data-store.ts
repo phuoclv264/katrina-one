@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -1310,8 +1311,8 @@ export const dataStore = {
           category: item.category ?? 'CHƯA PHÂN LOẠI',
           dataType: item.dataType || 'number',
           listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
-          unitPrice: item.unitPrice ?? 0,
-          stock: isNaN(Number(item.stock)) ? 0 : Number(item.stock),
+          unitPrice: Number(item.unitPrice) || 0,
+          stock: Number(item.stock) || 0,
           priceHistory: item.priceHistory ?? [],
           stockHistory: item.stockHistory ?? [],
         }));
@@ -2179,3 +2180,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
