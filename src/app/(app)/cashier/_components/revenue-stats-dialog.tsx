@@ -18,6 +18,8 @@ import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import Counter from "yet-another-react-lightbox/plugins/counter";
+import "yet-another-react-lightbox/plugins/counter.css";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format, isToday, isBefore, startOfDay, parseISO } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -367,7 +369,11 @@ export default function RevenueStatsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onPointerDownOutside={(e) => {
+          if (!isLightboxOpen) {
+            e.preventDefault();
+          }
+        }}>
                     <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
@@ -578,9 +584,10 @@ export default function RevenueStatsDialog({
                     open={isLightboxOpen}
                     close={() => setIsLightboxOpen(false)}
                     slides={[{ src: displayImageDataUri }]}
-                    plugins={[Zoom]}
+                    plugins={[Zoom, Counter]}
                     portal={{ root: document.getElementById("revenue-stats-lightbox-container") ?? undefined }}
                     carousel={{ finite: true }}
+                    counter={{ container: { style: { top: "unset", bottom: 0 } } }}
                     zoom={{ maxZoomPixelRatio: 5 }}
                 />
             )}

@@ -30,6 +30,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import Counter from "yet-another-react-lightbox/plugins/counter";
+import "yet-another-react-lightbox/plugins/counter.css";
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -172,7 +174,7 @@ function AiPreviewDialog({
     return (
         <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
+            <DialogContent className="max-w-4xl">
                 <div id="ai-preview-lightbox-container"></div>
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
@@ -226,7 +228,9 @@ function AiPreviewDialog({
             open={isLightboxOpen}
             close={() => setIsLightboxOpen(false)}
             slides={lightboxSlides}
-            plugins={[Zoom]}
+            plugins={[Zoom, Counter]}
+            carousel={{ finite: true }}
+            counter={{ container: { style: { top: "unset", bottom: 0 } } }}
             portal={{ root: document.getElementById("ai-preview-lightbox-container") ?? undefined }}
         />
         </>
@@ -510,7 +514,11 @@ export default function ExpenseSlipDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => {
+          if (!isLightboxOpen) {
+            e.preventDefault();
+          }
+        }}>
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
@@ -726,7 +734,9 @@ export default function ExpenseSlipDialog({
                 close={() => setIsLightboxOpen(false)}
                 index={lightboxIndex}
                 slides={allAttachmentPhotos.map(p => ({ src: p.url }))}
-                plugins={[Zoom]}
+                plugins={[Zoom, Counter]}
+                carousel={{ finite: true }}
+                counter={{ container: { style: { top: "unset", bottom: 0 } } }}
                 portal={{ root: document.getElementById("expense-slip-lightbox-container") ?? undefined }}
             />
         </>
