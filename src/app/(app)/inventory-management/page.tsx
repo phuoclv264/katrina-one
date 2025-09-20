@@ -967,7 +967,7 @@ export default function InventoryManagementPage() {
                                       </div>
                                       <div className="space-y-2">
                                           <Label htmlFor={`stock-m-${item.id}`}>Tồn kho</Label>
-                                          <Input id={`stock-m-${item.id}`} type="number" defaultValue={item.stock || 0} onBlur={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                          <Input id={`stock-m-${item.id}`} type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
                                       </div>
                                   </div>
                                   <div className="space-y-2">
@@ -1055,7 +1055,7 @@ export default function InventoryManagementPage() {
                                                 <Input type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.stock || 0} onBlur={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
+                                                <Input type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>

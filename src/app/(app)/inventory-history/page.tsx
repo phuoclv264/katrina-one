@@ -32,9 +32,9 @@ export default function InventoryHistoryPage() {
     const [suppliers, setSuppliers] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const [filterItemId, setFilterItemId] = useState<string>('');
+    const [filterItemId, setFilterItemId] = useState<string>('all');
     const [filterSupplier, setFilterSupplier] = useState<string>('');
-    const [filterType, setFilterType] = useState<string>('');
+    const [filterType, setFilterType] = useState<string>('all');
 
     useEffect(() => {
         if (!authLoading) {
@@ -87,13 +87,13 @@ export default function InventoryHistoryPage() {
 
     const filteredHistory = useMemo(() => {
         return combinedHistory.filter(entry => {
-            if (filterItemId && entry.itemName !== inventoryList.find(i => i.id === filterItemId)?.name) {
+            if (filterItemId !== 'all' && entry.itemName !== inventoryList.find(i => i.id === filterItemId)?.name) {
                 return false;
             }
             if (filterSupplier && entry.supplier !== filterSupplier) {
                 return false;
             }
-            if (filterType && entry.source !== filterType) {
+            if (filterType !== 'all' && entry.source !== filterType) {
                 return false;
             }
             return true;
@@ -151,7 +151,7 @@ export default function InventoryHistoryPage() {
                         <Select value={filterItemId} onValueChange={setFilterItemId}>
                             <SelectTrigger><SelectValue placeholder="Lọc theo mặt hàng..." /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Tất cả mặt hàng</SelectItem>
+                                <SelectItem value="all">Tất cả mặt hàng</SelectItem>
                                 {inventoryList.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -159,12 +159,12 @@ export default function InventoryHistoryPage() {
                         <Select value={filterType} onValueChange={setFilterType}>
                             <SelectTrigger><SelectValue placeholder="Lọc theo loại sự kiện..." /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Tất cả sự kiện</SelectItem>
+                                <SelectItem value="all">Tất cả sự kiện</SelectItem>
                                 <SelectItem value="expense_slip">Nhập hàng</SelectItem>
                                 <SelectItem value="inventory_check">Kiểm kê</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button variant="outline" onClick={() => { setFilterItemId(''); setFilterSupplier(''); setFilterType(''); }}>Xóa bộ lọc</Button>
+                        <Button variant="outline" onClick={() => { setFilterItemId('all'); setFilterSupplier(''); setFilterType('all'); }}>Xóa bộ lọc</Button>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -210,4 +210,3 @@ export default function InventoryHistoryPage() {
         </div>
     );
 }
-
