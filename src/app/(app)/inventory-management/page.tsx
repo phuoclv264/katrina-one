@@ -212,6 +212,7 @@ function AiAssistant({
                 shortName: item.shortName || '',
                 orderUnit: item.orderUnit || item.unit,
                 conversionRate: item.conversionRate || 1,
+                isImportant: item.isImportant ?? false,
             }));
 
             const result = await updateInventoryItems({
@@ -493,11 +494,11 @@ function AiAssistant({
                                     return (
                                         <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}>
                                             <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
-                                            <TableCell>{renderDiff(oldItem.shortName, newItem.shortName)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.shortName || '', newItem.shortName || '')}</TableCell>
                                             <TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
-                                            <TableCell>{renderDiff(oldItem.orderUnit, newItem.orderUnit)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.orderUnit || '', newItem.orderUnit || '')}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.conversionRate), String(newItem.conversionRate))}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
                                             <TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell>
