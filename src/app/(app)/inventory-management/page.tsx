@@ -1,13 +1,13 @@
 
 
 'use client';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type, History } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type, History, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -26,7 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SupplierCombobox } from '@/components/supplier-combobox';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ItemHistoryDialog from './_components/item-history-dialog';
+import Link from 'next/link';
 
 
 function AiAssistant({
@@ -518,10 +518,7 @@ export default function InventoryManagementPage() {
   const [isSorting, setIsSorting] = useState(false);
   const [editingCategory, setEditingCategory] = useState<{ oldName: string; newName: string } | null>(null);
   const hasInitializedOpenState = useRef(false);
-
-  const [selectedItemForHistory, setSelectedItemForHistory] = useState<InventoryItem | null>(null);
-  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
-
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     if (!authLoading) {
@@ -557,14 +554,23 @@ export default function InventoryManagementPage() {
         unsubInventory();
     };
   }, [user]);
+  
+  const filteredInventoryList = useMemo(() => {
+    if (!inventoryList) return [];
+    if (!filter) return inventoryList;
+    return inventoryList.filter(item => 
+        item.name.toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [inventoryList, filter]);
+
 
   const categorizedList = useMemo((): CategorizedList => {
-      if (!inventoryList) return [];
+      if (!filteredInventoryList) return [];
 
       const categoryOrder: string[] = [];
       const grouped: { [key: string]: InventoryItem[] } = {};
 
-      inventoryList.forEach(item => {
+      filteredInventoryList.forEach(item => {
           const category = item.category || 'CHƯA PHÂN LOẠI';
           if (!grouped[category]) {
               grouped[category] = [];
@@ -575,7 +581,7 @@ export default function InventoryManagementPage() {
 
       return categoryOrder.map(category => ({ category, items: grouped[category] }));
 
-  }, [inventoryList]);
+  }, [filteredInventoryList]);
 
   // Set accordion to open all by default, only on first load
   useEffect(() => {
@@ -785,10 +791,6 @@ export default function InventoryManagementPage() {
         });
     };
 
-    const handleRowClick = (item: InventoryItem) => {
-        setSelectedItemForHistory(item);
-        setIsHistoryDialogOpen(true);
-    }
 
   if (isLoading || authLoading || !inventoryList || !suppliers) {
     return (
@@ -824,9 +826,23 @@ export default function InventoryManagementPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <CardTitle>Danh sách kho hiện tại</CardTitle>
-                <CardDescription>Click vào từng dòng để xem lịch sử giá và tồn kho.</CardDescription>
+                <div className="relative mt-2">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Tìm theo tên mặt hàng..." 
+                        className="pl-8" 
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                    />
+                </div>
             </div>
              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+                    <Link href="/inventory-history">
+                        <History className="mr-2 h-4 w-4" />
+                        Xem Lịch sử Kho
+                    </Link>
+                </Button>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="w-full sm:w-auto">
@@ -899,7 +915,7 @@ export default function InventoryManagementPage() {
                           {items.map((item, index) => {
                              const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                             return (
-                              <Card key={item.id} onClick={() => handleRowClick(item)} className="cursor-pointer">
+                              <Card key={item.id}>
                                 <CardContent className="p-4 space-y-4">
                                   <div className="flex items-start justify-between">
                                     <div className="space-y-2 flex-1">
@@ -941,17 +957,17 @@ export default function InventoryManagementPage() {
                                     </div>
                                     <div className="space-y-2">
                                       <Label htmlFor={`minStock-m-${item.id}`}>Tồn tối thiểu</Label>
-                                      <Input id={`minStock-m-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                      <Input id={`minStock-m-${item.id}`} type="number" value={item.minStock} onChange={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/>
                                     </div>
                                   </div>
                                    <div className="grid grid-cols-2 gap-4">
                                       <div className="space-y-2">
                                           <Label htmlFor={`unitPrice-m-${item.id}`}>Đơn giá</Label>
-                                          <Input id={`unitPrice-m-${item.id}`} type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                          <Input id={`unitPrice-m-${item.id}`} type="number" value={item.unitPrice || 0} onChange={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting}/>
                                       </div>
                                       <div className="space-y-2">
                                           <Label htmlFor={`stock-m-${item.id}`}>Tồn kho</Label>
-                                          <Input id={`stock-m-${item.id}`} type="number" defaultValue={item.stock || 0} onBlur={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
+                                          <Input id={`stock-m-${item.id}`} type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
                                       </div>
                                   </div>
                                   <div className="space-y-2">
@@ -1018,13 +1034,13 @@ export default function InventoryManagementPage() {
                                     {items.map((item, index) => {
                                         const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                         return (
-                                        <TableRow key={item.id} className="cursor-pointer" onClick={() => handleRowClick(item)}>
+                                        <TableRow key={item.id}>
                                             <TableCell>
                                                <div className="flex items-center gap-2">
                                                  <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" onClick={(e) => e.stopPropagation()}/>
                                                </div>
                                             </TableCell>
-                                            <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <TableCell>
                                                 <SupplierCombobox
                                                     suppliers={suppliers}
                                                     value={item.supplier}
@@ -1036,10 +1052,10 @@ export default function InventoryManagementPage() {
                                                 <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
+                                                <Input type="number" value={item.unitPrice || 0} onChange={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.stock || 0} onBlur={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
+                                                <Input type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
@@ -1047,21 +1063,21 @@ export default function InventoryManagementPage() {
                                             <TableCell className="w-[120px]">
                                                 <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
                                             </TableCell>
-                                            <TableCell className="text-center w-[120px]" onClick={(e) => e.stopPropagation()}>
+                                            <TableCell className="text-center w-[120px]">
                                                 <Switch
                                                     checked={!!item.isImportant}
                                                     onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
                                                     disabled={isSorting}
                                                 />
                                             </TableCell>
-                                             <TableCell className="text-center w-[100px]" onClick={(e) => e.stopPropagation()}>
+                                             <TableCell className="text-center w-[100px]">
                                                 <Switch
                                                     checked={!!item.requiresPhoto}
                                                     onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
                                                     disabled={isSorting}
                                                 />
                                             </TableCell>
-                                            <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <TableCell>
                                                  <div className="flex flex-col gap-2">
                                                     <Select value={item.dataType} onValueChange={(v) => handleUpdate(item.id, 'dataType', v)}>
                                                         <SelectTrigger><SelectValue/></SelectTrigger>
@@ -1080,7 +1096,7 @@ export default function InventoryManagementPage() {
                                                  </div>
                                             </TableCell>
                                             <TableCell className="text-right w-[50px]">
-                                                <div className="flex items-center justify-end gap-0" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-end gap-0">
                                                 {isSorting ? (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}>
@@ -1115,14 +1131,6 @@ export default function InventoryManagementPage() {
             </div>
         </CardContent>
       </Card>
-      
-      {selectedItemForHistory && (
-        <ItemHistoryDialog 
-            isOpen={isHistoryDialogOpen}
-            onClose={() => setIsHistoryDialogOpen(false)}
-            item={selectedItemForHistory}
-        />
-      )}
     </div>
   );
 }
