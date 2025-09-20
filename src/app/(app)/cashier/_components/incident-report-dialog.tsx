@@ -46,7 +46,7 @@ export default function IncidentReportDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Tạo Báo cáo Sự cố</DialogTitle>
                     <DialogDescription>Ghi nhận sự cố phát sinh trong ca làm việc.</DialogDescription>

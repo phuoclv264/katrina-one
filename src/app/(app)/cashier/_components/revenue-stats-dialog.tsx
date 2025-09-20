@@ -1,6 +1,5 @@
 
 
-
 'use client';
 
 import * as React from 'react';
@@ -369,7 +368,7 @@ export default function RevenueStatsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0">
+                <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
@@ -587,7 +586,4 @@ export default function RevenueStatsDialog({
         </>
     );
 }
-
-
-
 
