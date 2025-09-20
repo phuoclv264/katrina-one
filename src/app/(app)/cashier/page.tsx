@@ -1,6 +1,4 @@
 
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -16,56 +14,8 @@ import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, Managed
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
-import ExpenseSlipDialog from './_components/expense-slip-dialog';
-import IncidentReportDialog from './_components/incident-report-dialog';
-import RevenueStatsDialog from './_components/revenue-stats-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-
-
-const CashierDialogs = React.memo(({
-    user,
-    inventoryList,
-    isExpenseDialogOpen,
-    setIsExpenseDialogOpen,
-    handleSaveSlip,
-    isProcessing,
-    slipToEdit,
-    isIncidentDialogOpen,
-    setIsIncidentDialogOpen,
-    handleSaveIncident,
-    isRevenueDialogOpen,
-    setIsRevenueDialogOpen,
-    handleSaveRevenue,
-    revenueStats
-}: any) => {
-    return (
-        <>
-            <ExpenseSlipDialog
-                open={isExpenseDialogOpen}
-                onOpenChange={setIsExpenseDialogOpen}
-                onSave={handleSaveSlip}
-                isProcessing={isProcessing}
-                slipToEdit={slipToEdit}
-                inventoryList={inventoryList}
-                reporter={user}
-            />
-            <IncidentReportDialog
-                open={isIncidentDialogOpen}
-                onOpenChange={setIsIncidentDialogOpen}
-                onSave={handleSaveIncident}
-                isProcessing={isProcessing}
-            />
-            <RevenueStatsDialog
-                open={isRevenueDialogOpen}
-                onOpenChange={setIsRevenueDialogOpen}
-                onSave={handleSaveRevenue}
-                isProcessing={isProcessing}
-                existingStats={revenueStats}
-            />
-        </>
-    );
-});
-CashierDialogs.displayName = 'CashierDialogs';
+import CashierDialogs from './_components/cashier-dialogs';
 
 
 export default function CashierDashboardPage() {
@@ -408,7 +358,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
-
-
-
