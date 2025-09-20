@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
 import { dataStore } from '@/lib/data-store';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 type PassRequestsDialogProps = {
   isOpen: boolean;

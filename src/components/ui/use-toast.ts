@@ -3,24 +3,16 @@
 // Inspired by react-hot-toast library
 import * as React from "react"
 
+import type { ToastProps } from "@/components/ui/toast"
+
+const TOAST_LIMIT = 1
+const TOAST_REMOVE_DELAY = 1000000
+
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   action?: React.ReactNode
-}
-
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
-
-type ToasterContext = {
-  toasts: ToasterToast[],
-  toast: (toast: Omit<ToasterToast, 'id'>) => {
-    id: string
-    dismiss: () => void
-    update: (props: ToasterToast) => void
-  },
-  dismiss: (toastId?: string) => void
 }
 
 const actionTypes = {
@@ -204,7 +196,6 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-  type ToastProps,
 } from "@/components/ui/toast"
 
 function Toaster() {
@@ -212,7 +203,8 @@ function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function (toast) {
+        const { id, title, description, action, ...props } = toast;
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
