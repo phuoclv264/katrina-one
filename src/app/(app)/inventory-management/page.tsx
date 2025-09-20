@@ -111,9 +111,9 @@ function AiAssistant({
                     generatedNewItems.push({
                          ...item,
                         id: `item-${Date.now()}-${Math.random()}`,
-                        shortName: item.name.split(' ').slice(0,2).join(' '),
-                        orderUnit: item.unit,
-                        conversionRate: 1,
+                        shortName: item.shortName || item.name.split(' ').slice(0,2).join(' '),
+                        orderUnit: item.orderUnit || item.unit,
+                        conversionRate: item.conversionRate || 1,
                         unitPrice: 0,
                         stock: 0,
                         isImportant: item.isImportant ?? false,
@@ -206,13 +206,13 @@ function AiAssistant({
         toast({ title: "AI đang phân tích yêu cầu...", description: "Vui lòng đợi. AI sẽ xử lý và đưa ra bản xem trước." });
 
         try {
-            // Data sanitization before sending to AI
             const sanitizedInventoryList = inventoryList.map(item => ({
                 ...item,
                 shortName: item.shortName || '',
                 orderUnit: item.orderUnit || item.unit,
                 conversionRate: item.conversionRate || 1,
                 isImportant: item.isImportant ?? false,
+                requiresPhoto: item.requiresPhoto ?? false,
             }));
 
             const result = await updateInventoryItems({
