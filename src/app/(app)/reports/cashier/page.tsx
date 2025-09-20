@@ -194,10 +194,10 @@ export default function CashierReportsPage() {
                 const dayReports = groupedReports[date];
                 return (
                     <AccordionItem value={date} key={date} className="border rounded-lg">
-                        <AccordionTrigger className="p-4 text-lg font-medium hover:no-underline">
+                        <AccordionTrigger className="p-4 text-lg font-medium hover:no-underline bg-white dark:bg-card">
                            Ngày {new Date(date).toLocaleDateString('vi-VN')}
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-4 p-4 border-t bg-white dark:bg-card">
+                        <AccordionContent className="space-y-4 p-4 border-t">
                            
                             {dayReports.revenue ? (
                                 <Card>
