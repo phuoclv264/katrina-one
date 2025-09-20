@@ -663,8 +663,11 @@ export default function InventoryManagementPage() {
       stock: 0,
       orderSuggestion: '1',
       dataType: 'number',
+      listOptions: ['hết', 'gần hết', 'còn đủ', 'dư xài'],
       isImportant: false,
       requiresPhoto: false,
+      priceHistory: [],
+      stockHistory: [],
     };
     const newList = [...inventoryList, newItem];
     handleUpdateAndSave(newList);
