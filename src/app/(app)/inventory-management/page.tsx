@@ -118,7 +118,7 @@ function AiAssistant({
                         stock: 0,
                         isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false,
-                        dataType: 'number', // Default new items to number
+                        dataType: 'number',
                     });
                 }
             });
@@ -206,8 +206,16 @@ function AiAssistant({
         toast({ title: "AI đang phân tích yêu cầu...", description: "Vui lòng đợi. AI sẽ xử lý và đưa ra bản xem trước." });
 
         try {
+            // Data sanitization before sending to AI
+            const sanitizedInventoryList = inventoryList.map(item => ({
+                ...item,
+                shortName: item.shortName || '',
+                orderUnit: item.orderUnit || item.unit,
+                conversionRate: item.conversionRate || 1,
+            }));
+
             const result = await updateInventoryItems({
-                items: inventoryList,
+                items: sanitizedInventoryList,
                 instruction: updateInstruction,
             });
 
