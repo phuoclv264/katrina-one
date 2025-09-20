@@ -470,7 +470,8 @@ function AiAssistant({
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[30%]">Tên mặt hàng</TableHead>
+                                    <TableHead className="w-[25%]">Tên mặt hàng</TableHead>
+                                    <TableHead className="w-[15%]">Tên VT</TableHead>
                                     <TableHead>Nhóm</TableHead>
                                     <TableHead>NCC</TableHead>
                                     <TableHead>ĐV</TableHead>
@@ -492,6 +493,7 @@ function AiAssistant({
                                     return (
                                         <TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}>
                                             <TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.shortName, newItem.shortName)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
