@@ -647,7 +647,8 @@ export default function ExpenseSlipDialog({
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>Tên mặt hàng</TableHead>
-                                                        <TableHead>SL ({items[0]?.unit})</TableHead>
+                                                        <TableHead>Số lượng</TableHead>
+                                                        <TableHead>Đơn vị</TableHead>
                                                         <TableHead>Đơn giá</TableHead>
                                                         <TableHead>Thành tiền</TableHead>
                                                         <TableHead className="text-right">Xóa</TableHead>
@@ -662,6 +663,7 @@ export default function ExpenseSlipDialog({
                                                                     <p className="text-xs text-muted-foreground">{item.supplier}</p>
                                                                 </TableCell>
                                                                 <TableCell>{item.quantity}</TableCell>
+                                                                <TableCell>{item.unit}</TableCell>
                                                                 <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
                                                                 <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
                                                                 <TableCell className="text-right">
