@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A flow for updating a list of inventory items based on a user's natural language instruction.
@@ -63,7 +62,7 @@ IMPORTANT RULES:
 9.  When asked to generate a 'tên viết tắt' (shortName), you must follow these sub-rules VERY CAREFULLY:
     a. Create a short, meaningful abbreviation based on the full 'name'.
     b. The abbreviation must clearly represent the item. Example: 'Đào Ngâm Thái Lan Dedu' can be 'Đào ngâm TL'. 'Sữa tươi thanh trùng không đường' can be 'Sữa TT không đường'.
-    c. **CRITICAL**: The generated 'shortName' MUST BE UNIQUE across the entire list. No two items can have the same 'shortName'. You must check your output to ensure uniqueness before returning it. If two items have similar names, find a way to differentiate their shortNames (e.g., 'Trà sữa ô long nhài' -> 'TS ô long nhài', 'Trà sữa ô long cao sơn' -> 'TS ô long CS').
+    c. **CRITICAL**: The generated 'shortName' MUST BE UNIQUE across the entire list. No two items can have the same 'shortName'. You must check your output to ensure uniqueness before returning it. If two items have similar names (e.g., 'Trà sữa ô long nhài' and 'Trà sữa ô long cao sơn'), you MUST find a way to differentiate their shortNames (e.g., 'TS ô long nhài' vs 'TS ô long CS').
 10. If 'orderUnit' is not specified or is the same as 'unit', the 'conversionRate' MUST be 1. If 'orderUnit' is different (e.g., order by 'thùng', but unit is 'hộp'), 'conversionRate' must be a number greater than 1, representing how many 'unit' are in one 'orderUnit'.
 
 User's Instruction: "{{{instruction}}}"
