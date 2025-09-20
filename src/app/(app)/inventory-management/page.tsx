@@ -118,7 +118,7 @@ function AiAssistant({
                         stock: 0,
                         isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false,
-                        dataType: 'number',
+                        dataType: item.dataType || 'number',
                     });
                 }
             });
@@ -213,6 +213,7 @@ function AiAssistant({
                 conversionRate: item.conversionRate || 1,
                 isImportant: item.isImportant ?? false,
                 requiresPhoto: item.requiresPhoto ?? false,
+                dataType: item.dataType || 'number',
             }));
 
             const result = await updateInventoryItems({
@@ -788,7 +789,6 @@ export default function InventoryManagementPage() {
 
         let textToCopy = '';
         if (type === 'table') {
-            // Create TSV (Tab-Separated Values) string for easy pasting into Excel
             const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'ĐV Đặt hàng', 'Tỷ lệ quy đổi', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
             const rows = inventoryList.map(item => 
                 [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('\t')
@@ -796,7 +796,7 @@ export default function InventoryManagementPage() {
             textToCopy = [headers.join('\t'), ...rows].join('\n');
         } else if (type === 'text') {
             textToCopy = inventoryList.map(item => 
-                [item.category, item.name, item.supplier, item.unit, item.minStock, item.orderSuggestion].join('-')
+                [item.category, item.name, item.shortName, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join('-')
             ).join('\n');
         }
 
