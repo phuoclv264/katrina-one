@@ -52,3 +52,5 @@ const CashierDialogs = React.memo(({
 CashierDialogs.displayName = 'CashierDialogs';
 
 export default CashierDialogs;
+
+    

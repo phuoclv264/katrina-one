@@ -15,9 +15,7 @@ import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import ExpenseSlipDialog from './_components/expense-slip-dialog';
-import IncidentReportDialog from './_components/incident-report-dialog';
-import RevenueStatsDialog from './_components/revenue-stats-dialog';
+import CashierDialogs from './_components/cashier-dialogs';
 
 
 export default function CashierDashboardPage() {
@@ -341,28 +339,24 @@ export default function CashierDashboardPage() {
         </div>
     </div>
     
-    <ExpenseSlipDialog
-        open={isExpenseDialogOpen}
-        onOpenChange={setIsExpenseDialogOpen}
-        onSave={handleSaveSlip}
+    <CashierDialogs
+        user={user}
+        inventoryList={inventoryList}
+        isExpenseDialogOpen={isExpenseDialogOpen}
+        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
+        handleSaveSlip={handleSaveSlip}
         isProcessing={isProcessing}
         slipToEdit={slipToEdit}
-        inventoryList={inventoryList}
-        reporter={user}
-    />
-     <IncidentReportDialog
-        open={isIncidentDialogOpen}
-        onOpenChange={setIsIncidentDialogOpen}
-        onSave={handleSaveIncident}
-        isProcessing={isProcessing}
-    />
-     <RevenueStatsDialog
-        open={isRevenueDialogOpen}
-        onOpenChange={setIsRevenueDialogOpen}
-        onSave={handleSaveRevenue}
-        isProcessing={isProcessing}
-        existingStats={revenueStats}
+        isIncidentDialogOpen={isIncidentDialogOpen}
+        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
+        handleSaveIncident={handleSaveIncident}
+        isRevenueDialogOpen={isRevenueDialogOpen}
+        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
+        handleSaveRevenue={handleSaveRevenue}
+        revenueStats={revenueStats}
     />
     </>
   );
 }
+
+    
