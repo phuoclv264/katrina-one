@@ -31,6 +31,8 @@ const ParsedInventoryItemSchema = z.object({
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
     isImportant: z.boolean().optional().describe('Whether this item requires a stock count to submit the report.'),
     requiresPhoto: z.boolean().optional().describe('Whether this item requires a photo as proof.'),
+    dataType: z.enum(['number', 'list']).optional().describe("The data type for stock checking. 'number' for quantity input, 'list' for selecting a status."),
+    listOptions: z.array(z.string()).optional().describe("If dataType is 'list', this is an array of possible statuses, e.g., ['hết', 'còn đủ', 'dư xài']."),
 });
 
 const GenerateInventoryListOutputSchema = z.object({
@@ -60,6 +62,8 @@ The input contains a list of products for a coffee shop. You must extract the fo
 - orderSuggestion: The suggested quantity to order when stock is low.
 - isImportant: A boolean. If the text indicates this is a critical or mandatory item to check, set this to true. Default to false.
 - requiresPhoto: A boolean. If the text mentions needing a photo or visual proof, set this to true. Default to false.
+- dataType: The type of stock checking. If the item's unit is countable (like 'cái', 'hộp'), default to 'number'. If it's more of a state (like for fresh produce 'còn', 'hết'), default to 'list'. If unsure, default to 'number'.
+- listOptions: If dataType is 'list', provide a default array: ['hết', 'gần hết', 'còn đủ', 'dư xài'].
 
 The input text could be a table pasted from a spreadsheet, or it could be a multi-line string where each line represents an item, with fields separated by a hyphen '-'.
 
