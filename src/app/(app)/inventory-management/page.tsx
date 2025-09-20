@@ -1,5 +1,3 @@
-
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -26,6 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SupplierCombobox } from '@/components/supplier-combobox';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ItemHistoryDialog from './_components/item-history-dialog';
 
 
 function AiAssistant({
@@ -518,6 +517,9 @@ export default function InventoryManagementPage() {
   const [editingCategory, setEditingCategory] = useState<{ oldName: string; newName: string } | null>(null);
   const hasInitializedOpenState = useRef(false);
 
+  const [selectedItemForHistory, setSelectedItemForHistory] = useState<InventoryItem | null>(null);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+
 
   useEffect(() => {
     if (!authLoading) {
@@ -781,6 +783,11 @@ export default function InventoryManagementPage() {
         });
     };
 
+    const handleRowClick = (item: InventoryItem) => {
+        setSelectedItemForHistory(item);
+        setIsHistoryDialogOpen(true);
+    }
+
   if (isLoading || authLoading || !inventoryList || !suppliers) {
     return (
       <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
@@ -890,7 +897,7 @@ export default function InventoryManagementPage() {
                           {items.map((item, index) => {
                              const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                             return (
-                              <Card key={item.id}>
+                              <Card key={item.id} onClick={() => handleRowClick(item)} className="cursor-pointer">
                                 <CardContent className="p-4 space-y-4">
                                   <div className="flex items-start justify-between">
                                     <div className="space-y-2 flex-1">
@@ -1009,7 +1016,7 @@ export default function InventoryManagementPage() {
                                     {items.map((item, index) => {
                                         const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                         return (
-                                        <TableRow key={item.id} className="cursor-pointer" onClick={() => {/* TODO: Open history dialog */}}>
+                                        <TableRow key={item.id} className="cursor-pointer" onClick={() => handleRowClick(item)}>
                                             <TableCell>
                                                <div className="flex items-center gap-2">
                                                  <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" onClick={(e) => e.stopPropagation()}/>
@@ -1106,6 +1113,14 @@ export default function InventoryManagementPage() {
             </div>
         </CardContent>
       </Card>
+      
+      {selectedItemForHistory && (
+        <ItemHistoryDialog 
+            isOpen={isHistoryDialogOpen}
+            onClose={() => setIsHistoryDialogOpen(false)}
+            item={selectedItemForHistory}
+        />
+      )}
     </div>
   );
 }

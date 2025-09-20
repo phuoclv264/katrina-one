@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, PriceHistoryEntry, StockHistoryEntry } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -86,7 +86,8 @@ export const dataStore = {
                     name: `Chi phí sự cố: ${data.content}`,
                     supplier: 'N/A',
                     quantity: 1,
-                    unitPrice: data.cost
+                    unitPrice: data.cost,
+                    unit: 'lần',
                 }],
                 totalAmount: data.cost,
                 paymentMethod: 'cash',
@@ -164,6 +165,7 @@ export const dataStore = {
                     supplier: 'N/A',
                     quantity: 1,
                     unitPrice: data.deliveryPartnerPayout,
+                    unit: 'lần',
                 }],
                 totalAmount: data.deliveryPartnerPayout,
                 paymentMethod: 'cash',
@@ -206,54 +208,135 @@ export const dataStore = {
     },
 
     async addOrUpdateExpenseSlip(data: any, id?: string): Promise<void> {
+        const docRef = id ? doc(db, 'expense_slips', id) : doc(collection(db, 'expense_slips'));
         const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
-        
-        // 1. Handle photos to delete
-        if (photosToDelete && photosToDelete.length > 0) {
-            await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
-        }
-
-        // 2. Handle new photos to upload
-        let newPhotoUrls: string[] = [];
-        if (newPhotoIds && newPhotoIds.length > 0) {
-            const uploadPromises = newPhotoIds.map(async (photoId: string) => {
-                const photoBlob = await photoStore.getPhoto(photoId);
-                if (!photoBlob) return null;
-                const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
-                return getDownloadURL(storageRef);
+    
+        await runTransaction(db, async (transaction) => {
+            const inventoryDocRef = doc(db, 'app-data', 'inventoryList');
+            const inventorySnap = await transaction.get(inventoryDocRef);
+            if (!inventorySnap.exists()) {
+                throw new Error("Không tìm thấy danh sách hàng tồn kho.");
+            }
+            const inventoryList = (inventorySnap.data() as { items: InventoryItem[] }).items;
+    
+            // If editing, revert old changes first
+            if (id) {
+                const oldSlipSnap = await transaction.get(docRef);
+                if (oldSlipSnap.exists()) {
+                    const oldSlip = oldSlipSnap.data() as ExpenseSlip;
+                    oldSlip.items.forEach(oldItem => {
+                        const itemIndex = inventoryList.findIndex(inv => inv.id === oldItem.itemId);
+                        if (itemIndex > -1) {
+                            inventoryList[itemIndex].stock -= oldItem.quantity;
+                            inventoryList[itemIndex].priceHistory = (inventoryList[itemIndex].priceHistory || []).filter(ph => ph.sourceId !== id);
+                            inventoryList[itemIndex].stockHistory = (inventoryList[itemIndex].stockHistory || []).filter(sh => sh.sourceId !== id);
+                            // Re-evaluate unitPrice based on the new latest history entry
+                            const priceHistory = inventoryList[itemIndex].priceHistory || [];
+                            if (priceHistory.length > 0) {
+                                inventoryList[itemIndex].unitPrice = priceHistory[priceHistory.length - 1].price;
+                            } else {
+                                inventoryList[itemIndex].unitPrice = 0; // or some default
+                            }
+                        }
+                    });
+                }
+            }
+    
+            // Apply new changes
+            slipData.items.forEach((newItem: ExpenseItem) => {
+                const itemIndex = inventoryList.findIndex(inv => inv.id === newItem.itemId);
+                if (itemIndex > -1) {
+                    const item = inventoryList[itemIndex];
+                    item.stock += newItem.quantity;
+                    item.unitPrice = newItem.unitPrice; // Update current price
+    
+                    const priceHistoryEntry: PriceHistoryEntry = {
+                        date: slipData.date,
+                        price: newItem.unitPrice,
+                        source: 'expense_slip',
+                        sourceId: docRef.id,
+                    };
+                    item.priceHistory = [...(item.priceHistory || []), priceHistoryEntry];
+    
+                    const stockHistoryEntry: StockHistoryEntry = {
+                        date: slipData.date,
+                        change: newItem.quantity,
+                        newStock: item.stock,
+                        source: 'expense_slip',
+                        sourceId: docRef.id,
+                    };
+                    item.stockHistory = [...(item.stockHistory || []), stockHistoryEntry];
+                }
             });
-            newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-            await photoStore.deletePhotos(newPhotoIds);
-        }
-
-        // 3. Combine photo URLs
-        const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
-
-        // 4. Prepare data and save to Firestore
-        const finalData = {
-            ...slipData,
-            attachmentPhotos: finalPhotos,
-        };
-
-        if (id) {
-            const docRef = doc(db, 'expense_slips', id);
-            finalData.lastModified = serverTimestamp();
-            await updateDoc(docRef, finalData);
-        } else {
-            const collectionRef = collection(db, 'expense_slips');
-            finalData.createdAt = serverTimestamp();
-            finalData.date = format(new Date(), 'yyyy-MM-dd');
-            await addDoc(collectionRef, finalData);
-        }
+    
+            // Handle Photos
+            if (photosToDelete && photosToDelete.length > 0) {
+                await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
+            }
+            let newPhotoUrls: string[] = [];
+            if (newPhotoIds && newPhotoIds.length > 0) {
+                const uploadPromises = newPhotoIds.map(async (photoId: string) => {
+                    const photoBlob = await photoStore.getPhoto(photoId);
+                    if (!photoBlob) return null;
+                    const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
+                    await uploadBytes(storageRef, photoBlob);
+                    return getDownloadURL(storageRef);
+                });
+                newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+                await photoStore.deletePhotos(newPhotoIds);
+            }
+            const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
+    
+            // Prepare slip data
+            const finalData = { ...slipData, attachmentPhotos: finalPhotos };
+            if (id) {
+                finalData.lastModified = serverTimestamp();
+            } else {
+                finalData.createdAt = serverTimestamp();
+                finalData.date = format(new Date(), 'yyyy-MM-dd');
+            }
+    
+            // Commit all changes
+            transaction.set(inventoryDocRef, { items: inventoryList });
+            transaction.set(docRef, finalData, { merge: true });
+        });
     },
     
     async deleteExpenseSlip(slip: ExpenseSlip): Promise<void> {
-        if (slip.attachmentPhotos && slip.attachmentPhotos.length > 0) {
-            await Promise.all(slip.attachmentPhotos.map(url => this.deletePhotoFromStorage(url)));
-        }
-        const docRef = doc(db, 'expense_slips', slip.id);
-        await deleteDoc(docRef);
+        await runTransaction(db, async (transaction) => {
+            const inventoryDocRef = doc(db, 'app-data', 'inventoryList');
+            const inventorySnap = await transaction.get(inventoryDocRef);
+            if (!inventorySnap.exists()) {
+                throw new Error("Không tìm thấy danh sách hàng tồn kho.");
+            }
+            const inventoryList = (inventorySnap.data() as { items: InventoryItem[] }).items;
+
+            // Revert stock and history
+            slip.items.forEach(item => {
+                const itemIndex = inventoryList.findIndex(inv => inv.id === item.itemId);
+                if (itemIndex > -1) {
+                    inventoryList[itemIndex].stock -= item.quantity;
+                    inventoryList[itemIndex].priceHistory = (inventoryList[itemIndex].priceHistory || []).filter(ph => ph.sourceId !== slip.id);
+                    inventoryList[itemIndex].stockHistory = (inventoryList[itemIndex].stockHistory || []).filter(sh => sh.sourceId !== slip.id);
+                    // Re-evaluate unitPrice
+                    const priceHistory = inventoryList[itemIndex].priceHistory || [];
+                     if (priceHistory.length > 0) {
+                        inventoryList[itemIndex].unitPrice = priceHistory[priceHistory.length - 1].price;
+                    } else {
+                        inventoryList[itemIndex].unitPrice = 0;
+                    }
+                }
+            });
+
+            // Delete photos
+            if (slip.attachmentPhotos && slip.attachmentPhotos.length > 0) {
+                await Promise.all(slip.attachmentPhotos.map(url => this.deletePhotoFromStorage(url)));
+            }
+
+            // Commit inventory changes and delete slip
+            transaction.set(inventoryDocRef, { items: inventoryList });
+            transaction.delete(doc(db, 'expense_slips', slip.id));
+        });
     },
 
      // --- End Cashier ---
@@ -1272,62 +1355,80 @@ export const dataStore = {
 
   async saveInventoryReport(report: InventoryReport): Promise<void> {
     if (typeof window === 'undefined') return;
-    
-    const reportToSubmit = JSON.parse(JSON.stringify(report));
 
-    const photoIdsToUpload = new Set<string>();
-    for (const itemId in reportToSubmit.stockLevels) {
-        const record = reportToSubmit.stockLevels[itemId];
-        if (record.photoIds) {
-            record.photoIds.forEach((id: string) => photoIdsToUpload.add(id));
-        }
-    }
+    await runTransaction(db, async (transaction) => {
+        const inventoryDocRef = doc(db, 'app-data', 'inventoryList');
+        const inventorySnap = await transaction.get(inventoryDocRef);
+        if (!inventorySnap.exists()) throw new Error("Inventory list not found");
+        
+        const inventoryList = (inventorySnap.data() as { items: InventoryItem[] }).items;
+        
+        const reportToSubmit = JSON.parse(JSON.stringify(report));
 
-    const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
-        const photoBlob = await photoStore.getPhoto(photoId);
-        if (!photoBlob) {
-            console.warn(`Photo with ID ${photoId} not found in local store.`);
-            return { photoId, downloadURL: null };
+        // Handle photo uploads
+        const photoIdsToUpload = new Set<string>();
+        for (const itemId in reportToSubmit.stockLevels) {
+            const record = reportToSubmit.stockLevels[itemId];
+            if (record.photoIds) {
+                record.photoIds.forEach((id: string) => photoIdsToUpload.add(id));
+            }
         }
-        const storageRef = ref(storage, `inventory-reports/${report.date}/${report.staffName}/${photoId}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
-        const downloadURL = await getDownloadURL(storageRef);
-        return { photoId, downloadURL };
+        const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (!photoBlob) return { photoId, downloadURL: null };
+            const storageRef = ref(storage, `inventory-reports/${report.date}/${report.staffName}/${photoId}.jpg`);
+            await uploadBytes(storageRef, photoBlob);
+            return { photoId, downloadURL: await getDownloadURL(storageRef) };
+        });
+        const uploadResults = await Promise.all(uploadPromises);
+        const photoIdToUrlMap = new Map(uploadResults.map(r => [r.photoId, r.downloadURL]).filter(r => r[1]));
+
+        for (const itemId in reportToSubmit.stockLevels) {
+            const record = reportToSubmit.stockLevels[itemId];
+            if (record.photoIds) {
+                const finalUrls = record.photoIds.map((id: string) => photoIdToUrlMap.get(id)).filter(Boolean);
+                record.photos = Array.from(new Set([...(record.photos || []), ...finalUrls]));
+                delete record.photoIds;
+            }
+
+            // Update inventory list and create stock history
+            const itemIndex = inventoryList.findIndex(inv => inv.id === itemId);
+            if (itemIndex > -1) {
+                const currentStock = inventoryList[itemIndex].stock;
+                const newStock = Number(record.stock);
+                if (!isNaN(newStock) && newStock !== currentStock) {
+                    const stockHistoryEntry: StockHistoryEntry = {
+                        date: report.date,
+                        change: newStock - currentStock,
+                        newStock: newStock,
+                        source: 'inventory_check',
+                        sourceId: report.id,
+                        notes: 'Điều chỉnh sau kiểm kê',
+                    };
+                    inventoryList[itemIndex].stock = newStock;
+                    inventoryList[itemIndex].stockHistory = [...(inventoryList[itemIndex].stockHistory || []), stockHistoryEntry];
+                }
+            }
+        }
+
+        // Finalize report data
+        reportToSubmit.lastUpdated = serverTimestamp();
+        reportToSubmit.submittedAt = serverTimestamp();
+        delete reportToSubmit.id;
+
+        // Commit all changes
+        transaction.set(inventoryDocRef, { items: inventoryList });
+        const firestoreRef = doc(db, 'inventory-reports', report.id);
+        transaction.set(firestoreRef, reportToSubmit, { merge: true });
+
+        // Cleanup local data
+        await photoStore.deletePhotos(Array.from(photoIdsToUpload));
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(report.id);
+        }
     });
+},
 
-    const uploadResults = await Promise.all(uploadPromises);
-    const photoIdToUrlMap = new Map<string, string>();
-    uploadResults.forEach(result => {
-        if (result.downloadURL) {
-            photoIdToUrlMap.set(result.photoId, result.downloadURL);
-        }
-    });
-
-    for (const itemId in reportToSubmit.stockLevels) {
-        const record = reportToSubmit.stockLevels[itemId];
-        if (record.photoIds) {
-            const finalUrls = record.photoIds
-                .map((id: string) => photoIdToUrlMap.get(id))
-                .filter((url: string | undefined): url is string => !!url);
-            
-            record.photos = Array.from(new Set([...(record.photos || []), ...finalUrls]));
-            delete record.photoIds;
-        }
-    }
-
-    reportToSubmit.lastUpdated = serverTimestamp();
-    reportToSubmit.submittedAt = serverTimestamp();
-    
-    delete reportToSubmit.id;
-
-    const firestoreRef = doc(db, 'inventory-reports', report.id);
-    await setDoc(firestoreRef, reportToSubmit, { merge: true });
-
-    await photoStore.deletePhotos(Array.from(photoIdsToUpload));
-     if (typeof window !== 'undefined') {
-       localStorage.removeItem(report.id);
-    }
-  },
 
   async updateInventoryReportSuggestions(reportId: string, suggestions: InventoryOrderSuggestion): Promise<void> {
     const reportRef = doc(db, 'inventory-reports', reportId);
