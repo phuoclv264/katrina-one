@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -174,6 +173,7 @@ function AiPreviewDialog({
         <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
+                <div id="ai-preview-lightbox-container"></div>
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                     <DialogDescription>AI đã phân tích và nhóm các hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
@@ -227,6 +227,7 @@ function AiPreviewDialog({
             close={() => setIsLightboxOpen(false)}
             slides={lightboxSlides}
             plugins={[Zoom]}
+            portal={{ root: document.getElementById("ai-preview-lightbox-container") ?? undefined }}
         />
         </>
     );
@@ -510,6 +511,7 @@ export default function ExpenseSlipDialog({
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
+                    <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
                         <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
@@ -725,6 +727,7 @@ export default function ExpenseSlipDialog({
                 index={lightboxIndex}
                 slides={allAttachmentPhotos.map(p => ({ src: p.url }))}
                 plugins={[Zoom]}
+                portal={{ root: document.getElementById("expense-slip-lightbox-container") ?? undefined }}
             />
         </>
     );

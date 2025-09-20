@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -369,6 +368,7 @@ export default function RevenueStatsDialog({
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
+                    <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Thống kê Doanh thu</DialogTitle>
                         <DialogDescription>
@@ -579,19 +579,7 @@ export default function RevenueStatsDialog({
                     close={() => setIsLightboxOpen(false)}
                     slides={[{ src: displayImageDataUri }]}
                     plugins={[Zoom]}
-                    render={{
-                        close: () => (
-                            <button
-                                type="button"
-                                className="yarl__button"
-                                onClick={() => setIsLightboxOpen(false)}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="yarl__icon">
-                                    <path d="M18.7 5.3a1 1 0 0 0-1.4 0L12 10.6 6.7 5.3a1 1 0 0 0-1.4 1.4L10.6 12l-5.3 5.3a1 1 0 1 0 1.4 1.4L12 13.4l5.3 5.3a1 1 0 0 0 1.4-1.4L13.4 12l5.3-5.3a1 1 0 0 0 0-1.4z" />
-                                </svg>
-                            </button>
-                        ),
-                    }}
+                    portal={{ root: document.getElementById("revenue-stats-lightbox-container") ?? undefined }}
                     carousel={{ finite: true }}
                     zoom={{ maxZoomPixelRatio: 5 }}
                 />
