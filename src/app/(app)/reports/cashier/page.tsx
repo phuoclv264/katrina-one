@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -14,8 +14,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import CashierDialogs from '../../cashier/_components/cashier-dialogs';
+import { toast } from 'react-hot-toast';
 
-type ReportItem = (ExpenseSlip | IncidentReport | RevenueStats) & { type: 'expense' | 'incident' | 'revenue' };
 
 type GroupedReports = {
   [date: string]: {
@@ -33,9 +34,19 @@ export default function CashierReportsPage() {
     revenueStats: RevenueStats[];
     expenseSlips: ExpenseSlip[];
     incidents: IncidentReport[];
-  }>({ revenueStats: [], expenseSlips: [], incidents: [] });
+    inventoryList: any[],
+  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [] });
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Dialog states
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+  const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
+  const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false); // Although incidents are not editable, we keep for consistency
+  const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
+  const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -57,14 +68,17 @@ export default function CashierReportsPage() {
     const unsubRevenue = dataStore.subscribeToAllRevenueStats(stats => {
         setAllData(prev => ({...prev, revenueStats: stats}));
     });
+     const unsubInventory = dataStore.subscribeToInventoryList(items => {
+        setAllData(prev => ({...prev, inventoryList: items}));
+    });
 
-    // Use a timeout to signal end of loading, as we might not know when all snapshots are initially delivered
     const timer = setTimeout(() => setIsLoading(false), 1500);
 
     return () => {
       unsubExpense();
       unsubIncidents();
       unsubRevenue();
+      unsubInventory();
       clearTimeout(timer);
     };
   }, [user]);
@@ -92,7 +106,6 @@ export default function CashierReportsPage() {
       grouped[date].incidents.push(item);
     });
     
-    // Sort expenses and incidents within each day
     for(const date in grouped) {
         grouped[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
         grouped[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
@@ -102,6 +115,50 @@ export default function CashierReportsPage() {
   }, [allData]);
 
   const sortedDates = useMemo(() => Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedReports]);
+
+  // --- Handlers for dialogs ---
+  const handleEditExpense = (slip: ExpenseSlip) => {
+      setSlipToEdit(slip);
+      setIsExpenseDialogOpen(true);
+  }
+
+  const handleEditRevenue = (stats: RevenueStats) => {
+      setRevenueStatsToEdit(stats);
+      setIsRevenueDialogOpen(true);
+  }
+
+  const handleSaveSlip = useCallback(async (data: any, id?: string) => {
+    if (!user) return;
+    setIsProcessing(true);
+    try {
+        const slipData = { ...data, createdBy: { userId: user.uid, userName: user.displayName }};
+        await dataStore.addOrUpdateExpenseSlip(slipData, id);
+        toast.success(`Đã cập nhật phiếu chi.`);
+        setIsExpenseDialogOpen(false);
+    } catch (error) {
+        console.error("Failed to save expense slip", error);
+        toast.error("Không thể lưu phiếu chi.");
+    } finally {
+        setIsProcessing(false);
+    }
+  }, [user]);
+
+  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+    if(!user || !revenueStatsToEdit) return;
+    setIsProcessing(true);
+    try {
+        // Here we use the ID of the stats being edited
+        await dataStore.addOrUpdateRevenueStats(data, user, isEdited, revenueStatsToEdit.id);
+        toast.success("Đã cập nhật doanh thu.");
+        setIsRevenueDialogOpen(false);
+    } catch(error) {
+        console.error("Failed to save revenue stats", error);
+        toast.error("Không thể lưu doanh thu.");
+    } finally {
+        setIsProcessing(false);
+    }
+  }, [user, revenueStatsToEdit]);
+
 
   if (isLoading || authLoading) {
     return (
@@ -113,6 +170,7 @@ export default function CashierReportsPage() {
   }
 
   return (
+    <>
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <Button asChild variant="ghost" className="-ml-4 mb-4">
@@ -144,7 +202,6 @@ export default function CashierReportsPage() {
                         </AccordionTrigger>
                         <AccordionContent className="space-y-4 p-4 border-t">
                            
-                            {/* Revenue Stats */}
                             {dayReports.revenue ? (
                                 <Card>
                                     <CardHeader className="flex-row items-center justify-between">
@@ -152,10 +209,8 @@ export default function CashierReportsPage() {
                                             <CardTitle className="text-base flex items-center gap-2"><Receipt /> Thống kê Doanh thu</CardTitle>
                                             <CardDescription>Cập nhật bởi {dayReports.revenue.createdBy.userName} lúc {format(new Date(dayReports.revenue.createdAt as string), 'HH:mm')}</CardDescription>
                                         </div>
-                                        <Button asChild size="sm">
-                                            <Link href={`/reports/cashier/details?id=${dayReports.revenue.id}`}>
-                                                Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
-                                            </Link>
+                                        <Button size="sm" onClick={() => handleEditRevenue(dayReports.revenue!)}>
+                                            Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
                                         </Button>
                                     </CardHeader>
                                     <CardContent>
@@ -166,7 +221,6 @@ export default function CashierReportsPage() {
                                 <p className="text-sm text-muted-foreground">Không có báo cáo doanh thu trong ngày.</p>
                             )}
                             
-                            {/* Expense Slips */}
                             {dayReports.expenses && dayReports.expenses.length > 0 && (
                                 <Card>
                                      <CardHeader>
@@ -178,15 +232,20 @@ export default function CashierReportsPage() {
                                                 <TableRow>
                                                     <TableHead>Nội dung</TableHead>
                                                     <TableHead>Số tiền</TableHead>
-                                                    <TableHead>Người tạo</TableHead>
+                                                    <TableHead className="text-right">Hành động</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {dayReports.expenses.map(expense => (
                                                     <TableRow key={expense.id}>
-                                                        <TableCell>{expense.items.map(i => i.name).join(', ')}</TableCell>
+                                                        <TableCell>
+                                                          {expense.items.map(i => i.name).join(', ')}
+                                                          <p className="text-xs text-muted-foreground">{expense.createdBy.userName}</p>
+                                                        </TableCell>
                                                         <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
-                                                        <TableCell>{expense.createdBy.userName}</TableCell>
+                                                        <TableCell className="text-right">
+                                                          <Button variant="outline" size="sm" onClick={() => handleEditExpense(expense)}>Chi tiết</Button>
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -195,8 +254,7 @@ export default function CashierReportsPage() {
                                 </Card>
                             )}
 
-                             {/* Incident Reports */}
-                            {dayReports.incidents && dayReports.incidents.length > 0 && (
+                             {dayReports.incidents && dayReports.incidents.length > 0 && (
                                 <Card>
                                      <CardHeader>
                                         <CardTitle className="text-base flex items-center gap-2"><AlertTriangle/>Sự cố ({dayReports.incidents.length})</CardTitle>
@@ -221,5 +279,22 @@ export default function CashierReportsPage() {
           </Accordion>
       )}
     </div>
+     <CashierDialogs
+        user={user}
+        inventoryList={allData.inventoryList}
+        isExpenseDialogOpen={isExpenseDialogOpen}
+        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
+        handleSaveSlip={handleSaveSlip}
+        isProcessing={isProcessing}
+        slipToEdit={slipToEdit}
+        isIncidentDialogOpen={isIncidentDialogOpen}
+        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
+        handleSaveIncident={() => {}} // Not editable from here
+        isRevenueDialogOpen={isRevenueDialogOpen}
+        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
+        handleSaveRevenue={handleSaveRevenue}
+        revenueStats={revenueStatsToEdit}
+    />
+    </>
   );
 }
