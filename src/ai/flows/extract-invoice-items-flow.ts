@@ -49,38 +49,66 @@ const prompt = ai.definePrompt({
   name: 'extractInvoiceItemsPrompt',
   input: { schema: ExtractInvoiceItemsInputSchema },
   output: { schema: ExtractInvoiceItemsOutputSchema },
-  prompt: `You are an expert OCR and data matching specialist for a restaurant's inventory system.
-Your task is to analyze the provided array of images and a list of available inventory items. You must perform the following steps with extreme precision:
+  prompt: `You are an expert OCR and document analysis AI specialized in restaurant invoices.
 
-1.  **Group Identical Invoices:** Look through all provided images. It is VERY IMPORTANT to identify all images that belong to the *same* physical invoice (e.g., multiple photos of the same long receipt). Group the IDs of these identical images together. Each unique invoice should form one group. Ignore any images that are not invoices (e.g., photos of goods).
+Your task is to analyze the provided array of images and a list of available inventory items.  
+You MUST process the data with the following strict rules:
 
-2.  **Process Each Invoice Group:** For each group of invoice images you identify, you must process it as a *single* entity. Create one result object for each unique invoice.
+1. **Identify Invoice Images vs Non-Invoice Images:**
+   - Carefully analyze each image and decide if it is an invoice or not (e.g., receipts, bills vs. photos of goods or random pictures).
+   - Only invoice images should be grouped and processed. Non-invoice images must be ignored.
 
-3.  **Extract and Match from Group:** For each invoice group, perform the following:
-    a.  **Extract Data:** Read all images within the group to gather all line items. For each line item, extract the **Item Name**, **Quantity**, and **Unit Price** with perfect accuracy. It is CRITICAL that you parse numbers correctly, ignoring thousand separators (like '.' or ',') and correctly identifying the decimal separator. For example: '100.000,00' and '100,000.00' must both be interpreted as the number 100000. A value of '100.000' should be interpreted as 100000.
-    b.  **Match with Inventory:** For each item you extract, compare its name against the provided list of inventory items. Use fuzzy matching and semantic understanding (e.g., "Cafe Robusta" matches "Cà phê Robusta"). If you find a confident match, set \`matchedItemId\` to the inventory item's \`id\` and \`status\` to \`'matched'\`. Otherwise, set \`matchedItemId\` to \`null\` and \`status\` to \`'unmatched'\`.
+2. **Group Duplicate Invoices:**
+   - If there are multiple images of the same physical invoice (e.g., long receipts captured in multiple shots), group them into one invoice group.
+   - Use both textual similarity and invoice structure (store name, date, total amount) to confirm duplicates.
+   - Each unique invoice = one group with all related image IDs.
 
-4.  **Format the Final Output:**
-    a. Create one result object for each unique invoice group.
-    b. Assign a unique title to each, like "Hóa đơn 1", "Hóa đơn 2", etc.
-    c. Populate the \`imageIds\` array with ALL the original IDs of the images belonging to that group. This is CRITICAL.
-    d. Populate the \`items\` array with all the items you extracted and matched from that specific invoice group.
-    e. If no valid invoices are found in any of the images, set \`isInvoiceFound\` to \`false\` and return an empty \`results\` array. Otherwise, set \`isInvoiceFound\` to \`true\`.
+3. **Extract Invoice Line Items:**
+   - For each invoice group, carefully locate the correct **item name column**. 
+     - Many invoices contain both **item codes (mã hàng)** and **item names (tên hàng)**.  
+     - Always select the column that contains the *full descriptive item name*, not the numeric/short code.  
+     - Example: "CF001 Cà phê Sữa Đá" → extract \`"Cà phê Sữa Đá"\`, ignore \`"CF001"\`.
+   - For each line item, extract:
+     - \`itemName\` (text as shown on invoice, descriptive name only),
+     - \`quantity\` (integer/decimal),
+     - \`unitPrice\` (per-unit price, correctly parsed regardless of thousand/decimal separators).
 
-**Input Data:**
+4. **Match Items with Inventory:**
+   - Use fuzzy and semantic matching (e.g., "Cafe Robusta" ≈ "Cà phê Robusta").
+   - If a confident match is found → return \`matchedItemId\` and \`status = 'matched'\`.
+   - If not confident → return \`matchedItemId = null\` and \`status = 'unmatched'\`.
 
-*   **Images (some of these could be for the same invoice):**
+5. **Validation Rules (Critical):**
+   - If quantity × unitPrice is inconsistent with the line total (if present), prefer the line total but flag the mismatch.
+   - Always parse numbers locale-aware: 
+     - \`100.000,00\` = 100000  
+     - \`100,000.00\` = 100000  
+     - \`100.000\` (without decimal separator) = 100000
+   - If any field is unreadable, return \`null\` instead of guessing.
+
+6. **Final Output Format:**
+   - \`isInvoiceFound\`: true if at least one valid invoice was detected, false otherwise.
+   - \`results\`: one object per invoice group:
+     - \`invoiceTitle\`: unique name like "Hóa đơn 1", "Hóa đơn 2"...
+     - \`imageIds\`: IDs of all images in that group
+     - \`items\`: extracted items with \`itemName\`, \`quantity\`, \`unitPrice\`, \`matchedItemId\`, \`status\`
+
+**Input Provided:**
+- Images (some may be invoices, some not, some duplicates)
     {{#each images}}
     Image ID: {{{this.id}}}
     {{media url=this.uri}}
     {{/each}}
-
-*   **Available Inventory Items (for matching):**
+- List of inventory items for matching
     \`\`\`json
     {{{json inventoryItems}}}
     \`\`\`
 
-Return a clean JSON object matching the prescribed output schema.
+**Your Output:**
+- A clean JSON object strictly following the provided schema.
+- Ignore non-invoice images completely.
+- Group duplicate invoices properly.
+- Ensure extracted item names are always descriptive product names, not item codes.
 `,
 });
 
@@ -106,3 +134,4 @@ const extractInvoiceItemsFlow = ai.defineFlow(
     }
   }
 );
+
