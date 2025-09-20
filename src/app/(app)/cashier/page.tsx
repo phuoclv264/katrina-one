@@ -15,7 +15,9 @@ import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import CashierDialogs from './_components/cashier-dialogs';
+import ExpenseSlipDialog from './_components/expense-slip-dialog';
+import IncidentReportDialog from './_components/incident-report-dialog';
+import RevenueStatsDialog from './_components/revenue-stats-dialog';
 
 
 export default function CashierDashboardPage() {
@@ -247,9 +249,7 @@ export default function CashierDashboardPage() {
                                        {dailySlips.map(slip => (
                                            <TableRow key={slip.id}>
                                                <TableCell className="font-medium">
-                                                    {slip.items.length > 1 
-                                                        ? `${slip.items[0].name} và ${slip.items.length - 1} mặt hàng khác` 
-                                                        : slip.items[0]?.name || 'Chi phí khác'}
+                                                    {slip.items.map(i => i.name).join(', ')}
                                                     <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                                </TableCell>
                                                <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
@@ -339,21 +339,27 @@ export default function CashierDashboardPage() {
         </div>
     </div>
     
-    <CashierDialogs
-        user={user}
-        inventoryList={inventoryList}
-        isExpenseDialogOpen={isExpenseDialogOpen}
-        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
-        handleSaveSlip={handleSaveSlip}
+    <ExpenseSlipDialog
+        open={isExpenseDialogOpen}
+        onOpenChange={setIsExpenseDialogOpen}
+        onSave={handleSaveSlip}
         isProcessing={isProcessing}
         slipToEdit={slipToEdit}
-        isIncidentDialogOpen={isIncidentDialogOpen}
-        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
-        handleSaveIncident={handleSaveIncident}
-        isRevenueDialogOpen={isRevenueDialogOpen}
-        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
-        handleSaveRevenue={handleSaveRevenue}
-        revenueStats={revenueStats}
+        inventoryList={inventoryList}
+        reporter={user}
+    />
+    <IncidentReportDialog
+        open={isIncidentDialogOpen}
+        onOpenChange={setIsIncidentDialogOpen}
+        onSave={handleSaveIncident}
+        isProcessing={isProcessing}
+    />
+    <RevenueStatsDialog
+        open={isRevenueDialogOpen}
+        onOpenChange={setIsRevenueDialogOpen}
+        onSave={handleSaveRevenue}
+        isProcessing={isProcessing}
+        existingStats={revenueStats}
     />
     </>
   );

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,8 +13,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
-import CashierDialogs from '../../cashier/_components/cashier-dialogs';
 import { toast } from 'react-hot-toast';
+import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
 
 
 type GroupedReports = {
@@ -43,7 +42,6 @@ export default function CashierReportsPage() {
   // Dialog states
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
-  const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false); // Although incidents are not editable, we keep for consistency
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
 
@@ -147,7 +145,6 @@ export default function CashierReportsPage() {
     if(!user || !revenueStatsToEdit) return;
     setIsProcessing(true);
     try {
-        // Here we use the ID of the stats being edited
         await dataStore.addOrUpdateRevenueStats(data, user, isEdited, revenueStatsToEdit.id);
         toast.success("Đã cập nhật doanh thu.");
         setIsRevenueDialogOpen(false);
@@ -279,21 +276,19 @@ export default function CashierReportsPage() {
           </Accordion>
       )}
     </div>
-     <CashierDialogs
-        user={user}
+    <OwnerCashierDialogs
         inventoryList={allData.inventoryList}
+        // Expense Slip Dialog props
         isExpenseDialogOpen={isExpenseDialogOpen}
         setIsExpenseDialogOpen={setIsExpenseDialogOpen}
         handleSaveSlip={handleSaveSlip}
         isProcessing={isProcessing}
         slipToEdit={slipToEdit}
-        isIncidentDialogOpen={isIncidentDialogOpen}
-        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
-        handleSaveIncident={() => {}} // Not editable from here
+        // Revenue Stats Dialog props
         isRevenueDialogOpen={isRevenueDialogOpen}
         setIsRevenueDialogOpen={setIsRevenueDialogOpen}
         handleSaveRevenue={handleSaveRevenue}
-        revenueStats={revenueStatsToEdit}
+        revenueStatsToEdit={revenueStatsToEdit}
     />
     </>
   );

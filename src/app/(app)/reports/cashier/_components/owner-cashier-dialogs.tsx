@@ -1,56 +1,41 @@
-
 'use client';
 
 import React from 'react';
-import ExpenseSlipDialog from './expense-slip-dialog';
-import IncidentReportDialog from './incident-report-dialog';
-import RevenueStatsDialog from './revenue-stats-dialog';
+import OwnerExpenseSlipDialog from './owner-expense-slip-dialog';
+import OwnerRevenueStatsDialog from './owner-revenue-stats-dialog';
 
-const CashierDialogs = React.memo(({
-    user,
+const OwnerCashierDialogs = React.memo(({
     inventoryList,
     isExpenseDialogOpen,
     setIsExpenseDialogOpen,
     handleSaveSlip,
     isProcessing,
     slipToEdit,
-    isIncidentDialogOpen,
-    setIsIncidentDialogOpen,
-    handleSaveIncident,
     isRevenueDialogOpen,
     setIsRevenueDialogOpen,
     handleSaveRevenue,
-    revenueStats
+    revenueStatsToEdit
 }: any) => {
     return (
         <>
-            <ExpenseSlipDialog
+            <OwnerExpenseSlipDialog
                 open={isExpenseDialogOpen}
                 onOpenChange={setIsExpenseDialogOpen}
                 onSave={handleSaveSlip}
                 isProcessing={isProcessing}
                 slipToEdit={slipToEdit}
                 inventoryList={inventoryList}
-                reporter={user}
             />
-            <IncidentReportDialog
-                open={isIncidentDialogOpen}
-                onOpenChange={setIsIncidentDialogOpen}
-                onSave={handleSaveIncident}
-                isProcessing={isProcessing}
-            />
-            <RevenueStatsDialog
+            <OwnerRevenueStatsDialog
                 open={isRevenueDialogOpen}
                 onOpenChange={setIsRevenueDialogOpen}
                 onSave={handleSaveRevenue}
                 isProcessing={isProcessing}
-                existingStats={revenueStats}
+                existingStats={revenueStatsToEdit}
             />
         </>
     );
 });
-CashierDialogs.displayName = 'CashierDialogs';
+OwnerCashierDialogs.displayName = 'OwnerCashierDialogs';
 
-export default CashierDialogs;
-
-    
+export default OwnerCashierDialogs;
