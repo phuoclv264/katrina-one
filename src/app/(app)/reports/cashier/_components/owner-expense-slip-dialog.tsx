@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -123,7 +124,7 @@ function AiPreviewDialog({
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
                     supplier: inventoryItem.supplier,
-                    unit: inventoryItem.unit,
+                    unit: inventoryItem.orderUnit,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                 };
@@ -333,7 +334,7 @@ export default function OwnerExpenseSlipDialog({
                 itemId: invItem.id,
                 name: invItem.name,
                 supplier: invItem.supplier,
-                unit: invItem.unit,
+                unit: invItem.orderUnit,
                 quantity: 1,
                 unitPrice: 0,
             };
@@ -606,7 +607,7 @@ export default function OwnerExpenseSlipDialog({
                                                                 </Button>
                                                             </div>
                                                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                <p className="text-muted-foreground">SL ({item.unit})</p>
+                                                                <p className="text-muted-foreground">Số lượng</p>
                                                                 <p className="text-muted-foreground">Đơn giá</p>
                                                                 <p className="text-muted-foreground">Thành tiền</p>
                                                                 

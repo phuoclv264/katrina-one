@@ -14,9 +14,12 @@ import { z } from 'genkit';
 const InventoryItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  shortName: z.string().describe("A short, unique abbreviation for the item name."),
   category: z.string(),
   supplier: z.string(),
   unit: z.string(),
+  orderUnit: z.string().describe("The unit used when ordering the item, e.g., 'thùng', 'hộp', 'kg'."),
+  conversionRate: z.number().describe("How many 'unit' are in one 'orderUnit'. If units are the same, this is 1."),
   minStock: z.number(),
   orderSuggestion: z.string(),
   isImportant: z.boolean().optional(),
@@ -52,11 +55,13 @@ IMPORTANT RULES:
 1.  You MUST return the **entire list** of items, including the ones that were not changed.
 2.  You MUST NOT add or remove any items from the list. The number of items in the output array must be exactly the same as in the input array.
 3.  You MUST preserve the original 'id' of every item. Do not change, add, or remove 'id' fields.
-4.  Only modify the fields ('name', 'category', 'supplier', 'unit', 'minStock', 'orderSuggestion', 'isImportant', 'requiresPhoto') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
+4.  Only modify the fields ('name', 'shortName', 'category', 'supplier', 'unit', 'orderUnit', 'conversionRate', 'minStock', 'orderSuggestion', 'isImportant', 'requiresPhoto') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
 5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with 'category: "TOPPING"' and add 2 to their existing 'minStock'.
 6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
 7.  To change a value for a specific *supplier* (e.g., "đặt tất cả mặt hàng của nhà cung cấp A thành quan trọng"), you must find all items with the 'supplier' field matching 'A' and apply the change.
 8.  If the user provides a block of text where each line represents an item, you must treat this as a batch update instruction. The format is likely 'CATEGORY-NAME-SUPPLIER-UNIT-MINSTOCK-ORDERSUGGESTION'. For each line, find the corresponding item in the JSON list by its 'name' and update ALL of its fields to match the information in that line.
+9.  When asked to generate 'tên viết tắt' (shortName), create a short, meaningful, and unique abbreviation based on the full 'name'. For example, 'Đào Ngâm Thái Lan Dedu' can be 'Đào ngâm TL'. Ensure no two items have the same shortName.
+10. If 'orderUnit' is not specified or same as 'unit', the 'conversionRate' MUST be 1. If 'orderUnit' is different, 'conversionRate' must be greater than 1, representing how many 'unit' are in one 'orderUnit'.
 
 User's Instruction: "{{{instruction}}}"
 
@@ -78,6 +83,3 @@ const updateInventoryItemsFlow = ai.defineFlow(
         return output!;
     }
 );
-
-
-

@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
@@ -265,16 +266,9 @@ export default function InventoryPage() {
                     ordersBySupplier[item.supplier] = [];
                 }
 
-                let quantityToOrder = item.orderSuggestion;
-                const isNumericSuggestion = /^\d+(\.\d+)?$/.test(item.orderSuggestion);
-
-                if (isNumericSuggestion) {
-                    quantityToOrder = `${item.orderSuggestion} ${item.unit}`;
-                }
-
                 ordersBySupplier[item.supplier].push({
                     itemId: item.id,
-                    quantityToOrder: quantityToOrder,
+                    quantityToOrder: `${item.orderSuggestion} ${item.orderUnit}`,
                 });
             }
         });

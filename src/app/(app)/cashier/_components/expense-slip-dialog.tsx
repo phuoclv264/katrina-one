@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, CornerDownLeft } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -123,7 +124,7 @@ function AiPreviewDialog({
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
                     supplier: inventoryItem.supplier,
-                    unit: inventoryItem.unit,
+                    unit: inventoryItem.orderUnit, // Use order unit for expense items
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                 };
@@ -337,7 +338,7 @@ export default function ExpenseSlipDialog({
                 itemId: invItem.id,
                 name: invItem.name,
                 supplier: invItem.supplier,
-                unit: invItem.unit,
+                unit: invItem.orderUnit, // Use orderUnit for expense slip
                 quantity: 1, // default
                 unitPrice: 0 // default
             };
@@ -627,11 +628,11 @@ export default function ExpenseSlipDialog({
                                                                 </Button>
                                                             </div>
                                                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                <p className="text-muted-foreground">SL ({item.unit})</p>
+                                                                <p className="text-muted-foreground">Số lượng</p>
                                                                 <p className="text-muted-foreground">Đơn giá</p>
                                                                 <p className="text-muted-foreground">Thành tiền</p>
                                                                 
-                                                                <p className="font-medium text-base">{item.quantity}</p>
+                                                                <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
                                                                 <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
                                                                 <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
                                                             </div>

@@ -121,20 +121,30 @@ export type StockHistoryEntry = {
 export type InventoryItem = {
     id: string;
     name: string;
+    shortName: string; // New field for abbreviation
     category: string;
     supplier: string;
     unit: string;
+    orderUnit: string; // New field for ordering unit
+    conversionRate: number; // New field for conversion rate, e.g., 1 'orderUnit' = X 'unit'
     minStock: number;
     unitPrice: number; // Current price per unit
     stock: number; // Current stock quantity
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
-    isImportant?: boolean; // New field for required stock input
+    isImportant?: boolean;
     dataType: 'number' | 'list';
     listOptions?: string[];
     priceHistory?: PriceHistoryEntry[];
     stockHistory?: StockHistoryEntry[];
 };
+
+export type UnitConversion = {
+  id: string;
+  fromUnit: string;
+  toUnit: string;
+  rate: number; // 1 fromUnit = X toUnit
+}
 
 export type Suppliers = string[];
 

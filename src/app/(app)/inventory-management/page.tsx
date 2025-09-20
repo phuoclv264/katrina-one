@@ -7,7 +7,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type, History, Search } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type, History, Search, CornerDownLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -111,6 +111,9 @@ function AiAssistant({
                     generatedNewItems.push({
                          ...item,
                         id: `item-${Date.now()}-${Math.random()}`,
+                        shortName: item.name.split(' ').slice(0,2).join(' '),
+                        orderUnit: item.unit,
+                        conversionRate: 1,
                         unitPrice: 0,
                         stock: 0,
                         isImportant: item.isImportant ?? false,
@@ -462,9 +465,11 @@ function AiAssistant({
                                     <TableHead className="w-[30%]">Tên mặt hàng</TableHead>
                                     <TableHead>Nhóm</TableHead>
                                     <TableHead>NCC</TableHead>
-                                    <TableHead>Đơn vị</TableHead>
-                                    <TableHead>Tồn tối thiểu</TableHead>
-                                    <TableHead>Gợi ý đặt</TableHead>
+                                    <TableHead>ĐV</TableHead>
+                                    <TableHead>ĐV Đặt</TableHead>
+                                    <TableHead>Tỷ lệ</TableHead>
+                                    <TableHead>Tồn min</TableHead>
+                                    <TableHead>Gợi ý</TableHead>
                                     <TableHead>Bắt buộc?</TableHead>
                                     <TableHead>Y/c ảnh?</TableHead>
                                 </TableRow>
@@ -482,6 +487,8 @@ function AiAssistant({
                                             <TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell>
                                             <TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell>
+                                            <TableCell>{renderDiff(oldItem.orderUnit, newItem.orderUnit)}</TableCell>
+                                            <TableCell>{renderDiff(String(oldItem.conversionRate), String(newItem.conversionRate))}</TableCell>
                                             <TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell>
                                             <TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell>
                                             <TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell>
@@ -645,9 +652,12 @@ export default function InventoryManagementPage() {
     const newItem: InventoryItem = {
       id: `item-${Date.now()}`,
       name: 'Mặt hàng mới',
+      shortName: 'MHM',
       category: 'CHƯA PHÂN LOẠI',
       supplier: 'Chưa xác định',
       unit: 'cái',
+      orderUnit: 'cái',
+      conversionRate: 1,
       minStock: 1,
       unitPrice: 0,
       stock: 0,
@@ -765,9 +775,9 @@ export default function InventoryManagementPage() {
         let textToCopy = '';
         if (type === 'table') {
             // Create TSV (Tab-Separated Values) string for easy pasting into Excel
-            const headers = ['Tên mặt hàng', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
+            const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'ĐV Đặt hàng', 'Tỷ lệ quy đổi', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
             const rows = inventoryList.map(item => 
-                [item.name, item.category, item.supplier, item.unit, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('\t')
+                [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('\t')
             );
             textToCopy = [headers.join('\t'), ...rows].join('\n');
         } else if (type === 'text') {
@@ -910,124 +920,21 @@ export default function InventoryManagementPage() {
                          )}
                     </div>
                     <AccordionContent className="p-4 border-t">
-                        {/* Mobile view: list of cards */}
-                        <div className="md:hidden space-y-4">
-                          {items.map((item, index) => {
-                             const globalIndex = inventoryList.findIndex(i => i.id === item.id);
-                            return (
-                              <Card key={item.id}>
-                                <CardContent className="p-4 space-y-4">
-                                  <div className="flex items-start justify-between">
-                                    <div className="space-y-2 flex-1">
-                                        <Label htmlFor={`name-m-${item.id}`}>Tên mặt hàng</Label>
-                                        <Input id={`name-m-${item.id}`} defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} />
-                                    </div>
-                                     <div className="flex flex-col items-center pl-2">
-                                      <Label htmlFor={`important-m-${item.id}`} className="text-xs mb-2">Bắt buộc</Label>
-                                      <Switch
-                                          id={`important-m-${item.id}`}
-                                          checked={!!item.isImportant}
-                                          onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
-                                          disabled={isSorting}
-                                      />
-                                    </div>
-                                    <div className="flex flex-col items-center pl-2">
-                                      <Label htmlFor={`photo-m-${item.id}`} className="text-xs mb-2">Y/c ảnh</Label>
-                                      <Switch
-                                          id={`photo-m-${item.id}`}
-                                          checked={!!item.requiresPhoto}
-                                          onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
-                                          disabled={isSorting}
-                                      />
-                                    </div>
-                                  </div>
-                                   <div className="space-y-2">
-                                    <Label htmlFor={`supplier-m-${item.id}`}>Nhà cung cấp</Label>
-                                    <SupplierCombobox
-                                      suppliers={suppliers}
-                                      value={item.supplier}
-                                      onChange={(newSupplier) => handleSupplierChange(item.id, newSupplier)}
-                                      disabled={isSorting}
-                                    />
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`unit-m-${item.id}`}>Đơn vị</Label>
-                                      <Input id={`unit-m-${item.id}`} defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`minStock-m-${item.id}`}>Tồn tối thiểu</Label>
-                                      <Input id={`minStock-m-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/>
-                                    </div>
-                                  </div>
-                                   <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                          <Label htmlFor={`unitPrice-m-${item.id}`}>Đơn giá</Label>
-                                          <Input id={`unitPrice-m-${item.id}`} type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting}/>
-                                      </div>
-                                      <div className="space-y-2">
-                                          <Label htmlFor={`stock-m-${item.id}`}>Tồn kho</Label>
-                                          <Input id={`stock-m-${item.id}`} type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting}/>
-                                      </div>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor={`orderSuggestion-m-${item.id}`}>Gợi ý đặt hàng</Label>
-                                    <Input id={`orderSuggestion-m-${item.id}`} defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
-                                  </div>
-                                   <div className="space-y-2">
-                                        <Label htmlFor={`dataType-m-${item.id}`}>Loại dữ liệu</Label>
-                                        <Select value={item.dataType} onValueChange={(v) => handleUpdate(item.id, 'dataType', v)}>
-                                            <SelectTrigger><SelectValue/></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="number">Dạng số</SelectItem>
-                                                <SelectItem value="list">Dạng danh sách</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                  </div>
-                                   {item.dataType === 'list' && (
-                                     <div className="space-y-2">
-                                        <Label htmlFor={`listOptions-m-${item.id}`}>Tùy chọn cho danh sách</Label>
-                                        <Input id={`listOptions-m-${item.id}`} defaultValue={(item.listOptions || []).join(', ')} onBlur={e => handleUpdate(item.id, 'listOptions', e.target.value.split(',').map(s => s.trim()))} />
-                                      </div>
-                                   )}
-
-                                  <div className="flex items-center justify-end gap-0 border-t pt-4">
-                                    {isSorting ? (
-                                      <>
-                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}>
-                                          <ArrowUp className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}>
-                                          <ArrowDown className="h-4 w-4" />
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )
-                          })}
-                        </div>
-                        {/* Desktop view: table */}
-                        <div className="overflow-x-auto hidden md:block">
+                        <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="min-w-[300px] whitespace-nowrap">Tên mặt hàng</TableHead>
-                                        <TableHead className="whitespace-nowrap">Nhà cung cấp</TableHead>
-                                        <TableHead className="min-w-[100px] whitespace-nowrap">Đơn vị</TableHead>
-                                        <TableHead className="min-w-[120px]">Đơn giá</TableHead>
-                                        <TableHead className="min-w-[120px]">Tồn kho</TableHead>
-                                        <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
-                                        <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
-                                        <TableHead className="text-center">Bắt buộc nhập</TableHead>
-                                        <TableHead className="text-center">Y/c ảnh</TableHead>
-                                        <TableHead className="min-w-[200px]">Loại dữ liệu</TableHead>
-                                        <TableHead className="text-right w-[50px] whitespace-nowrap">Hành động</TableHead>
+                                        <TableHead className="min-w-[250px]">Tên</TableHead>
+                                        <TableHead className="min-w-[150px]">Tên VT</TableHead>
+                                        <TableHead className="min-w-[180px]">Nhà CC</TableHead>
+                                        <TableHead>Đơn vị</TableHead>
+                                        <TableHead>ĐV Đặt</TableHead>
+                                        <TableHead>Tỷ lệ QĐ</TableHead>
+                                        <TableHead>Tồn min</TableHead>
+                                        <TableHead>Gợi ý</TableHead>
+                                        <TableHead className="text-center">Bắt buộc</TableHead>
+                                        <TableHead className="text-center">Cần ảnh</TableHead>
+                                        <TableHead className="w-[50px] text-right">Xóa</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1035,83 +942,33 @@ export default function InventoryManagementPage() {
                                         const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                         return (
                                         <TableRow key={item.id}>
+                                            <TableCell><Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} /></TableCell>
+                                            <TableCell><Input defaultValue={item.shortName} onBlur={e => handleUpdate(item.id, 'shortName', e.target.value)} disabled={isSorting} /></TableCell>
                                             <TableCell>
-                                               <div className="flex items-center gap-2">
-                                                 <Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} className="focus-visible:ring-0" onClick={(e) => e.stopPropagation()}/>
-                                               </div>
+                                                <SupplierCombobox suppliers={suppliers || []} value={item.supplier} onChange={(s) => handleSupplierChange(item.id, s)} disabled={isSorting} />
                                             </TableCell>
+                                            <TableCell><Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} /></TableCell>
+                                            <TableCell><Input defaultValue={item.orderUnit} onBlur={e => handleUpdate(item.id, 'orderUnit', e.target.value)} disabled={isSorting} /></TableCell>
                                             <TableCell>
-                                                <SupplierCombobox
-                                                    suppliers={suppliers}
-                                                    value={item.supplier}
-                                                    onChange={(newSupplier) => handleSupplierChange(item.id, newSupplier)}
-                                                    disabled={isSorting}
-                                                />
-                                            </TableCell>
-                                            <TableCell className="w-[150px]">
-                                                <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
-                                            </TableCell>
-                                            <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.unitPrice || 0} onBlur={e => handleUpdate(item.id, 'unitPrice', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
-                                            </TableCell>
-                                            <TableCell className="w-[120px]">
-                                                <Input type="number" value={item.stock || 0} onChange={e => handleUpdate(item.id, 'stock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
-                                            </TableCell>
-                                            <TableCell className="w-[120px]">
-                                                <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
-                                            </TableCell>
-                                            <TableCell className="w-[120px]">
-                                                <Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting} onClick={(e) => e.stopPropagation()}/>
-                                            </TableCell>
-                                            <TableCell className="text-center w-[120px]">
-                                                <Switch
-                                                    checked={!!item.isImportant}
-                                                    onCheckedChange={(checked) => handleUpdate(item.id, 'isImportant', checked)}
-                                                    disabled={isSorting}
-                                                />
-                                            </TableCell>
-                                             <TableCell className="text-center w-[100px]">
-                                                <Switch
-                                                    checked={!!item.requiresPhoto}
-                                                    onCheckedChange={(checked) => handleUpdate(item.id, 'requiresPhoto', checked)}
-                                                    disabled={isSorting}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                 <div className="flex flex-col gap-2">
-                                                    <Select value={item.dataType} onValueChange={(v) => handleUpdate(item.id, 'dataType', v)}>
-                                                        <SelectTrigger><SelectValue/></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="number">Dạng số</SelectItem>
-                                                            <SelectItem value="list">Dạng danh sách</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {item.dataType === 'list' && (
-                                                        <Input 
-                                                            placeholder="VD: hết,còn ít,đủ"
-                                                            defaultValue={(item.listOptions || []).join(',')} 
-                                                            onBlur={e => handleUpdate(item.id, 'listOptions', e.target.value.split(',').map(s => s.trim()))} 
-                                                        />
-                                                    )}
-                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="text-right w-[50px]">
-                                                <div className="flex items-center justify-end gap-0">
-                                                {isSorting ? (
-                                                    <>
-                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}>
-                                                            <ArrowUp className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}>
-                                                            <ArrowDown className="h-4 w-4" />
-                                                        </Button>
-                                                    </>
+                                                {item.orderUnit !== item.unit ? (
+                                                     <Input type="number" defaultValue={item.conversionRate} onBlur={e => handleUpdate(item.id, 'conversionRate', Number(e.target.value) || 1)} disabled={isSorting} />
                                                 ) : (
-                                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    <div className="flex items-center justify-center h-10 text-muted-foreground">1</div>
                                                 )}
-                                                </div>
+                                            </TableCell>
+                                            <TableCell><Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/></TableCell>
+                                            <TableCell><Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/></TableCell>
+                                            <TableCell className="text-center"><Switch checked={!!item.isImportant} onCheckedChange={c => handleUpdate(item.id, 'isImportant', c)} disabled={isSorting}/></TableCell>
+                                            <TableCell className="text-center"><Switch checked={!!item.requiresPhoto} onCheckedChange={c => handleUpdate(item.id, 'requiresPhoto', c)} disabled={isSorting}/></TableCell>
+                                            <TableCell className="text-right">
+                                                {isSorting ? (
+                                                    <div className="flex flex-col">
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
+                                                    </div>
+                                                ) : (
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     )})}
