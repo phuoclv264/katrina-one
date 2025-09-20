@@ -1246,6 +1246,10 @@ export const dataStore = {
             category: item.category ?? 'CHƯA PHÂN LOẠI',
             dataType: item.dataType || 'number',
             listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+            unitPrice: item.unitPrice ?? 0,
+            stock: item.stock ?? 0,
+            priceHistory: item.priceHistory ?? [],
+            stockHistory: item.stockHistory ?? [],
         }));
     }
     return initialInventoryList;
@@ -1263,6 +1267,10 @@ export const dataStore = {
           category: item.category ?? 'CHƯA PHÂN LOẠI',
           dataType: item.dataType || 'number',
           listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+          unitPrice: item.unitPrice ?? 0,
+          stock: item.stock ?? 0,
+          priceHistory: item.priceHistory ?? [],
+          stockHistory: item.stockHistory ?? [],
         }));
         callback(sanitizedItems);
       } else {
