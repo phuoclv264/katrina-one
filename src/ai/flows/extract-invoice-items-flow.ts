@@ -49,52 +49,45 @@ const prompt = ai.definePrompt({
   name: 'extractInvoiceItemsPrompt',
   input: { schema: ExtractInvoiceItemsInputSchema },
   output: { schema: ExtractInvoiceItemsOutputSchema },
-  prompt: `You are an expert OCR and document analysis AI specialized in restaurant invoices.
+  prompt: `You are an expert OCR and document analysis AI specialized in restaurant invoices. Your primary goal is ACCURACY.
 
 Your task is to analyze the provided array of images and a list of available inventory items.  
 You MUST process the data with the following strict rules:
 
-1. **Identify Invoice Images vs Non-Invoice Images:**
-   - Carefully analyze each image and decide if it is an invoice or not (e.g., receipts, bills vs. photos of goods or random pictures).
-   - Only invoice images should be grouped and processed. Non-invoice images must be ignored.
+1.  **Identify and Validate Images (CRITICAL):**
+    *   Carefully analyze EACH image.
+    *   An image is considered "valid" ONLY if it is clearly a part of an invoice AND its text is sharp and readable.
+    *   Any image that is NOT a recognizable invoice (e.g., photos of goods, random pictures) or is too blurry, dark, or unreadable MUST be **COMPLETELY IGNORED**. Do not attempt to guess data from these images. They should not appear in any 'results' group.
 
-2. **Group Duplicate Invoices:**
-   - If there are multiple images of the same physical invoice (e.g., long receipts captured in multiple shots), you must group them into one invoice group.
-   - Use both textual similarity and invoice structure (store name, date, total amount) to confirm duplicates.
-   - Each unique invoice = one group with all related image IDs.
+2.  **Group Valid Invoice Images:**
+    *   After identifying all "valid" images, group them by the physical invoice they belong to.
+    *   If multiple valid images are just different parts of the same long invoice, you MUST group them into a single invoice group.
+    *   Use textual similarity, invoice structure (store name, date, total amount) to confirm duplicates. Each unique invoice = one group with all related image IDs.
 
-3. **Extract Invoice Line Items:**
-   - For each invoice group, carefully locate the correct **item name column**. 
-     - Many invoices contain both **item codes (mã hàng)** and **item names (tên hàng)**.  
-     - Always select the column that contains the *full descriptive item name*, not the numeric/short code.  
-     - Example: "CF001 Cà phê Sữa Đá" → extract \`"Cà phê Sữa Đá"\`, ignore \`"CF001"\`.
-   - For each line item, extract:
-     - \`itemName\` (text as shown on invoice, descriptive name only),
-     - \`quantity\` (integer/decimal),
-     - \`unitPrice\` (per-unit price, correctly parsed regardless of thousand/decimal separators).
+3.  **Extract Invoice Line Items:**
+    *   For each invoice group, carefully locate the correct **item name column**.
+    *   Many invoices contain both **item codes (mã hàng)** and **item names (tên hàng)**.
+    *   Always select the column that contains the *full descriptive item name*, not the numeric/short code.
+    *   Example: "CF001 Cà phê Sữa Đá" → extract \`"Cà phê Sữa Đá"\`, ignore \`"CF001"\`.
+    *   For each line item, extract:
+        *   \`itemName\` (text as shown on invoice, descriptive name only),
+        *   \`quantity\` (integer/decimal),
+        *   \`unitPrice\` (per-unit price, correctly parsed regardless of thousand/decimal separators).
 
-4. **Match Items with Inventory:**
-   - Use fuzzy and semantic matching (e.g., "Cafe Robusta" ≈ "Cà phê Robusta").
-   - If a confident match is found → return \`matchedItemId\` and \`status = 'matched'\`.
-   - If not confident → return \`matchedItemId = null\` and \`status = 'unmatched'\`.
+4.  **Match Items with Inventory:**
+    *   Use fuzzy and semantic matching (e.g., "Cafe Robusta" ≈ "Cà phê Robusta").
+    *   If a confident match is found → return \`matchedItemId\` and \`status = 'matched'\`.
+    *   If not confident → return \`matchedItemId = null\` and \`status = 'unmatched'\`.
 
-5. **Validation Rules (Critical):**
-   - If quantity × unitPrice is inconsistent with the line total (if present), prefer the line total but flag the mismatch.
-   - Always parse numbers locale-aware: 
-     - \`100.000,00\` = 100000  
-     - \`100,000.00\` = 100000  
-     - \`100.000\` (without decimal separator) = 100000
-   - If any field is unreadable, return \`null\` instead of guessing.
-
-6. **Final Output Format:**
-   - \`isInvoiceFound\`: true if at least one valid invoice was detected, false otherwise.
-   - \`results\`: one object per invoice group:
-     - \`invoiceTitle\`: unique name like "Hóa đơn 1", "Hóa đơn 2"...
-     - \`imageIds\`: IDs of all images in that group
-     - \`items\`: extracted items with \`itemName\`, \`quantity\`, \`unitPrice\`, \`matchedItemId\`, \`status\`
+5.  **Final Output Format:**
+    *   \`isInvoiceFound\`: set to \`true\` if at least one valid, readable invoice was detected and processed, \`false\` otherwise.
+    *   \`results\`: one object per unique invoice group. This array must be empty if no valid invoices were found.
+        *   \`invoiceTitle\`: unique name like "Hóa đơn 1", "Hóa đơn 2"...
+        *   \`imageIds\`: IDs of all valid images in that group.
+        *   \`items\`: extracted items with \`itemName\`, \`quantity\`, \`unitPrice\`, \`matchedItemId\`, \`status\`.
 
 **Input Provided:**
-- Images (some may be invoices, some not, some duplicates)
+- Images (some may be valid invoices, some not, some duplicates)
     {{#each images}}
     Image ID: {{{this.id}}}
     {{media url=this.uri}}
@@ -106,8 +99,8 @@ You MUST process the data with the following strict rules:
 
 **Your Output:**
 - A clean JSON object strictly following the provided schema.
-- Ignore non-invoice images completely.
-- Group duplicate invoices properly.
+- Ignore invalid or unreadable images completely.
+- Group valid duplicate invoices properly.
 - Ensure extracted item names are always descriptive product names, not item codes.
 `,
 });
