@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -70,6 +70,7 @@ export function AppSidebar() {
           break;
           case 'Chủ nhà hàng': primaryItems.push(
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
+            { href: '/reports/financial', label: 'Báo cáo Tài chính', icon: DollarSign },
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },

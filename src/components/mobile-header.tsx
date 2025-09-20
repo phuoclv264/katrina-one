@@ -21,6 +21,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/reports/inventory': 'Báo cáo Tồn kho',
     '/reports/comprehensive': 'Báo cáo Toàn diện',
     '/reports/error-log': 'Nhật ký lỗi',
+    '/reports/financial': 'Báo cáo Tài chính',
     '/users': 'Quản lý Người dùng',
     '/task-lists': 'QL Công việc Phục vụ',
     '/bartender-tasks': 'QL Công việc Pha chế',

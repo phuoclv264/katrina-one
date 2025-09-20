@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -345,6 +344,43 @@ export const dataStore = {
             transaction.delete(doc(db, 'expense_slips', slip.id));
         });
     },
+    
+    subscribeToAllExpenseSlips(callback: (slips: ExpenseSlip[]) => void): () => void {
+        const q = query(collection(db, 'expense_slips'), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, snapshot => {
+            const slips = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as ExpenseSlip));
+            callback(slips);
+        });
+    },
+
+    subscribeToAllIncidents(callback: (incidents: IncidentReport[]) => void): () => void {
+        const q = query(collection(db, 'incidents'), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, snapshot => {
+            const incidents = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as IncidentReport));
+            callback(incidents);
+        });
+    },
+
+    subscribeToAllRevenueStats(callback: (stats: RevenueStats[]) => void): () => void {
+        const q = query(collection(db, 'revenue_stats'), orderBy('date', 'desc'));
+        return onSnapshot(q, snapshot => {
+            const stats = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as RevenueStats));
+            callback(stats);
+        });
+    },
+
 
      // --- End Cashier ---
      // --- Notifications ---
