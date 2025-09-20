@@ -293,6 +293,11 @@ export const dataStore = {
             }
             const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
     
+            // --- FIX STARTS HERE ---
+            // Recalculate totalAmount right before saving to ensure it's always correct
+            slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0);
+            // --- FIX ENDS HERE ---
+
             // Prepare slip data
             const finalData = { ...slipData, attachmentPhotos: finalPhotos };
             if (id) {
@@ -2180,4 +2185,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
 
