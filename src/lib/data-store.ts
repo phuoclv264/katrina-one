@@ -131,17 +131,22 @@ export const dataStore = {
         return null;
     },
 
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean): Promise<void> {
-        const date = format(new Date(), 'yyyy-MM-dd');
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
+        const date = documentId ? documentId : format(new Date(), 'yyyy-MM-dd');
         const docRef = doc(db, 'revenue_stats', date);
 
         let finalData: Partial<RevenueStats> = {
             ...data,
             date,
-            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-            createdAt: serverTimestamp(),
             isEdited: isEdited,
         };
+
+        const docSnap = await getDoc(docRef);
+        if(!docSnap.exists()){
+            finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
+            finalData.createdAt = serverTimestamp();
+        }
+
 
         if (data.invoiceImageUrl && data.invoiceImageUrl.startsWith('data:')) {
             const blob = await (await fetch(data.invoiceImageUrl)).blob();
@@ -168,7 +173,7 @@ export const dataStore = {
                     unit: 'lần',
                 }],
                 totalAmount: data.deliveryPartnerPayout,
-                paymentMethod: 'cash',
+                paymentMethod: 'bank_transfer',
                 notes: 'Tự động tạo từ thống kê doanh thu.',
                 createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             };
@@ -2185,5 +2190,6 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
 
 
