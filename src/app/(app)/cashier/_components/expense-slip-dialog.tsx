@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -395,8 +396,8 @@ export default function ExpenseSlipDialog({
         try {
             const imagePromises = allAttachmentPhotos.map(async (photo) => {
                 let uri: string;
+                // Only process new local photos (which have blob URLs)
                 if (photo.url.startsWith('blob:')) {
-                    // It's a local photo, get blob from IndexedDB and convert
                     const blob = await photoStore.getPhoto(photo.id);
                     if (!blob) return null;
                     uri = await new Promise<string>((resolve) => {
@@ -404,35 +405,26 @@ export default function ExpenseSlipDialog({
                         reader.onloadend = () => resolve(reader.result as string);
                         reader.readAsDataURL(blob);
                     });
-                } else {
-                    // It's an existing remote photo, we need a proxy to fetch it as a data URI
-                    // This part is complex and needs a server-side component. For now, we will skip remote images for AI.
-                    // Let's assume for now we only process local images.
-                    return null; // Skipping existing photos for now
-                }
-                return { id: photo.id, uri };
-            });
-
-            const localImages = (await Promise.all(
-                localPhotos.map(async photo => {
-                     const blob = await photoStore.getPhoto(photo.id);
-                     if (!blob) return null;
-                     const uri = await new Promise<string>(resolve => {
-                         const reader = new FileReader();
-                         reader.onloadend = () => resolve(reader.result as string);
-                         reader.readAsDataURL(blob);
-                     });
                      return { id: photo.id, uri };
-                })
-            )).filter((img): img is {id: string, uri: string} => !!img);
+                }
+                return null;
+            });
+            
+            const localImages = (await Promise.all(imagePromises))
+                .filter((img): img is { id: string; uri: string } => !!img);
 
 
             if (localImages.length === 0) {
-                 toast.error("Tính năng AI hiện chỉ xử lý được các ảnh mới tải lên.");
+                 toast.error("Tính năng AI hiện chỉ xử lý được các ảnh mới tải lên trong phiên này.");
                  setIsAiLoading(false);
                  toast.dismiss(toastId);
                  return;
             }
+
+            console.log("Sending to AI:", {
+                images: localImages,
+                inventoryItems: inventoryList,
+            });
 
             const result = await extractInvoiceItems({
                 images: localImages,
@@ -737,3 +729,4 @@ export default function ExpenseSlipDialog({
         </>
     );
 }
+
