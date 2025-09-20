@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -298,11 +297,9 @@ export const dataStore = {
             }
             const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
     
-            // --- FIX STARTS HERE ---
             // Recalculate totalAmount right before saving to ensure it's always correct
             slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0);
-            // --- FIX ENDS HERE ---
-
+           
             // Prepare slip data
             const finalData = { ...slipData, attachmentPhotos: finalPhotos };
             if (id) {
@@ -1317,6 +1314,9 @@ export const dataStore = {
         // Data sanitization step to ensure data consistency
         const sanitizedItems = items.map(item => ({
           ...item,
+          shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
+          orderUnit: item.orderUnit || item.unit,
+          conversionRate: item.conversionRate || 1,
           supplier: item.supplier ?? 'Chưa xác định',
           category: item.category ?? 'CHƯA PHÂN LOẠI',
           dataType: item.dataType || 'number',
@@ -2191,5 +2191,4 @@ export const dataStore = {
   },
 };
 
-
-
+    
