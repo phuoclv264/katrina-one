@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -28,30 +28,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         {children}
-        <Toaster
-          toastOptions={{
-            style: {
-              borderRadius: '8px',
-              background: 'hsl(var(--card))',
-              color: 'hsl(var(--card-foreground))',
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-              border: '1px solid hsl(var(--border))',
-              fontSize: '15px',
-            },
-            success: {
-              iconTheme: {
-                primary: 'hsl(var(--primary))',
-                secondary: 'hsl(var(--primary-foreground))',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: 'hsl(var(--destructive))',
-                secondary: 'hsl(var(--destructive-foreground))',
-              },
-            },
-          }}
-        />
+        <Toaster />
       </body>
     </html>
   );

@@ -188,43 +188,5 @@ function useToast() {
   }
 }
 
-// Toaster Components
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
-} from "@/components/ui/toast"
-
-function Toaster() {
-  const { toasts } = useToast();
-
-  const toastElements: React.ReactNode[] = [];
-  for (const toast of toasts) {
-    const { id, title, description, action, variant } = toast;
-    toastElements.push(
-      <Toast key={id} variant={variant} onOpenChange={toast.onOpenChange}>
-        <div className="grid gap-1">
-          {title && <ToastTitle>{title}</ToastTitle>}
-          {description && (
-            <ToastDescription>{description}</ToastDescription>
-          )}
-        </div>
-        {action}
-        <ToastClose />
-      </Toast>
-    );
-  }
-
-  return (
-    <ToastProvider>
-      {toastElements}
-      <ToastViewport />
-    </ToastProvider>
-  );
-}
-
-
-export { useToast, toast, Toaster }
+export { useToast, toast }
+export { Toaster } from "./toaster";
