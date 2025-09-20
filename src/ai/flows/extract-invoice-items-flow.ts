@@ -59,7 +59,7 @@ You MUST process the data with the following strict rules:
    - Only invoice images should be grouped and processed. Non-invoice images must be ignored.
 
 2. **Group Duplicate Invoices:**
-   - If there are multiple images of the same physical invoice (e.g., long receipts captured in multiple shots), group them into one invoice group.
+   - If there are multiple images of the same physical invoice (e.g., long receipts captured in multiple shots), you must group them into one invoice group.
    - Use both textual similarity and invoice structure (store name, date, total amount) to confirm duplicates.
    - Each unique invoice = one group with all related image IDs.
 
@@ -134,5 +134,3 @@ const extractInvoiceItemsFlow = ai.defineFlow(
     }
   }
 );
-
-
