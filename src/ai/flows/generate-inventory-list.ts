@@ -21,6 +21,7 @@ export type GenerateInventoryListInput = z.infer<typeof GenerateInventoryListInp
 
 const ParsedInventoryItemSchema = z.object({
     name: z.string().describe('The name of the inventory item.'),
+    shortName: z.string().optional().describe("A short, unique abbreviation for the item name. If not provided, generate a reasonable one."),
     category: z.string().describe('The category or group of the item (e.g., "TRÁI CÂY", "TOPPING", "SIRO").'),
     supplier: z.string().describe('The name of the supplier for this item.'),
     unit: z.string().describe('The unit of measurement for the item (e.g., "kg", "box", "lon", "cây").'),
@@ -48,12 +49,13 @@ const prompt = ai.definePrompt({
     prompt: `You are an expert data entry assistant. Your task is to analyze the provided input (either text or an image) and extract a list of inventory items.
 
 The input contains a list of products for a coffee shop. You must extract the following fields for each item:
-- name: The name of the product.
+- name: The full name of the product.
+- shortName: A short, unique abbreviation. If not explicitly provided, create a meaningful one.
 - category: The group or type of the product. Infer this from the context if not explicitly stated. Examples: SIRO, TRÁI CÂY, TOPPING, CCDC.
 - supplier: The name of the supplier for this item.
-- unit: The unit of measurement (e.g., kg, gram, hộp, gói, lon, cây, etc.).
-- orderUnit: The unit used for ordering. If not specified, it's the same as 'unit'. Look for text like "(12 hộp/thùng)" which implies 'thùng' is the orderUnit.
-- conversionRate: How many 'unit' are in one 'orderUnit'. From "(12 hộp/thùng)", the conversionRate is 12. If not specified, it's 1.
+- unit: The base unit of measurement (e.g., kg, gram, hộp, gói, lon, cây, etc.).
+- orderUnit: The unit used for ordering. Look for text like "(12 hộp/thùng)" which implies 'thùng' is the orderUnit. If not specified, 'orderUnit' should be the same as 'unit'.
+- conversionRate: How many 'unit' are in one 'orderUnit'. From "(12 hộp/thùng)", the conversionRate is 12. If not specified or if units are the same, it MUST be 1.
 - minStock: The minimum stock quantity required.
 - orderSuggestion: The suggested quantity to order when stock is low.
 - isImportant: A boolean. If the text indicates this is a critical or mandatory item to check, set this to true. Default to false.
