@@ -59,10 +59,13 @@ IMPORTANT RULES:
 6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
 7.  To change a value for a specific *supplier* (e.g., "đặt tất cả mặt hàng của nhà cung cấp A thành quan trọng"), you must find all items with the 'supplier' field matching 'A' and apply the change.
 8.  If the user provides a block of text where each line represents an item, you must treat this as a batch update instruction. The format is likely 'CATEGORY-NAME-SUPPLIER-UNIT-MINSTOCK-ORDERSUGGESTION'. For each line, find the corresponding item in the JSON list by its 'name' and update ALL of its fields to match the information in that line.
-9.  When asked to generate a 'tên viết tắt' (shortName), you must follow these sub-rules VERY CAREFULLY:
-    a. Create a short, meaningful abbreviation based on the full 'name'.
-    b. The abbreviation must clearly represent the item. Example: 'Đào Ngâm Thái Lan Dedu' can be 'Đào ngâm TL'. 'Sữa tươi thanh trùng không đường' can be 'Sữa TT không đường'.
-    c. **CRITICAL**: The generated 'shortName' MUST BE UNIQUE across the entire list. No two items can have the same 'shortName'. You must check your output to ensure uniqueness before returning it. If two items have similar names (e.g., 'Trà sữa ô long nhài' and 'Trà sữa ô long cao sơn'), you MUST find a way to differentiate their shortNames (e.g., 'TS ô long nhài' vs 'TS ô long CS').
+9.  When asked to generate a 'tên viết tắt' (shortName), your main goal is to create a **short, unique, and recognizable abbreviation** for each item name. You MUST follow these sub-rules VERY CAREFULLY:
+    a. Create a meaningful abbreviation based on the full 'name', not just random letters.
+    b. The abbreviation must clearly represent the item. Examples: 
+        - GOOD: 'Đào Ngâm Thái Lan Dedu' -> 'Đào ngâm TL'. 
+        - GOOD: 'Sữa tươi thanh trùng không đường' -> 'Sữa TT không đường'.
+        - BAD: 'Sữa tươi thanh trùng không đường' -> 'Sữa tươi' (too generic).
+    c. **CRITICAL**: The generated 'shortName' MUST BE UNIQUE across the entire list. No two items can have the same 'shortName'. You must check your own output to ensure uniqueness before returning it. If two items have similar names (e.g., 'Trà sữa ô long nhài' and 'Trà sữa ô long cao sơn'), you MUST find a way to differentiate their shortNames (e.g., 'TS ô long nhài' vs 'TS ô long CS'). Your final output JSON must not have any duplicate 'shortName' values.
 10. If 'orderUnit' is not specified or is the same as 'unit', the 'conversionRate' MUST be 1. If 'orderUnit' is different (e.g., order by 'thùng', but unit is 'hộp'), 'conversionRate' must be a number greater than 1, representing how many 'unit' are in one 'orderUnit'.
 
 User's Instruction: "{{{instruction}}}"
