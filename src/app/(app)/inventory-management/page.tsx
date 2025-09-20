@@ -110,6 +110,8 @@ function AiAssistant({
                     generatedNewItems.push({
                          ...item,
                         id: `item-${Date.now()}-${Math.random()}`,
+                        unitPrice: 0,
+                        stock: 0,
                         isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false,
                         dataType: 'number', // Default new items to number
@@ -637,6 +639,8 @@ export default function InventoryManagementPage() {
       supplier: 'Chưa xác định',
       unit: 'cái',
       minStock: 1,
+      unitPrice: 0,
+      stock: 0,
       orderSuggestion: '1',
       dataType: 'number',
       isImportant: false,
@@ -931,6 +935,16 @@ export default function InventoryManagementPage() {
                                       <Input id={`minStock-m-${item.id}`} type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                     </div>
                                   </div>
+                                   <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                          <Label htmlFor={`unitPrice-m-${item.id}`}>Đơn giá</Label>
+                                          <Input id={`unitPrice-m-${item.id}`} type="number" defaultValue={item.unitPrice} onBlur={e => handleUpdate(item.id, 'unitPrice', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                      </div>
+                                      <div className="space-y-2">
+                                          <Label htmlFor={`stock-m-${item.id}`}>Tồn kho</Label>
+                                          <Input id={`stock-m-${item.id}`} type="number" defaultValue={item.stock} onBlur={e => handleUpdate(item.id, 'stock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                      </div>
+                                  </div>
                                   <div className="space-y-2">
                                     <Label htmlFor={`orderSuggestion-m-${item.id}`}>Gợi ý đặt hàng</Label>
                                     <Input id={`orderSuggestion-m-${item.id}`} defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/>
@@ -981,6 +995,8 @@ export default function InventoryManagementPage() {
                                         <TableHead className="min-w-[300px] whitespace-nowrap">Tên mặt hàng</TableHead>
                                         <TableHead className="whitespace-nowrap">Nhà cung cấp</TableHead>
                                         <TableHead className="min-w-[100px] whitespace-nowrap">Đơn vị</TableHead>
+                                        <TableHead className="min-w-[100px]">Đơn giá</TableHead>
+                                        <TableHead className="min-w-[100px]">Tồn kho</TableHead>
                                         <TableHead className="min-w-[100px]">Tồn tối thiểu</TableHead>
                                         <TableHead className="min-w-[120px]">Gợi ý đặt hàng</TableHead>
                                         <TableHead className="text-center">Bắt buộc nhập</TableHead>
@@ -1009,6 +1025,12 @@ export default function InventoryManagementPage() {
                                             </TableCell>
                                             <TableCell className="w-[150px]">
                                                 <Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} />
+                                            </TableCell>
+                                            <TableCell className="w-[120px]">
+                                                <Input type="number" defaultValue={item.unitPrice} onBlur={e => handleUpdate(item.id, 'unitPrice', parseInt(e.target.value) || 0)} disabled={isSorting}/>
+                                            </TableCell>
+                                            <TableCell className="w-[120px]">
+                                                <Input type="number" defaultValue={item.stock} onBlur={e => handleUpdate(item.id, 'stock', parseInt(e.target.value) || 0)} disabled={isSorting}/>
                                             </TableCell>
                                             <TableCell className="w-[120px]">
                                                 <Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', parseInt(e.target.value) || 0)} disabled={isSorting}/>

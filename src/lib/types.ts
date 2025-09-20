@@ -108,6 +108,8 @@ export type InventoryItem = {
     supplier: string;
     unit: string;
     minStock: number;
+    unitPrice: number; // Current price per unit
+    stock: number; // Current stock quantity
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
     isImportant?: boolean; // New field for required stock input
@@ -388,6 +390,7 @@ export type InvoiceExtractionResult = {
     isInvoiceFound: boolean;
     results: {
         invoiceTitle: string;
+        imageIds: string[];
         items: ExtractedInvoiceItem[];
     }[];
 };
