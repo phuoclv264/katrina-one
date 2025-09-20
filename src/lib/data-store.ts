@@ -219,7 +219,7 @@ export const dataStore = {
             }
             const inventoryList = (inventorySnap.data() as { items: InventoryItem[] }).items;
     
-            // If editing, revert old changes first
+            // If editing, find the old slip to revert changes before applying new ones.
             if (id) {
                 const oldSlipSnap = await transaction.get(docRef);
                 if (oldSlipSnap.exists()) {
@@ -227,15 +227,21 @@ export const dataStore = {
                     oldSlip.items.forEach(oldItem => {
                         const itemIndex = inventoryList.findIndex(inv => inv.id === oldItem.itemId);
                         if (itemIndex > -1) {
-                            inventoryList[itemIndex].stock -= oldItem.quantity;
+                            // Revert stock change
+                            inventoryList[itemIndex].stock = (inventoryList[itemIndex].stock || 0) - oldItem.quantity;
+                            
+                            // Remove history entries associated with this slip
                             inventoryList[itemIndex].priceHistory = (inventoryList[itemIndex].priceHistory || []).filter(ph => ph.sourceId !== id);
                             inventoryList[itemIndex].stockHistory = (inventoryList[itemIndex].stockHistory || []).filter(sh => sh.sourceId !== id);
-                            // Re-evaluate unitPrice based on the new latest history entry
+
+                            // Recalculate unitPrice based on the latest history entry left
                             const priceHistory = inventoryList[itemIndex].priceHistory || [];
                             if (priceHistory.length > 0) {
+                                // Sort to be sure the last one is the latest
+                                priceHistory.sort((a,b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime());
                                 inventoryList[itemIndex].unitPrice = priceHistory[priceHistory.length - 1].price;
                             } else {
-                                inventoryList[itemIndex].unitPrice = 0; // or some default
+                                inventoryList[itemIndex].unitPrice = 0; // Reset to default if no history left
                             }
                         }
                     });
@@ -247,7 +253,7 @@ export const dataStore = {
                 const itemIndex = inventoryList.findIndex(inv => inv.id === newItem.itemId);
                 if (itemIndex > -1) {
                     const item = inventoryList[itemIndex];
-                    item.stock += newItem.quantity;
+                    item.stock = (item.stock || 0) + newItem.quantity;
                     item.unitPrice = newItem.unitPrice; // Update current price
     
                     const priceHistoryEntry: PriceHistoryEntry = {
@@ -315,12 +321,13 @@ export const dataStore = {
             slip.items.forEach(item => {
                 const itemIndex = inventoryList.findIndex(inv => inv.id === item.itemId);
                 if (itemIndex > -1) {
-                    inventoryList[itemIndex].stock -= item.quantity;
+                    inventoryList[itemIndex].stock = (inventoryList[itemIndex].stock || 0) - item.quantity;
                     inventoryList[itemIndex].priceHistory = (inventoryList[itemIndex].priceHistory || []).filter(ph => ph.sourceId !== slip.id);
                     inventoryList[itemIndex].stockHistory = (inventoryList[itemIndex].stockHistory || []).filter(sh => sh.sourceId !== slip.id);
                     // Re-evaluate unitPrice
                     const priceHistory = inventoryList[itemIndex].priceHistory || [];
                      if (priceHistory.length > 0) {
+                        priceHistory.sort((a,b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime());
                         inventoryList[itemIndex].unitPrice = priceHistory[priceHistory.length - 1].price;
                     } else {
                         inventoryList[itemIndex].unitPrice = 0;
