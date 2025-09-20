@@ -55,7 +55,7 @@ export function AppSidebar() {
           );
           break;
            case 'Thu ngân': primaryItems.push(
-            { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
+            { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
             commonViolationMenu
           );
           break;
@@ -100,7 +100,7 @@ export function AppSidebar() {
           secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch } });
       }
        if(user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
-          secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Bảng điều khiển Thu ngân', icon: Banknote } });
+          secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
       }
 
 

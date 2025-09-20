@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList, CheckSquare, FileSearch } from 'lucide-react';
+import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, Archive, ClipboardList, CheckSquare, FileSearch, Banknote } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -87,6 +87,7 @@ export default function ShiftsPage() {
   
   const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
   const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');
+  const hasCashierSecondaryRole = user?.secondaryRoles?.includes('Thu ngân');
   const isPrimaryServer = user?.role === 'Phục vụ';
 
   if (authLoading || isLoading) {
@@ -163,7 +164,7 @@ export default function ShiftsPage() {
               </>
             )}
 
-            {(hasBartenderSecondaryRole || hasManagerSecondaryRole) && <Separator className="my-2" />}
+            {(hasBartenderSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
 
             {hasBartenderSecondaryRole && (
               <>
@@ -190,6 +191,18 @@ export default function ShiftsPage() {
                   <Link href="/manager/comprehensive-report">
                     <FileSearch className="mr-2" />
                     Phiếu kiểm tra toàn diện
+                  </Link>
+                </Button>
+              </>
+            )}
+            
+            {hasCashierSecondaryRole && (
+                <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/cashier">
+                    <Banknote className="mr-2" />
+                    Báo cáo Thu ngân
                   </Link>
                 </Button>
               </>

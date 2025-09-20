@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch } from 'lucide-react';
+import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch, Banknote } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -30,6 +30,7 @@ export default function BartenderDashboardPage() {
   
   const hasServerSecondaryRole = user.secondaryRoles?.includes('Phục vụ');
   const hasManagerSecondaryRole = user.secondaryRoles?.includes('Quản lý');
+  const hasCashierSecondaryRole = user.secondaryRoles?.includes('Thu ngân');
 
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
@@ -68,7 +69,7 @@ export default function BartenderDashboardPage() {
               </Link>
             </Button>
             
-            {(hasServerSecondaryRole || hasManagerSecondaryRole) && <Separator className="my-2" />}
+            {(hasServerSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
 
             {hasServerSecondaryRole && (
               <>
@@ -89,6 +90,18 @@ export default function BartenderDashboardPage() {
                   <Link href="/manager/comprehensive-report">
                     <FileSearch className="mr-2" />
                     Phiếu kiểm tra toàn diện
+                  </Link>
+                </Button>
+              </>
+            )}
+
+            {hasCashierSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/cashier">
+                    <Banknote className="mr-2" />
+                    Báo cáo Thu ngân
                   </Link>
                 </Button>
               </>

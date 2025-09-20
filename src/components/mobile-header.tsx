@@ -10,7 +10,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/bartender': 'Danh mục Báo cáo Pha chế',
     '/bartender/hygiene-report': 'Báo cáo Vệ sinh quầy',
     '/bartender/inventory': 'Kiểm kê Tồn kho',
-    '/cashier': 'Bảng điều khiển Thu ngân',
+    '/cashier': 'Báo cáo Thu ngân',
     '/manager': 'Bảng điều khiển Quản lý',
     '/manager/comprehensive-report': 'Phiếu kiểm tra toàn diện',
     '/manager/hygiene-report': 'Xem Báo cáo Vệ sinh',

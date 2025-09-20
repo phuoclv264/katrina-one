@@ -5,7 +5,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare } from 'lucide-react';
+import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, Banknote } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -31,6 +31,7 @@ export default function ManagerDashboardPage() {
 
   const hasServerSecondaryRole = user.secondaryRoles?.includes('Phục vụ');
   const hasBartenderSecondaryRole = user.secondaryRoles?.includes('Pha chế');
+  const hasCashierSecondaryRole = user.secondaryRoles?.includes('Thu ngân');
 
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
@@ -72,7 +73,7 @@ export default function ManagerDashboardPage() {
             </Link>
           </Button>
 
-            {(hasServerSecondaryRole || hasBartenderSecondaryRole) && <Separator className="my-2" />}
+            {(hasServerSecondaryRole || hasBartenderSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
 
             {hasServerSecondaryRole && (
               <>
@@ -102,6 +103,18 @@ export default function ManagerDashboardPage() {
                     </Link>
                  </Button>
                 </>
+            )}
+            
+            {hasCashierSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/cashier">
+                    <Banknote className="mr-2" />
+                    Báo cáo Thu ngân
+                  </Link>
+                </Button>
+              </>
             )}
 
         </CardContent>

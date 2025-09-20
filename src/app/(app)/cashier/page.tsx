@@ -15,7 +15,9 @@ import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import CashierDialogs from './_components/cashier-dialogs';
+import ExpenseSlipDialog from './_components/expense-slip-dialog';
+import IncidentReportDialog from './_components/incident-report-dialog';
+import RevenueStatsDialog from './_components/revenue-stats-dialog';
 
 
 export default function CashierDashboardPage() {
@@ -180,10 +182,10 @@ export default function CashierDashboardPage() {
         <header className="mb-8">
             <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
                 <Banknote />
-                Bảng điều khiển Thu ngân
+                Báo cáo Thu ngân
             </h1>
             <p className="text-muted-foreground mt-2">
-                Quản lý chi tiêu, bàn giao và các báo cáo tài chính trong ngày.
+                Quản lý các khoản chi, doanh thu và các báo cáo tài chính trong ngày.
             </p>
         </header>
 
@@ -339,21 +341,27 @@ export default function CashierDashboardPage() {
         </div>
     </div>
     
-    <CashierDialogs
-        user={user}
-        inventoryList={inventoryList}
-        isExpenseDialogOpen={isExpenseDialogOpen}
-        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
-        handleSaveSlip={handleSaveSlip}
+    <ExpenseSlipDialog
+        open={isExpenseDialogOpen}
+        onOpenChange={setIsExpenseDialogOpen}
+        onSave={handleSaveSlip}
         isProcessing={isProcessing}
         slipToEdit={slipToEdit}
-        isIncidentDialogOpen={isIncidentDialogOpen}
-        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
-        handleSaveIncident={handleSaveIncident}
-        isRevenueDialogOpen={isRevenueDialogOpen}
-        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
-        handleSaveRevenue={handleSaveRevenue}
-        revenueStats={revenueStats}
+        inventoryList={inventoryList}
+        reporter={user}
+    />
+     <IncidentReportDialog
+        open={isIncidentDialogOpen}
+        onOpenChange={setIsIncidentDialogOpen}
+        onSave={handleSaveIncident}
+        isProcessing={isProcessing}
+    />
+     <RevenueStatsDialog
+        open={isRevenueDialogOpen}
+        onOpenChange={setIsRevenueDialogOpen}
+        onSave={handleSaveRevenue}
+        isProcessing={isProcessing}
+        existingStats={revenueStats}
     />
     </>
   );
