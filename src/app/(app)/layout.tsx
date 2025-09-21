@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { PanelLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import PageTransitionIndicator from '@/components/page-transition-indicator';
+import FirebaseMessagingProvider from '@/components/firebase-messaging-provider';
 
 export default function AppLayout({
   children,
@@ -17,6 +18,7 @@ export default function AppLayout({
 }) {
   return (
     <SidebarProvider>
+      <FirebaseMessagingProvider />
       <Sidebar collapsible="icon">
         <AppSidebar />
       </Sidebar>
