@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -53,7 +51,7 @@ import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursTracker from './total-hours-tracker';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import HistoryAndReportsDialog from './history-reports-dialog';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -61,6 +59,8 @@ import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 import UserDetailsDialog from './user-details-dialog';
+import { isUserAvailable } from '@/lib/schedule-utils';
+
 
 // Helper function to abbreviate names
 const abbreviateName = (name: string): string => {
@@ -670,10 +670,18 @@ export default function ScheduleView() {
                                                                      <div className="flex-grow flex flex-col items-center justify-center space-y-1 py-1 w-full">
                                                                         {sortedAssignedUsers.map(assignedUser => {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+                                                                            const userAvailability = availabilityByDay[dateKey];
+                                                                            const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
                                                                             return (
-                                                                            <Badge key={assignedUser.userId} className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
-                                                                                {abbreviateName(assignedUser.userName)}
-                                                                            </Badge>
+                                                                            <Tooltip key={assignedUser.userId} delayDuration={100}>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
+                                                                                        {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                                                                                        {abbreviateName(assignedUser.userName)}
+                                                                                    </Badge>
+                                                                                </TooltipTrigger>
+                                                                                {isBusy && <TooltipContent><p>Nhân viên này không đăng ký rảnh</p></TooltipContent>}
+                                                                            </Tooltip>
                                                                         )})}
                                                                     </div>
                                                                 )}
@@ -723,10 +731,18 @@ export default function ScheduleView() {
                                                                     <span className="font-semibold">{shiftObject.label}:</span>
                                                                     {sortedAssignedUsers.map(assignedUser => {
                                                                         const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+                                                                        const userAvailability = availabilityByDay[dateKey];
+                                                                        const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
                                                                         return (
-                                                                            <Badge key={assignedUser.userId} className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
-                                                                                {abbreviateName(assignedUser.userName)}
-                                                                            </Badge>
+                                                                            <Tooltip key={assignedUser.userId} delayDuration={100}>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <Badge className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
+                                                                                        {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                                                                                        {abbreviateName(assignedUser.userName)}
+                                                                                    </Badge>
+                                                                                </TooltipTrigger>
+                                                                                 {isBusy && <TooltipContent><p>Nhân viên này không đăng ký rảnh</p></TooltipContent>}
+                                                                            </Tooltip>
                                                                         )
                                                                     })}
                                                                 </div>
@@ -769,12 +785,21 @@ export default function ScheduleView() {
                                                                         </Button>
                                                                     </div>
                                                                      <div className="flex flex-wrap gap-1 mt-2">
-                                                                        {sortedAssignedUsers.map(user => {
-                                                                            const userRole = allUsers.find(u => u.uid === user.userId)?.role || 'Bất kỳ';
+                                                                        {sortedAssignedUsers.map(assignedUser => {
+                                                                            const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+                                                                            const userAvailability = availabilityByDay[dateKey];
+                                                                            const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
+
                                                                             return (
-                                                                                <Badge key={user.userId} variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
-                                                                                    {abbreviateName(user.userName)}
-                                                                                </Badge>
+                                                                                <Tooltip key={assignedUser.userId} delayDuration={100}>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <Badge variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
+                                                                                            {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                                                                                            {abbreviateName(assignedUser.userName)}
+                                                                                        </Badge>
+                                                                                    </TooltipTrigger>
+                                                                                    {isBusy && <TooltipContent><p>Nhân viên này không đăng ký rảnh</p></TooltipContent>}
+                                                                                </Tooltip>
                                                                             )
                                                                         })}
                                                                     </div>
