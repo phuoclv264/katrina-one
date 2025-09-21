@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -66,6 +65,27 @@ export default function ItemEditPopover({
     useEffect(() => {
       setHasUnsavedChanges(!isEqual(item, initialItem));
     }, [item, initialItem]);
+    
+    // --- Back button handling ---
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+        if (isOpen) {
+            event.preventDefault();
+            handleCloseDialog(false);
+        }
+        };
+
+        if (isOpen) {
+        window.history.pushState({ dialogOpen: true }, '');
+        window.addEventListener('popstate', handlePopState);
+        }
+
+        return () => {
+        window.removeEventListener('popstate', handlePopState);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, hasUnsavedChanges]);
+
 
     const handleFieldChange = (field: keyof InventoryItem, value: string | number | boolean | string[]) => {
         setItem(prev => ({ ...prev, [field]: value }));
@@ -244,3 +264,4 @@ export default function ItemEditPopover({
         </Dialog>
     );
 }
+    
