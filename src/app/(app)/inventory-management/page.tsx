@@ -300,41 +300,38 @@ export default function InventoryManagementPage() {
                                 </div>
                                 <AccordionContent className="border-t">
                                     {!isMobile ? (
-                                    <div className="overflow-x-auto -mx-4 px-4">
+                                    <div className="overflow-x-auto">
                                         <Table>
-                                            <TableHeader className="sticky top-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm z-10"><TableRow><TableHead className="min-w-[250px] p-3 sm:p-4">Tên</TableHead><TableHead className="min-w-[150px] p-3 sm:p-4">Tên VT</TableHead><TableHead className="min-w-[180px] p-3 sm:p-4">Nhà CC</TableHead><TableHead className="p-3 sm:p-4">Đơn vị</TableHead><TableHead className="p-3 sm:p-4">ĐV Đặt</TableHead><TableHead className="p-3 sm:p-4">Tỷ lệ</TableHead><TableHead className="p-3 sm:p-4">Tồn min</TableHead><TableHead className="p-3 sm:p-4">Gợi ý</TableHead><TableHead className="p-3 sm:p-4">Trạng thái</TableHead><TableHead className="w-[100px] text-right p-3 sm:p-4">Hành động</TableHead></TableRow></TableHeader>
+                                            <TableHeader className="sticky top-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm z-10"><TableRow><TableHead className="min-w-[200px] p-3 sm:p-4">Tên</TableHead><TableHead className="min-w-[120px] p-3 sm:p-4">Tên VT</TableHead><TableHead className="min-w-[150px] p-3 sm:p-4">Nhà CC</TableHead><TableHead className="p-3 sm:p-4">ĐV</TableHead><TableHead className="p-3 sm:p-4">ĐV Đặt</TableHead><TableHead className="p-3 sm:p-4">Tỷ lệ</TableHead><TableHead className="p-3 sm:p-4">Tồn min</TableHead><TableHead className="p-3 sm:p-4">Gợi ý</TableHead><TableHead className="p-3 sm:p-4">Trạng thái</TableHead><TableHead className="w-[60px] text-right p-3 sm:p-4"> </TableHead></TableRow></TableHeader>
                                             <TableBody>
                                                 {items.map((item, index) => {
                                                     const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                                     return (
-                                                    <TableRow key={item.id} className="transition-colors hover:bg-muted/50">
-                                                        <TableCell className="font-semibold p-3 sm:p-4"><div className="whitespace-normal">{item.name}</div></TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.shortName}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.supplier}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.unit}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.orderUnit}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.conversionRate}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.minStock}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">{item.orderSuggestion}</TableCell>
-                                                        <TableCell className="p-3 sm:p-4">
-                                                            <div className="flex flex-col gap-1 items-start">
-                                                                {item.isImportant && <Badge variant="destructive">Bắt buộc</Badge>}
-                                                                {item.requiresPhoto && <Badge variant="secondary">Cần ảnh</Badge>}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-right p-3 sm:p-4">
-                                                            {isSorting ? (
-                                                                <div className="flex flex-col"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>
-                                                            ) : (
-                                                                <div className="flex items-center justify-end">
-                                                                     <ItemEditPopover item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
-                                                                        <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                                                                    </ItemEditPopover>
-                                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                    <ItemEditPopover key={item.id} item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
+                                                        <TableRow className="transition-colors hover:bg-muted/50 cursor-pointer">
+                                                            <TableCell className="font-semibold p-3 sm:p-4"><div className="whitespace-normal">{item.name}</div></TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.shortName}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.supplier}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.unit}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.orderUnit}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.conversionRate}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.minStock}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">{item.orderSuggestion}</TableCell>
+                                                            <TableCell className="p-3 sm:p-4">
+                                                                <div className="flex flex-col gap-1 items-start">
+                                                                    {item.isImportant && <Badge variant="destructive">Bắt buộc</Badge>}
+                                                                    {item.requiresPhoto && <Badge variant="secondary">Cần ảnh</Badge>}
                                                                 </div>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
+                                                            </TableCell>
+                                                            <TableCell className="text-right p-3 sm:p-4">
+                                                                {isSorting ? (
+                                                                    <div className="flex flex-col"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'up')}} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'down')}} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>
+                                                                ) : (
+                                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id)}}><Trash2 className="h-4 w-4" /></Button>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </ItemEditPopover>
                                                 )})}
                                             </TableBody>
                                         </Table>
