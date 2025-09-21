@@ -1,9 +1,10 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Package, ArrowUp, ArrowDown, ChevronsDownUp, Shuffle, Check, Pencil, History, Search, Edit, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -390,3 +391,6 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+
+    
