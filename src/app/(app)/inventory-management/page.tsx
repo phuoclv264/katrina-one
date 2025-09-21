@@ -29,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 
 
-function AiAssistant({
+function InventoryTools({
     inventoryList,
     onItemsGenerated,
     onItemsSorted,
@@ -196,6 +196,49 @@ function AiAssistant({
         setSortInstruction('');
     }
 
+    const handleBulkUpdateParse = () => {
+        if (!textInput.trim()) {
+            toast({ title: "Lỗi", description: "Vui lòng dán dữ liệu vào ô.", variant: "destructive" });
+            return;
+        }
+    
+        const lines = textInput.trim().split('\n');
+        const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
+        let changesMade = 0;
+    
+        lines.forEach(line => {
+            const parts = line.split('-');
+            if (parts.length < 9) return; // Expecting at least 9 parts
+    
+            const [
+                category, name, shortName, supplier, unit, orderUnit,
+                conversionRateStr, minStockStr, orderSuggestion
+            ] = parts.map(p => p.trim());
+    
+            const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
+    
+            if (itemIndex > -1) {
+                const itemToUpdate = updatedList[itemIndex];
+                itemToUpdate.category = category || itemToUpdate.category;
+                itemToUpdate.shortName = shortName || itemToUpdate.shortName;
+                itemToUpdate.supplier = supplier || itemToUpdate.supplier;
+                itemToUpdate.unit = unit || itemToUpdate.unit;
+                itemToUpdate.orderUnit = orderUnit || itemToUpdate.orderUnit;
+                itemToUpdate.conversionRate = Number(conversionRateStr) || itemToUpdate.conversionRate;
+                itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
+                itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
+                changesMade++;
+            }
+        });
+    
+        if (changesMade > 0) {
+            setUpdatePreview({ oldList: inventoryList, newList: updatedList });
+            setShowUpdatePreview(true);
+        } else {
+            toast({ title: "Không có thay đổi", description: "Không tìm thấy mặt hàng nào khớp để cập nhật." });
+        }
+    };
+
     const handleGenerateUpdate = async () => {
         if (!updateInstruction.trim()) {
             toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu chỉnh sửa.", variant: "destructive" });
@@ -241,6 +284,7 @@ function AiAssistant({
         toast({ title: "Hoàn tất!", description: "Đã cập nhật danh sách hàng tồn kho."});
         setShowUpdatePreview(false);
         setUpdateInstruction('');
+        setTextInput('');
     };
 
     const renderDiff = (oldText: string, newText: string) => {
@@ -263,15 +307,15 @@ function AiAssistant({
         <>
             <Card className="mb-8">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ hỗ trợ AI</CardTitle>
-                    <CardDescription>Sử dụng AI để thêm, sắp xếp, hoặc chỉnh sửa hàng loạt các mặt hàng một cách thông minh.</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ Kho</CardTitle>
+                    <CardDescription>Sử dụng các công cụ để thêm, sắp xếp, hoặc chỉnh sửa hàng loạt các mặt hàng một cách thông minh.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm mới</TabsTrigger>
-                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp</TabsTrigger>
-                            <TabsTrigger value="edit"><FileEdit className="mr-2 h-4 w-4"/>Chỉnh sửa</TabsTrigger>
+                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm bằng AI</TabsTrigger>
+                             <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4"/>Sửa hàng loạt</TabsTrigger>
+                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp bằng AI</TabsTrigger>
                         </TabsList>
                         <TabsContent value="add" className="mt-4 space-y-4">
                              <Tabs defaultValue="text">
@@ -307,6 +351,19 @@ function AiAssistant({
                                 </TabsContent>
                             </Tabs>
                         </TabsContent>
+                         <TabsContent value="bulk-edit" className="mt-4 space-y-4">
+                             <Textarea
+                                placeholder="Xuất dữ liệu, chỉnh sửa trong Excel/Google Sheets, sau đó dán toàn bộ nội dung vào đây để cập nhật hàng loạt."
+                                rows={6}
+                                value={textInput}
+                                onChange={(e) => setTextInput(e.target.value)}
+                                disabled={isGenerating}
+                            />
+                            <Button onClick={handleBulkUpdateParse} disabled={isGenerating || !textInput.trim()}>
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileEdit className="mr-2 h-4 w-4" />}
+                                Xem trước & Cập nhật
+                            </Button>
+                        </TabsContent>
                          <TabsContent value="sort" className="mt-4 space-y-4">
                              <Textarea
                                 placeholder="Nhập yêu cầu của bạn, ví dụ: 'nhóm tất cả các loại topping và trái cây lại với nhau'"
@@ -318,19 +375,6 @@ function AiAssistant({
                             <Button onClick={handleGenerateSort} disabled={isGenerating || inventoryList.length < 2 || !sortInstruction.trim()}>
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp toàn bộ bằng AI
-                            </Button>
-                        </TabsContent>
-                         <TabsContent value="edit" className="mt-4 space-y-4">
-                             <Textarea
-                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'tăng tồn tối thiểu của tất cả topping lên 2' hoặc 'bỏ yêu cầu ảnh cho tất cả siro'"
-                                rows={3}
-                                value={updateInstruction}
-                                onChange={(e) => setUpdateInstruction(e.target.value)}
-                                disabled={isGenerating}
-                            />
-                            <Button onClick={handleGenerateUpdate} disabled={isGenerating || !updateInstruction.trim()}>
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileEdit className="mr-2 h-4 w-4" />}
-                                Xem trước & Chỉnh sửa bằng AI
                             </Button>
                         </TabsContent>
                     </Tabs>
@@ -465,7 +509,7 @@ function AiAssistant({
                      <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle>
                         <AlertDialogDescription>
-                           AI đã xử lý yêu cầu của bạn. Các thay đổi sẽ được highlight màu xanh (thêm) và đỏ (xóa). Vui lòng kiểm tra kỹ trước khi áp dụng.
+                           Các thay đổi sẽ được highlight màu xanh (thêm) và đỏ (xóa). Vui lòng kiểm tra kỹ trước khi áp dụng.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                      <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md">
@@ -839,7 +883,7 @@ export default function InventoryManagementPage() {
         <p className="text-muted-foreground">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
       </header>
 
-      <AiAssistant
+      <InventoryTools
         inventoryList={inventoryList}
         onItemsGenerated={onItemsGenerated}
         onItemsSorted={onItemsSorted}
@@ -1005,5 +1049,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    
