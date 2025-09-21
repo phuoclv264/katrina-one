@@ -4,15 +4,30 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getToken, onMessage } from 'firebase/messaging';
 import { messaging } from '@/lib/firebase';
-import { useAuth } from './use-auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
+// Function to call the test notification endpoint
+const sendTestNotification = async (userId: string) => {
+  const functionUrl = `https://sendtestnotification-b37o3wa5na-uc.a.run.app?userId=${userId}`;
+
+  try {
+    const response = await fetch(functionUrl);
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`Function call failed: ${text}`);
+    }
+    console.log('Test notification trigger successful:', text);
+  } catch (error) {
+    console.error('Error triggering test notification:', error);
+  }
+};
+
+
 export const useFcm = () => {
-    const { user } = useAuth();
     const [fcmToken, setFcmToken] = useState<string | null>(null);
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
 
@@ -66,8 +81,8 @@ export const useFcm = () => {
         }
     }, []);
     
-    const requestPermissionAndGetToken = useCallback(async () => {
-        if (!messaging || !user) return null;
+    const requestPermissionAndGetToken = useCallback(async (userId: string) => {
+        if (!messaging || !userId) return null;
 
         try {
             const currentPermission = await Notification.requestPermission();
@@ -86,9 +101,12 @@ export const useFcm = () => {
                 if (token) {
                     console.log('FCM Token:', token);
                     setFcmToken(token);
-                    const userDocRef = doc(db, 'users', user.uid);
+                    const userDocRef = doc(db, 'users', userId);
                     await setDoc(userDocRef, { fcmToken: token }, { merge: true });
                     toast.success("Đã bật thông báo!");
+
+                    await sendTestNotification(userId);
+
                     return token;
                 } else {
                     console.log('No registration token available. Request permission to generate one.');
@@ -105,13 +123,7 @@ export const useFcm = () => {
             toast.error("Đã xảy ra lỗi khi yêu cầu quyền thông báo.");
             return null;
         }
-    }, [user]);
-    
-    useEffect(() => {
-        if (user && notificationPermission === 'granted') {
-            requestPermissionAndGetToken();
-        }
-    }, [user, notificationPermission, requestPermissionAndGetToken]);
+    }, []);
     
     return { fcmToken, notificationPermission, requestPermissionAndGetToken };
 };

@@ -1,13 +1,19 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useFcm } from '@/hooks/use-fcm';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function FirebaseMessagingProvider() {
   const { user } = useAuth();
   const { requestPermissionAndGetToken } = useFcm();
+
+  const handleRequestPermission = useCallback(() => {
+    if (user) {
+      requestPermissionAndGetToken(user.uid);
+    }
+  }, [user, requestPermissionAndGetToken]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -20,15 +26,18 @@ export default function FirebaseMessagingProvider() {
           console.log('Service Worker registration failed, error:', err);
         });
     }
+  }, []);
 
+  useEffect(() => {
     if (user) {
-      // Small delay to ensure everything is initialized
-      setTimeout(() => {
-        requestPermissionAndGetToken();
+      // Small delay to let everything initialize after login
+      const timer = setTimeout(() => {
+        handleRequestPermission();
       }, 2000);
-    }
-  }, [user, requestPermissionAndGetToken]);
 
-  // This component doesn't render anything to the DOM
+      return () => clearTimeout(timer);
+    }
+  }, [user, handleRequestPermission]);
+
   return null;
 }

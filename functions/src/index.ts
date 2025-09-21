@@ -26,7 +26,7 @@ export const helloWorld = onRequest((request, response) => {
 });
 
 export const sendTestNotification = onRequest(
-  {cors: true},
+  {cors: ["https://*.web.app", "https://*.firebaseapp.com"]},
   async (req, res) => {
     const userId = req.query.userId;
 
@@ -56,8 +56,8 @@ export const sendTestNotification = onRequest(
 
       const message = {
         notification: {
-          title: "Test Notification",
-          body: "Hello from a Cloud Function!",
+          title: "Chào mừng đến với Katrina One!",
+          body: `Xin chào ${userDoc.data()?.displayName || 'bạn'}, hệ thống thông báo đã sẵn sàng!`,
         },
         token: fcmToken,
       };
