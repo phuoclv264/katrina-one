@@ -146,7 +146,7 @@ function InventoryTools({
         const updatedItems = previewNewItems.filter(item => item.id !== id);
         setPreviewNewItems(updatedItems);
     }
-
+    
     const handleBulkUpdateParse = () => {
         if (!bulkEditText.trim()) {
             toast({ title: "Lỗi", description: "Vui lòng dán dữ liệu vào ô.", variant: "destructive" });
@@ -195,7 +195,6 @@ function InventoryTools({
             toast({ title: "Không có thay đổi", description: "Không tìm thấy mặt hàng nào khớp để cập nhật." });
         }
     };
-    
 
     const handleConfirmUpdate = () => {
         onItemsUpdated(updatePreview.newList);
