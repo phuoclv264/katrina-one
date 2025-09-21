@@ -123,6 +123,7 @@ function AiPreviewDialog({
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
+                    shortName: inventoryItem.shortName,
                     supplier: inventoryItem.supplier,
                     unit: inventoryItem.orderUnit,
                     quantity: item.quantity,
@@ -333,6 +334,7 @@ export default function OwnerExpenseSlipDialog({
             return existing || {
                 itemId: invItem.id,
                 name: invItem.name,
+                shortName: invItem.shortName,
                 supplier: invItem.supplier,
                 unit: invItem.orderUnit,
                 quantity: 1,
@@ -395,28 +397,45 @@ export default function OwnerExpenseSlipDialog({
         const toastId = toast.loading("AI đang phân tích hóa đơn...");
 
         try {
-            const imageUris = await Promise.all(allAttachmentPhotos.map(async (photo) => {
-                // If it's a blob URL from this session, convert it.
+            const imagePromises = allAttachmentPhotos.map(async (photo) => {
+                let uri: string | null = null;
+                // If it's a new photo uploaded this session (blob URL)
                 if (photo.url.startsWith('blob:')) {
                     const blob = await photoStore.getPhoto(photo.id);
-                    if (!blob) return null;
-                    const uri = await new Promise<string>((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result as string);
-                        reader.readAsDataURL(blob);
-                    });
-                    return { id: photo.id, uri };
+                    if (blob) {
+                        uri = await new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                } 
+                // If it's an existing photo from Firebase Storage
+                else if (photo.url.startsWith('https://firebasestorage.googleapis.com')) {
+                    try {
+                        const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
+                        if (!response.ok) {
+                            console.error(`Proxy request failed for ${photo.url} with status: ${response.status}`);
+                            toast.error(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}. Lỗi: ${response.statusText}`);
+                            return null;
+                        }
+                        const data = await response.json();
+                        uri = data.dataUri;
+                    } catch (proxyError) {
+                        console.error(`Proxy request failed for ${photo.url}`, proxyError);
+                        toast.error(`Lỗi khi tải ảnh qua proxy.`);
+                        return null;
+                    }
                 }
-                // If it's a Firebase URL, we need to fetch and convert it.
-                // This requires a proxy to handle CORS. For simplicity, we can inform the user.
-                // For now, let's assume we only process new photos.
-                return null; 
-            }));
+                return uri ? { id: photo.id, uri } : null;
+            });
             
-            const processableImages = imageUris.filter((img): img is { id: string; uri: string } => !!img);
+            const processableImages = (await Promise.all(imagePromises))
+                .filter((img): img is { id: string; uri: string } => !!img);
+
 
             if (processableImages.length === 0) {
-                 toast.error("Tính năng AI hiện chỉ xử lý được các ảnh mới tải lên trong phiên này.");
+                 toast.error("Không thể xử lý bất kỳ ảnh nào. Vui lòng thử lại hoặc kiểm tra console để biết chi tiết.");
                  setIsAiLoading(false);
                  toast.dismiss(toastId);
                  return;
@@ -611,7 +630,7 @@ export default function OwnerExpenseSlipDialog({
                                                                 <p className="text-muted-foreground">Đơn giá</p>
                                                                 <p className="text-muted-foreground">Thành tiền</p>
                                                                 
-                                                                <p className="font-medium text-base">{item.quantity}</p>
+                                                                <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
                                                                 <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
                                                                 <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
                                                             </div>
