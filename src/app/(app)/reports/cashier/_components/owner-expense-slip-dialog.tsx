@@ -399,7 +399,6 @@ export default function OwnerExpenseSlipDialog({
         try {
             const imagePromises = allAttachmentPhotos.map(async (photo) => {
                 let uri: string | null = null;
-                // If it's a new photo uploaded this session (blob URL)
                 if (photo.url.startsWith('blob:')) {
                     const blob = await photoStore.getPhoto(photo.id);
                     if (blob) {
@@ -409,14 +408,12 @@ export default function OwnerExpenseSlipDialog({
                             reader.readAsDataURL(blob);
                         });
                     }
-                } 
-                // If it's an existing photo from Firebase Storage
-                else if (photo.url.startsWith('https://firebasestorage.googleapis.com')) {
+                } else if (photo.url.startsWith('https://firebasestorage.googleapis.com')) {
                     try {
                         const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
                         if (!response.ok) {
-                            console.error(`Proxy request failed for ${photo.url} with status: ${response.status}`);
-                            toast.error(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}. Lỗi: ${response.statusText}`);
+                            console.error(`Proxy request failed for ${photo.url} with status: ${response.status}. Error: ${response.statusText}`);
+                            toast.error(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}.`);
                             return null;
                         }
                         const data = await response.json();
@@ -429,10 +426,9 @@ export default function OwnerExpenseSlipDialog({
                 }
                 return uri ? { id: photo.id, uri } : null;
             });
-            
+
             const processableImages = (await Promise.all(imagePromises))
                 .filter((img): img is { id: string; uri: string } => !!img);
-
 
             if (processableImages.length === 0) {
                  toast.error("Không thể xử lý bất kỳ ảnh nào. Vui lòng thử lại hoặc kiểm tra console để biết chi tiết.");
@@ -460,6 +456,7 @@ export default function OwnerExpenseSlipDialog({
             setIsAiLoading(false);
         }
     };
+
 
     const handleAiConfirm = (confirmedItems: ExpenseItem[]) => {
          const newItemsMap = new Map(items.map(item => [item.itemId, item]));
@@ -741,3 +738,4 @@ export default function OwnerExpenseSlipDialog({
         </>
     );
 }
+
