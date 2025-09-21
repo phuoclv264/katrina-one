@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -30,7 +29,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/inventory-history': 'Lịch sử Kho',
     '/violations': 'Danh sách Vi phạm',
     '/schedule': 'Lịch làm việc',
-    '/shift-scheduling': 'Xếp lịch &amp; Phê duyệt',
+    '/shift-scheduling': 'Xếp lịch & Phê duyệt',
 };
 
 export function MobileHeader() {
