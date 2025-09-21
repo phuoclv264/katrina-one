@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, History, Search } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
 import { updateInventoryItems } from '@/ai/flows/update-inventory-items';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -43,7 +43,6 @@ function InventoryTools({
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [bulkEditText, setBulkEditText] = useState('');
     const [activeTab, setActiveTab] = useState('add');
-    const { toast } = useToast();
     
     const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
@@ -81,12 +80,12 @@ function InventoryTools({
                 : { source, imageDataUri: imageInput! };
 
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
-                toast({ title: "Lỗi", description: "Vui lòng cung cấp đầu vào.", variant: "destructive" });
+                toast.error("Vui lòng cung cấp đầu vào.");
                 setIsGenerating(false);
                 return;
             }
 
-            toast({ title: "AI đang xử lý...", description: "Quá trình này có thể mất một chút thời gian."});
+            toast.loading("AI đang xử lý...");
 
             const result = await generateInventoryList(input);
 
@@ -123,15 +122,16 @@ function InventoryTools({
 
         } catch (error) {
             console.error("Failed to generate inventory list:", error);
-            toast({ title: "Lỗi", description: "Không thể tạo danh sách từ đầu vào. Vui lòng thử lại.", variant: "destructive"});
+            toast.error("Không thể tạo danh sách từ đầu vào. Vui lòng thử lại.");
         } finally {
             setIsGenerating(false);
+            toast.dismiss();
         }
     };
     
     const handleConfirmAdd = () => {
         onItemsGenerated(previewNewItems);
-        toast({ title: "Hoàn tất!", description: `Đã thêm ${previewNewItems.length} mặt hàng mới.`});
+        toast.success(`Đã thêm ${previewNewItems.length} mặt hàng mới.`);
         resetState();
         setShowAddPreview(false);
     }
@@ -149,7 +149,7 @@ function InventoryTools({
     
     const handleBulkUpdateParse = () => {
         if (!bulkEditText.trim()) {
-            toast({ title: "Lỗi", description: "Vui lòng dán dữ liệu vào ô.", variant: "destructive" });
+            toast.error("Vui lòng dán dữ liệu vào ô.");
             return;
         }
     
@@ -157,7 +157,6 @@ function InventoryTools({
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
         let changesMade = 0;
     
-        // Skip header row
         const dataLines = lines.slice(1);
 
         dataLines.forEach(line => {
@@ -192,13 +191,13 @@ function InventoryTools({
             setUpdatePreview({ oldList: inventoryList, newList: updatedList });
             setShowUpdatePreview(true);
         } else {
-            toast({ title: "Không có thay đổi", description: "Không tìm thấy mặt hàng nào khớp để cập nhật." });
+            toast("Không tìm thấy mặt hàng nào khớp để cập nhật.", {icon: 'ℹ️'});
         }
     };
 
     const handleConfirmUpdate = () => {
         onItemsUpdated(updatePreview.newList);
-        toast({ title: "Hoàn tất!", description: "Đã cập nhật danh sách hàng tồn kho."});
+        toast.success("Đã cập nhật danh sách hàng tồn kho.");
         setShowUpdatePreview(false);
         resetState();
     };
@@ -435,7 +434,6 @@ export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const { toast } = useToast();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -541,7 +539,7 @@ export default function InventoryManagementPage() {
         const newSuppliers = [...suppliers, newSupplier].sort();
         setSuppliers(newSuppliers);
         dataStore.updateSuppliers(newSuppliers);
-        toast({ title: "Đã thêm nhà cung cấp mới!", description: `"${newSupplier}" đã được thêm vào danh sách chung.`});
+        toast.success(`Đã thêm nhà cung cấp mới: "${newSupplier}"`);
     }
   };
 
@@ -560,7 +558,7 @@ export default function InventoryManagementPage() {
         [newList[indexToMove], newList[newIndex]] = [newList[newIndex], newList[indexToMove]];
         setInventoryList(newList);
     } else {
-        toast({ title: "Thông báo", description: "Chỉ có thể sắp xếp các mục trong cùng một chủng loại."});
+        toast.error("Chỉ có thể sắp xếp các mục trong cùng một chủng loại.");
     }
   };
 
@@ -637,13 +635,12 @@ export default function InventoryManagementPage() {
     const { oldName, newName } = editingCategory;
     const newTrimmedName = newName.trim().toUpperCase();
 
-    // Check if new category name already exists
     const categoryExists = categorizedList.some(
         c => c.category.toUpperCase() === newTrimmedName && c.category.toUpperCase() !== oldName.toUpperCase()
     );
 
     if (categoryExists) {
-        toast({ title: "Lỗi", description: `Nhóm sản phẩm "${newTrimmedName}" đã tồn tại.`, variant: "destructive" });
+        toast.error(`Nhóm sản phẩm "${newTrimmedName}" đã tồn tại.`);
         return;
     }
 
@@ -671,9 +668,7 @@ export default function InventoryManagementPage() {
     setIsSorting(newSortState);
     if (!newSortState && inventoryList) {
         dataStore.updateInventoryList(inventoryList);
-        toast({
-            title: "Đã lưu thứ tự mới!",
-        });
+        toast.success("Đã lưu thứ tự mới!");
     }
   };
   
@@ -694,16 +689,9 @@ export default function InventoryManagementPage() {
         }
 
         navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({
-                title: "Đã sao chép!",
-                description: "Danh sách đã được sao chép vào bộ nhớ tạm.",
-            });
+            toast.success("Danh sách đã được sao chép vào bộ nhớ tạm.");
         }).catch(err => {
-            toast({
-                title: "Lỗi",
-                description: "Không thể sao chép danh sách.",
-                variant: "destructive",
-            });
+            toast.error("Không thể sao chép danh sách.");
             console.error("Copy to clipboard failed:", err);
         });
     };
