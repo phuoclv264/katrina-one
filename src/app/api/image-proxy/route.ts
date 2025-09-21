@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import fetch from 'node-fetch';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -12,16 +11,17 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch image. Status: ${response.status}`);
+      throw new Error(`Failed to fetch image. Status: ${response.status} ${response.statusText}`);
     }
 
-    const imageBuffer = await response.buffer();
+    const imageBuffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'image/jpeg';
-    const dataUri = `data:${contentType};base64,${imageBuffer.toString('base64')}`;
+    const base64Image = Buffer.from(imageBuffer).toString('base64');
+    const dataUri = `data:${contentType};base64,${base64Image}`;
 
     return NextResponse.json({ dataUri });
   } catch (error: any) {
-    console.error('[IMAGE PROXY] Error:', error);
+    console.error('[IMAGE PROXY] Error:', error.message);
     return NextResponse.json({ error: 'Failed to proxy image', details: error.message }, { status: 500 });
   }
 }
