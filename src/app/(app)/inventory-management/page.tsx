@@ -60,11 +60,12 @@ function InventoryTools({
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
         let changesMade = 0;
     
-        const dataLines = lines.slice(1); // Assuming the first line is headers
+        // Assuming the first line is headers, so we slice it
+        const dataLines = lines.slice(1);
 
         dataLines.forEach(line => {
             const parts = line.split(' | ');
-            if (parts.length < 11) return;
+            if (parts.length < 11) return; // Skip malformed lines
     
             const [
                 name, 
@@ -690,7 +691,7 @@ export default function InventoryManagementPage() {
             textToCopy = [headers.join(' | '), ...rows].join('\n');
         } else if (type === 'text') {
              textToCopy = inventoryList.map(item => 
-                [item.category, item.name, item.shortName, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join(' | ')
+                [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join(' | ')
             ).join('\n');
         }
 
@@ -720,10 +721,10 @@ export default function InventoryManagementPage() {
    const areAllCategoriesOpen = categorizedList && categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
       <header className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold leading-tight flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
-        <p className="text-sm text-muted-foreground mt-1">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
+        <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
+        <p className="text-muted-foreground mt-2">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
       </header>
 
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
@@ -915,3 +916,4 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
