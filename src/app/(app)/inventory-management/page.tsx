@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
-import { updateInventoryItems } from '@/ai/flows/update-inventory-items';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
@@ -51,6 +50,61 @@ function InventoryTools({
     const [showUpdatePreview, setShowUpdatePreview] = useState(false);
     const [updatePreview, setUpdatePreview] = useState<{ oldList: InventoryItem[], newList: InventoryItem[] }>({ oldList: [], newList: [] });
 
+    const handleBulkUpdateParse = () => {
+        if (!bulkEditText.trim()) {
+            toast.error("Vui lòng dán dữ liệu vào ô.");
+            return;
+        }
+    
+        const lines = bulkEditText.trim().split('\n');
+        const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
+        let changesMade = 0;
+    
+        const dataLines = lines.slice(1); // Assuming the first line is headers
+
+        dataLines.forEach(line => {
+            const parts = line.split(' | ');
+            if (parts.length < 11) return;
+    
+            const [
+                name, 
+                shortName, 
+                category, 
+                supplier, 
+                unit, 
+                orderUnit,
+                conversionRateStr, 
+                minStockStr, 
+                orderSuggestion,
+                requiresPhotoStr, 
+                isImportantStr
+            ] = parts.map(p => p.trim());
+    
+            const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
+    
+            if (itemIndex > -1) {
+                const itemToUpdate = updatedList[itemIndex];
+                itemToUpdate.shortName = shortName || itemToUpdate.shortName;
+                itemToUpdate.category = category || itemToUpdate.category;
+                itemToUpdate.supplier = supplier || itemToUpdate.supplier;
+                itemToUpdate.unit = unit || itemToUpdate.unit;
+                itemToUpdate.orderUnit = orderUnit || itemToUpdate.orderUnit;
+                itemToUpdate.conversionRate = Number(conversionRateStr) || itemToUpdate.conversionRate;
+                itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
+                itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
+                itemToUpdate.requiresPhoto = requiresPhotoStr.toUpperCase() === 'CÓ';
+                itemToUpdate.isImportant = isImportantStr.toUpperCase() === 'CÓ';
+                changesMade++;
+            }
+        });
+    
+        if (changesMade > 0) {
+            setUpdatePreview({ oldList: inventoryList, newList: updatedList });
+            setShowUpdatePreview(true);
+        } else {
+            toast("Không tìm thấy mặt hàng nào khớp để cập nhật.", {icon: 'ℹ️'});
+        }
+    };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -147,54 +201,6 @@ function InventoryTools({
         setPreviewNewItems(updatedItems);
     }
     
-    const handleBulkUpdateParse = () => {
-        if (!bulkEditText.trim()) {
-            toast.error("Vui lòng dán dữ liệu vào ô.");
-            return;
-        }
-    
-        const lines = bulkEditText.trim().split('\n');
-        const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
-        let changesMade = 0;
-    
-        const dataLines = lines.slice(1);
-
-        dataLines.forEach(line => {
-            const parts = line.split(' | ');
-            if (parts.length < 11) return;
-    
-            const [
-                name, shortName, category, supplier, unit, orderUnit,
-                conversionRateStr, minStockStr, orderSuggestion,
-                requiresPhotoStr, isImportantStr
-            ] = parts.map(p => p.trim());
-    
-            const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
-    
-            if (itemIndex > -1) {
-                const itemToUpdate = updatedList[itemIndex];
-                itemToUpdate.shortName = shortName || itemToUpdate.shortName;
-                itemToUpdate.category = category || itemToUpdate.category;
-                itemToUpdate.supplier = supplier || itemToUpdate.supplier;
-                itemToUpdate.unit = unit || itemToUpdate.unit;
-                itemToUpdate.orderUnit = orderUnit || itemToUpdate.orderUnit;
-                itemToUpdate.conversionRate = Number(conversionRateStr) || itemToUpdate.conversionRate;
-                itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
-                itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
-                itemToUpdate.requiresPhoto = requiresPhotoStr.toUpperCase() === 'CÓ';
-                itemToUpdate.isImportant = isImportantStr.toUpperCase() === 'CÓ';
-                changesMade++;
-            }
-        });
-    
-        if (changesMade > 0) {
-            setUpdatePreview({ oldList: inventoryList, newList: updatedList });
-            setShowUpdatePreview(true);
-        } else {
-            toast("Không tìm thấy mặt hàng nào khớp để cập nhật.", {icon: 'ℹ️'});
-        }
-    };
-
     const handleConfirmUpdate = () => {
         onItemsUpdated(updatePreview.newList);
         toast.success("Đã cập nhật danh sách hàng tồn kho.");
