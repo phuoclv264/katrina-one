@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -27,7 +28,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import isEqual from 'lodash.isequal';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 function InventoryTools({
     inventoryList,
@@ -42,15 +46,15 @@ function InventoryTools({
     const [activeTab, setActiveTab] = useState('add');
     
     // States for "Add with AI"
-    const [addAiTextInput, setAddAiTextInput] = useState('');
-    const [addAiImageInput, setAddAiImageInput] = useState<string | null>(null);
+    const [textInput, setTextInput] = useState('');
+    const [imageInput, setImageInput] = useState<string | null>(null);
     const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
     const [showAddPreview, setShowAddPreview] = useState(false);
     
     // States for "Bulk Edit"
     const [bulkEditTab, setBulkEditTab] = useState('manual');
-    const [bulkEditTextInput, setBulkEditTextInput] = useState(''); // For manual pasting
+    const [bulkEditText, setBulkEditText] = useState(''); // For manual pasting
     const [bulkEditAiInput, setBulkEditAiInput] = useState(''); // For AI instruction
     const [parsedManualItems, setParsedManualItems] = useState<InventoryItem[] | null>(null);
     const [showUpdatePreview, setShowUpdatePreview] = useState(false);
@@ -63,18 +67,18 @@ function InventoryTools({
     const [sortPreviewData, setSortPreviewData] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
     
 
-    const handleAddAiFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => { setAddAiImageInput(reader.result as string); };
+            reader.onloadend = () => { setImageInput(reader.result as string); };
             reader.readAsDataURL(file);
         }
     };
 
     const resetAddState = () => {
-        setAddAiTextInput('');
-        setAddAiImageInput(null);
+        setTextInput('');
+        setImageInput(null);
         const fileInput = document.getElementById('image-upload-add') as HTMLInputElement;
         if(fileInput) fileInput.value = '';
     };
@@ -82,8 +86,8 @@ function InventoryTools({
     const handleGenerateAdd = async (source: 'text' | 'image') => {
         setIsGenerating(true);
         try {
-            const input = source === 'text' ? { source, inputText: addAiTextInput } : { source, imageDataUri: addAiImageInput! };
-            if ((source === 'text' && !addAiTextInput.trim()) || (source === 'image' && !addAiImageInput)) {
+            const input = source === 'text' ? { source, inputText: textInput } : { source, imageDataUri: imageInput! };
+            if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
                 toast.error("Vui lòng cung cấp đầu vào."); return;
             }
             toast.loading("AI đang xử lý...");
@@ -125,15 +129,19 @@ function InventoryTools({
         setShowAddPreview(false);
     };
 
-    const handleManualParseToTable = () => {
-        if (!bulkEditTextInput.trim()) {
+     const handleBulkUpdateParse = () => {
+        if (!bulkEditText.trim()) {
             toast.error("Vui lòng dán dữ liệu vào ô.");
             return;
         }
-        const lines = bulkEditTextInput.trim().split('\n');
-        const dataLines = lines[0].toLowerCase().includes('tên mặt hàng') ? lines.slice(1) : lines;
 
-        const parsedItems: InventoryItem[] = dataLines.map(line => {
+        const lines = bulkEditText.trim().split('\n');
+        const dataLines = lines.slice(1);
+        let changesCount = 0;
+        
+        const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
+
+        dataLines.forEach(line => {
             const parts = line.split(' | ').map(p => p.trim());
             const [
                 name, shortName, category, supplier, unit, orderUnit,
@@ -141,39 +149,40 @@ function InventoryTools({
                 requiresPhotoStr, isImportantStr
             ] = parts;
 
-            const existingItem = inventoryList.find(item => item.name.trim().toLowerCase() === name.toLowerCase()) || { id: `new_${name}`, unitPrice: 0, stock: 0, priceHistory: [], stockHistory: [] };
+            if (!name) return;
 
-            return {
-                id: existingItem.id,
-                name: name || existingItem.name,
-                shortName: shortName || existingItem.shortName,
-                category: category || existingItem.category,
-                supplier: supplier || existingItem.supplier,
-                unit: unit || existingItem.unit,
-                orderUnit: orderUnit || existingItem.orderUnit,
-                conversionRate: Number(conversionRateStr) || existingItem.conversionRate,
-                minStock: Number(minStockStr) || existingItem.minStock,
-                orderSuggestion: orderSuggestion || existingItem.orderSuggestion,
-                requiresPhoto: requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : existingItem.requiresPhoto,
-                isImportant: isImportantStr ? isImportantStr.toUpperCase() === 'CÓ' : existingItem.isImportant,
-                dataType: existingItem.dataType || 'number',
-                listOptions: existingItem.listOptions || [],
-                unitPrice: existingItem.unitPrice,
-                stock: existingItem.stock,
-                priceHistory: existingItem.priceHistory,
-                stockHistory: existingItem.stockHistory,
-            };
-        }).filter(item => item.name); // Filter out potentially empty lines
+            const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
+            
+            if (itemIndex > -1) {
+                const itemToUpdate = updatedList[itemIndex];
+                const originalItem = JSON.parse(JSON.stringify(itemToUpdate));
 
-        setParsedManualItems(parsedItems);
+                itemToUpdate.name = name || itemToUpdate.name;
+                itemToUpdate.shortName = shortName || itemToUpdate.shortName;
+                itemToUpdate.category = category || itemToUpdate.category;
+                itemToUpdate.supplier = supplier || itemToUpdate.supplier;
+                itemToUpdate.unit = unit || itemToUpdate.unit;
+                itemToUpdate.orderUnit = orderUnit || itemToUpdate.orderUnit;
+                itemToUpdate.conversionRate = Number(conversionRateStr) || itemToUpdate.conversionRate;
+                itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
+                itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
+                itemToUpdate.requiresPhoto = requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : itemToUpdate.requiresPhoto;
+                itemToUpdate.isImportant = isImportantStr ? isImportantStr.toUpperCase() === 'CÓ' : itemToUpdate.isImportant;
+
+                if (!isEqual(originalItem, itemToUpdate)) {
+                    changesCount++;
+                }
+            }
+        });
+
+        if (changesCount > 0) {
+            setUpdatePreview({ oldList: inventoryList, newList: updatedList });
+            setShowUpdatePreview(true);
+        } else {
+            toast('Không tìm thấy mặt hàng nào khớp hoặc không có thay đổi nào.');
+        }
     };
 
-    const handleManualTableEdit = (index: number, field: keyof InventoryItem, value: any) => {
-        if (!parsedManualItems) return;
-        const updatedItems = [...parsedManualItems];
-        (updatedItems[index] as any)[field] = value;
-        setParsedManualItems(updatedItems);
-    };
 
     const handleSaveManualBulkEdit = () => {
         if (!parsedManualItems) return;
@@ -201,7 +210,7 @@ function InventoryTools({
             toast('Không có thay đổi nào được ghi nhận.');
         }
         setParsedManualItems(null);
-        setBulkEditTextInput('');
+        setBulkEditText('');
     };
 
     const handleGenerateAiBulkEdit = async () => {
@@ -279,8 +288,6 @@ function InventoryTools({
 
         if (sortedItems.length === itemsInCategory.length) {
             const finalSortedList = [...otherItems, ...sortedItems];
-             // This doesn't preserve the order of other categories, which might be an issue.
-             // For now, let's just update the full list. A better approach would be to splice.
             onItemsUpdated(finalSortedList);
             toast.success(`Đã sắp xếp lại nhóm "${categoryToSort}".`);
         } else {
@@ -326,12 +333,12 @@ function InventoryTools({
                             <Tabs defaultValue="text">
                                 <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger><TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger></TabsList>
                                 <TabsContent value="text" className="mt-4 space-y-4">
-                                    <Textarea placeholder="Dán dữ liệu từ Excel/Google Sheets hoặc dạng text..." rows={6} value={addAiTextInput} onChange={(e) => setAddAiTextInput(e.target.value)} disabled={isGenerating} />
-                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !addAiTextInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo danh sách</Button>
+                                    <Textarea placeholder="Dán dữ liệu từ Excel/Google Sheets hoặc dạng text..." rows={6} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
+                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo danh sách</Button>
                                 </TabsContent>
                                 <TabsContent value="image" className="mt-4 space-y-4">
-                                    <Input id="image-upload-add" type="file" accept="image/*" onChange={handleAddAiFileChange} disabled={isGenerating} />
-                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !addAiImageInput} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo danh sách</Button>
+                                    <Input id="image-upload-add" type="file" accept="image/*" onChange={handleFileChange} disabled={isGenerating} />
+                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo danh sách</Button>
                                 </TabsContent>
                             </Tabs>
                         </TabsContent>
@@ -341,24 +348,8 @@ function InventoryTools({
                             <Tabs value={bulkEditTab} onValueChange={setBulkEditTab}>
                                 <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="manual">Thủ công</TabsTrigger><TabsTrigger value="ai">Bằng AI</TabsTrigger></TabsList>
                                 <TabsContent value="manual" className="mt-4 space-y-4">
-                                    <Textarea placeholder="Dán dữ liệu đã xuất (dạng bảng) vào đây để chuyển thành bảng có thể chỉnh sửa." rows={6} value={bulkEditTextInput} onChange={(e) => setBulkEditTextInput(e.target.value)} />
-                                    <Button onClick={handleManualParseToTable} disabled={!bulkEditTextInput.trim()} className="h-10 w-full">Chuyển thành bảng</Button>
-                                    {parsedManualItems && (
-                                        <div className="space-y-4 pt-4 border-t">
-                                            <h4 className="font-semibold">Bảng chỉnh sửa</h4>
-                                            <ScrollArea className="max-h-96 w-full border rounded-md">
-                                                <Table>
-                                                    <TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>Tên VT</TableHead><TableHead>Nhóm</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader>
-                                                    <TableBody>
-                                                        {parsedManualItems.map((item, index) => (
-                                                            <TableRow key={index}><TableCell><Input value={item.name} onChange={e => handleManualTableEdit(index, 'name', e.target.value)} /></TableCell><TableCell><Input value={item.shortName} onChange={e => handleManualTableEdit(index, 'shortName', e.target.value)} /></TableCell><TableCell><Input value={item.category} onChange={e => handleManualTableEdit(index, 'category', e.target.value)} /></TableCell><TableCell><Input value={item.supplier} onChange={e => handleManualTableEdit(index, 'supplier', e.target.value)} /></TableCell></TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </ScrollArea>
-                                            <Button onClick={handleSaveManualBulkEdit} className="w-full">Lưu thay đổi từ bảng</Button>
-                                        </div>
-                                    )}
+                                    <Textarea placeholder="Dán dữ liệu đã xuất (dạng bảng) vào đây để bắt đầu chỉnh sửa hàng loạt." rows={6} value={bulkEditText} onChange={(e) => setBulkEditText(e.target.value)} />
+                                    <Button onClick={handleBulkUpdateParse} disabled={!bulkEditText.trim()} className="h-10 w-full">Xem trước & Cập nhật</Button>
                                 </TabsContent>
                                 <TabsContent value="ai" className="mt-4 space-y-4">
                                     <Textarea placeholder="Nhập yêu cầu chỉnh sửa, ví dụ: 'đặt nhà cung cấp của tất cả siro thành ABC'..." rows={4} value={bulkEditAiInput} onChange={(e) => setBulkEditAiInput(e.target.value)} disabled={isGenerating} />
@@ -571,27 +562,27 @@ export default function InventoryManagementPage() {
     }
   };
   
-    const handleExport = (type: 'table' | 'text') => {
-        if (!inventoryList) return;
-        let textToCopy = '';
-        if (type === 'table') {
-            const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'ĐV Đặt hàng', 'Tỷ lệ quy đổi', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
-            const rows = inventoryList.map(item => 
-                [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join(' | ')
-            );
-            textToCopy = [headers.join(' | '), ...rows].join('\n');
-        } else {
-             textToCopy = inventoryList.map(item => 
-                [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join(' | ')
-            ).join('\n');
-        }
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            toast.success("Danh sách đã được sao chép vào bộ nhớ tạm.");
-        }).catch(err => {
-            toast.error("Không thể sao chép danh sách.");
-            console.error("Copy to clipboard failed:", err);
-        });
-    };
+  const handleExport = (type: 'table' | 'text') => {
+      if (!inventoryList) return;
+      let textToCopy = '';
+      if (type === 'table') {
+          const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'ĐV Đặt hàng', 'Tỷ lệ quy đổi', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
+          const rows = inventoryList.map(item => 
+              [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join(' | ')
+          );
+          textToCopy = [headers.join(' | '), ...rows].join('\n');
+      } else {
+            textToCopy = inventoryList.map(item => 
+              [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join(' | ')
+          ).join('\n');
+      }
+      navigator.clipboard.writeText(textToCopy).then(() => {
+          toast.success("Danh sách đã được sao chép vào bộ nhớ tạm.");
+      }).catch(err => {
+          toast.error("Không thể sao chép danh sách.");
+          console.error("Copy to clipboard failed:", err);
+      });
+  };
 
   if (isLoading || authLoading || !inventoryList || !suppliers) {
     return (
@@ -611,108 +602,108 @@ export default function InventoryManagementPage() {
 
   return (
     <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
-      <header className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
-        <p className="text-muted-foreground mt-2">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
-      </header>
+        <header className="mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
+            <p className="text-muted-foreground mt-2">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
+        </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-        <div className="lg:col-span-1 lg:sticky lg:top-4 order-2 lg:order-1">
-            <InventoryTools
-                inventoryList={inventoryList}
-                onItemsGenerated={onItemsGenerated}
-                onItemsUpdated={onItemsUpdated}
-            />
-        </div>
-        <div className="lg:col-span-3 order-1 lg:order-2">
-            <Card className="rounded-xl shadow-sm border bg-white dark:bg-card">
-                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <CardTitle>Danh sách kho hiện tại</CardTitle>
-                        <div className="relative mt-2">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Tìm kiếm mặt hàng" />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                        <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Link href="/inventory-history"><History className="mr-2 h-4 w-4" />Lịch sử Kho</Link></Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Download className="mr-2 h-4 w-4"/>Xuất dữ liệu</Button></DropdownMenuTrigger>
-                            <DropdownMenuContent><DropdownMenuItem onClick={() => handleExport('table')}>Sao chép (dạng bảng)</DropdownMenuItem><DropdownMenuItem onClick={() => handleExport('text')}>Sao chép (dạng text)</DropdownMenuItem></DropdownMenuContent>
-                        </DropdownMenu>
-                        {isSorting ? (
-                            <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95"><Check className="mr-2 h-4 w-4"/>Lưu thứ tự</Button>
-                        ) : (
-                            <Button variant="outline" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Shuffle className="mr-2 h-4 w-4"/>Sắp xếp</Button>
-                        )}
-                        {categorizedList && categorizedList.length > 0 && (<Button variant="outline" onClick={handleToggleAll} size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><ChevronsDownUp className="mr-2 h-4 w-4"/>{areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}</Button>)}
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
-                    {categorizedList.map(({category, items}, categoryIndex) => (
-                        <AccordionItem value={category} key={category} className="border rounded-lg bg-white dark:bg-card">
-                            <div className="flex items-center p-2">
-                                <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
-                                    {editingCategory?.oldName === category ? (<Input value={editingCategory.newName} onChange={(e) => setEditingCategory({ ...editingCategory, newName: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleRenameCategory()} onBlur={handleRenameCategory} autoFocus className="text-lg font-semibold h-9" onClick={(e) => e.stopPropagation()} />) : (category)}
-                                </AccordionTrigger>
-                                {isSorting ? (
-                                    <div className="flex items-center gap-1 pl-4">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}><ArrowUp className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categorizedList.length - 1 === categoryIndex}><ArrowDown className="h-4 w-4" /></Button>
-                                    </div>
-                                ) : (
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingCategory({ oldName: category, newName: category })}><Pencil className="h-4 w-4" /></Button>
-                                )}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+            <div className="lg:col-span-1 lg:sticky lg:top-4 order-2 lg:order-1">
+                <InventoryTools
+                    inventoryList={inventoryList}
+                    onItemsGenerated={onItemsGenerated}
+                    onItemsUpdated={onItemsUpdated}
+                />
+            </div>
+            <div className="lg:col-span-3 order-1 lg:order-2">
+                <Card className="rounded-xl shadow-sm border bg-white dark:bg-card">
+                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <CardTitle>Danh sách kho hiện tại</CardTitle>
+                            <div className="relative mt-2">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Tìm kiếm mặt hàng" />
                             </div>
-                            <AccordionContent className="border-t">
-                                {!isMobile ? (
-                                <div className="overflow-x-auto -mx-4 px-4">
-                                    <Table>
-                                        <TableHeader className="sticky top-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm z-10"><TableRow><TableHead className="min-w-[250px] p-3 sm:p-4">Tên</TableHead><TableHead className="min-w-[150px] p-3 sm:p-4">Tên VT</TableHead><TableHead className="min-w-[180px] p-3 sm:p-4">Nhà CC</TableHead><TableHead className="p-3 sm:p-4">Đơn vị</TableHead><TableHead className="p-3 sm:p-4">ĐV Đặt</TableHead><TableHead className="p-3 sm:p-4">Tỷ lệ QĐ</TableHead><TableHead className="p-3 sm:p-4">Tồn min</TableHead><TableHead className="p-3 sm:p-4">Gợi ý</TableHead><TableHead className="text-center p-3 sm:p-4">Bắt buộc</TableHead><TableHead className="text-center p-3 sm:p-4">Cần ảnh</TableHead><TableHead className="w-[50px] text-right p-3 sm:p-4">Xóa</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {items.map((item, index) => {
-                                                const globalIndex = inventoryList.findIndex(i => i.id === item.id);
-                                                return (
-                                                <TableRow key={item.id} className="transition-colors hover:bg-muted/50">
-                                                    <TableCell className="font-semibold p-3 sm:p-4"><Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} /></TableCell>
-                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.shortName} onBlur={e => handleUpdate(item.id, 'shortName', e.target.value)} disabled={isSorting} /></TableCell>
-                                                    <TableCell className="p-3 sm:p-4"><SupplierCombobox suppliers={suppliers || []} value={item.supplier} onChange={(s) => handleSupplierChange(item.id, s)} disabled={isSorting} /></TableCell>
-                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} /></TableCell>
-                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.orderUnit} onBlur={e => handleUpdate(item.id, 'orderUnit', e.target.value)} disabled={isSorting} /></TableCell>
-                                                    <TableCell className="p-3 sm:p-4">{item.orderUnit !== item.unit ? (<Input type="number" defaultValue={item.conversionRate} onBlur={e => handleUpdate(item.id, 'conversionRate', Number(e.target.value) || 1)} disabled={isSorting} />) : (<div className="flex items-center justify-center h-10 text-muted-foreground">1</div>)}</TableCell>
-                                                    <TableCell className="p-3 sm:p-4"><Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/></TableCell>
-                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/></TableCell>
-                                                    <TableCell className="text-center p-3 sm:p-4"><Switch checked={!!item.isImportant} onCheckedChange={c => handleUpdate(item.id, 'isImportant', c)} disabled={isSorting}/></TableCell>
-                                                    <TableCell className="text-center p-3 sm:p-4"><Switch checked={!!item.requiresPhoto} onCheckedChange={c => handleUpdate(item.id, 'requiresPhoto', c)} disabled={isSorting}/></TableCell>
-                                                    <TableCell className="text-right p-3 sm:p-4">{isSorting ? (<div className="flex flex-col"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>) : (<Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>)}</TableCell>
-                                                </TableRow>
-                                            )})}
-                                        </TableBody>
-                                    </Table>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Link href="/inventory-history"><History className="mr-2 h-4 w-4" />Lịch sử Kho</Link></Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Download className="mr-2 h-4 w-4"/>Xuất dữ liệu</Button></DropdownMenuTrigger>
+                                <DropdownMenuContent><DropdownMenuItem onClick={() => handleExport('table')}>Sao chép (dạng bảng)</DropdownMenuItem><DropdownMenuItem onClick={() => handleExport('text')}>Sao chép (dạng text)</DropdownMenuItem></DropdownMenuContent>
+                            </DropdownMenu>
+                            {isSorting ? (
+                                <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95"><Check className="mr-2 h-4 w-4"/>Lưu thứ tự</Button>
+                            ) : (
+                                <Button variant="outline" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Shuffle className="mr-2 h-4 w-4"/>Sắp xếp</Button>
+                            )}
+                            {categorizedList && categorizedList.length > 0 && (<Button variant="outline" onClick={handleToggleAll} size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><ChevronsDownUp className="mr-2 h-4 w-4"/>{areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}</Button>)}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
+                        {categorizedList.map(({category, items}, categoryIndex) => (
+                            <AccordionItem value={category} key={category} className="border rounded-lg bg-white dark:bg-card">
+                                <div className="flex items-center p-2">
+                                    <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
+                                        {editingCategory?.oldName === category ? (<Input value={editingCategory.newName} onChange={(e) => setEditingCategory({ ...editingCategory, newName: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleRenameCategory()} onBlur={handleRenameCategory} autoFocus className="text-lg font-semibold h-9" onClick={(e) => e.stopPropagation()} />) : (category)}
+                                    </AccordionTrigger>
+                                    {isSorting ? (
+                                        <div className="flex items-center gap-1 pl-4">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}><ArrowUp className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categorizedList.length - 1 === categoryIndex}><ArrowDown className="h-4 w-4" /></Button>
+                                        </div>
+                                    ) : (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingCategory({ oldName: category, newName: category })}><Pencil className="h-4 w-4" /></Button>
+                                    )}
                                 </div>
-                                ) : (
-                                    <div className="space-y-3 p-2">
-                                        {items.map(item => (
-                                            <Card key={item.id} className="bg-white dark:bg-card rounded-lg shadow-sm p-4 flex flex-col gap-2">
-                                                <div className="flex justify-between items-start"><p className="font-semibold">{item.name}</p><Button variant="ghost" size="icon" className="text-destructive h-8 w-8 -mt-2 -mr-2" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button></div>
-                                                <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                <div className="grid grid-cols-3 gap-2 text-center text-sm pt-2 border-t"><div><Label>Đơn vị</Label><p className="font-medium">{item.unit}</p></div><div><Label>Tồn min</Label><p className="font-medium">{item.minStock}</p></div><div><Label>Gợi ý</Label><p className="font-medium">{item.orderSuggestion}</p></div></div>
-                                            </Card>
-                                        ))}
+                                <AccordionContent className="border-t">
+                                    {!isMobile ? (
+                                    <div className="overflow-x-auto -mx-4 px-4">
+                                        <Table>
+                                            <TableHeader className="sticky top-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm z-10"><TableRow><TableHead className="min-w-[250px] p-3 sm:p-4">Tên</TableHead><TableHead className="min-w-[150px] p-3 sm:p-4">Tên VT</TableHead><TableHead className="min-w-[180px] p-3 sm:p-4">Nhà CC</TableHead><TableHead className="p-3 sm:p-4">Đơn vị</TableHead><TableHead className="p-3 sm:p-4">ĐV Đặt</TableHead><TableHead className="p-3 sm:p-4">Tỷ lệ QĐ</TableHead><TableHead className="p-3 sm:p-4">Tồn min</TableHead><TableHead className="p-3 sm:p-4">Gợi ý</TableHead><TableHead className="text-center p-3 sm:p-4">Bắt buộc</TableHead><TableHead className="text-center p-3 sm:p-4">Cần ảnh</TableHead><TableHead className="w-[50px] text-right p-3 sm:p-4">Xóa</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {items.map((item, index) => {
+                                                    const globalIndex = inventoryList.findIndex(i => i.id === item.id);
+                                                    return (
+                                                    <TableRow key={item.id} className="transition-colors hover:bg-muted/50">
+                                                        <TableCell className="font-semibold p-3 sm:p-4"><Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} /></TableCell>
+                                                        <TableCell className="p-3 sm:p-4"><Input defaultValue={item.shortName} onBlur={e => handleUpdate(item.id, 'shortName', e.target.value)} disabled={isSorting} /></TableCell>
+                                                        <TableCell className="p-3 sm:p-4"><SupplierCombobox suppliers={suppliers || []} value={item.supplier} onChange={(s) => handleSupplierChange(item.id, s)} disabled={isSorting} /></TableCell>
+                                                        <TableCell className="p-3 sm:p-4"><Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} /></TableCell>
+                                                        <TableCell className="p-3 sm:p-4"><Input defaultValue={item.orderUnit} onBlur={e => handleUpdate(item.id, 'orderUnit', e.target.value)} disabled={isSorting} /></TableCell>
+                                                        <TableCell className="p-3 sm:p-4">{item.orderUnit !== item.unit ? (<Input type="number" defaultValue={item.conversionRate} onBlur={e => handleUpdate(item.id, 'conversionRate', Number(e.target.value) || 1)} disabled={isSorting} />) : (<div className="flex items-center justify-center h-10 text-muted-foreground">1</div>)}</TableCell>
+                                                        <TableCell className="p-3 sm:p-4"><Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/></TableCell>
+                                                        <TableCell className="p-3 sm:p-4"><Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/></TableCell>
+                                                        <TableCell className="text-center p-3 sm:p-4"><Switch checked={!!item.isImportant} onCheckedChange={c => handleUpdate(item.id, 'isImportant', c)} disabled={isSorting}/></TableCell>
+                                                        <TableCell className="text-center p-3 sm:p-4"><Switch checked={!!item.requiresPhoto} onCheckedChange={c => handleUpdate(item.id, 'requiresPhoto', c)} disabled={isSorting}/></TableCell>
+                                                        <TableCell className="text-right p-3 sm:p-4">{isSorting ? (<div className="flex flex-col"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>) : (<Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>)}</TableCell>
+                                                    </TableRow>
+                                                )})}
+                                            </TableBody>
+                                        </Table>
                                     </div>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                    </Accordion>
-                    <div className="mt-6 flex justify-start items-center">
-                        <Button variant="outline" onClick={handleAddItem} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Plus className="mr-2 h-4 w-4" />Thêm mặt hàng mới</Button>
-                    </div>
-                </CardContent>
-            </Card>
+                                    ) : (
+                                        <div className="space-y-3 p-2">
+                                            {items.map(item => (
+                                                <Card key={item.id} className="bg-white dark:bg-card rounded-lg shadow-sm p-4 flex flex-col gap-2">
+                                                    <div className="flex justify-between items-start"><p className="font-semibold">{item.name}</p><Button variant="ghost" size="icon" className="text-destructive h-8 w-8 -mt-2 -mr-2" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button></div>
+                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                    <div className="grid grid-cols-3 gap-2 text-center text-sm pt-2 border-t"><div><Label>Đơn vị</Label><p className="font-medium">{item.unit}</p></div><div><Label>Tồn min</Label><p className="font-medium">{item.minStock}</p></div><div><Label>Gợi ý</Label><p className="font-medium">{item.orderSuggestion}</p></div></div>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                        </Accordion>
+                        <div className="mt-6 flex justify-start items-center">
+                            <Button variant="outline" onClick={handleAddItem} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Plus className="mr-2 h-4 w-4" />Thêm mặt hàng mới</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
-    </div>
     </div>
   );
 }
