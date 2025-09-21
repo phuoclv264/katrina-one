@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'use-sync-external-store/extra';
+import { useEffect, useState, useCallback } from 'react';
 import { getToken, onMessage } from 'firebase/messaging';
 import { messaging } from '@/lib/firebase';
 import { useAuth } from './use-auth';
@@ -54,13 +55,14 @@ export const useFcm = () => {
                         </button>
                         </div>
                     </div>
-                ));
+                ), { duration: 5000 });
             });
             return () => unsubscribe();
         }
     }, [notificationPermission]);
-
-    const requestPermissionAndGetToken = async () => {
+    
+    // Function to be called on user action e.g. button click
+    const requestPermissionAndGetToken = useCallback(async () => {
         if (!messaging || !user) return null;
 
         try {
@@ -69,7 +71,13 @@ export const useFcm = () => {
             
             if (currentPermission === 'granted') {
                 console.log('Notification permission granted.');
-                const vapidKey = 'BFf_P_9P_xI6V8_C1J3g7q_bXjJ7_yB3C9LwN6G2F4H2hJ3eF0tK1sC4vJ3J3jZ7bYnZ9c8V1B6M'; 
+                const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                if (!vapidKey) {
+                    console.error("VAPID key is missing. Please set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your environment variables.");
+                    toast.error("Lỗi cấu hình: Không tìm thấy VAPID key.");
+                    return null;
+                }
+                
                 const token = await getToken(messaging, { vapidKey });
                 if (token) {
                     console.log('FCM Token:', token);
@@ -77,20 +85,31 @@ export const useFcm = () => {
                     // Save the token to Firestore
                     const userDocRef = doc(db, 'users', user.uid);
                     await setDoc(userDocRef, { fcmToken: token }, { merge: true });
+                    toast.success("Đã bật thông báo!");
                     return token;
                 } else {
                     console.log('No registration token available. Request permission to generate one.');
+                    toast.error("Không thể lấy token thông báo. Vui lòng thử lại.");
                     return null;
                 }
             } else {
                 console.log('Unable to get permission to notify.');
+                toast.error("Bạn đã từ chối quyền nhận thông báo.");
                 return null;
             }
         } catch (err) {
             console.error('An error occurred while retrieving token. ', err);
+            toast.error("Đã xảy ra lỗi khi yêu cầu quyền thông báo.");
             return null;
         }
-    };
+    }, [user]);
+    
+    // Auto-get token if permission was already granted on login
+     useEffect(() => {
+        if (user && notificationPermission === 'granted') {
+            requestPermissionAndGetToken();
+        }
+    }, [user, notificationPermission, requestPermissionAndGetToken]);
     
     return { fcmToken, notificationPermission, requestPermissionAndGetToken };
 };
