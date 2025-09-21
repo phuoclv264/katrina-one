@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -53,7 +54,7 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
                 <TableRow key={expense.id}>
                 <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
                 <TableCell>
-                    {expense.items.map(i => i.name).join(', ')}
+                    {expense.items.map(i => i.shortName).join(', ')}
                     <p className="text-xs text-muted-foreground">{expense.createdBy.userName}</p>
                 </TableCell>
                 <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
@@ -81,7 +82,7 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
           <div className="p-3">
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="font-medium text-sm pr-2">{expense.items.map(i => i.name).join(', ')}</p>
+                    <p className="font-medium text-sm pr-2">{expense.items.map(i => i.shortName).join(', ')}</p>
                     <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
                 </div>
                 <div className="text-right">
@@ -338,9 +339,9 @@ export default function CashierReportsPage() {
                                 <span className="text-lg font-semibold">{format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}</span>
                             </div>
                         </AccordionTrigger>
-                        <AccordionContent className="grid grid-cols-1 gap-6 p-4 border border-t-0 rounded-b-lg shadow-sm bg-muted/30">
+                        <AccordionContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border border-t-0 rounded-b-lg shadow-sm bg-muted/30">
                            
-                            <div className="col-span-1">
+                            <div className="col-span-1 md:col-span-2">
                                 {dayReports.revenue ? (
                                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
                                         <CardHeader className="flex-row items-center justify-between p-4">
@@ -361,7 +362,7 @@ export default function CashierReportsPage() {
                                 )}
                             </div>
                             
-                            <div className="col-span-1">
+                            <div className="col-span-1 md:col-span-2">
                                 {dayReports.expenses && dayReports.expenses.length > 0 ? (
                                     <Card>
                                         <CardHeader className="p-4">
@@ -385,7 +386,7 @@ export default function CashierReportsPage() {
                                 )}
                             </div>
 
-                             <div className="col-span-1">
+                             <div className="col-span-1 md:col-span-2">
                                 {dayReports.incidents && dayReports.incidents.length > 0 ? (
                                     <Card>
                                         <CardHeader className="p-4">

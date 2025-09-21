@@ -123,6 +123,7 @@ function AiPreviewDialog({
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
+                    shortName: inventoryItem.shortName,
                     supplier: inventoryItem.supplier,
                     unit: inventoryItem.orderUnit, // Use order unit for expense items
                     quantity: item.quantity,
@@ -337,6 +338,7 @@ export default function ExpenseSlipDialog({
             return existing || {
                 itemId: invItem.id,
                 name: invItem.name,
+                shortName: invItem.shortName,
                 supplier: invItem.supplier,
                 unit: invItem.orderUnit, // Use orderUnit for expense slip
                 quantity: 1, // default

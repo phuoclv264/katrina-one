@@ -324,6 +324,7 @@ export type PaymentMethod = 'cash' | 'bank_transfer';
 export type ExpenseItem = {
     itemId: string;
     name: string;
+    shortName: string;
     supplier: string;
     quantity: number;
     unitPrice: number;
