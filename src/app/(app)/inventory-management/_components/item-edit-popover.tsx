@@ -11,7 +11,6 @@ import {
   DialogClose,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +21,6 @@ import { SupplierCombobox } from '@/components/supplier-combobox';
 import { toast } from 'react-hot-toast';
 import isEqual from 'lodash.isequal';
 import type { InventoryItem } from '@/lib/types';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 
 export default function ItemEditPopover({
@@ -38,7 +36,6 @@ export default function ItemEditPopover({
     onSupplierChange: (id: string, newSupplier: string) => void;
     children: React.ReactNode;
 }) {
-    const isMobile = useIsMobile();
     const [isOpen, setIsOpen] = useState(false);
     const [item, setItem] = useState(initialItem);
 
@@ -68,7 +65,7 @@ export default function ItemEditPopover({
     };
 
     const content = (
-         <ScrollArea className={isMobile ? "h-[70vh]" : "max-h-[60vh]"}>
+         <ScrollArea className="max-h-[70vh]">
             <div className="grid gap-4 p-1">
                 <div className="space-y-2">
                     <Label htmlFor={`name-${item.id}`}>Tên mặt hàng</Label>
@@ -144,34 +141,19 @@ export default function ItemEditPopover({
          </ScrollArea>
     );
 
-    if (isMobile) {
-        return (
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogTrigger asChild>{children}</DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Chỉnh sửa: {initialItem.name}</DialogTitle>
-                    </DialogHeader>
-                    {content}
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Hủy</Button></DialogClose>
-                        <Button onClick={handleSave}>Lưu thay đổi</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        );
-    }
-    
     return (
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-            <PopoverTrigger asChild>{children}</PopoverTrigger>
-            <PopoverContent className="w-96 p-4" align="end">
-                 {content}
-                 <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>Hủy</Button>
-                    <Button size="sm" onClick={handleSave}>Lưu</Button>
-                 </div>
-            </PopoverContent>
-        </Popover>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Chỉnh sửa: {initialItem.name}</DialogTitle>
+                </DialogHeader>
+                {content}
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Hủy</Button></DialogClose>
+                    <Button onClick={handleSave}>Lưu thay đổi</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
