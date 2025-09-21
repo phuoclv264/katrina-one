@@ -6,7 +6,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, Type, History, Search, CornerDownLeft } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, History, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
-import { sortTasks } from '@/ai/flows/sort-tasks';
 import { updateInventoryItems } from '@/ai/flows/update-inventory-items';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -26,17 +25,17 @@ import { SupplierCombobox } from '@/components/supplier-combobox';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 
 function InventoryTools({
     inventoryList,
     onItemsGenerated,
-    onItemsSorted,
     onItemsUpdated,
 }: {
     inventoryList: InventoryItem[],
     onItemsGenerated: (items: InventoryItem[]) => void,
-    onItemsSorted: (sortedNames: string[]) => void,
     onItemsUpdated: (updatedItems: InventoryItem[]) => void,
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
@@ -45,16 +44,10 @@ function InventoryTools({
     const [bulkEditText, setBulkEditText] = useState('');
     const [activeTab, setActiveTab] = useState('add');
     const { toast } = useToast();
-    const [sortInstruction, setSortInstruction] = useState('');
-    const [updateInstruction, setUpdateInstruction] = useState('');
-
-
+    
     const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
     const [showAddPreview, setShowAddPreview] = useState(false);
-
-    const [showSortPreview, setShowSortPreview] = useState(false);
-    const [sortPreview, setSortPreview] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
     
     const [showUpdatePreview, setShowUpdatePreview] = useState(false);
     const [updatePreview, setUpdatePreview] = useState<{ oldList: InventoryItem[], newList: InventoryItem[] }>({ oldList: [], newList: [] });
@@ -73,6 +66,7 @@ function InventoryTools({
 
     const resetState = () => {
         setTextInput('');
+        setBulkEditText('');
         setImageInput(null);
         const fileInput = document.getElementById('image-upload') as HTMLInputElement;
         if(fileInput) fileInput.value = '';
@@ -152,49 +146,6 @@ function InventoryTools({
         const updatedItems = previewNewItems.filter(item => item.id !== id);
         setPreviewNewItems(updatedItems);
     }
-    
-    const handleGenerateSort = async () => {
-        if (inventoryList.length < 2) {
-            toast({ title: "Không cần sắp xếp", description: "Cần có ít nhất 2 mặt hàng để sắp xếp.", variant: "default" });
-            return;
-        }
-        if (!sortInstruction.trim()) {
-            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu sắp xếp.", variant: "destructive" });
-            return;
-        }
-
-        setIsGenerating(true);
-        toast({ title: "AI đang sắp xếp...", description: "Vui lòng đợi một lát. AI sẽ nhóm các mặt hàng theo chủng loại." });
-
-        try {
-            const currentItems = inventoryList.map(t => t.name);
-            const result = await sortTasks({
-                context: `A complete inventory list for a coffee shop. The list needs to be sorted by category (e.g., all 'TOPPING' items together, all 'TRÁI CÂY' items together, etc.).`,
-                tasks: currentItems,
-                userInstruction: sortInstruction,
-            });
-
-            if (!result || !result.sortedTasks || result.sortedTasks.length !== currentItems.length) {
-                throw new Error("AI did not return a valid sorted list.");
-            }
-
-            setSortPreview({ oldOrder: currentItems, newOrder: result.sortedTasks });
-            setShowSortPreview(true);
-
-        } catch(error) {
-            console.error("Failed to sort inventory:", error);
-            toast({ title: "Lỗi", description: "Không thể sắp xếp. Vui lòng thử lại.", variant: "destructive"});
-        } finally {
-            setIsGenerating(false);
-        }
-    }
-
-    const handleConfirmSort = () => {
-        onItemsSorted(sortPreview.newOrder);
-        toast({ title: "Hoàn tất!", description: `Đã sắp xếp lại danh sách hàng tồn kho.` });
-        setShowSortPreview(false);
-        setSortInstruction('');
-    }
 
     const handleBulkUpdateParse = () => {
         if (!bulkEditText.trim()) {
@@ -206,7 +157,10 @@ function InventoryTools({
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
         let changesMade = 0;
     
-        lines.forEach(line => {
+        // Skip header row
+        const dataLines = lines.slice(1);
+
+        dataLines.forEach(line => {
             const parts = line.split(' | ');
             if (parts.length < 11) return;
     
@@ -247,9 +201,7 @@ function InventoryTools({
         onItemsUpdated(updatePreview.newList);
         toast({ title: "Hoàn tất!", description: "Đã cập nhật danh sách hàng tồn kho."});
         setShowUpdatePreview(false);
-        setUpdateInstruction('');
-        setTextInput('');
-        setBulkEditText('');
+        resetState();
     };
 
     const renderDiff = (oldText: string, newText: string) => {
@@ -270,17 +222,16 @@ function InventoryTools({
 
     return (
         <>
-            <Card className="mb-8">
+            <Card className="rounded-xl shadow-sm border bg-white dark:bg-card">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ Kho</CardTitle>
-                    <CardDescription>Sử dụng các công cụ để thêm, sắp xếp, hoặc chỉnh sửa hàng loạt các mặt hàng một cách thông minh.</CardDescription>
+                    <CardDescription>Sử dụng các công cụ để thêm, hoặc chỉnh sửa hàng loạt các mặt hàng một cách thông minh.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm bằng AI</TabsTrigger>
                              <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4"/>Sửa hàng loạt</TabsTrigger>
-                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp bằng AI</TabsTrigger>
                         </TabsList>
                         <TabsContent value="add" className="mt-4 space-y-4">
                              <Tabs defaultValue="text">
@@ -296,7 +247,7 @@ function InventoryTools({
                                         onChange={(e) => setTextInput(e.target.value)}
                                         disabled={isGenerating}
                                     />
-                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()}>
+                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="h-10 sm:h-11 px-3 rounded-md flex items-center gap-2 w-full">
                                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                         Tạo danh sách
                                     </Button>
@@ -309,7 +260,7 @@ function InventoryTools({
                                         onChange={handleFileChange}
                                         disabled={isGenerating}
                                     />
-                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput}>
+                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput} className="h-10 sm:h-11 px-3 rounded-md flex items-center gap-2 w-full">
                                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                         Tạo danh sách
                                     </Button>
@@ -324,22 +275,9 @@ function InventoryTools({
                                 onChange={(e) => setBulkEditText(e.target.value)}
                                 disabled={isGenerating}
                             />
-                            <Button onClick={handleBulkUpdateParse} disabled={isGenerating || !bulkEditText.trim()}>
+                            <Button onClick={handleBulkUpdateParse} disabled={isGenerating || !bulkEditText.trim()} className="h-10 sm:h-11 px-3 rounded-md flex items-center gap-2 w-full">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileEdit className="mr-2 h-4 w-4" />}
                                 Xem trước & Cập nhật
-                            </Button>
-                        </TabsContent>
-                         <TabsContent value="sort" className="mt-4 space-y-4">
-                             <Textarea
-                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'nhóm tất cả các loại topping và trái cây lại với nhau'"
-                                rows={2}
-                                value={sortInstruction}
-                                onChange={(e) => setSortInstruction(e.target.value)}
-                                disabled={isGenerating}
-                            />
-                            <Button onClick={handleGenerateSort} disabled={isGenerating || inventoryList.length < 2 || !sortInstruction.trim()}>
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                Sắp xếp toàn bộ bằng AI
                             </Button>
                         </TabsContent>
                     </Tabs>
@@ -428,47 +366,6 @@ function InventoryTools({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={showSortPreview} onOpenChange={setShowSortPreview}>
-                <AlertDialogContent className="max-w-4xl">
-                     <AlertDialogHeader>
-                        <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            AI đề xuất sắp xếp lại danh sách hàng tồn kho như sau. Bạn có muốn áp dụng thay đổi không?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                     <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4">
-                       <div>
-                           <h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4>
-                           <ul className="space-y-2 text-sm">
-                               {sortPreview.oldOrder.map((task, index) => (
-                                   <li key={index} className="p-2 rounded-md bg-muted/50 truncate">
-                                       {index + 1}. {task}
-                                   </li>
-                               ))}
-                           </ul>
-                       </div>
-                        <div>
-                           <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
-                           <ul className="space-y-2 text-sm">
-                               {sortPreview.newOrder.map((task, index) => {
-                                    const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
-                                    const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
-                                    return (
-                                       <li key={index} className="p-2 rounded-md bg-green-100/50 truncate">
-                                           {index + 1}. {renderDiff(oldTaskText, task)}
-                                       </li>
-                                    )
-                               })}
-                           </ul>
-                       </div>
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
              <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview}>
                 <AlertDialogContent className="max-w-6xl">
                      <AlertDialogHeader>
@@ -538,6 +435,7 @@ type CategorizedList = {
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<string[] | null>(null);
@@ -707,19 +605,6 @@ export default function InventoryManagementPage() {
       }
   }
 
-  const onItemsSorted = (sortedNames: string[]) => {
-    if (!inventoryList) return;
-
-    const itemMap = new Map(inventoryList.map(item => [item.name, item]));
-    const sortedList: InventoryItem[] = sortedNames.map(name => itemMap.get(name)).filter((item): item is InventoryItem => !!item);
-
-    if (sortedList.length === inventoryList.length) {
-      handleUpdateAndSave(sortedList);
-    } else {
-      toast({ title: "Lỗi Sắp xếp", description: "Không thể sắp xếp danh sách. Một vài mặt hàng có thể đã bị thiếu.", variant: "destructive"});
-    }
-  }
-
    const onItemsUpdated = (updatedItems: InventoryItem[]) => {
         handleUpdateAndSave(updatedItems);
   };
@@ -827,10 +712,10 @@ export default function InventoryManagementPage() {
 
   if (isLoading || authLoading || !inventoryList || !suppliers) {
     return (
-      <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8">
+      <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
         <header className="mb-8">
           <Skeleton className="h-10 w-3/4" />
-          <Skeleton className="h-4 w-1/2 mt-2" />
+          <Skeleton className="h-5 w-1/2 mt-2" />
         </header>
         <div className="space-y-4">
           <Skeleton className="h-12 w-full" />
@@ -842,175 +727,198 @@ export default function InventoryManagementPage() {
    const areAllCategoriesOpen = categorizedList && categorizedList.length > 0 && openCategories.length === categorizedList.length;
 
   return (
-    <div className="container mx-auto max-w-none p-4 sm:p-6 md:p-8">
+    <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <header className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
-        <p className="text-muted-foreground">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
+        <h1 className="text-2xl md:text-3xl font-bold leading-tight flex items-center gap-3"><Package/> Quản lý Hàng tồn kho</h1>
+        <p className="text-sm text-muted-foreground mt-1">Mọi thay đổi sẽ được lưu tự động. Chế độ sắp xếp sẽ lưu khi bạn nhấn "Lưu thứ tự".</p>
       </header>
 
-      <InventoryTools
-        inventoryList={inventoryList}
-        onItemsGenerated={onItemsGenerated}
-        onItemsSorted={onItemsSorted}
-        onItemsUpdated={onItemsUpdated}
-      />
-
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <CardTitle>Danh sách kho hiện tại</CardTitle>
-                <div className="relative mt-2">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Tìm theo tên mặt hàng..." 
-                        className="pl-8" 
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                    />
-                </div>
-            </div>
-             <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
-                    <Link href="/inventory-history">
-                        <History className="mr-2 h-4 w-4" />
-                        Xem Lịch sử Kho
-                    </Link>
-                </Button>
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                            <Download className="mr-2 h-4 w-4"/>
-                            Xuất dữ liệu
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleExport('table')}>Sao chép (dạng bảng)</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExport('text')}>Sao chép (dạng text)</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                 {isSorting ? (
-                    <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
-                        <Check className="mr-2 h-4 w-4"/>
-                        Lưu thứ tự
-                    </Button>
-                ) : (
-                    <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
-                        <Shuffle className="mr-2 h-4 w-4"/>
-                        Sắp xếp
-                    </Button>
-                )}
-                {categorizedList && categorizedList.length > 0 && (
-                  <Button variant="outline" onClick={handleToggleAll} size="sm" className="w-full sm:w-auto">
-                      <ChevronsDownUp className="mr-2 h-4 w-4"/>
-                      {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
-                  </Button>
-                )}
-            </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-            <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
-            {categorizedList.map(({category, items}, categoryIndex) => (
-                <AccordionItem value={category} key={category} className="border rounded-lg">
-                    <div className="flex items-center p-2">
-                        <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
-                            {editingCategory?.oldName === category ? (
-                                <Input
-                                    value={editingCategory.newName}
-                                    onChange={(e) => setEditingCategory({ ...editingCategory, newName: e.target.value })}
-                                    onKeyDown={e => e.key === 'Enter' && handleRenameCategory()}
-                                    onBlur={handleRenameCategory}
-                                    autoFocus
-                                    className="text-lg font-semibold h-9"
-                                    onClick={(e) => e.stopPropagation()}
-                                />
-                            ) : (
-                                category
-                            )}
-                        </AccordionTrigger>
-                         {isSorting ? (
-                            <div className="flex items-center gap-1 pl-4">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
-                                    <ArrowUp className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categorizedList.length - 1 === categoryIndex}>
-                                    <ArrowDown className="h-4 w-4" />
-                                </Button>
-                            </div>
-                         ) : (
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingCategory({ oldName: category, newName: category })}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                         )}
-                    </div>
-                    <AccordionContent className="p-4 border-t">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="min-w-[250px]">Tên</TableHead>
-                                        <TableHead className="min-w-[150px]">Tên VT</TableHead>
-                                        <TableHead className="min-w-[180px]">Nhà CC</TableHead>
-                                        <TableHead>Đơn vị</TableHead>
-                                        <TableHead>ĐV Đặt</TableHead>
-                                        <TableHead>Tỷ lệ QĐ</TableHead>
-                                        <TableHead>Tồn min</TableHead>
-                                        <TableHead>Gợi ý</TableHead>
-                                        <TableHead className="text-center">Bắt buộc</TableHead>
-                                        <TableHead className="text-center">Cần ảnh</TableHead>
-                                        <TableHead className="w-[50px] text-right">Xóa</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {items.map((item, index) => {
-                                        const globalIndex = inventoryList.findIndex(i => i.id === item.id);
-                                        return (
-                                        <TableRow key={item.id}>
-                                            <TableCell><Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} /></TableCell>
-                                            <TableCell><Input defaultValue={item.shortName} onBlur={e => handleUpdate(item.id, 'shortName', e.target.value)} disabled={isSorting} /></TableCell>
-                                            <TableCell>
-                                                <SupplierCombobox suppliers={suppliers || []} value={item.supplier} onChange={(s) => handleSupplierChange(item.id, s)} disabled={isSorting} />
-                                            </TableCell>
-                                            <TableCell><Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} /></TableCell>
-                                            <TableCell><Input defaultValue={item.orderUnit} onBlur={e => handleUpdate(item.id, 'orderUnit', e.target.value)} disabled={isSorting} /></TableCell>
-                                            <TableCell>
-                                                {item.orderUnit !== item.unit ? (
-                                                     <Input type="number" defaultValue={item.conversionRate} onBlur={e => handleUpdate(item.id, 'conversionRate', Number(e.target.value) || 1)} disabled={isSorting} />
-                                                ) : (
-                                                    <div className="flex items-center justify-center h-10 text-muted-foreground">1</div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell><Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/></TableCell>
-                                            <TableCell><Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/></TableCell>
-                                            <TableCell className="text-center"><Switch checked={!!item.isImportant} onCheckedChange={c => handleUpdate(item.id, 'isImportant', c)} disabled={isSorting}/></TableCell>
-                                            <TableCell className="text-center"><Switch checked={!!item.requiresPhoto} onCheckedChange={c => handleUpdate(item.id, 'requiresPhoto', c)} disabled={isSorting}/></TableCell>
-                                            <TableCell className="text-right">
-                                                {isSorting ? (
-                                                    <div className="flex flex-col">
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
-                                                    </div>
-                                                ) : (
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    )})}
-                                </TableBody>
-                            </Table>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+        <div className="lg:col-span-1 lg:sticky lg:top-4 order-2 lg:order-1">
+            <InventoryTools
+                inventoryList={inventoryList}
+                onItemsGenerated={onItemsGenerated}
+                onItemsUpdated={onItemsUpdated}
+            />
+        </div>
+        <div className="lg:col-span-3 order-1 lg:order-2">
+            <Card className="rounded-xl shadow-sm border bg-white dark:bg-card">
+                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <CardTitle>Danh sách kho hiện tại</CardTitle>
+                        <div className="relative mt-2">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Tìm theo tên mặt hàng..." 
+                                className="pl-8" 
+                                value={filter}
+                                onChange={(e) => setFilter(e.target.value)}
+                                aria-label="Tìm kiếm mặt hàng"
+                            />
                         </div>
-                    </AccordionContent>
-                </AccordionItem>
-            ))}
-            </Accordion>
-
-            <div className="mt-6 flex justify-start items-center">
-                <Button variant="outline" onClick={handleAddItem}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Thêm mặt hàng mới
-                </Button>
-            </div>
-        </CardContent>
-      </Card>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                        <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">
+                            <Link href="/inventory-history">
+                                <History className="mr-2 h-4 w-4" />
+                                Lịch sử Kho
+                            </Link>
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">
+                                    <Download className="mr-2 h-4 w-4"/>
+                                    Xuất dữ liệu
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => handleExport('table')}>Sao chép (dạng bảng)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExport('text')}>Sao chép (dạng text)</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        {isSorting ? (
+                            <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95">
+                                <Check className="mr-2 h-4 w-4"/>
+                                Lưu thứ tự
+                            </Button>
+                        ) : (
+                            <Button variant="outline" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">
+                                <Shuffle className="mr-2 h-4 w-4"/>
+                                Sắp xếp
+                            </Button>
+                        )}
+                        {categorizedList && categorizedList.length > 0 && (
+                        <Button variant="outline" onClick={handleToggleAll} size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">
+                            <ChevronsDownUp className="mr-2 h-4 w-4"/>
+                            {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
+                        </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
+                    {categorizedList.map(({category, items}, categoryIndex) => (
+                        <AccordionItem value={category} key={category} className="border rounded-lg bg-white dark:bg-card">
+                            <div className="flex items-center p-2">
+                                <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
+                                    {editingCategory?.oldName === category ? (
+                                        <Input
+                                            value={editingCategory.newName}
+                                            onChange={(e) => setEditingCategory({ ...editingCategory, newName: e.target.value })}
+                                            onKeyDown={e => e.key === 'Enter' && handleRenameCategory()}
+                                            onBlur={handleRenameCategory}
+                                            autoFocus
+                                            className="text-lg font-semibold h-9"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    ) : (
+                                        category
+                                    )}
+                                </AccordionTrigger>
+                                {isSorting ? (
+                                    <div className="flex items-center gap-1 pl-4">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
+                                            <ArrowUp className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categorizedList.length - 1 === categoryIndex}>
+                                            <ArrowDown className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingCategory({ oldName: category, newName: category })}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                            <AccordionContent className="border-t">
+                                {!isMobile ? (
+                                <div className="overflow-x-auto -mx-4 px-4">
+                                    <Table>
+                                        <TableHeader className="sticky top-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm z-10">
+                                            <TableRow>
+                                                <TableHead className="min-w-[250px] p-3 sm:p-4">Tên</TableHead>
+                                                <TableHead className="min-w-[150px] p-3 sm:p-4">Tên VT</TableHead>
+                                                <TableHead className="min-w-[180px] p-3 sm:p-4">Nhà CC</TableHead>
+                                                <TableHead className="p-3 sm:p-4">Đơn vị</TableHead>
+                                                <TableHead className="p-3 sm:p-4">ĐV Đặt</TableHead>
+                                                <TableHead className="p-3 sm:p-4">Tỷ lệ QĐ</TableHead>
+                                                <TableHead className="p-3 sm:p-4">Tồn min</TableHead>
+                                                <TableHead className="p-3 sm:p-4">Gợi ý</TableHead>
+                                                <TableHead className="text-center p-3 sm:p-4">Bắt buộc</TableHead>
+                                                <TableHead className="text-center p-3 sm:p-4">Cần ảnh</TableHead>
+                                                <TableHead className="w-[50px] text-right p-3 sm:p-4">Xóa</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {items.map((item, index) => {
+                                                const globalIndex = inventoryList.findIndex(i => i.id === item.id);
+                                                return (
+                                                <TableRow key={item.id} className="transition-colors hover:bg-muted/50">
+                                                    <TableCell className="font-semibold p-3 sm:p-4"><Input defaultValue={item.name} onBlur={e => handleUpdate(item.id, 'name', e.target.value)} disabled={isSorting} /></TableCell>
+                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.shortName} onBlur={e => handleUpdate(item.id, 'shortName', e.target.value)} disabled={isSorting} /></TableCell>
+                                                    <TableCell className="p-3 sm:p-4">
+                                                        <SupplierCombobox suppliers={suppliers || []} value={item.supplier} onChange={(s) => handleSupplierChange(item.id, s)} disabled={isSorting} />
+                                                    </TableCell>
+                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.unit} onBlur={e => handleUpdate(item.id, 'unit', e.target.value)} disabled={isSorting} /></TableCell>
+                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.orderUnit} onBlur={e => handleUpdate(item.id, 'orderUnit', e.target.value)} disabled={isSorting} /></TableCell>
+                                                    <TableCell className="p-3 sm:p-4">
+                                                        {item.orderUnit !== item.unit ? (
+                                                            <Input type="number" defaultValue={item.conversionRate} onBlur={e => handleUpdate(item.id, 'conversionRate', Number(e.target.value) || 1)} disabled={isSorting} />
+                                                        ) : (
+                                                            <div className="flex items-center justify-center h-10 text-muted-foreground">1</div>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="p-3 sm:p-4"><Input type="number" defaultValue={item.minStock} onBlur={e => handleUpdate(item.id, 'minStock', Number(e.target.value) || 0)} disabled={isSorting}/></TableCell>
+                                                    <TableCell className="p-3 sm:p-4"><Input defaultValue={item.orderSuggestion} onBlur={e => handleUpdate(item.id, 'orderSuggestion', e.target.value)} disabled={isSorting}/></TableCell>
+                                                    <TableCell className="text-center p-3 sm:p-4"><Switch checked={!!item.isImportant} onCheckedChange={c => handleUpdate(item.id, 'isImportant', c)} disabled={isSorting}/></TableCell>
+                                                    <TableCell className="text-center p-3 sm:p-4"><Switch checked={!!item.requiresPhoto} onCheckedChange={c => handleUpdate(item.id, 'requiresPhoto', c)} disabled={isSorting}/></TableCell>
+                                                    <TableCell className="text-right p-3 sm:p-4">
+                                                        {isSorting ? (
+                                                            <div className="flex flex-col">
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'up')} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveItem(globalIndex, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
+                                                            </div>
+                                                        ) : (
+                                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )})}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                ) : (
+                                    <div className="space-y-3 p-2">
+                                        {items.map(item => (
+                                            <Card key={item.id} className="bg-white dark:bg-card rounded-lg shadow-sm p-4 flex flex-col gap-2">
+                                                <div className="flex justify-between items-start">
+                                                    <p className="font-semibold">{item.name}</p>
+                                                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 -mt-2 -mr-2" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                <div className="grid grid-cols-3 gap-2 text-center text-sm pt-2 border-t">
+                                                    <div><Label>Đơn vị</Label><p className="font-medium">{item.unit}</p></div>
+                                                    <div><Label>Tồn min</Label><p className="font-medium">{item.minStock}</p></div>
+                                                    <div><Label>Gợi ý</Label><p className="font-medium">{item.orderSuggestion}</p></div>
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                    </Accordion>
+                    <div className="mt-6 flex justify-start items-center">
+                        <Button variant="outline" onClick={handleAddItem} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Thêm mặt hàng mới
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    </div>
     </div>
   );
 }
