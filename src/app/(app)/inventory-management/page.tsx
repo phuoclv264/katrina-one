@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -6,7 +5,7 @@ import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, Us
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, ChevronsDownUp, Shuffle, Check, Pencil, History, Search, Edit } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, ChevronsDownUp, Shuffle, Check, Pencil, History, Search, Edit, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,8 +14,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { SupplierCombobox } from '@/components/supplier-combobox';
-import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -24,6 +21,7 @@ import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
 import ItemEditPopover from './_components/item-edit-popover';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type CategorizedList = {
@@ -44,6 +42,8 @@ export default function InventoryManagementPage() {
   const [editingCategory, setEditingCategory] = useState<{ oldName: string; newName: string } | null>(null);
   const hasInitializedOpenState = useRef(false);
   const [filter, setFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+
 
   useEffect(() => {
     if (!authLoading) {
@@ -67,9 +67,15 @@ export default function InventoryManagementPage() {
   
   const filteredInventoryList = useMemo(() => {
     if (!inventoryList) return [];
-    if (!filter) return inventoryList;
-    return inventoryList.filter(item => item.name.toLowerCase().includes(filter.toLowerCase()));
-  }, [inventoryList, filter]);
+    let list = inventoryList;
+    if (filter) {
+        list = list.filter(item => item.name.toLowerCase().includes(filter.toLowerCase()));
+    }
+    if (categoryFilter !== 'all') {
+        list = list.filter(item => item.category === categoryFilter);
+    }
+    return list;
+  }, [inventoryList, filter, categoryFilter]);
 
 
   const categorizedList = useMemo((): CategorizedList => {
@@ -136,7 +142,7 @@ export default function InventoryManagementPage() {
   const handleAddItem = () => {
     if (!inventoryList) return;
     const newItem: InventoryItem = {
-      id: `item-${Date.now()}`, name: 'Mặt hàng mới', shortName: 'MHM', category: 'CHƯA PHÂN LOẠI',
+      id: `item-${Date.now()}`, name: 'Mặt hàng mới', shortName: 'MHM', category: categoryFilter !== 'all' ? categoryFilter : 'CHƯA PHÂN LOẠI',
       supplier: 'Chưa xác định', unit: 'cái', orderUnit: 'cái', conversionRate: 1, minStock: 1,
       unitPrice: 0, stock: 0, orderSuggestion: '1', dataType: 'number',
       listOptions: ['hết', 'gần hết', 'còn đủ', 'dư xài'], isImportant: false, requiresPhoto: false,
@@ -225,6 +231,11 @@ export default function InventoryManagementPage() {
     });
   };
 
+  const allCategories = useMemo(() => {
+      if(!inventoryList) return [];
+      return [...new Set(inventoryList.map(item => item.category))].sort();
+  }, [inventoryList]);
+
 
   if (isLoading || authLoading || !inventoryList || !suppliers) {
     return (
@@ -259,35 +270,60 @@ export default function InventoryManagementPage() {
             </div>
             <div className="lg:col-span-3 order-1 lg:order-2">
                 <Card className="rounded-xl shadow-sm border bg-white dark:bg-card">
-                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div>
-                            <CardTitle>Danh sách kho hiện tại</CardTitle>
-                            <div className="relative mt-2">
+                    <CardHeader>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <CardTitle>Danh sách kho hiện tại</CardTitle>
+                                <CardDescription className="mt-2">
+                                   Hiển thị {filteredInventoryList.length} / {inventoryList.length} mặt hàng.
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                                <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Link href="/inventory-history"><History className="mr-2 h-4 w-4" />Lịch sử Kho</Link></Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">Xuất dữ liệu</Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent><DropdownMenuItem onClick={() => handleExport()}>Sao chép (dạng bảng)</DropdownMenuItem></DropdownMenuContent>
+                                </DropdownMenu>
+                                {isSorting ? (
+                                    <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95"><Check className="mr-2 h-4 w-4"/>Lưu thứ tự</Button>
+                                ) : (
+                                    <Button variant="outline" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Shuffle className="mr-2 h-4 w-4"/>Sắp xếp</Button>
+                                )}
+                                {categorizedList && categorizedList.length > 0 && (<Button variant="outline" onClick={handleToggleAll} size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><ChevronsDownUp className="mr-2 h-4 w-4"/>{areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}</Button>)}
+                            </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                            <div className="relative flex-1">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Tìm kiếm mặt hàng" />
                             </div>
-                        </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                            <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Link href="/inventory-history"><History className="mr-2 h-4 w-4" />Lịch sử Kho</Link></Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">Xuất dữ liệu</Button></DropdownMenuTrigger>
-                                <DropdownMenuContent><DropdownMenuItem onClick={() => handleExport()}>Sao chép (dạng bảng)</DropdownMenuItem></DropdownMenuContent>
-                            </DropdownMenu>
-                            {isSorting ? (
-                                <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95"><Check className="mr-2 h-4 w-4"/>Lưu thứ tự</Button>
-                            ) : (
-                                <Button variant="outline" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Shuffle className="mr-2 h-4 w-4"/>Sắp xếp</Button>
-                            )}
-                            {categorizedList && categorizedList.length > 0 && (<Button variant="outline" onClick={handleToggleAll} size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><ChevronsDownUp className="mr-2 h-4 w-4"/>{areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}</Button>)}
+                            <div className="flex-1 sm:flex-initial sm:w-56">
+                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                    <SelectTrigger className="w-full">
+                                        <div className="flex items-center gap-2">
+                                            <Filter className="h-4 w-4" />
+                                            <SelectValue placeholder="Lọc theo nhóm..." />
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tất cả các nhóm</SelectItem>
+                                        {allCategories.map(cat => (
+                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
                         <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="space-y-4">
                         {categorizedList.map(({category, items}, categoryIndex) => (
-                            <AccordionItem value={category} key={category} className="border rounded-lg bg-white dark:bg-card">
-                                <div className="flex items-center p-2">
+                            <AccordionItem value={category} key={category} className="border-none">
+                                <div className={cn("flex items-center p-2 rounded-lg bg-muted/80 sticky top-0 z-10", openCategories.includes(category) && "rounded-b-none")}>
                                     <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-2" disabled={isSorting}>
-                                        {editingCategory?.oldName === category ? (<Input value={editingCategory.newName} onChange={(e) => setEditingCategory({ ...editingCategory, newName: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleRenameCategory()} onBlur={handleRenameCategory} autoFocus className="text-lg font-semibold h-9" onClick={(e) => e.stopPropagation()} />) : (category)}
+                                        <div className="flex items-center gap-3 w-full">
+                                            <span className="flex-1 text-left">{category} ({items.length})</span>
+                                        </div>
                                     </AccordionTrigger>
                                     {isSorting ? (
                                         <div className="flex items-center gap-1 pl-4">
@@ -298,63 +334,48 @@ export default function InventoryManagementPage() {
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingCategory({ oldName: category, newName: category })}><Pencil className="h-4 w-4" /></Button>
                                     )}
                                 </div>
-                                <AccordionContent className="border-t">
-                                    {!isMobile ? (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader className="sticky top-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm z-10"><TableRow><TableHead className="min-w-[200px] p-3 sm:p-4">Tên</TableHead><TableHead className="min-w-[120px] p-3 sm:p-4">Tên VT</TableHead><TableHead className="min-w-[150px] p-3 sm:p-4">Nhà CC</TableHead><TableHead className="p-3 sm:p-4">ĐV</TableHead><TableHead className="p-3 sm:p-4">ĐV Đặt</TableHead><TableHead className="p-3 sm:p-4">Tỷ lệ</TableHead><TableHead className="p-3 sm:p-4">Tồn min</TableHead><TableHead className="p-3 sm:p-4">Gợi ý</TableHead><TableHead className="p-3 sm:p-4">Trạng thái</TableHead><TableHead className="w-[60px] text-right p-3 sm:p-4"> </TableHead></TableRow></TableHeader>
-                                            <TableBody>
-                                                {items.map((item, index) => {
-                                                    const globalIndex = inventoryList.findIndex(i => i.id === item.id);
-                                                    return (
-                                                    <ItemEditPopover key={item.id} item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
-                                                        <TableRow className="transition-colors hover:bg-muted/50 cursor-pointer">
-                                                            <TableCell className="font-semibold p-3 sm:p-4"><div className="whitespace-normal">{item.name}</div></TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.shortName}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.supplier}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.unit}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.orderUnit}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.conversionRate}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.minStock}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">{item.orderSuggestion}</TableCell>
-                                                            <TableCell className="p-3 sm:p-4">
-                                                                <div className="flex flex-col gap-1 items-start">
-                                                                    {item.isImportant && <Badge variant="destructive">Bắt buộc</Badge>}
-                                                                    {item.requiresPhoto && <Badge variant="secondary">Cần ảnh</Badge>}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-right p-3 sm:p-4">
-                                                                {isSorting ? (
-                                                                    <div className="flex flex-col"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'up')}} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'down')}} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>
-                                                                ) : (
-                                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id)}}><Trash2 className="h-4 w-4" /></Button>
-                                                                )}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    </ItemEditPopover>
-                                                )})}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                    ) : (
-                                        <div className="space-y-3 p-2">
-                                            {items.map(item => (
-                                                <Card key={item.id} className="bg-white dark:bg-card rounded-lg shadow-sm p-4 flex flex-col gap-2">
-                                                    <div className="flex justify-between items-start">
-                                                        <p className="font-semibold pr-2">{item.name}</p>
-                                                        <div className="flex items-center -mt-2 -mr-2">
+                                <AccordionContent className="p-4 border border-t-0 rounded-b-lg">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        {items.map((item, index) => {
+                                            const globalIndex = inventoryList.findIndex(i => i.id === item.id);
+                                            return (
+                                            <Card key={item.id} className="flex flex-col justify-between hover:bg-muted/50 transition-colors">
+                                                <CardContent className="p-4 space-y-3">
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <div>
+                                                            <p className="font-bold text-base leading-tight">{item.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{item.shortName}</p>
+                                                        </div>
+                                                         <div className="flex items-center shrink-0">
                                                             <ItemEditPopover item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
-                                                                <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><Edit className="h-4 w-4"/></Button>
                                                             </ItemEditPopover>
-                                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id)}}><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                    <div className="grid grid-cols-3 gap-2 text-center text-sm pt-2 border-t"><div><Label>Đơn vị</Label><p className="font-medium">{item.unit}</p></div><div><Label>Tồn min</Label><p className="font-medium">{item.minStock}</p></div><div><Label>Gợi ý</Label><p className="font-medium">{item.orderSuggestion}</p></div></div>
-                                                </Card>
-                                            ))}
-                                        </div>
-                                    )}
+                                                    <div className="grid grid-cols-3 gap-2 text-center text-xs border-t pt-3">
+                                                        <div><p className="text-muted-foreground">Nhà CC</p><p className="font-semibold truncate">{item.supplier}</p></div>
+                                                        <div><p className="text-muted-foreground">Đơn vị</p><p className="font-semibold">{item.unit}</p></div>
+                                                        <div><p className="text-muted-foreground">ĐV Đặt</p><p className="font-semibold">{item.orderUnit}</p></div>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                                        <div><p className="text-muted-foreground">Tồn Min</p><p className="font-semibold">{item.minStock}</p></div>
+                                                        <div><p className="text-muted-foreground">Gợi ý Đặt</p><p className="font-semibold">{item.orderSuggestion}</p></div>
+                                                        <div><p className="text-muted-foreground">Tỷ lệ</p><p className="font-semibold">{item.conversionRate}</p></div>
+                                                    </div>
+                                                </CardContent>
+                                                <CardFooter className="p-3 bg-muted/50 rounded-b-lg flex justify-between items-center">
+                                                    <div className="flex gap-2">
+                                                        {item.isImportant && <Badge variant="destructive">Bắt buộc</Badge>}
+                                                        {item.requiresPhoto && <Badge variant="secondary">Cần ảnh</Badge>}
+                                                    </div>
+                                                    {isSorting && (
+                                                        <div className="flex"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'up')}} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'down')}} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>
+                                                    )}
+                                                </CardFooter>
+                                            </Card>
+                                        )})}
+                                    </div>
                                 </AccordionContent>
                             </AccordionItem>
                         ))}
