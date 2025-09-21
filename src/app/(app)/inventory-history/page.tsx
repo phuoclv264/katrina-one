@@ -19,6 +19,7 @@ import { SupplierCombobox } from '@/components/supplier-combobox';
 import { Input } from '@/components/ui/input';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Badge } from '@/components/ui/badge';
 
 type CombinedHistoryEntry = {
     date: string | Date;
