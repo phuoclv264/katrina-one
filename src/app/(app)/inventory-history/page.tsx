@@ -17,6 +17,8 @@ import { vi } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SupplierCombobox } from '@/components/supplier-combobox';
 import { Input } from '@/components/ui/input';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type CombinedHistoryEntry = {
     date: string | Date;
