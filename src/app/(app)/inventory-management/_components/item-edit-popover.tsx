@@ -12,6 +12,17 @@ import {
   DialogClose,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,6 +53,8 @@ export default function ItemEditPopover({
     const [isOpen, setIsOpen] = useState(false);
     const [item, setItem] = useState(initialItem);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [isConfirmCloseOpen, setIsConfirmCloseOpen] = useState(false);
+
 
     useEffect(() => {
         if (isOpen) {
@@ -78,13 +91,17 @@ export default function ItemEditPopover({
     
     const handleCloseDialog = (open: boolean) => {
       if (!open && hasUnsavedChanges) {
-        if (confirm("Bạn có thay đổi chưa được lưu. Bạn có chắc muốn đóng?")) {
-          setIsOpen(false);
-        }
+        setIsConfirmCloseOpen(true);
       } else {
         setIsOpen(open);
       }
     };
+    
+    const handleConfirmClose = () => {
+        setIsConfirmCloseOpen(false);
+        setIsOpen(false);
+    };
+
 
     return (
         <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
@@ -207,6 +224,22 @@ export default function ItemEditPopover({
                     <Button variant="outline" onClick={() => handleCloseDialog(false)}>Hủy</Button>
                     <Button onClick={handleSave}>Lưu thay đổi</Button>
                 </DialogFooter>
+
+                <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Hủy bỏ các thay đổi?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Bạn có một số thay đổi chưa được lưu. Bạn có chắc muốn đóng hộp thoại và hủy bỏ các thay đổi này không?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Ở lại</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmClose}>Hủy bỏ thay đổi</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
             </DialogContent>
         </Dialog>
     );
