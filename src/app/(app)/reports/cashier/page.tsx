@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -32,47 +32,50 @@ type GroupedReports = {
 };
 
 const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void }) => {
-  const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile(containerRef);
 
   if (!isMobile) {
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Thời gian</TableHead>
-            <TableHead>Nội dung</TableHead>
-            <TableHead>Số tiền</TableHead>
-            <TableHead>Phương thức</TableHead>
-            <TableHead className="text-right">Hành động</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {expenses.map(expense => (
-            <TableRow key={expense.id}>
-              <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
-              <TableCell>
-                {expense.items.map(i => i.name).join(', ')}
-                <p className="text-xs text-muted-foreground">{expense.createdBy.userName}</p>
-              </TableCell>
-              <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
-              <TableCell className="text-sm">
-                 <Badge variant={expense.paymentMethod === 'cash' ? 'secondary' : 'outline'}>
-                    {expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
-                 </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button variant="outline" size="sm" onClick={() => onEdit(expense)}>Chi tiết</Button>
-              </TableCell>
+      <div ref={containerRef}>
+        <Table>
+            <TableHeader>
+            <TableRow>
+                <TableHead>Thời gian</TableHead>
+                <TableHead>Nội dung</TableHead>
+                <TableHead>Số tiền</TableHead>
+                <TableHead>Phương thức</TableHead>
+                <TableHead className="text-right">Hành động</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </TableHeader>
+            <TableBody>
+            {expenses.map(expense => (
+                <TableRow key={expense.id}>
+                <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
+                <TableCell>
+                    {expense.items.map(i => i.name).join(', ')}
+                    <p className="text-xs text-muted-foreground">{expense.createdBy.userName}</p>
+                </TableCell>
+                <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
+                <TableCell className="text-sm">
+                    <Badge variant={expense.paymentMethod === 'cash' ? 'secondary' : 'outline'}>
+                        {expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                    </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => onEdit(expense)}>Chi tiết</Button>
+                </TableCell>
+                </TableRow>
+            ))}
+            </TableBody>
+        </Table>
+      </div>
     );
   }
 
   // Mobile View
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={containerRef}>
       {expenses.map((expense, index) => (
         <React.Fragment key={expense.id}>
           <div className="p-3">
@@ -335,9 +338,9 @@ export default function CashierReportsPage() {
                                 <span className="text-lg font-semibold">{format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}</span>
                             </div>
                         </AccordionTrigger>
-                        <AccordionContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border border-t-0 rounded-b-lg shadow-sm bg-muted/30">
+                        <AccordionContent className="grid grid-cols-1 gap-6 p-4 border border-t-0 rounded-b-lg shadow-sm bg-muted/30">
                            
-                            <div className="md:col-span-2">
+                            <div className="col-span-1">
                                 {dayReports.revenue ? (
                                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
                                         <CardHeader className="flex-row items-center justify-between p-4">
@@ -358,7 +361,7 @@ export default function CashierReportsPage() {
                                 )}
                             </div>
                             
-                            <div className="md:col-span-2">
+                            <div className="col-span-1">
                                 {dayReports.expenses && dayReports.expenses.length > 0 ? (
                                     <Card>
                                         <CardHeader className="p-4">
@@ -382,7 +385,7 @@ export default function CashierReportsPage() {
                                 )}
                             </div>
 
-                             <div className="md:col-span-2">
+                             <div className="col-span-1">
                                 {dayReports.incidents && dayReports.incidents.length > 0 ? (
                                     <Card>
                                         <CardHeader className="p-4">
