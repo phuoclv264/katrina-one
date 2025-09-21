@@ -89,7 +89,7 @@ export default function ItemEditPopover({
     return (
         <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl bg-card">
                 <DialogHeader>
                     <DialogTitle>Chỉnh sửa: {initialItem.name}</DialogTitle>
                     <DialogDescription>
@@ -97,7 +97,7 @@ export default function ItemEditPopover({
                     </DialogDescription>
                 </DialogHeader>
                  <ScrollArea className="max-h-[70vh] -mx-6 px-6">
-                    <div className="space-y-6 py-4">
+                    <div className="space-y-6 py-4 px-1">
                         
                         {/* Basic Info */}
                         <div className="space-y-4">
@@ -184,20 +184,20 @@ export default function ItemEditPopover({
                         <div className="space-y-4">
                             <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><ToggleRight className="h-4 w-4"/>Tùy chọn</h4>
                              <div className="space-y-4">
-                                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <Label htmlFor={`isImportant-${item.id}`} className="flex items-center justify-between rounded-lg border p-3 shadow-sm cursor-pointer">
                                     <div>
-                                        <Label htmlFor={`isImportant-${item.id}`} className="font-medium">Bắt buộc kiểm kê</Label>
+                                        <span className="font-medium">Bắt buộc kiểm kê</span>
                                         <p className="text-[0.8rem] text-muted-foreground">Nhân viên phải nhập số liệu cho mục này khi báo cáo.</p>
                                     </div>
                                     <Switch id={`isImportant-${item.id}`} checked={item.isImportant} onCheckedChange={c => handleFieldChange('isImportant', c)} />
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                                </Label>
+                                <Label htmlFor={`requiresPhoto-${item.id}`} className="flex items-center justify-between rounded-lg border p-3 shadow-sm cursor-pointer">
                                      <div>
-                                        <Label htmlFor={`requiresPhoto-${item.id}`} className="font-medium">Yêu cầu ảnh bằng chứng</Label>
+                                        <span className="font-medium">Yêu cầu ảnh bằng chứng</span>
                                         <p className="text-[0.8rem] text-muted-foreground">Nhân viên phải chụp ảnh khi kiểm kê mục này.</p>
                                      </div>
                                     <Switch id={`requiresPhoto-${item.id}`} checked={item.requiresPhoto} onCheckedChange={c => handleFieldChange('requiresPhoto', c)} />
-                                </div>
+                                </Label>
                             </div>
                         </div>
 
@@ -211,4 +211,3 @@ export default function ItemEditPopover({
         </Dialog>
     );
 }
-
