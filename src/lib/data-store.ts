@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -26,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, PriceHistoryEntry, StockHistoryEntry } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, PriceHistoryEntry, StockHistoryEntry } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -1095,41 +1096,6 @@ export const dataStore = {
         const docRef = doc(db, 'app-data', 'settings');
         await updateDoc(docRef, newSettings);
     },
-
-  async logErrorToServer(error: AppError) {
-    try {
-      const errorCollection = collection(db, 'errors');
-      await addDoc(errorCollection, {
-        ...error,
-        timestamp: serverTimestamp(),
-      });
-    } catch (loggingError) {
-      console.error("FATAL: Could not log error to server.", loggingError);
-    }
-  },
-
-  subscribeToErrorLog(callback: (errors: AppError[]) => void): () => void {
-    const errorsCollection = collection(db, 'errors');
-    const q = query(errorsCollection, orderBy('timestamp', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const errors: AppError[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        errors.push({
-          id: doc.id,
-          ...data,
-          timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-        } as AppError);
-      });
-      callback(errors);
-    }, (error) => {
-        console.warn(`[Firestore Read Error] Could not read error log: ${error.code}`);
-        callback([]); // Return empty array on permission error
-    });
-
-    return unsubscribe;
-  },
   
   subscribeToUsers(callback: (users: ManagedUser[]) => void): () => void {
     const usersCollection = collection(db, 'users');
@@ -2190,5 +2156,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    

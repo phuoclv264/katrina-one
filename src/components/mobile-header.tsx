@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -19,7 +20,6 @@ const pathToTitleMap: { [key: string]: string } = {
     '/reports/hygiene': 'Báo cáo Vệ sinh',
     '/reports/inventory': 'Báo cáo Tồn kho',
     '/reports/comprehensive': 'Báo cáo Toàn diện',
-    '/reports/error-log': 'Nhật ký lỗi',
     '/reports/cashier': 'Báo cáo Thu ngân',
     '/users': 'Quản lý Người dùng',
     '/task-lists': 'QL Công việc Phục vụ',

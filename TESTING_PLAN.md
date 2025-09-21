@@ -167,8 +167,6 @@ Kịch bản này được tạo ra để kiểm tra toàn diện các tính nă
     2.  Chọn một ngày có nhiều báo cáo, nhấn "Tóm tắt bằng AI".
     3.  Chờ AI xử lý.
     -   *Kết quả mong muốn:* Hiển thị một bản tóm tắt mạch lạc, đầy đủ thông tin về các công việc, vấn đề trong ngày.
--   **TC-CNH-07 (Error Log):** Vào trang "Giám sát Lỗi".
-    -   *Kết quả mong muốn:* Hiển thị danh sách các lỗi (nếu có) đã xảy ra trong hệ thống.
 -   **TC-CNH-08 (Cleanup):**
     1.  Vào trang "Xem Báo cáo", nhấn "Dọn dẹp Báo cáo".
     2.  Nhập số ngày và xác nhận xóa.
@@ -177,4 +175,3 @@ Kịch bản này được tạo ra để kiểm tra toàn diện các tính nă
 ---
 
 Chúc bạn và đội ngũ có một quá trình kiểm thử hiệu quả!
-```

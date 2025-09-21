@@ -78,8 +78,7 @@ export function AppSidebar() {
             { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
             { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
             { href: '/inventory-history', label: 'Lịch sử Kho', icon: History },
-            commonViolationMenu,
-            { href: '/reports/error-log', label: 'Giám sát Lỗi', icon: ShieldAlert }
+            commonViolationMenu
           );
           break;
       }

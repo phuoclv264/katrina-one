@@ -47,16 +47,6 @@
       ]
     },
     {
-      "collectionGroup": "errors",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "timestamp",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "expense_slips",
       "queryScope": "COLLECTION",
       "fields": [
