@@ -22,7 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { diffChars } from 'diff';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import isEqual from 'lodash.isequal';
 
@@ -130,29 +130,34 @@ export default function InventoryTools({
             toast.error("Vui lòng dán dữ liệu vào ô.");
             return;
         }
-
+    
         const lines = bulkEditText.trim().split('\n');
-        const dataLines = lines.slice(1);
-        let changesCount = 0;
         
+        // Check if the first line is a header and skip it if so
+        const hasHeader = lines[0].includes("Tên mặt hàng");
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+    
+        let changesCount = 0;
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
-
+    
         dataLines.forEach(line => {
-            const parts = line.split(' | ').map(p => p.trim());
+            if (!line.trim()) return; // Skip empty lines
+    
+            const parts = line.split('|').map(p => p.trim());
             const [
                 name, shortName, category, supplier, unit, orderUnit,
                 conversionRateStr, minStockStr, orderSuggestion,
                 requiresPhotoStr, isImportantStr
             ] = parts;
-
+    
             if (!name) return;
-
+    
             const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
             
             if (itemIndex > -1) {
                 const itemToUpdate = updatedList[itemIndex];
                 const originalItem = JSON.parse(JSON.stringify(itemToUpdate));
-
+    
                 itemToUpdate.name = name || itemToUpdate.name;
                 itemToUpdate.shortName = shortName || itemToUpdate.shortName;
                 itemToUpdate.category = category || itemToUpdate.category;
@@ -164,13 +169,13 @@ export default function InventoryTools({
                 itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
                 itemToUpdate.requiresPhoto = requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : itemToUpdate.requiresPhoto;
                 itemToUpdate.isImportant = isImportantStr ? isImportantStr.toUpperCase() === 'CÓ' : itemToUpdate.isImportant;
-
+    
                 if (!isEqual(originalItem, itemToUpdate)) {
                     changesCount++;
                 }
             }
         });
-
+    
         if (changesCount > 0) {
             setUpdatePreview({ oldList: inventoryList, newList: updatedList });
             setShowUpdatePreview(true);
