@@ -358,7 +358,7 @@ export default function CashierReportsPage() {
                                 )}
                             </div>
                             
-                            <div>
+                            <div className="md:col-span-2">
                                 {dayReports.expenses && dayReports.expenses.length > 0 ? (
                                     <Card>
                                         <CardHeader className="p-4">
@@ -382,7 +382,7 @@ export default function CashierReportsPage() {
                                 )}
                             </div>
 
-                             <div>
+                             <div className="md:col-span-2">
                                 {dayReports.incidents && dayReports.incidents.length > 0 ? (
                                     <Card>
                                         <CardHeader className="p-4">
