@@ -26,7 +26,7 @@ export const helloWorld = onRequest((request, response) => {
 });
 
 export const sendTestNotification = onRequest(
-  {cors: ["https://*.web.app", "https://*.firebaseapp.com"]},
+  {cors: true}, // Cho phép yêu cầu từ mọi nguồn
   async (req, res) => {
     const userId = req.query.userId;
 
