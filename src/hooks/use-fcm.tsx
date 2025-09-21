@@ -3,26 +3,22 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getToken, onMessage } from 'firebase/messaging';
-import { messaging } from '@/lib/firebase';
+import { messaging, db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-// Function to call the test notification endpoint
-const sendTestNotification = async (userId: string) => {
-  const functionUrl = `https://sendtestnotification-b37o3wa5na-uc.a.run.app?userId=${userId}`;
-
+// Function to call the test notification cloud function
+const triggerSendTestNotification = async (userId: string) => {
   try {
-    const response = await fetch(functionUrl);
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`Function call failed: ${text}`);
-    }
-    console.log('Test notification trigger successful:', text);
+    const functions = getFunctions();
+    const sendTestNotification = httpsCallable(functions, 'sendTestNotification');
+    const result = await sendTestNotification({ userId });
+    console.log('Callable function result:', result.data);
   } catch (error) {
-    console.error('Error triggering test notification:', error);
+    console.error('Error calling sendTestNotification function:', error);
   }
 };
 
@@ -105,7 +101,7 @@ export const useFcm = () => {
                     await setDoc(userDocRef, { fcmToken: token }, { merge: true });
                     toast.success("Đã bật thông báo!");
 
-                    await sendTestNotification(userId);
+                    await triggerSendTestNotification(userId);
 
                     return token;
                 } else {
