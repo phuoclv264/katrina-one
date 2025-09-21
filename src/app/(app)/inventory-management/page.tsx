@@ -11,12 +11,8 @@ import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Label } from '@/components/ui/label';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
@@ -34,7 +30,6 @@ type CategorizedList = {
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const isMobile = useIsMobile();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,16 +101,14 @@ export default function InventoryManagementPage() {
     dataStore.updateInventoryList(newList);
   }, []);
 
-  const handleUpdate = (id: string, field: keyof InventoryItem, value: string | number | boolean | string[]) => {
+  const handleUpdate = (updatedItem: InventoryItem) => {
     if (!inventoryList) return;
-    const newList = inventoryList.map(item => item.id === id ? { ...item, [field]: value } : item);
+    const newList = inventoryList.map(item => item.id === updatedItem.id ? updatedItem : item);
     handleUpdateAndSave(newList);
   };
   
-  const handleSupplierChange = (id: string, newSupplier: string) => {
-    if (!inventoryList || !suppliers) return;
-    const newList = inventoryList.map(item => item.id === id ? { ...item, supplier: newSupplier } : item);
-    handleUpdateAndSave(newList);
+  const handleSupplierChange = (newSupplier: string) => {
+    if (!suppliers) return;
 
     if (!suppliers.includes(newSupplier)) {
         const newSuppliers = [...suppliers, newSupplier].sort();
@@ -281,10 +274,7 @@ export default function InventoryManagementPage() {
                             </div>
                             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                                 <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Link href="/inventory-history"><History className="mr-2 h-4 w-4" />Lịch sử Kho</Link></Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors">Xuất dữ liệu</Button></DropdownMenuTrigger>
-                                    <DropdownMenuContent><DropdownMenuItem onClick={() => handleExport()}>Sao chép (dạng bảng)</DropdownMenuItem></DropdownMenuContent>
-                                </DropdownMenu>
+                                <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-3 rounded-md">Xuất văn bản</Button>
                                 {isSorting ? (
                                     <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95"><Check className="mr-2 h-4 w-4"/>Lưu thứ tự</Button>
                                 ) : (
@@ -391,6 +381,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-
-    

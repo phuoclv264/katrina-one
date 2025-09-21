@@ -32,8 +32,8 @@ export default function ItemEditPopover({
 }: {
     item: InventoryItem;
     suppliers: string[];
-    onUpdate: (id: string, field: keyof InventoryItem, value: any) => void;
-    onSupplierChange: (id: string, newSupplier: string) => void;
+    onUpdate: (updatedItem: InventoryItem) => void;
+    onSupplierChange: (newSupplier: string) => void;
     children: React.ReactNode;
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -50,17 +50,18 @@ export default function ItemEditPopover({
     };
 
     const handleSave = () => {
-        // Find fields that have changed
-        (Object.keys(item) as Array<keyof InventoryItem>).forEach(key => {
-            if (!isEqual(item[key], initialItem[key])) {
-                if (key === 'supplier') {
-                    onSupplierChange(item.id, item.supplier);
-                } else {
-                    onUpdate(item.id, key, item[key]);
-                }
+        // Only call update if there are actual changes
+        if (!isEqual(item, initialItem)) {
+            onUpdate(item);
+            
+            // Also check if a new supplier was added
+            if (item.supplier && !suppliers.includes(item.supplier)) {
+                 onSupplierChange(item.supplier);
             }
-        });
-        toast.success(`Đã cập nhật mặt hàng "${item.name}".`);
+             toast.success(`Đã cập nhật mặt hàng "${item.name}".`);
+        } else {
+            toast('Không có thay đổi nào để lưu.');
+        }
         setIsOpen(false);
     };
 
