@@ -100,24 +100,6 @@ export type ShiftReport = {
 };
 
 // --- Inventory Types ---
-
-export type PriceHistoryEntry = {
-    date: string | Timestamp;
-    price: number;
-    source: 'expense_slip';
-    sourceId: string; // ID of the ExpenseSlip
-};
-
-export type StockHistoryEntry = {
-    date: string | Timestamp;
-    change: number; // Positive for addition, negative for reduction/loss
-    newStock: number;
-    source: 'expense_slip' | 'inventory_check' | 'manual_adjustment';
-    sourceId: string; // ID of ExpenseSlip or InventoryReport
-    notes?: string;
-};
-
-
 export type InventoryItem = {
     id: string;
     name: string;
@@ -135,8 +117,6 @@ export type InventoryItem = {
     isImportant?: boolean;
     dataType: 'number' | 'list';
     listOptions?: string[];
-    priceHistory?: PriceHistoryEntry[];
-    stockHistory?: StockHistoryEntry[];
 };
 
 export type UnitConversion = {

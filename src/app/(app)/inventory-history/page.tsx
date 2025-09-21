@@ -1,7 +1,7 @@
 
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -9,115 +9,164 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, PriceHistoryEntry, StockHistoryEntry } from '@/lib/types';
+import type { InventoryItem, ExpenseSlip, InventoryReport } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Filter, History } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, Filter, History, ShoppingCart, TestTube2, ArrowUp, ArrowDown } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SupplierCombobox } from '@/components/supplier-combobox';
+import { Input } from '@/components/ui/input';
 
-type CombinedHistoryEntry = (StockHistoryEntry | PriceHistoryEntry) & {
+type CombinedHistoryEntry = {
+    date: string | Date;
     itemName: string;
     itemUnit: string;
-    supplier: string;
-    type: 'stock' | 'price';
+    itemSupplier: string;
+    type: 'Nhập hàng' | 'Kiểm kê';
+    change: string; // e.g., "+5", "-2.5", "10 -> 8"
+    newStock: string;
+    priceInfo: string; // e.g., "100,000đ" or "-"
+    sourceId: string;
 };
 
-export default function InventoryHistoryPage() {
+
+function InventoryHistoryView() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
 
     const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
+    const [expenseSlips, setExpenseSlips] = useState<ExpenseSlip[]>([]);
+    const [inventoryReports, setInventoryReports] = useState<InventoryReport[]>([]);
     const [suppliers, setSuppliers] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const [filterItemId, setFilterItemId] = useState<string>('all');
+    const [filterItemName, setFilterItemName] = useState<string>('');
     const [filterSupplier, setFilterSupplier] = useState<string>('');
     const [filterType, setFilterType] = useState<string>('all');
+    
+    const [sortColumn, setSortColumn] = useState<'date' | 'itemName'>('date');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user || user.role !== 'Chủ nhà hàng') {
-                router.replace('/');
-            }
+        if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+            router.replace('/');
         }
     }, [user, authLoading, router]);
 
     useEffect(() => {
         if (!user) return;
-        let inventorySubscribed = false;
-        let suppliersSubscribed = false;
+        
+        const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
+        const unsubSuppliers = dataStore.subscribeToSuppliers(setSuppliers);
+        const unsubExpenses = dataStore.subscribeToAllExpenseSlips(setExpenseSlips);
+        const unsubReports = dataStore.subscribeToAllInventoryReports(setInventoryReports);
 
-        const checkLoadingDone = () => {
-            if (inventorySubscribed && suppliersSubscribed) {
-                setIsLoading(false);
-            }
-        };
-
-        const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => {
-            setSuppliers(supplierList);
-            suppliersSubscribed = true;
-            checkLoadingDone();
-        });
-        const unsubInventory = dataStore.subscribeToInventoryList((items) => {
-            setInventoryList(items);
-            inventorySubscribed = true;
-            checkLoadingDone();
-        });
+        Promise.all([
+            getDocs(collection(db, 'app-data')),
+            getDocs(collection(db, 'expense_slips')),
+            getDocs(collection(db, 'inventory-reports')),
+        ]).then(() => setIsLoading(false));
 
         return () => {
-            unsubSuppliers();
             unsubInventory();
+            unsubSuppliers();
+            unsubExpenses();
+            unsubReports();
         };
     }, [user]);
 
-    const combinedHistory = useMemo(() => {
+    const combinedHistory = useMemo((): CombinedHistoryEntry[] => {
         const history: CombinedHistoryEntry[] = [];
-        inventoryList.forEach(item => {
-            (item.stockHistory || []).forEach(entry => {
-                history.push({ ...entry, itemName: item.name, itemUnit: item.unit, supplier: item.supplier, type: 'stock' });
-            });
-            (item.priceHistory || []).forEach(entry => {
-                history.push({ ...entry, itemName: item.name, itemUnit: item.unit, supplier: item.supplier, type: 'price' });
+        const itemMap = new Map(inventoryList.map(item => [item.id, item]));
+
+        // Process Expense Slips
+        expenseSlips.forEach(slip => {
+            slip.items.forEach(item => {
+                const inventoryItem = itemMap.get(item.itemId);
+                if (!inventoryItem) return;
+
+                history.push({
+                    date: slip.createdAt as string,
+                    itemName: inventoryItem.name,
+                    itemUnit: inventoryItem.unit,
+                    itemSupplier: inventoryItem.supplier,
+                    type: 'Nhập hàng',
+                    change: `+${item.quantity}`,
+                    newStock: ``, // Can't know new stock without processing all history
+                    priceInfo: `${item.unitPrice.toLocaleString('vi-VN')}đ`,
+                    sourceId: slip.id,
+                });
             });
         });
-        return history.sort((a, b) => new Date(b.date as string).getTime() - new Date(a.date as string).getTime());
-    }, [inventoryList]);
+        
+        // This part becomes tricky without pre-calculated stock.
+        // We can only show the reported stock, not the change.
+        inventoryReports.forEach(report => {
+            for (const itemId in report.stockLevels) {
+                const record = report.stockLevels[itemId];
+                const inventoryItem = itemMap.get(itemId);
+                if (!inventoryItem) continue;
 
-    const filteredHistory = useMemo(() => {
-        return combinedHistory.filter(entry => {
-            if (filterItemId !== 'all' && entry.itemName !== inventoryList.find(i => i.id === filterItemId)?.name) {
+                history.push({
+                    date: report.submittedAt as string,
+                    itemName: inventoryItem.name,
+                    itemUnit: inventoryItem.unit,
+                    itemSupplier: inventoryItem.supplier,
+                    type: 'Kiểm kê',
+                    change: ``, // Can't calculate change easily
+                    newStock: `${record.stock}`,
+                    priceInfo: `-`,
+                    sourceId: report.id,
+                });
+            }
+        });
+
+        // Filter
+        let filtered = history.filter(entry => {
+             if (filterItemName && !entry.itemName.toLowerCase().includes(filterItemName.toLowerCase())) {
                 return false;
             }
-            if (filterSupplier && entry.supplier !== filterSupplier) {
+            if (filterSupplier && entry.itemSupplier !== filterSupplier) {
                 return false;
             }
-            if (filterType !== 'all' && entry.source !== filterType) {
+            if (filterType !== 'all' && entry.type !== filterType) {
                 return false;
             }
             return true;
         });
-    }, [combinedHistory, filterItemId, filterSupplier, filterType, inventoryList]);
 
-    const formatTimestamp = (timestamp: any) => {
-        if (!timestamp) return 'N/A';
-        try {
-            const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate();
-            return format(date, 'dd/MM/yyyy HH:mm', { locale: vi });
-        } catch (error) {
-            return 'Invalid Date';
-        }
-    };
+        // Sort
+        filtered.sort((a, b) => {
+            if (sortColumn === 'date') {
+                const dateA = new Date(a.date).getTime();
+                const dateB = new Date(b.date).getTime();
+                return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+            }
+            if (sortColumn === 'itemName') {
+                 const comparison = a.itemName.localeCompare(b.itemName, 'vi');
+                 return sortDirection === 'asc' ? comparison : -comparison;
+            }
+            return 0;
+        });
+
+        return filtered;
+    }, [inventoryList, expenseSlips, inventoryReports, filterItemName, filterSupplier, filterType, sortColumn, sortDirection]);
     
-    const getSourceTypeLabel = (source: string) => {
-        switch(source) {
-            case 'expense_slip': return 'Nhập hàng (Phiếu chi)';
-            case 'inventory_check': return 'Kiểm kê kho';
-            case 'manual_adjustment': return 'Điều chỉnh thủ công';
-            default: return source;
+    const handleSort = (column: 'date' | 'itemName') => {
+        if (sortColumn === column) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(column);
+            setSortDirection('desc');
         }
     }
+    
+    const SortIndicator = ({ column }: { column: 'date' | 'itemName' }) => {
+        if (sortColumn !== column) return null;
+        return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+    };
 
 
     if (isLoading || authLoading) {
@@ -148,23 +197,21 @@ export default function InventoryHistoryPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Filter/> Bộ lọc</CardTitle>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4">
-                        <Select value={filterItemId} onValueChange={setFilterItemId}>
-                            <SelectTrigger><SelectValue placeholder="Lọc theo mặt hàng..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Tất cả mặt hàng</SelectItem>
-                                {inventoryList.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <Input 
+                            placeholder="Lọc theo tên mặt hàng..."
+                            value={filterItemName}
+                            onChange={(e) => setFilterItemName(e.target.value)}
+                        />
                         <SupplierCombobox suppliers={suppliers} value={filterSupplier} onChange={setFilterSupplier} />
                         <Select value={filterType} onValueChange={setFilterType}>
                             <SelectTrigger><SelectValue placeholder="Lọc theo loại sự kiện..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tất cả sự kiện</SelectItem>
-                                <SelectItem value="expense_slip">Nhập hàng</SelectItem>
-                                <SelectItem value="inventory_check">Kiểm kê</SelectItem>
+                                <SelectItem value="Nhập hàng">Nhập hàng</SelectItem>
+                                <SelectItem value="Kiểm kê">Kiểm kê</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button variant="outline" onClick={() => { setFilterItemId('all'); setFilterSupplier(''); setFilterType('all'); }}>Xóa bộ lọc</Button>
+                        <Button variant="outline" onClick={() => { setFilterItemName(''); setFilterSupplier(''); setFilterType('all'); }}>Xóa bộ lọc</Button>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -172,34 +219,42 @@ export default function InventoryHistoryPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Thời gian</TableHead>
-                                    <TableHead>Tên mặt hàng</TableHead>
+                                    <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>
+                                        <div className="flex items-center">Thời gian <SortIndicator column="date" /></div>
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer" onClick={() => handleSort('itemName')}>
+                                         <div className="flex items-center">Tên mặt hàng <SortIndicator column="itemName" /></div>
+                                    </TableHead>
                                     <TableHead>Sự kiện</TableHead>
-                                    <TableHead>Chi tiết</TableHead>
+                                    <TableHead>Thay đổi</TableHead>
+                                    <TableHead>Tồn kho mới</TableHead>
+                                    <TableHead>Đơn giá</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredHistory.length > 0 ? filteredHistory.map((entry, index) => (
+                                {combinedHistory.length > 0 ? combinedHistory.map((entry, index) => (
                                     <TableRow key={`${entry.sourceId}-${index}`}>
-                                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatTimestamp(entry.date)}</TableCell>
+                                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{format(parseISO(entry.date as string), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
                                         <TableCell className="font-semibold">{entry.itemName}</TableCell>
-                                        <TableCell>{getSourceTypeLabel(entry.source)}</TableCell>
                                         <TableCell>
-                                            {entry.type === 'stock' ? (
-                                                <p className={ (entry as StockHistoryEntry).change >= 0 ? "text-green-600" : "text-red-600"}>
-                                                    {(entry as StockHistoryEntry).change > 0 ? '+' : ''}{(entry as StockHistoryEntry).change} {entry.itemUnit}
-                                                    <span className="text-muted-foreground ml-2">(còn {(entry as StockHistoryEntry).newStock})</span>
-                                                </p>
-                                            ) : (
-                                                <p className="text-blue-600">
-                                                    Đơn giá mới: {(entry as PriceHistoryEntry).price.toLocaleString('vi-VN')}đ
-                                                </p>
-                                            )}
+                                            <Badge variant={entry.type === 'Nhập hàng' ? 'default' : 'secondary'}>
+                                                {entry.type === 'Nhập hàng' ? <ShoppingCart className="h-3 w-3 mr-1.5"/> : <TestTube2 className="h-3 w-3 mr-1.5"/>}
+                                                {entry.type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className={entry.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}>
+                                            {entry.change || '-'}
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            {entry.newStock || '-'}
+                                        </TableCell>
+                                        <TableCell className="font-mono">
+                                            {entry.priceInfo}
                                         </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">Không có dữ liệu lịch sử nào khớp.</TableCell>
+                                        <TableCell colSpan={6} className="h-24 text-center">Không có dữ liệu lịch sử nào khớp.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -209,4 +264,13 @@ export default function InventoryHistoryPage() {
             </Card>
         </div>
     );
+}
+
+
+export default function InventoryHistoryPage() {
+    return (
+        <Suspense fallback={<div className="h-screen w-full flex items-center justify-center"><Skeleton className="w-full h-full" /></div>}>
+            <InventoryHistoryView />
+        </Suspense>
+    )
 }
