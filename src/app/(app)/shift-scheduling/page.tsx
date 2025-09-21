@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useEffect } from 'react';
@@ -41,10 +40,12 @@ export default function ShiftSchedulingPage() {
                         Quay lại
                     </Link>
                 </Button>
-                 <h1 className="text-3xl font-bold font-headline">Xếp lịch & Phê duyệt</h1>
-                <p className="text-muted-foreground mt-2">
-                    Tạo lịch làm việc, phân công nhân viên, đề xuất và công bố lịch chính thức.
-                </p>
+                <div>
+                  <h1 className="text-3xl font-bold font-headline">Xếp lịch & Phê duyệt</h1>
+                  <p className="text-muted-foreground mt-2">
+                      Tạo lịch làm việc, phân công nhân viên, đề xuất và công bố lịch chính thức.
+                  </p>
+                </div>
             </header>
             <ScheduleView />
         </div>
