@@ -207,8 +207,8 @@ function InventoryTools({
         let changesMade = 0;
     
         lines.forEach(line => {
-            const parts = line.split('\t');
-            if (parts.length < 11) return; // Expecting at least 11 parts for the full table export
+            const parts = line.split(' | ');
+            if (parts.length < 11) return;
     
             const [
                 name, shortName, category, supplier, unit, orderUnit,
@@ -800,12 +800,12 @@ export default function InventoryManagementPage() {
         if (type === 'table') {
             const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'ĐV Đặt hàng', 'Tỷ lệ quy đổi', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
             const rows = inventoryList.map(item => 
-                [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('\t')
+                [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join(' | ')
             );
-            textToCopy = [headers.join('\t'), ...rows].join('\n');
+            textToCopy = [headers.join(' | '), ...rows].join('\n');
         } else if (type === 'text') {
              textToCopy = inventoryList.map(item => 
-                [item.category, item.name, item.shortName, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join('\t')
+                [item.category, item.name, item.shortName, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join(' | ')
             ).join('\n');
         }
 
