@@ -110,13 +110,12 @@ export type InventoryItem = {
     orderUnit: string; // New field for ordering unit
     conversionRate: number; // New field for conversion rate, e.g., 1 'orderUnit' = X 'unit'
     minStock: number;
-    unitPrice: number; // Current price per unit
-    stock: number; // Current stock quantity
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
     isImportant?: boolean;
     dataType: 'number' | 'list';
     listOptions?: string[];
+    // Deprecated fields removed: unitPrice, stock, priceHistory, stockHistory
 };
 
 export type UnitConversion = {

@@ -143,9 +143,8 @@ export default function InventoryManagementPage() {
     const newItem: InventoryItem = {
       id: `item-${Date.now()}`, name: 'Mặt hàng mới', shortName: 'MHM', category: categoryFilter !== 'all' ? categoryFilter : 'CHƯA PHÂN LOẠI',
       supplier: 'Chưa xác định', unit: 'cái', orderUnit: 'cái', conversionRate: 1, minStock: 1,
-      unitPrice: 0, stock: 0, orderSuggestion: '1', dataType: 'number',
+      orderSuggestion: '1', dataType: 'number',
       listOptions: ['hết', 'gần hết', 'còn đủ', 'dư xài'], isImportant: false, requiresPhoto: false,
-      priceHistory: [], stockHistory: [],
     };
     const newList = [...inventoryList, newItem];
     handleUpdateAndSave(newList);

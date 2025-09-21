@@ -100,9 +100,8 @@ export default function InventoryTools({
                          ...item, id: `item-${Date.now()}-${Math.random()}`,
                         shortName: item.shortName || item.name.split(' ').slice(0,2).join(' '),
                         orderUnit: item.orderUnit || item.unit, conversionRate: item.conversionRate || 1,
-                        unitPrice: 0, stock: 0, isImportant: item.isImportant ?? false,
+                        isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false, dataType: item.dataType || 'number',
-                        priceHistory: [], stockHistory: [],
                     });
                 }
             });
