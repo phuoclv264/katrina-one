@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
 import ItemEditPopover from './_components/item-edit-popover';
+import { Badge } from '@/components/ui/badge';
 
 
 type CategorizedList = {
