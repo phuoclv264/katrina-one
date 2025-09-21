@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -43,6 +42,7 @@ function InventoryTools({
     const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
+    const [bulkEditText, setBulkEditText] = useState('');
     const [activeTab, setActiveTab] = useState('add');
     const { toast } = useToast();
     const [sortInstruction, setSortInstruction] = useState('');
@@ -197,36 +197,39 @@ function InventoryTools({
     }
 
     const handleBulkUpdateParse = () => {
-        if (!textInput.trim()) {
+        if (!bulkEditText.trim()) {
             toast({ title: "Lỗi", description: "Vui lòng dán dữ liệu vào ô.", variant: "destructive" });
             return;
         }
     
-        const lines = textInput.trim().split('\n');
+        const lines = bulkEditText.trim().split('\n');
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
         let changesMade = 0;
     
         lines.forEach(line => {
-            const parts = line.split('-');
-            if (parts.length < 9) return; // Expecting at least 9 parts
+            const parts = line.split('\t');
+            if (parts.length < 11) return; // Expecting at least 11 parts for the full table export
     
             const [
-                category, name, shortName, supplier, unit, orderUnit,
-                conversionRateStr, minStockStr, orderSuggestion
+                name, shortName, category, supplier, unit, orderUnit,
+                conversionRateStr, minStockStr, orderSuggestion,
+                requiresPhotoStr, isImportantStr
             ] = parts.map(p => p.trim());
     
             const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
     
             if (itemIndex > -1) {
                 const itemToUpdate = updatedList[itemIndex];
-                itemToUpdate.category = category || itemToUpdate.category;
                 itemToUpdate.shortName = shortName || itemToUpdate.shortName;
+                itemToUpdate.category = category || itemToUpdate.category;
                 itemToUpdate.supplier = supplier || itemToUpdate.supplier;
                 itemToUpdate.unit = unit || itemToUpdate.unit;
                 itemToUpdate.orderUnit = orderUnit || itemToUpdate.orderUnit;
                 itemToUpdate.conversionRate = Number(conversionRateStr) || itemToUpdate.conversionRate;
                 itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
                 itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
+                itemToUpdate.requiresPhoto = requiresPhotoStr.toUpperCase() === 'CÓ';
+                itemToUpdate.isImportant = isImportantStr.toUpperCase() === 'CÓ';
                 changesMade++;
             }
         });
@@ -238,46 +241,7 @@ function InventoryTools({
             toast({ title: "Không có thay đổi", description: "Không tìm thấy mặt hàng nào khớp để cập nhật." });
         }
     };
-
-    const handleGenerateUpdate = async () => {
-        if (!updateInstruction.trim()) {
-            toast({ title: "Lỗi", description: "Vui lòng nhập yêu cầu chỉnh sửa.", variant: "destructive" });
-            return;
-        }
-
-        setIsGenerating(true);
-        toast({ title: "AI đang phân tích yêu cầu...", description: "Vui lòng đợi. AI sẽ xử lý và đưa ra bản xem trước." });
-
-        try {
-            const sanitizedInventoryList = inventoryList.map(item => ({
-                ...item,
-                shortName: item.shortName || '',
-                orderUnit: item.orderUnit || item.unit,
-                conversionRate: item.conversionRate || 1,
-                isImportant: item.isImportant ?? false,
-                requiresPhoto: item.requiresPhoto ?? false,
-                dataType: item.dataType || 'number',
-            }));
-
-            const result = await updateInventoryItems({
-                items: sanitizedInventoryList,
-                instruction: updateInstruction,
-            });
-
-            if (!result || !result.items || result.items.length !== inventoryList.length) {
-                throw new Error("AI không trả về một danh sách hợp lệ.");
-            }
-
-            setUpdatePreview({ oldList: inventoryList, newList: result.items });
-            setShowUpdatePreview(true);
-
-        } catch(error) {
-            console.error("Failed to update inventory:", error);
-            toast({ title: "Lỗi", description: "Không thể thực hiện chỉnh sửa. Vui lòng thử lại với yêu cầu rõ ràng hơn.", variant: "destructive"});
-        } finally {
-            setIsGenerating(false);
-        }
-    };
+    
 
     const handleConfirmUpdate = () => {
         onItemsUpdated(updatePreview.newList);
@@ -285,6 +249,7 @@ function InventoryTools({
         setShowUpdatePreview(false);
         setUpdateInstruction('');
         setTextInput('');
+        setBulkEditText('');
     };
 
     const renderDiff = (oldText: string, newText: string) => {
@@ -353,13 +318,13 @@ function InventoryTools({
                         </TabsContent>
                          <TabsContent value="bulk-edit" className="mt-4 space-y-4">
                              <Textarea
-                                placeholder="Xuất dữ liệu, chỉnh sửa trong Excel/Google Sheets, sau đó dán toàn bộ nội dung vào đây để cập nhật hàng loạt."
+                                placeholder="Xuất dữ liệu (dạng bảng), chỉnh sửa trong Excel/Google Sheets, sau đó dán toàn bộ nội dung (bao gồm cả dòng tiêu đề) vào đây để cập nhật."
                                 rows={6}
-                                value={textInput}
-                                onChange={(e) => setTextInput(e.target.value)}
+                                value={bulkEditText}
+                                onChange={(e) => setBulkEditText(e.target.value)}
                                 disabled={isGenerating}
                             />
-                            <Button onClick={handleBulkUpdateParse} disabled={isGenerating || !textInput.trim()}>
+                            <Button onClick={handleBulkUpdateParse} disabled={isGenerating || !bulkEditText.trim()}>
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileEdit className="mr-2 h-4 w-4" />}
                                 Xem trước & Cập nhật
                             </Button>
@@ -516,8 +481,8 @@ function InventoryTools({
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[25%]">Tên mặt hàng</TableHead>
-                                    <TableHead className="w-[15%]">Tên VT</TableHead>
+                                    <TableHead className="w-[20%]">Tên mặt hàng</TableHead>
+                                    <TableHead className="w-[10%]">Tên VT</TableHead>
                                     <TableHead>Nhóm</TableHead>
                                     <TableHead>NCC</TableHead>
                                     <TableHead>ĐV</TableHead>
@@ -839,8 +804,8 @@ export default function InventoryManagementPage() {
             );
             textToCopy = [headers.join('\t'), ...rows].join('\n');
         } else if (type === 'text') {
-            textToCopy = inventoryList.map(item => 
-                [item.category, item.name, item.shortName, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join('-')
+             textToCopy = inventoryList.map(item => 
+                [item.category, item.name, item.shortName, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion].join('\t')
             ).join('\n');
         }
 

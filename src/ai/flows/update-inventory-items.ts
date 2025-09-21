@@ -64,13 +64,14 @@ IMPORTANT RULES:
         - BAD: 'Sữa tươi thanh trùng không đường' -> 'Sữa tươi' (too generic).
     b. **CRITICAL**: The generated 'shortName' MUST BE UNIQUE across the entire list. No two items can have the same 'shortName'. You must check your own output to ensure uniqueness before returning it. If two items have similar names (e.g., 'Trà sữa ô long nhài' and 'Trà sữa ô long cao sơn'), you MUST find a way to differentiate their shortNames (e.g., 'TS ô long nhài' vs 'TS ô long CS'). Your final output JSON must not have any duplicate 'shortName' values.
 8.  If 'orderUnit' is not specified or is the same as 'unit', the 'conversionRate' MUST be 1. If 'orderUnit' is different (e.g., order by 'thùng', but unit is 'hộp'), 'conversionRate' must be a number greater than 1, representing how many 'unit' are in one 'orderUnit'.
+9.  If the user instruction is a large block of text where each line represents an item, you must parse each line and update the corresponding item in the list. The format for each line will be: 'CATEGORY\\tNAME\\tSHORTNAME\\tSUPPLIER\\tUNIT\\tORDERUNIT\\tCONVERSIONRATE\\tMINSTOCK\\tORDERSUGGESTION\\tREQUIREPHOTO\\tISIMPORTANT'. You must find the item by NAME and update all its properties based on the provided line data.
 
 User's Instruction: "{{{instruction}}}"
 
 Current list of items to modify:
 {{{json items}}}
 
-Now, apply the instruction to the list and return the complete, modified list of items as a JSON object matching the prescribed output schema.
+Now, apply the instruction to the list and return the complete, modified list of items as a JSON object matching the prescribed output schema. Ensure the number of items in your output is exactly the same as the input.
 `,
 });
 
