@@ -19,6 +19,7 @@ import InventoryTools from './_components/inventory-tools';
 import ItemEditPopover from './_components/item-edit-popover';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SupplierCombobox } from '@/components/supplier-combobox';
 
 
 type CategorizedList = {
@@ -39,6 +40,7 @@ export default function InventoryManagementPage() {
   const hasInitializedOpenState = useRef(false);
   const [filter, setFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+  const [supplierFilter, setSupplierFilter] = useState<string>('');
 
 
   useEffect(() => {
@@ -70,8 +72,11 @@ export default function InventoryManagementPage() {
     if (categoryFilter !== 'all') {
         list = list.filter(item => item.category === categoryFilter);
     }
+    if (supplierFilter) {
+        list = list.filter(item => item.supplier === supplierFilter);
+    }
     return list;
-  }, [inventoryList, filter, categoryFilter]);
+  }, [inventoryList, filter, categoryFilter, supplierFilter]);
 
 
   const categorizedList = useMemo((): CategorizedList => {
@@ -283,12 +288,12 @@ export default function InventoryManagementPage() {
                                 {categorizedList && categorizedList.length > 0 && (<Button variant="outline" onClick={handleToggleAll} size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><ChevronsDownUp className="mr-2 h-4 w-4"/>{areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}</Button>)}
                             </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                            <div className="relative flex-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+                            <div className="relative sm:col-span-1">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Tìm kiếm mặt hàng" />
                             </div>
-                            <div className="flex-1 sm:flex-initial sm:w-56">
+                            <div className="sm:col-span-1">
                                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                                     <SelectTrigger className="w-full">
                                         <div className="flex items-center gap-2">
@@ -303,6 +308,9 @@ export default function InventoryManagementPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                             <div className="sm:col-span-1">
+                                <SupplierCombobox suppliers={suppliers} value={supplierFilter} onChange={setSupplierFilter} />
                             </div>
                         </div>
                     </CardHeader>
@@ -330,41 +338,40 @@ export default function InventoryManagementPage() {
                                         {items.map((item, index) => {
                                             const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                             return (
-                                            <Card key={item.id} className="flex flex-col justify-between hover:bg-muted/50 transition-colors">
-                                                <CardContent className="p-4 space-y-3">
-                                                    <div className="flex justify-between items-start gap-2">
-                                                        <div>
-                                                            <p className="font-bold text-base leading-tight">{item.name}</p>
-                                                            <p className="text-xs text-muted-foreground">{item.shortName}</p>
+                                            <ItemEditPopover key={item.id} item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
+                                                <Card className="flex flex-col justify-between hover:bg-muted/50 transition-colors cursor-pointer">
+                                                    <CardContent className="p-4 space-y-3">
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div>
+                                                                <p className="font-bold text-base leading-tight">{item.name}</p>
+                                                                <p className="text-xs text-muted-foreground">{item.shortName}</p>
+                                                            </div>
+                                                            <div className="flex items-center shrink-0">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id)}}><Trash2 className="h-4 w-4" /></Button>
+                                                            </div>
                                                         </div>
-                                                         <div className="flex items-center shrink-0">
-                                                            <ItemEditPopover item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><Edit className="h-4 w-4"/></Button>
-                                                            </ItemEditPopover>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id)}}><Trash2 className="h-4 w-4" /></Button>
+                                                        <div className="grid grid-cols-3 gap-2 text-center text-xs border-t pt-3">
+                                                            <div><p className="text-muted-foreground">Nhà CC</p><p className="font-semibold truncate">{item.supplier}</p></div>
+                                                            <div><p className="text-muted-foreground">Đơn vị</p><p className="font-semibold">{item.unit}</p></div>
+                                                            <div><p className="text-muted-foreground">ĐV Đặt</p><p className="font-semibold">{item.orderUnit}</p></div>
                                                         </div>
-                                                    </div>
-                                                    <div className="grid grid-cols-3 gap-2 text-center text-xs border-t pt-3">
-                                                        <div><p className="text-muted-foreground">Nhà CC</p><p className="font-semibold truncate">{item.supplier}</p></div>
-                                                        <div><p className="text-muted-foreground">Đơn vị</p><p className="font-semibold">{item.unit}</p></div>
-                                                        <div><p className="text-muted-foreground">ĐV Đặt</p><p className="font-semibold">{item.orderUnit}</p></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                                        <div><p className="text-muted-foreground">Tồn Min</p><p className="font-semibold">{item.minStock}</p></div>
-                                                        <div><p className="text-muted-foreground">Gợi ý Đặt</p><p className="font-semibold">{item.orderSuggestion}</p></div>
-                                                        <div><p className="text-muted-foreground">Tỷ lệ</p><p className="font-semibold">{item.conversionRate}</p></div>
-                                                    </div>
-                                                </CardContent>
-                                                <CardFooter className="p-3 bg-muted/50 rounded-b-lg flex justify-between items-center">
-                                                    <div className="flex gap-2">
-                                                        {item.isImportant && <Badge variant="destructive">Bắt buộc</Badge>}
-                                                        {item.requiresPhoto && <Badge variant="secondary">Cần ảnh</Badge>}
-                                                    </div>
-                                                    {isSorting && (
-                                                        <div className="flex"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'up')}} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'down')}} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>
-                                                    )}
-                                                </CardFooter>
-                                            </Card>
+                                                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                                            <div><p className="text-muted-foreground">Tồn Min</p><p className="font-semibold">{item.minStock}</p></div>
+                                                            <div><p className="text-muted-foreground">Gợi ý Đặt</p><p className="font-semibold">{item.orderSuggestion}</p></div>
+                                                            <div><p className="text-muted-foreground">Tỷ lệ</p><p className="font-semibold">{item.conversionRate}</p></div>
+                                                        </div>
+                                                    </CardContent>
+                                                    <CardFooter className="p-3 bg-muted/50 rounded-b-lg flex justify-between items-center">
+                                                        <div className="flex gap-2">
+                                                            {item.isImportant && <Badge variant="destructive">Bắt buộc</Badge>}
+                                                            {item.requiresPhoto && <Badge variant="secondary">Cần ảnh</Badge>}
+                                                        </div>
+                                                        {isSorting && (
+                                                            <div className="flex"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'up')}} disabled={index === 0}><ArrowUp className="h-3 w-3" /></Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {e.stopPropagation(); handleMoveItem(globalIndex, 'down')}} disabled={index === items.length - 1}><ArrowDown className="h-3 w-3" /></Button></div>
+                                                        )}
+                                                    </CardFooter>
+                                                </Card>
+                                            </ItemEditPopover>
                                         )})}
                                     </div>
                                 </AccordionContent>
@@ -381,3 +388,5 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
+
+    
