@@ -31,6 +31,13 @@ const PAYMENT_METHOD_COLORS = {
     grabFood: '#10b981', // emerald-500
     bankTransfer: '#8b5cf6', // violet-500
 };
+
+const REVENUE_CHANNEL_COLORS = {
+    'Tại quán': '#3b82f6', // blue-500
+    'ShopeeFood': '#f97316', // orange-500
+    'GrabFood': '#10b981', // emerald-500
+};
+
 const PAYMENT_METHOD_NAMES: { [key: string]: string } = {
     cash: 'Tiền mặt',
     techcombankVietQrPro: 'TCB VietQR',
@@ -161,7 +168,7 @@ export default function FinancialReportPage() {
         });
     }, [dateRange, filteredData]);
   
-    const revenueByPaymentMethodChartData = useMemo(() => {
+    const revenueByChannelChartData = useMemo(() => {
         if (!dateRange?.from) return [];
         const from = dateRange.from;
         const to = dateRange.to ?? dateRange.from;
@@ -172,11 +179,16 @@ export default function FinancialReportPage() {
             const dailyRevenueStats = filteredData.revenue.filter(stat => stat.date === dateKey);
             
             const dailyBreakdown = dailyRevenueStats.reduce((acc, stat) => {
-                for (const method in stat.revenueByPaymentMethod) {
-                    acc[method] = (acc[method] || 0) + stat.revenueByPaymentMethod[method as keyof typeof stat.revenueByPaymentMethod];
-                }
+                const atStoreRevenue = (stat.revenueByPaymentMethod.cash || 0) + 
+                                       (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + 
+                                       (stat.revenueByPaymentMethod.bankTransfer || 0);
+
+                acc['Tại quán'] += atStoreRevenue;
+                acc['ShopeeFood'] += stat.revenueByPaymentMethod.shopeeFood || 0;
+                acc['GrabFood'] += stat.revenueByPaymentMethod.grabFood || 0;
+
                 return acc;
-            }, {} as {[key: string]: number});
+            }, { 'Tại quán': 0, 'ShopeeFood': 0, 'GrabFood': 0 });
             
             return {
                 name: format(day, 'dd/MM'),
@@ -336,30 +348,29 @@ export default function FinancialReportPage() {
                 </Card>
                  <Card>
                     <CardHeader>
-                        <CardTitle>Xu hướng Doanh thu theo PTTT</CardTitle>
+                        <CardTitle>Xu hướng Doanh thu theo Kênh</CardTitle>
                         <CardDescription>Phân tích các kênh thanh toán đóng góp vào doanh thu hàng ngày.</CardDescription>
                     </CardHeader>
                     <CardContent>
                          <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={revenueByPaymentMethodChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <LineChart data={revenueByChannelChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
                                 <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
                                 <Legend />
-                                {Object.keys(PAYMENT_METHOD_COLORS).map(method => (
-                                    <Area 
-                                        key={method}
+                                {Object.keys(REVENUE_CHANNEL_COLORS).map(channel => (
+                                    <Line 
+                                        key={channel}
                                         type="monotone" 
-                                        dataKey={method} 
-                                        name={PAYMENT_METHOD_NAMES[method]}
-                                        stackId="1" 
-                                        stroke={PAYMENT_METHOD_COLORS[method as keyof typeof PAYMENT_METHOD_COLORS]} 
-                                        fill={PAYMENT_METHOD_COLORS[method as keyof typeof PAYMENT_METHOD_COLORS]} 
-                                        fillOpacity={0.6}
+                                        dataKey={channel} 
+                                        name={channel}
+                                        stroke={REVENUE_CHANNEL_COLORS[channel as keyof typeof REVENUE_CHANNEL_COLORS]} 
+                                        strokeWidth={2}
+                                        activeDot={{ r: 6 }}
                                     />
                                 ))}
-                            </AreaChart>
+                            </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
