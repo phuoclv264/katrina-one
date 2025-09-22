@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -26,7 +27,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { parseISO, isToday, format } from 'date-fns';
 import { dataStore } from '@/lib/data-store';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
