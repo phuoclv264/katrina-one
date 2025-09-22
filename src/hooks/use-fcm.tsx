@@ -5,20 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { getToken } from 'firebase/messaging';
 import { messaging, db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'react-hot-toast';
-
-// Function to call the test notification cloud function
-const triggerSendTestNotification = async (userId: string) => {
-  try {
-    const functions = getFunctions();
-    const sendTestNotification = httpsCallable(functions, 'sendTestNotification');
-    const result = await sendTestNotification({ userId });
-    console.log('Callable function result:', result.data);
-  } catch (error) {
-    console.error('Error calling sendTestNotification function:', error);
-  }
-};
 
 
 export const useFcm = () => {
@@ -53,15 +40,9 @@ export const useFcm = () => {
                     console.log('FCM Token:', token);
                     setFcmToken(token);
                     
-                    toast.success(`Đã lấy token thành công! Bạn có thể sao chép nó bên dưới.\n\n${token}`, {
-                        duration: 15000,
-                    });
-
                     const userDocRef = doc(db, 'users', userId);
                     await setDoc(userDocRef, { fcmToken: token }, { merge: true });
                     toast.success("Đã bật thông báo!");
-
-                    await triggerSendTestNotification(userId);
 
                     return token;
                 } else {
