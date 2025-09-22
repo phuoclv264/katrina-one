@@ -25,8 +25,8 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
@@ -79,14 +79,15 @@ export const dataStore = {
         if (data.cost > 0) {
             const expenseSlipData: Partial<ExpenseSlip> = {
                 date: format(new Date(), 'yyyy-MM-dd'),
+                expenseType: 'other_cost',
                 items: [{
                     itemId: 'other_cost',
-                    name: `Chi phí sự cố: ${data.content}`,
+                    name: 'Chi phí sự cố', // A generic category
+                    description: data.content, // Detailed description here
                     supplier: 'N/A',
                     quantity: 1,
                     unitPrice: data.cost,
                     unit: 'lần',
-                    shortName: 'Sự cố'
                 }],
                 totalAmount: data.cost,
                 paymentMethod: 'cash',
@@ -95,6 +96,41 @@ export const dataStore = {
             };
             await this.addOrUpdateExpenseSlip(expenseSlipData);
         }
+    },
+    
+    subscribeToOtherCostCategories(callback: (categories: OtherCostCategory[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'otherCostCategories');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().list as OtherCostCategory[]);
+            } else {
+                try {
+                    await setDoc(docRef, { list: initialOtherCostCategories });
+                    callback(initialOtherCostCategories);
+                } catch (e) {
+                    console.error("Permission denied to create default other cost categories.", e);
+                    callback(initialOtherCostCategories);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read other cost categories: ${error.code}`);
+            callback(initialOtherCostCategories);
+        });
+        return unsubscribe;
+    },
+
+    async getOtherCostCategories(): Promise<OtherCostCategory[]> {
+        const docRef = doc(db, 'app-data', 'otherCostCategories');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data().list as OtherCostCategory[];
+        }
+        return initialOtherCostCategories;
+    },
+
+    async updateOtherCostCategories(newCategories: OtherCostCategory[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'otherCostCategories');
+        await setDoc(docRef, { list: newCategories });
     },
 
     subscribeToRevenueStats(date: string, callback: (stats: RevenueStats | null) => void): () => void {
@@ -163,6 +199,7 @@ export const dataStore = {
         if (data.deliveryPartnerPayout > 0) {
             const expenseData: Partial<ExpenseSlip> = {
                 date,
+                expenseType: 'other_cost',
                 items: [{
                     itemId: 'other_cost',
                     name: 'Chi trả cho Đối tác Giao hàng',
@@ -170,7 +207,6 @@ export const dataStore = {
                     quantity: 1,
                     unitPrice: data.deliveryPartnerPayout,
                     unit: 'lần',
-                    shortName: 'ĐTGH',
                 }],
                 totalAmount: data.deliveryPartnerPayout,
                 paymentMethod: 'bank_transfer',
@@ -243,7 +279,9 @@ export const dataStore = {
             finalData.lastModified = serverTimestamp();
         } else {
             finalData.createdAt = serverTimestamp();
-            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            if (!finalData.date) { // Ensure date is set for new slips
+                finalData.date = format(new Date(), 'yyyy-MM-dd');
+            }
         }
 
         await setDoc(docRef, finalData, { merge: true });
@@ -362,6 +400,7 @@ export const dataStore = {
         const otherRequestsQuery = query(
             notificationsCollection,
             and(
+                where('type', '==', 'pass_request'),
                 where('status', '==', 'pending'),
                 where('payload.requestingUser.userId', '!=', userId)
             )
@@ -1135,16 +1174,16 @@ export const dataStore = {
         callback(docSnap.data().tasks as ComprehensiveTaskSection[]);
       } else {
         try {
-            await setDoc(docRef, { tasks: initialComprehensiveTasks });
-            callback(initialComprehensiveTasks);
+            await setDoc(docRef, { tasks: [] });
+            callback([]);
         } catch(e) {
             console.error("Permission denied to create default comprehensive tasks.", e);
-            callback(initialComprehensiveTasks);
+            callback([]);
         }
       }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read comprehensive tasks: ${error.code}`);
-        callback(initialComprehensiveTasks);
+        callback([]);
     });
     return unsubscribe;
   },
@@ -1165,8 +1204,6 @@ export const dataStore = {
             category: item.category ?? 'CHƯA PHÂN LOẠI',
             dataType: item.dataType || 'number',
             listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
-            unitPrice: item.unitPrice ?? 0,
-            stock: item.stock ?? 0,
         }));
     }
     return initialInventoryList;
@@ -1187,8 +1224,6 @@ export const dataStore = {
           category: item.category ?? 'CHƯA PHÂN LOẠI',
           dataType: item.dataType || 'number',
           listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
-          unitPrice: Number(item.unitPrice) || 0,
-          stock: Number(item.stock) || 0,
         }));
         callback(sanitizedItems);
       } else {
