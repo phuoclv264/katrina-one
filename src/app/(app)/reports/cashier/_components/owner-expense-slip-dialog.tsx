@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -10,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, ExtractedInvoiceItem, InvoiceExtractionResult } from '@/lib/types';
+import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory } from '@/lib/types';
 import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -33,7 +31,9 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// ... (Các sub-component giữ nguyên)
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
@@ -123,7 +123,6 @@ function AiPreviewDialog({
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
-                    shortName: inventoryItem.shortName,
                     supplier: inventoryItem.supplier,
                     unit: inventoryItem.orderUnit,
                     quantity: item.quantity,
@@ -246,6 +245,7 @@ type OwnerExpenseSlipDialogProps = {
     isProcessing: boolean;
     slipToEdit: ExpenseSlip | null;
     inventoryList: InventoryItem[];
+    otherCostCategories: OtherCostCategory[];
 };
 
 export default function OwnerExpenseSlipDialog({
@@ -254,7 +254,8 @@ export default function OwnerExpenseSlipDialog({
     onSave,
     isProcessing,
     slipToEdit,
-    inventoryList
+    inventoryList,
+    otherCostCategories,
 }: OwnerExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const attachmentCardRef = useRef<HTMLDivElement>(null);
@@ -281,6 +282,12 @@ export default function OwnerExpenseSlipDialog({
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
 
+    // --- New State for Expense Type ---
+    const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
+    const [otherCostCategory, setOtherCostCategory] = useState('');
+    const [otherCostDescription, setOtherCostDescription] = useState('');
+    const [otherCostAmount, setOtherCostAmount] = useState(0);
+
     // --- Back button handling for Lightbox ---
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
@@ -305,16 +312,32 @@ export default function OwnerExpenseSlipDialog({
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
+                 setExpenseType(slipToEdit.expenseType);
+                if(slipToEdit.expenseType === 'other_cost' && slipToEdit.items.length > 0) {
+                    const otherItem = slipToEdit.items[0];
+                    setOtherCostCategory(otherItem.name);
+                    setOtherCostDescription(otherItem.description || '');
+                    setOtherCostAmount(otherItem.unitPrice);
+                    setItems([]);
+                } else {
+                    setItems(slipToEdit.items);
+                    setOtherCostCategory('');
+                    setOtherCostDescription('');
+                    setOtherCostAmount(0);
+                }
                 setDate(slipToEdit.date);
-                setItems(slipToEdit.items);
                 setPaymentMethod(slipToEdit.paymentMethod);
                 setNotes(slipToEdit.notes || '');
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
             } else {
+                setExpenseType('goods_import');
                 setDate(format(new Date(), 'yyyy-MM-dd'));
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
+                setOtherCostCategory('');
+                setOtherCostDescription('');
+                setOtherCostAmount(0);
                 setExistingPhotos([]);
             }
             setLocalPhotos([]);
@@ -325,8 +348,11 @@ export default function OwnerExpenseSlipDialog({
     }, [open, slipToEdit]);
     
     const totalAmount = useMemo(() => {
+         if (expenseType === 'other_cost') {
+            return otherCostAmount;
+        }
         return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    }, [items]);
+    }, [items, expenseType, otherCostAmount]);
 
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
@@ -334,7 +360,6 @@ export default function OwnerExpenseSlipDialog({
             return existing || {
                 itemId: invItem.id,
                 name: invItem.name,
-                shortName: invItem.shortName,
                 supplier: invItem.supplier,
                 unit: invItem.orderUnit,
                 quantity: 1,
@@ -361,14 +386,41 @@ export default function OwnerExpenseSlipDialog({
             return;
         }
 
-        if (items.length === 0) {
-            toast.error('Vui lòng chọn ít nhất một mặt hàng.');
-            return;
+        let finalItems: ExpenseItem[] = [];
+        if (expenseType === 'goods_import') {
+            if (items.length === 0) {
+                 toast.error('Vui lòng chọn ít nhất một mặt hàng.');
+                 return;
+            }
+            finalItems = items;
+        } else { // other_cost
+            if (!otherCostCategory) {
+                 toast.error('Vui lòng chọn loại chi phí.');
+                 return;
+            }
+             if (otherCostCategory === 'Khác' && !otherCostDescription.trim()) {
+                toast.error('Vui lòng nhập mô tả cho chi phí "Khác".');
+                return;
+            }
+            if (otherCostAmount <= 0) {
+                toast.error('Vui lòng nhập số tiền chi phí.');
+                return;
+            }
+            finalItems = [{
+                itemId: 'other_cost',
+                name: otherCostCategory,
+                description: otherCostDescription.trim(),
+                supplier: 'N/A',
+                quantity: 1,
+                unitPrice: otherCostAmount,
+                unit: 'lần',
+            }];
         }
 
         const data = {
             date,
-            items,
+            expenseType,
+            items: finalItems,
             totalAmount,
             paymentMethod,
             notes,
@@ -528,10 +580,24 @@ export default function OwnerExpenseSlipDialog({
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
+                              <div className="space-y-2">
+                                <Label>Loại chi phí</Label>
+                                <RadioGroup value={expenseType} onValueChange={(v) => setExpenseType(v as ExpenseType)} className="flex gap-4">
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="goods_import" id="o-et1" />
+                                        <Label htmlFor="o-et1">Chi nhập hàng</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="other_cost" id="o-et2" />
+                                        <Label htmlFor="o-et2">Chi phí khác</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} disabled className="bg-muted"/>
+                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" />
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
@@ -578,6 +644,7 @@ export default function OwnerExpenseSlipDialog({
                                 </CardContent>
                             </Card>
                         
+                           {expenseType === 'goods_import' ? (
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                      <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
@@ -598,8 +665,36 @@ export default function OwnerExpenseSlipDialog({
                                     />
                                 </div>
                             </div>
+                            ) : (
+                                <div className="space-y-4">
+                                     <div className="space-y-2">
+                                        <Label htmlFor="other-cost-category">Loại chi phí</Label>
+                                        <Select value={otherCostCategory} onValueChange={setOtherCostCategory}>
+                                            <SelectTrigger id="other-cost-category">
+                                                <SelectValue placeholder="Chọn loại chi phí..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {otherCostCategories.map(cat => (
+                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                     </div>
+                                     {otherCostCategory === 'Khác' && (
+                                         <div className="space-y-2">
+                                            <Label htmlFor="other-cost-description">Mô tả chi phí</Label>
+                                            <Input id="other-cost-description" value={otherCostDescription} onChange={(e) => setOtherCostDescription(e.target.value)} placeholder="Nhập mô tả chi tiết..." />
+                                         </div>
+                                     )}
+                                      <div className="space-y-2">
+                                        <Label htmlFor="other-cost-amount">Tổng số tiền</Label>
+                                        <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" />
+                                     </div>
+                                </div>
+                            )}
 
 
+                             {expenseType === 'goods_import' && items.length > 0 && (
                             <div className="space-y-2">
                                 <Label>Chi tiết các mặt hàng</Label>
                                 {items.length === 0 ? (
@@ -675,6 +770,7 @@ export default function OwnerExpenseSlipDialog({
                                     </>
                                 )}
                             </div>
+                            )}
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
@@ -686,12 +782,12 @@ export default function OwnerExpenseSlipDialog({
                                     <Label>Hình thức thanh toán</Label>
                                     <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-4">
                                         <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="cash" id="pm1" />
-                                            <Label htmlFor="pm1">Tiền mặt</Label>
+                                            <RadioGroupItem value="cash" id="o-pm1" />
+                                            <Label htmlFor="o-pm1">Tiền mặt</Label>
                                         </div>
                                         <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="bank_transfer" id="pm2" />
-                                            <Label htmlFor="pm2">Chuyển khoản</Label>
+                                            <RadioGroupItem value="bank_transfer" id="o-pm2" />
+                                            <Label htmlFor="o-pm2">Chuyển khoản</Label>
                                         </div>
                                     </RadioGroup>
                                 </div>
@@ -738,4 +834,3 @@ export default function OwnerExpenseSlipDialog({
         </>
     );
 }
-

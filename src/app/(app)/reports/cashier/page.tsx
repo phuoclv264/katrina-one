@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -6,13 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot } from 'lucide-react';
+import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -21,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
 
 
 type GroupedReports = {
@@ -53,7 +53,7 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
                 <TableRow key={expense.id}>
                 <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
                 <TableCell>
-                    {expense.items.map(i => i.shortName).join(', ')}
+                    {expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}
                     <p className="text-xs text-muted-foreground">{expense.createdBy.userName}</p>
                 </TableCell>
                 <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
@@ -81,7 +81,7 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
           <div className="p-3">
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="font-medium text-sm pr-2">{expense.items.map(i => i.shortName).join(', ')}</p>
+                    <p className="font-medium text-sm pr-2">{expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}</p>
                     <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
                 </div>
                 <div className="text-right">
@@ -117,14 +117,17 @@ export default function CashierReportsPage() {
     revenueStats: RevenueStats[];
     expenseSlips: ExpenseSlip[];
     incidents: IncidentReport[];
-    inventoryList: any[],
-  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [] });
+    inventoryList: InventoryItem[],
+    otherCostCategories: OtherCostCategory[],
+  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [] });
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
 
@@ -151,6 +154,9 @@ export default function CashierReportsPage() {
      const unsubInventory = dataStore.subscribeToInventoryList(items => {
         setAllData(prev => ({...prev, inventoryList: items}));
     });
+    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => {
+        setAllData(prev => ({...prev, otherCostCategories: categories}));
+    });
 
     const timer = setTimeout(() => setIsLoading(false), 1500);
 
@@ -159,6 +165,7 @@ export default function CashierReportsPage() {
       unsubIncidents();
       unsubRevenue();
       unsubInventory();
+      unsubOtherCostCategories();
       clearTimeout(timer);
     };
   }, [user]);
@@ -205,7 +212,7 @@ export default function CashierReportsPage() {
     if (!user) return;
     setIsProcessing(true);
     try {
-        const slipData = { ...data, createdBy: { userId: user.uid, userName: user.displayName }};
+        const slipData = { ...data, createdBy: slipToEdit?.createdBy || { userId: user.uid, userName: user.displayName }};
         await dataStore.addOrUpdateExpenseSlip(slipData, id);
         toast.success(`Đã cập nhật phiếu chi.`);
         setIsExpenseDialogOpen(false);
@@ -215,7 +222,7 @@ export default function CashierReportsPage() {
     } finally {
         setIsProcessing(false);
     }
-  }, [user]);
+  }, [user, slipToEdit]);
 
   const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user || !revenueStatsToEdit) return;
@@ -252,10 +259,25 @@ export default function CashierReportsPage() {
             Quay lại
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><Banknote /> Báo cáo Thu ngân</h1>
-        <p className="text-muted-foreground mt-2">
-          Tổng hợp toàn bộ báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.
-        </p>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+                 <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><Banknote /> Báo cáo Thu ngân</h1>
+                <p className="text-muted-foreground mt-2">
+                Tổng hợp toàn bộ báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.
+                </p>
+            </div>
+             <Card>
+                <CardHeader className="p-3 pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Settings className="h-4 w-4"/>
+                        Cài đặt
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0">
+                    <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>Quản lý Loại chi phí</Button>
+                </CardContent>
+             </Card>
+        </div>
       </header>
 
       {sortedDates.length === 0 ? (
@@ -376,6 +398,11 @@ export default function CashierReportsPage() {
         setIsRevenueDialogOpen={setIsRevenueDialogOpen}
         handleSaveRevenue={handleSaveRevenue}
         revenueStatsToEdit={revenueStatsToEdit}
+        otherCostCategories={allData.otherCostCategories}
+    />
+    <OtherCostCategoryDialog
+        open={isCategoryDialogOpen}
+        onOpenChange={setIsCategoryDialogOpen}
     />
     </>
   );
