@@ -128,6 +128,7 @@ function InventoryHistoryView() {
 
         // 3. Process events to calculate running stock
         const runningStock = new Map<string, number>();
+        const latestPriceMap = new Map<string, { price: number; unit: string }>();
         const processedHistory: CombinedHistoryEntry[] = [];
 
         allEvents.forEach(event => {
@@ -139,20 +140,27 @@ function InventoryHistoryView() {
             let change = '';
             let changeType: CombinedHistoryEntry['changeType'] = 'neutral';
             let newStockDisplay = '-';
-            let priceInfo = '-';
-
+            
             if (event.type === 'expense') {
                 const expenseItem = event.data as ExpenseSlip['items'][0];
                 const conversionRate = inventoryItem.conversionRate || 1;
                 const quantityInBaseUnit = expenseItem.quantity * conversionRate;
-                
-                newStock = previousStock + quantityInBaseUnit;
-                runningStock.set(event.itemId, newStock);
 
-                change = `+${quantityInBaseUnit}`;
+                latestPriceMap.set(event.itemId, { price: expenseItem.unitPrice, unit: inventoryItem.orderUnit });
+                
+                if (inventoryItem.dataType === 'number') {
+                    newStock = previousStock + quantityInBaseUnit;
+                    runningStock.set(event.itemId, newStock);
+                    change = `+${quantityInBaseUnit}`;
+                    newStockDisplay = String(newStock);
+                } else { // 'list' type
+                    newStock = STOCK_LIST_NUMERIC_VALUE['dư xài'];
+                    runningStock.set(event.itemId, newStock);
+                    const prevStockKey = Object.keys(STOCK_LIST_NUMERIC_VALUE).find(key => STOCK_LIST_NUMERIC_VALUE[key] === previousStock);
+                    change = `${prevStockKey || previousStock} → dư xài`;
+                    newStockDisplay = 'dư xài';
+                }
                 changeType = 'increase';
-                newStockDisplay = String(newStock);
-                priceInfo = `${expenseItem.unitPrice.toLocaleString('vi-VN')}đ / ${inventoryItem.orderUnit}`;
             } 
             else if (event.type === 'report') {
                 const reportItem = event.data as InventoryReport['stockLevels'][0];
@@ -165,8 +173,7 @@ function InventoryHistoryView() {
                     const diff = reportedStock - previousStock;
                     
                     const diffFormatted = diff.toFixed(2).replace(/\.00$/, '');
-                    change = diff > 0 ? `+${diffFormatted}` : diffFormatted;
-                    if(diff === 0) change = '0';
+                    change = diff === 0 ? '0' : (diff > 0 ? `+${diffFormatted}` : diffFormatted);
                     changeType = diff > 0 ? 'increase' : (diff < 0 ? 'decrease' : 'neutral');
 
                     newStockDisplay = String(reportedStock);
@@ -178,19 +185,20 @@ function InventoryHistoryView() {
                     newStock = reportedStockValue;
                     runningStock.set(event.itemId, newStock);
 
-                    const prevStockKey = Object.keys(STOCK_LIST_NUMERIC_VALUE).find(key => STOCK_LIST_NUMERIC_VALUE[key] === previousStockValue);
-                    change = `${prevStockKey || previousStockValue} → ${reportedValue}`;
-                    
-                    if (reportedStockValue > previousStockValue) {
-                        changeType = 'increase';
-                    } else if (reportedStockValue < previousStockValue) {
-                        changeType = 'decrease';
-                    } else {
+                    if (reportedStockValue === previousStockValue) {
+                        change = reportedValue;
                         changeType = 'neutral';
+                    } else {
+                        const prevStockKey = Object.keys(STOCK_LIST_NUMERIC_VALUE).find(key => STOCK_LIST_NUMERIC_VALUE[key] === previousStockValue);
+                        change = `${prevStockKey || previousStockValue} → ${reportedValue}`;
+                        changeType = reportedStockValue > previousStockValue ? 'increase' : 'decrease';
                     }
                     newStockDisplay = String(reportItem.stock);
                 }
             }
+
+            const latestPriceInfo = latestPriceMap.get(event.itemId);
+            const priceInfo = latestPriceInfo ? `${latestPriceInfo.price.toLocaleString('vi-VN')}đ / ${latestPriceInfo.unit}` : '0đ';
 
             processedHistory.push({
                 date: event.date,
