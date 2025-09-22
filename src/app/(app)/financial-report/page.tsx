@@ -15,6 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 
 // Mock data - replace with actual data fetching logic
 const MOCK_REVENUE_DATA = {
@@ -187,7 +188,7 @@ export default function FinancialReportPage() {
                             <RechartsBarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} />
+                                <Tooltip formatter={(value: number) => `${'value'.toLocaleString('vi-VN')}đ`} />
                                 <Bar dataKey="Chi phí" fill="#ef4444" radius={[0, 4, 4, 0]} />
                             </RechartsBarChart>
                         </ResponsiveContainer>
@@ -203,7 +204,7 @@ export default function FinancialReportPage() {
                                 <Pie data={chartData} dataKey="Chi phí" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
                                     {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                                 </Pie>
-                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
+                                <Tooltip formatter={(value: number) => `${'value'.toLocaleString('vi-VN')}đ`}/>
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
