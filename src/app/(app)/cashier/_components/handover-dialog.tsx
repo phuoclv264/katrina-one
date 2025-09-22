@@ -121,19 +121,27 @@ export default function HandoverDialog({
             const result = await extractHandoverData({ imageDataUri: uri });
             if (!result.isReceipt) {
                 toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
+                setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
 
             if (!result.shiftEndTime) {
                 toast.error('AI không thể xác định ngày giờ trên phiếu.');
+                setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
 
+            /*
             const reportTime = parseISO(result.shiftEndTime);
             if (!isToday(reportTime)) {
                 toast.error(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
+                setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
+            */
             
             const comparison: ComparisonResult = [];
             const fieldsToCompare: (keyof typeof appData)[] = ['expectedCash', 'startOfDayCash', 'cashExpense', 'cashRevenue', 'cardRevenue', 'deliveryPartnerPayout'];

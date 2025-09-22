@@ -279,6 +279,7 @@ export default function RevenueStatsDialog({
                 return;
             }
 
+            /*
             const reportTime = parseISO(result.reportTimestamp);
 
             // Block if the receipt is from a previous day
@@ -288,6 +289,7 @@ export default function RevenueStatsDialog({
                 toast.dismiss(toastId);
                 return;
             }
+            */
 
             // If the receipt is valid, proceed directly
             proceedWithImageData(imageUri, result);
