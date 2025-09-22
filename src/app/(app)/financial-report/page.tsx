@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -216,67 +215,64 @@ export default function FinancialReportPage() {
     setDateRange({ from, to });
   };
   
-  const chartData = useMemo(() => {
-    if (!dateRange?.from) return [];
-    
-    const getComparisonKey = (date: Date) => {
+    const chartData = useMemo(() => {
+        if (!dateRange?.from) return [];
+        
+        const getComparisonKey = (date: Date) => {
+            const from = dateRange.from!;
+            const to = dateRange.to ?? from;
+            const diff = to.getTime() - from.getTime();
+            const oneWeek = 6 * 24 * 60 * 60 * 1000;
+            
+            if (diff <= oneWeek) {
+                return format(date, 'eeee', { locale: vi });
+            }
+            return format(date, 'd');
+        }
+
+        const dataMap = new Map<string, any>();
+
+        const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_') => {
+            periodData.revenue.forEach(stat => {
+                const key = getComparisonKey(parseISO(stat.date));
+                if (!dataMap.has(key)) dataMap.set(key, { name: key, fullDate: parseISO(stat.date) });
+                const entry = dataMap.get(key);
+                
+                entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
+                
+                const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
+                entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
+                entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
+                entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
+            });
+
+            periodData.expenses.forEach(slip => {
+                const key = getComparisonKey(parseISO(slip.date));
+                if (!dataMap.has(key)) dataMap.set(key, { name: key, fullDate: parseISO(slip.date) });
+                const entry = dataMap.get(key);
+                entry[`${keyPrefix}expense`] = (entry[`${keyPrefix}expense`] || 0) + slip.totalAmount;
+            });
+        };
+
+        processPeriodData(mainPeriodData, 'main_');
+        if (compare) {
+            processPeriodData(comparisonPeriodData, 'comp_');
+        }
+        
+        const sortedData = Array.from(dataMap.values());
         const from = dateRange.from!;
         const to = dateRange.to ?? from;
         const diff = to.getTime() - from.getTime();
         const oneWeek = 6 * 24 * 60 * 60 * 1000;
-        
-        // Weekly comparison
+
         if (diff <= oneWeek) {
-            return weekDays[getDay(date) === 0 ? 6 : getDay(date) - 1]; // Mon-Sun
+            sortedData.sort((a,b) => getDay(a.fullDate) - getDay(b.fullDate));
+        } else {
+            sortedData.sort((a,b) => parseInt(a.name) - parseInt(b.name));
         }
-        // Monthly comparison
-        return format(date, 'd');
-    }
 
-    const dataMap = new Map<string, any>();
-
-    const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_') => {
-        periodData.revenue.forEach(stat => {
-            const key = getComparisonKey(parseISO(stat.date));
-            if (!dataMap.has(key)) dataMap.set(key, { name: key });
-            const entry = dataMap.get(key);
-            
-            entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
-            
-            const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
-            entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
-            entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
-            entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
-        });
-
-        periodData.expenses.forEach(slip => {
-            const key = getComparisonKey(parseISO(slip.date));
-            if (!dataMap.has(key)) dataMap.set(key, { name: key });
-            const entry = dataMap.get(key);
-            entry[`${keyPrefix}expense`] = (entry[`${keyPrefix}expense`] || 0) + slip.totalAmount;
-        });
-    };
-
-    processPeriodData(mainPeriodData, 'main_');
-    if (compare) {
-        processPeriodData(comparisonPeriodData, 'comp_');
-    }
-    
-    const sortedData = Array.from(dataMap.values());
-    const from = dateRange.from!;
-    const to = dateRange.to ?? from;
-    const diff = to.getTime() - from.getTime();
-    const oneWeek = 6 * 24 * 60 * 60 * 1000;
-
-    if (diff <= oneWeek) {
-        sortedData.sort((a,b) => weekDays.indexOf(a.name) - weekDays.indexOf(b.name));
-    } else {
-        sortedData.sort((a,b) => parseInt(a.name) - parseInt(b.name));
-    }
-
-    return sortedData;
-  }, [dateRange, mainPeriodData, comparisonPeriodData, compare]);
-  
+        return sortedData;
+    }, [dateRange, mainPeriodData, comparisonPeriodData, compare]);
 
   const expensePieChartData = Object.entries(mainSummary.expenseByCategory).map(([name, value]) => ({ name, value }));
   
@@ -298,16 +294,9 @@ export default function FinancialReportPage() {
   }, [mainPeriodData]);
   
   const formatTooltipLabel = (label: string, payload: any[]) => {
-    if (!dateRange?.from) return label;
-    const from = dateRange.from!;
-    const to = dateRange.to ?? from;
-    const diff = to.getTime() - from.getTime();
-    const oneWeek = 6 * 24 * 60 * 60 * 1000;
-    
-    if (diff <= oneWeek) {
-        return label;
-    }
-    return `Ngày ${label}`;
+    if (!payload || payload.length === 0 || !payload[0].payload.fullDate) return label;
+    const fullDate = payload[0].payload.fullDate;
+    return format(fullDate, 'eeee, dd/MM', { locale: vi });
   }
   
   if (isLoading || authLoading) {
@@ -425,7 +414,7 @@ export default function FinancialReportPage() {
                     <div key={key} className="flex justify-between items-center">
                         <span>{PAYMENT_METHOD_NAMES[key]}:</span>
                         <div className="flex items-center gap-2">
-                            {comparisonValue !== undefined && <span className="font-medium text-muted-foreground text-xs">({comparisonValue.toLocaleString('vi-VN')}đ)</span>}
+                            {compare && <span className="font-medium text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
                             <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span>
                         </div>
                     </div>
@@ -462,7 +451,7 @@ export default function FinancialReportPage() {
                     <div className="flex justify-between items-center" key={key}>
                       <span className="flex items-center gap-2">{key}:</span> 
                       <div className="flex items-center gap-2">
-                         {comparisonValue !== undefined && <span className="font-medium text-muted-foreground text-xs">({comparisonValue.toLocaleString('vi-VN')}đ)</span>}
+                         {compare && <span className="font-medium text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
                          <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span>
                       </div>
                     </div>
@@ -597,7 +586,3 @@ export default function FinancialReportPage() {
     </div>
   );
 }
-
-
-
-
