@@ -198,7 +198,7 @@ function AiPreviewDialog({
                              <AccordionContent>
                                 {result.totalDiscount !== undefined && (
                                     <div className={cn("text-sm font-semibold p-2 rounded-md mb-2", result.totalDiscount > 0 ? "text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30" : "text-muted-foreground bg-muted/50")}>
-                                        Chiết khấu hóa đơn: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
+                                        Chiết khấu: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
                                     </div>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
@@ -797,7 +797,7 @@ export default function ExpenseSlipDialog({
                             
                             <div className="space-y-2">
                                 <Label>Chiết khấu (nếu có)</Label>
-                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right" />
+                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right" onFocus={(e) => e.target.select()} />
                             </div>
 
                              <div className="space-y-2">
