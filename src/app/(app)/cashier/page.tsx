@@ -54,7 +54,7 @@ function StartOfDayCashDialog({
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-auto p-1 absolute top-2 right-2 text-muted-foreground hover:text-primary">
+                <Button variant="ghost" size="sm" className="h-auto p-1 text-muted-foreground hover:text-primary">
                     <Edit2 className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
@@ -310,28 +310,26 @@ export default function CashierDashboardPage() {
                 <CardHeader>
                     <CardTitle>Tổng quan trong ngày</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-1 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt</p>
-                        <p className="text-2xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+                <CardContent className="space-y-2 text-base">
+                    <div className="flex justify-between items-center">
+                        <p className="text-muted-foreground flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-green-500"/> Doanh thu tiền mặt</p>
+                        <p className="font-bold text-green-700 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
                     </div>
-                    <div className="space-y-1 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                        <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2"><ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt</p>
-                        <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
+                    <div className="flex justify-between items-center">
+                        <p className="text-muted-foreground flex items-center gap-2"><ArrowDownCircle className="h-5 w-5 text-red-500"/> Tổng chi tiền mặt</p>
+                        <p className="font-bold text-red-700 dark:text-red-300">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="relative flex-1 space-y-1 p-4 rounded-lg bg-muted">
-                            <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
-                            <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
-                            <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
-                        </div>
-                        <div className="flex-1 space-y-1 p-4 rounded-lg bg-muted">
-                            <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
-                            <p className="text-2xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
-                        </div>
+                    <div className="flex justify-between items-center">
+                        <div className="text-muted-foreground flex items-center gap-2">Tiền mặt đầu ca <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} /></div>
+                        <p className="font-semibold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
                     </div>
-                    <div className="space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
-                       <p className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2"><Wallet className="h-5 w-5"/>Tiền mặt dự kiến cuối ca</p>
+                    <div className="flex justify-between items-center">
+                        <p className="text-muted-foreground">Tổng chi chuyển khoản</p>
+                        <p className="font-semibold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                    <Separator className="my-2"/>
+                    <div className="flex justify-between items-center pt-2">
+                       <p className="font-semibold flex items-center gap-2"><Wallet className="h-5 w-5 text-blue-500"/>Tiền mặt dự kiến cuối ca</p>
                        <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
                     </div>
                 </CardContent>
@@ -361,7 +359,7 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-            <Card>
+             <Card>
                 <CardHeader>
                     <CardTitle>Thống kê Doanh thu</CardTitle>
                     <CardDescription>
