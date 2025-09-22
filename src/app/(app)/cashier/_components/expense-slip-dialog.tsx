@@ -148,13 +148,18 @@ function AiPreviewDialog({
                     {inventoryItem && <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>}
                  </div>
                  <div className="text-right ml-2 shrink-0">
-                     <p className="font-semibold text-base">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
+                     <p className="font-semibold text-base">{(item.totalAmount).toLocaleString('vi-VN')}đ</p>
                  </div>
               </div>
               <div className="flex justify-between items-end text-xs text-muted-foreground mt-1">
                 <p>SL: <span className="font-medium text-foreground">{item.quantity}</span></p>
                 <p>Đơn giá: <span className="font-medium text-foreground">{item.unitPrice.toLocaleString('vi-VN')}đ</span></p>
               </div>
+              {item.lineItemDiscount > 0 && (
+                  <div className="text-right text-xs mt-1 font-semibold text-red-600 dark:text-red-400">
+                      - {item.lineItemDiscount.toLocaleString('vi-VN')}đ
+                  </div>
+              )}
             </CardContent>
           </Card>
         );
@@ -198,7 +203,7 @@ function AiPreviewDialog({
                              <AccordionContent>
                                 {result.totalDiscount !== undefined && (
                                     <div className={cn("text-sm font-semibold p-2 rounded-md mb-2", result.totalDiscount > 0 ? "text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30" : "text-muted-foreground bg-muted/50")}>
-                                        Chiết khấu: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
+                                        Tổng chiết khấu hóa đơn: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
                                     </div>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
@@ -602,7 +607,7 @@ export default function ExpenseSlipDialog({
                         <DialogDescription>Nhập thông tin chi tiết cho các khoản chi.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
-                        <div className="grid gap-6 py-4">
+                        <div className="grid gap-6 py-4 px-1">
                              <div className="space-y-2">
                                 <Label>Loại chi phí</Label>
                                 <RadioGroup value={expenseType} onValueChange={(v) => setExpenseType(v as ExpenseType)} className="flex gap-4">
