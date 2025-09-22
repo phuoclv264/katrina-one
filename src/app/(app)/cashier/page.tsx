@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -283,6 +282,7 @@ export default function CashierDashboardPage() {
         </header>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
         </div>
         <div className="mt-6">
             <Skeleton className="h-64" />
@@ -304,83 +304,75 @@ export default function CashierDashboardPage() {
             </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-             {/* Left Column */}
-            <div className="lg:col-span-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Tổng quan trong ngày</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                            <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt</p>
-                            <p className="text-2xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Tổng quan trong ngày</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-1 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt</p>
+                        <p className="text-2xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                    <div className="space-y-1 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                        <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2"><ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt</p>
+                        <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                     <div className="space-y-1 p-4 rounded-lg bg-muted">
+                        <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
+                        <p className="text-xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                    <div className="relative space-y-1 p-4 rounded-lg bg-muted">
+                        <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
+                        <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
+                        <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                    <div className="md:col-span-2 space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
+                       <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Tiền mặt dự kiến cuối ca</p>
+                       <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Báo cáo Sự cố</CardTitle>
+                    <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {dailyIncidents.length > 0 && (
+                        <div className="mb-4 space-y-2 text-sm">
+                            {dailyIncidents.map(incident => (
+                                <div key={incident.id} className="p-2 bg-muted rounded-md">
+                                    <p className="font-medium">{incident.content}</p>
+                                    <p className="text-xs text-muted-foreground">Chi phí: {incident.cost.toLocaleString('vi-VN')}đ</p>
+                                </div>
+                            ))}
                         </div>
-                        <div className="space-y-1 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                            <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2"><ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt</p>
-                            <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
-                        </div>
-                         <div className="space-y-1 p-4 rounded-lg bg-muted">
-                            <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
-                            <p className="text-xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
-                        </div>
-                        <div className="relative space-y-1 p-4 rounded-lg bg-muted">
-                            <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
-                            <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
-                            <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
-                        </div>
-                        <div className="md:col-span-2 space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
-                           <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Tiền mặt dự kiến cuối ca</p>
-                           <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-            {/* Right Column */}
-            <div className="lg:col-span-1 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                            Thống kê Doanh thu
-                            {revenueStats?.isOutdated && <AlertTriangle className="h-5 w-5 text-yellow-500" title="Dữ liệu có thể đã cũ"/>}
-                        </CardTitle>
-                        <CardDescription>
-                            Nhập số liệu từ bill tổng kết trên máy POS.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                       <Button className="w-full" onClick={() => setIsRevenueDialogOpen(true)}>
-                            <Receipt className="mr-2 h-4 w-4" />
-                            {revenueStats ? 'Cập nhật' : 'Nhập'} Doanh thu
-                        </Button>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Báo cáo Sự cố</CardTitle>
-                        <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {dailyIncidents.length > 0 && (
-                            <div className="mb-4 space-y-2 text-sm">
-                                {dailyIncidents.map(incident => (
-                                    <div key={incident.id} className="p-2 bg-muted rounded-md">
-                                        <p className="font-medium">{incident.content}</p>
-                                        <p className="text-xs text-muted-foreground">Chi phí: {incident.cost.toLocaleString('vi-VN')}đ</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
-                            <AlertTriangle className="mr-2 h-4 w-4" />
-                            Tạo Báo cáo Sự cố
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
+                    )}
+                    <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
+                        <AlertTriangle className="mr-2 h-4 w-4" />
+                        Tạo Báo cáo Sự cố
+                    </Button>
+                </CardContent>
+            </Card>
         </div>
         
-        <div className="grid grid-cols-1">
+        <div className="grid grid-cols-1 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Thống kê Doanh thu</CardTitle>
+                    <CardDescription>
+                        Nhập số liệu từ bill tổng kết trên máy POS.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button className="w-full" onClick={() => setIsRevenueDialogOpen(true)}>
+                        <Receipt className="mr-2 h-4 w-4" />
+                        {revenueStats ? 'Cập nhật' : 'Nhập'} Doanh thu
+                    </Button>
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
@@ -445,6 +437,19 @@ export default function CashierDashboardPage() {
                          <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
                     )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Bàn giao cuối ca</CardTitle>
+                    <CardDescription>Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button className="w-full" disabled>
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                        Thực hiện bàn giao (sắp có)
+                    </Button>
                 </CardContent>
             </Card>
         </div>
