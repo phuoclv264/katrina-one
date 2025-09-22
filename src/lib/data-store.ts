@@ -25,7 +25,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -63,6 +63,44 @@ photoStore.cleanupOldPhotos();
 
 export const dataStore = {
      // --- Cashier ---
+
+    async addHandoverReport(data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
+        const date = format(new Date(), 'yyyy-MM-dd');
+        const docRef = doc(db, 'handover_reports', date);
+        
+        let handoverImageUrl = data.handoverImageUrl;
+        if (handoverImageUrl && handoverImageUrl.startsWith('data:')) {
+            const blob = await (await fetch(handoverImageUrl)).blob();
+            const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            handoverImageUrl = await getDownloadURL(storageRef);
+        }
+        
+        let discrepancyProofPhotos: string[] = [];
+        if (data.discrepancyProofPhotos && data.discrepancyProofPhotos.length > 0) {
+            const uploadPromises = data.discrepancyProofPhotos.map(async (photoId) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `handover-reports/${date}/discrepancy/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            discrepancyProofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(data.discrepancyProofPhotos);
+        }
+
+        const finalData = {
+            ...data,
+            date,
+            handoverImageUrl,
+            discrepancyProofPhotos,
+            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            createdAt: serverTimestamp(),
+            isVerified: false,
+        };
+
+        await setDoc(docRef, finalData);
+    },
 
     async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>, user: AuthUser): Promise<void> {
         const incidentData = {

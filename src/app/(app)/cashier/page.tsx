@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
+import HandoverDialog from './_components/handover-dialog';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -116,6 +117,7 @@ export default function CashierDashboardPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
+  const [isHandoverDialogOpen, setIsHandoverDialogOpen] = useState(false);
 
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
 
@@ -264,6 +266,24 @@ export default function CashierDashboardPage() {
       setIsExpenseDialogOpen(true);
   }
 
+    const handleSaveHandover = async (data: Partial<HandoverReport>) => {
+        if (!user) return;
+        setIsProcessing(true);
+        try {
+            await dataStore.addHandoverReport(data, user);
+            // On success, the dialog handles its own 'success' step.
+            // No need to close it from here.
+            toast.success("Đã gửi báo cáo bàn giao thành công!");
+        } catch (error) {
+            console.error("Failed to save handover report:", error);
+            toast.error("Không thể lưu báo cáo bàn giao.");
+            // Don't close the dialog on error, let user retry.
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+
   const getSlipContentName = (item: ExpenseItem): string => {
       if (item.itemId === 'other_cost') {
         if (item.name === 'Khác' && item.description) {
@@ -311,7 +331,7 @@ export default function CashierDashboardPage() {
                     <CardTitle>Tổng quan trong ngày</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-base">
-                    <div className="flex justify-between items-center">
+                     <div className="flex justify-between items-center">
                         <p className="text-muted-foreground flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-green-500"/> Doanh thu tiền mặt</p>
                         <p className="font-bold text-green-700 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
                     </div>
@@ -320,12 +340,12 @@ export default function CashierDashboardPage() {
                         <p className="font-bold text-red-700 dark:text-red-300">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
                     </div>
                     <div className="flex justify-between items-center">
-                        <div className="text-muted-foreground flex items-center gap-2">Tiền mặt đầu ca <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} /></div>
-                        <p className="font-semibold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                    <div className="flex justify-between items-center">
                         <p className="text-muted-foreground">Tổng chi chuyển khoản</p>
                         <p className="font-semibold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <div className="text-muted-foreground flex items-center gap-2">Tiền mặt đầu ca <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} /></div>
+                        <p className="font-semibold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
                     </div>
                     <Separator className="my-2"/>
                     <div className="flex justify-between items-center pt-2">
@@ -447,9 +467,9 @@ export default function CashierDashboardPage() {
                     <CardDescription>Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full" disabled>
+                    <Button className="w-full" onClick={() => setIsHandoverDialogOpen(true)}>
                         <ArrowRight className="mr-2 h-4 w-4" />
-                        Thực hiện bàn giao (sắp có)
+                        Thực hiện bàn giao
                     </Button>
                 </CardContent>
             </Card>
@@ -478,6 +498,17 @@ export default function CashierDashboardPage() {
         onSave={handleSaveRevenue}
         isProcessing={isProcessing}
         existingStats={revenueStats}
+    />
+    <HandoverDialog
+        open={isHandoverDialogOpen}
+        onOpenChange={setIsHandoverDialogOpen}
+        onSave={handleSaveHandover}
+        isProcessing={isProcessing}
+        reporter={user}
+        dailyCashExpense={totalCashExpense}
+        dailyCardExpense={totalBankExpense}
+        dailyRevenueStats={revenueStats}
+        startOfDayCash={startOfDayCash}
     />
     </>
   );
