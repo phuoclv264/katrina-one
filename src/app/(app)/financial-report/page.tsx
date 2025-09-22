@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { addDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { addDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,57 +16,102 @@ import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Toolti
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-
-// Mock data - replace with actual data fetching logic
-const MOCK_REVENUE_DATA = {
-  total: 7850000,
-  breakdown: {
-    cash: 3200000,
-    techcombankVietQrPro: 2500000,
-    shopeeFood: 1150000,
-    grabFood: 750000,
-    bankTransfer: 250000,
-  }
-};
-
-const MOCK_EXPENSE_DATA = {
-  total: 2350000,
-  breakdown: {
-    cash: 1500000,
-    bank_transfer: 850000,
-  },
-  byCategory: {
-    'Nguyên liệu': 1800000,
-    'Vận hành': 350000,
-    'Sự cố': 200000,
-  }
-};
-
-const MOCK_DETAILED_DATA = [
-    {
-        date: "2023-10-26",
-        revenue: { total: 1200000, items: [{name: 'Doanh thu POS', amount: 1200000}] },
-        expenses: [
-            { id: '1', name: 'Nhập sữa tươi', amount: 350000, method: 'cash'},
-            { id: '2', name: 'Trả tiền điện', amount: 500000, method: 'bank_transfer'},
-        ]
-    },
-    {
-        date: "2023-10-25",
-        revenue: { total: 950000, items: [{name: 'Doanh thu POS', amount: 950000}] },
-        expenses: [
-            { id: '3', name: 'Nhập syrup', amount: 600000, method: 'cash'},
-        ]
-    }
-]
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { dataStore } from '@/lib/data-store';
+import type { RevenueStats, ExpenseSlip, ExpenseItem } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export default function FinancialReportPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+  
+  const [allRevenueStats, setAllRevenueStats] = useState<RevenueStats[]>([]);
+  const [allExpenseSlips, setAllExpenseSlips] = useState<ExpenseSlip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && user?.role !== 'Chủ nhà hàng') {
+      router.replace('/');
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      let revenueLoaded = false;
+      let expensesLoaded = false;
+      const checkLoadingDone = () => {
+        if (revenueLoaded && expensesLoaded) setIsLoading(false);
+      }
+
+      const unsubRevenue = dataStore.subscribeToAllRevenueStats(stats => {
+        setAllRevenueStats(stats);
+        revenueLoaded = true;
+        checkLoadingDone();
+      });
+      const unsubExpenses = dataStore.subscribeToAllExpenseSlips(slips => {
+        setAllExpenseSlips(slips);
+        expensesLoaded = true;
+        checkLoadingDone();
+      });
+
+      return () => {
+        unsubRevenue();
+        unsubExpenses();
+      };
+    }
+  }, [user]);
+
+  const filteredData = useMemo(() => {
+    if (!dateRange?.from) return { revenue: [], expenses: [] };
+    const from = dateRange.from;
+    const to = dateRange.to ?? dateRange.from;
+
+    const filteredRevenue = allRevenueStats.filter(stat => 
+      isWithinInterval(parseISO(stat.date), { start: from, end: to })
+    );
+
+    const filteredExpenses = allExpenseSlips.filter(slip => 
+      isWithinInterval(parseISO(slip.date), { start: from, end: to })
+    );
+    
+    return { revenue: filteredRevenue, expenses: filteredExpenses };
+  }, [allRevenueStats, allExpenseSlips, dateRange]);
+
+
+  const summaryData = useMemo(() => {
+    const totalRevenue = filteredData.revenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
+    const revenueBreakdown = filteredData.revenue.reduce((acc, stat) => {
+        acc.cash += stat.revenueByPaymentMethod.cash || 0;
+        acc.techcombankVietQrPro += stat.revenueByPaymentMethod.techcombankVietQrPro || 0;
+        acc.shopeeFood += stat.revenueByPaymentMethod.shopeeFood || 0;
+        acc.grabFood += stat.revenueByPaymentMethod.grabFood || 0;
+        acc.bankTransfer += stat.revenueByPaymentMethod.bankTransfer || 0;
+        return acc;
+    }, { cash: 0, techcombankVietQrPro: 0, shopeeFood: 0, grabFood: 0, bankTransfer: 0 });
+
+    const totalExpense = filteredData.expenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
+    const expenseBreakdown = filteredData.expenses.reduce((acc, slip) => {
+        if (slip.paymentMethod === 'cash') acc.cash += slip.totalAmount;
+        else acc.bank_transfer += slip.totalAmount;
+        return acc;
+    }, { cash: 0, bank_transfer: 0 });
+    
+    const expenseByCategory = filteredData.expenses.flatMap(e => e.items).reduce((acc, item) => {
+        const category = item.name.includes("Chi phí sự cố") ? 'Sự cố' : 'Nguyên liệu';
+        acc[category] = (acc[category] || 0) + (item.quantity * item.unitPrice);
+        return acc;
+    }, {} as {[key: string]: number});
+    
+    return { totalRevenue, revenueBreakdown, totalExpense, expenseBreakdown, expenseByCategory };
+  }, [filteredData]);
 
   const setDatePreset = (preset: 'this_week' | 'this_month') => {
     const today = new Date();
@@ -77,7 +122,33 @@ export default function FinancialReportPage() {
     }
   };
   
-  const chartData = Object.entries(MOCK_EXPENSE_DATA.byCategory).map(([name, value]) => ({ name, 'Chi phí': value }));
+  const chartData = Object.entries(summaryData.expenseByCategory).map(([name, value]) => ({ name, 'Chi phí': value }));
+  
+  const detailedData = useMemo(() => {
+      const groupedByDate: {[date: string]: {revenue: RevenueStats[], expenses: ExpenseSlip[]}} = {};
+      
+      filteredData.revenue.forEach(r => {
+          if (!groupedByDate[r.date]) groupedByDate[r.date] = { revenue: [], expenses: [] };
+          groupedByDate[r.date].revenue.push(r);
+      });
+      filteredData.expenses.forEach(e => {
+          if (!groupedByDate[e.date]) groupedByDate[e.date] = { revenue: [], expenses: [] };
+          groupedByDate[e.date].expenses.push(e);
+      });
+
+      return Object.entries(groupedByDate)
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filteredData]);
+  
+  if (isLoading || authLoading) {
+    return (
+        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground mt-4">Đang tải dữ liệu tài chính...</p>
+        </div>
+    )
+  }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -144,14 +215,14 @@ export default function FinancialReportPage() {
             <ArrowUpCircle className="h-6 w-6 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-extrabold text-green-700 dark:text-green-300">{MOCK_REVENUE_DATA.total.toLocaleString('vi-VN')}đ</div>
+            <div className="text-4xl font-extrabold text-green-700 dark:text-green-300">{summaryData.totalRevenue.toLocaleString('vi-VN')}đ</div>
             <Separator className="my-4"/>
             <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Tiền mặt:</span> <span className="font-medium">{MOCK_REVENUE_DATA.breakdown.cash.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>Techcombank VietQR:</span> <span className="font-medium">{MOCK_REVENUE_DATA.breakdown.techcombankVietQrPro.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>ShopeeFood:</span> <span className="font-medium">{MOCK_REVENUE_DATA.breakdown.shopeeFood.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>GrabFood:</span> <span className="font-medium">{MOCK_REVENUE_DATA.breakdown.grabFood.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>Chuyển khoản khác:</span> <span className="font-medium">{MOCK_REVENUE_DATA.breakdown.bankTransfer.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>Tiền mặt:</span> <span className="font-medium">{summaryData.revenueBreakdown.cash.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>Techcombank VietQR:</span> <span className="font-medium">{summaryData.revenueBreakdown.techcombankVietQrPro.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>ShopeeFood:</span> <span className="font-medium">{summaryData.revenueBreakdown.shopeeFood.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>GrabFood:</span> <span className="font-medium">{summaryData.revenueBreakdown.grabFood.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>Chuyển khoản khác:</span> <span className="font-medium">{summaryData.revenueBreakdown.bankTransfer.toLocaleString('vi-VN')}đ</span></div>
             </div>
           </CardContent>
         </Card>
@@ -161,11 +232,11 @@ export default function FinancialReportPage() {
             <ArrowDownCircle className="h-6 w-6 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-extrabold text-red-700 dark:text-red-300">{MOCK_EXPENSE_DATA.total.toLocaleString('vi-VN')}đ</div>
+            <div className="text-4xl font-extrabold text-red-700 dark:text-red-300">{summaryData.totalExpense.toLocaleString('vi-VN')}đ</div>
              <Separator className="my-4"/>
              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2"><Wallet className="text-gray-500"/>Chi tiền mặt:</span> <span className="font-medium">{MOCK_EXPENSE_DATA.breakdown.cash.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2"><LandPlot className="text-blue-500"/>Chi chuyển khoản:</span> <span className="font-medium">{MOCK_EXPENSE_DATA.breakdown.bank_transfer.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2"><Wallet className="text-gray-500"/>Chi tiền mặt:</span> <span className="font-medium">{summaryData.expenseBreakdown.cash.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2"><LandPlot className="text-blue-500"/>Chi chuyển khoản:</span> <span className="font-medium">{summaryData.expenseBreakdown.bank_transfer.toLocaleString('vi-VN')}đ</span></div>
             </div>
           </CardContent>
         </Card>
@@ -188,7 +259,7 @@ export default function FinancialReportPage() {
                             <RechartsBarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip formatter={(value: number) => `${'value'.toLocaleString('vi-VN')}đ`} />
+                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} />
                                 <Bar dataKey="Chi phí" fill="#ef4444" radius={[0, 4, 4, 0]} />
                             </RechartsBarChart>
                         </ResponsiveContainer>
@@ -204,7 +275,7 @@ export default function FinancialReportPage() {
                                 <Pie data={chartData} dataKey="Chi phí" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
                                     {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                                 </Pie>
-                                <Tooltip formatter={(value: number) => `${'value'.toLocaleString('vi-VN')}đ`}/>
+                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -213,11 +284,21 @@ export default function FinancialReportPage() {
             </div>
         </TabsContent>
         <TabsContent value="details" className="mt-4">
-          <Accordion type="multiple" defaultValue={MOCK_DETAILED_DATA.map(d => d.date)} className="space-y-2">
-            {MOCK_DETAILED_DATA.map((dayData, index) => (
+          <Accordion type="multiple" defaultValue={detailedData.map(d => d.date)} className="space-y-2">
+            {detailedData.map((dayData, index) => {
+              const totalDailyRevenue = dayData.revenue.reduce((sum, r) => sum + r.netRevenue, 0);
+              const totalDailyExpense = dayData.expenses.reduce((sum, e) => sum + e.totalAmount, 0);
+
+              return (
               <AccordionItem value={dayData.date} key={index} className="bg-white dark:bg-card border rounded-lg">
                 <AccordionTrigger className="p-4 text-base font-semibold">
-                  Ngày {format(new Date(dayData.date), "dd/MM/yyyy")}
+                  <div className="w-full flex justify-between items-center">
+                    <span>Ngày {format(new Date(dayData.date), "dd/MM/yyyy")}</span>
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-green-600">Thu: {totalDailyRevenue.toLocaleString('vi-VN')}đ</span>
+                      <span className="text-red-600">Chi: {totalDailyExpense.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-4 border-t">
                   <div className="grid gap-6 md:grid-cols-2">
@@ -225,12 +306,12 @@ export default function FinancialReportPage() {
                         <h4 className="font-semibold mb-2 text-green-600">Doanh thu</h4>
                         <Table>
                             <TableBody>
-                                {dayData.revenue.items.map((item, idx) => (
+                                {dayData.revenue.length > 0 ? dayData.revenue.map((item, idx) => (
                                     <TableRow key={`rev-${idx}`}>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-right font-medium text-green-600">{item.amount.toLocaleString('vi-VN')}đ</TableCell>
+                                        <TableCell>Doanh thu từ POS</TableCell>
+                                        <TableCell className="text-right font-medium text-green-600">{item.netRevenue.toLocaleString('vi-VN')}đ</TableCell>
                                     </TableRow>
-                                ))}
+                                )) : <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground">Không có</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </div>
@@ -238,22 +319,22 @@ export default function FinancialReportPage() {
                         <h4 className="font-semibold mb-2 text-red-600">Chi phí</h4>
                         <Table>
                             <TableBody>
-                                {dayData.expenses.map((item, idx) => (
+                                {dayData.expenses.length > 0 ? dayData.expenses.map((item, idx) => (
                                     <TableRow key={`exp-${idx}`}>
                                         <TableCell>
-                                            {item.name}
-                                            <Badge variant={item.method === 'cash' ? 'secondary' : 'outline'} className="ml-2">{item.method === 'cash' ? 'Tiền mặt' : 'CK'}</Badge>
+                                            {item.items.map(i => i.name).join(', ')}
+                                            <Badge variant={item.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="ml-2">{item.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</Badge>
                                         </TableCell>
-                                        <TableCell className="text-right font-medium text-red-600">{item.amount.toLocaleString('vi-VN')}đ</TableCell>
+                                        <TableCell className="text-right font-medium text-red-600">{item.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
                                     </TableRow>
-                                ))}
+                                )) : <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground">Không có</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
-            ))}
+            )})}
           </Accordion>
         </TabsContent>
       </Tabs>
