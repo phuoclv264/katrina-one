@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -122,7 +122,30 @@ export default function FinancialReportPage() {
     }
   };
   
-  const chartData = Object.entries(summaryData.expenseByCategory).map(([name, value]) => ({ name, 'Chi phí': value }));
+    const chartData = useMemo(() => {
+        if (!dateRange?.from) return [];
+        const from = dateRange.from;
+        const to = dateRange.to ?? dateRange.from;
+        const days = eachDayOfInterval({start: from, end: to});
+
+        return days.map(day => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const dailyRevenue = filteredData.revenue
+                .filter(stat => stat.date === dateKey)
+                .reduce((sum, stat) => sum + stat.netRevenue, 0);
+            const dailyExpense = filteredData.expenses
+                .filter(slip => slip.date === dateKey)
+                .reduce((sum, slip) => sum + slip.totalAmount, 0);
+
+            return {
+                name: format(day, 'dd/MM'),
+                'Doanh thu': dailyRevenue,
+                'Chi phí': dailyExpense
+            }
+        });
+    }, [dateRange, filteredData]);
+  
+  const expensePieChartData = Object.entries(summaryData.expenseByCategory).map(([name, value]) => ({ name, value }));
   
   const detailedData = useMemo(() => {
       const groupedByDate: {[date: string]: {revenue: RevenueStats[], expenses: ExpenseSlip[]}} = {};
@@ -252,28 +275,37 @@ export default function FinancialReportPage() {
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Chi phí theo hạng mục</CardTitle>
+                        <CardTitle>Xu hướng Doanh thu & Chi phí</CardTitle>
+                         <CardDescription>
+                            Biểu đồ thể hiện biến động theo từng ngày trong khoảng thời gian đã chọn.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ResponsiveContainer width="100%" height={300}>
-                            <RechartsBarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} />
-                                <Bar dataKey="Chi phí" fill="#ef4444" radius={[0, 4, 4, 0]} />
-                            </RechartsBarChart>
+                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
+                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
+                                <Legend />
+                                <Line type="monotone" dataKey="Doanh thu" stroke="#16a34a" strokeWidth={2} activeDot={{ r: 8 }} />
+                                <Line type="monotone" dataKey="Chi phí" stroke="#ef4444" strokeWidth={2} />
+                            </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
                  <Card>
                     <CardHeader>
                         <CardTitle>Tỷ trọng chi phí</CardTitle>
+                         <CardDescription>
+                            Phân tích cấu trúc chi phí theo từng hạng mục.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                        <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
-                                <Pie data={chartData} dataKey="Chi phí" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                    {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                                <Pie data={expensePieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                    {expensePieChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                                 </Pie>
                                 <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
                                 <Legend />
