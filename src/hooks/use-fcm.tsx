@@ -2,13 +2,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getToken, onMessage } from 'firebase/messaging';
+import { getToken } from 'firebase/messaging';
 import { messaging, db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 // Function to call the test notification cloud function
 const triggerSendTestNotification = async (userId: string) => {
@@ -33,49 +31,6 @@ export const useFcm = () => {
             setNotificationPermission(Notification.permission);
         }
     }, []);
-
-    // Effect to handle incoming messages
-    useEffect(() => {
-        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && window.Worker) {
-            const handleMessage = (payload: any) => {
-                console.log('Foreground Message received. ', payload);
-                toast.custom((t) => (
-                  <div
-                    className={cn(
-                      'max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5',
-                      t.visible ? 'animate-in fade-in' : 'animate-out fade-out'
-                    )}
-                  >
-                    <div className="flex-1 w-0 p-4">
-                      <div className="flex items-start">
-                        <div className="ml-3 flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {payload.notification?.title}
-                          </p>
-                          <p className="mt-1 text-sm text-gray-500">
-                            {payload.notification?.body}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex border-l border-gray-200">
-                      <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        Đóng
-                      </button>
-                    </div>
-                  </div>
-                ), { duration: 5000 });
-            };
-
-            if (messaging) {
-                const unsubscribe = onMessage(messaging, handleMessage);
-                return () => unsubscribe();
-            }
-        }
-    }, []);
     
     const requestPermissionAndGetToken = useCallback(async (userId: string) => {
         if (!messaging || !userId) return null;
@@ -98,9 +53,8 @@ export const useFcm = () => {
                     console.log('FCM Token:', token);
                     setFcmToken(token);
                     
-                    // Show token in a toast message
                     toast.success(`Đã lấy token thành công! Bạn có thể sao chép nó bên dưới.\n\n${token}`, {
-                        duration: 15000, // Show for 15 seconds
+                        duration: 15000,
                     });
 
                     const userDocRef = doc(db, 'users', userId);
