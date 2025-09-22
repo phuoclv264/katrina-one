@@ -2,29 +2,32 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2 } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2, ArrowRight } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { addDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, eachDayOfInterval } from 'date-fns';
+import { addDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, eachDayOfInterval, subWeeks, subMonths, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, AreaChart, Area } from 'recharts';
+import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, AreaChart, Area, ComposedChart } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, ExpenseSlip, ExpenseItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
-const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
 const PAYMENT_METHOD_COLORS = {
     cash: '#22c55e', // green-500
     techcombankVietQrPro: '#3b82f6', // blue-500
@@ -47,6 +50,41 @@ const PAYMENT_METHOD_NAMES: { [key: string]: string } = {
     bankTransfer: 'Chuyển khoản',
 };
 
+const getWeekDays = (locale: Locale) => {
+    const format = (date: Date) => date.toLocaleDateString(locale.code, { weekday: 'short' });
+    const days: string[] = [];
+    for (let i = 1; i <= 7; i++) { // Start from Monday
+        days.push(format(new Date(2023, 0, 1 + i)));
+    }
+    return days;
+};
+
+const weekDays = getWeekDays(vi);
+
+const calculateChange = (current: number, previous: number) => {
+    if (previous === 0) {
+        return current > 0 ? 100 : 0;
+    }
+    return ((current - previous) / previous) * 100;
+};
+
+const ChangeIndicator = ({ value }: { value: number }) => {
+    if (isNaN(value) || !isFinite(value)) return null;
+
+    const isPositive = value > 0;
+    const isNegative = value < 0;
+
+    return (
+        <span className={cn(
+            "text-xs font-semibold flex items-center",
+            isPositive && "text-green-600",
+            isNegative && "text-red-600"
+        )}>
+            {isPositive ? '▲' : '▼'} {Math.abs(value).toFixed(1)}%
+        </span>
+    );
+};
+
 
 export default function FinancialReportPage() {
   const { user, loading: authLoading } = useAuth();
@@ -56,7 +94,8 @@ export default function FinancialReportPage() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
-  
+
+  const [compare, setCompare] = useState(false);
   const [allRevenueStats, setAllRevenueStats] = useState<RevenueStats[]>([]);
   const [allExpenseSlips, setAllExpenseSlips] = useState<ExpenseSlip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,6 +108,7 @@ export default function FinancialReportPage() {
 
   useEffect(() => {
     if (user) {
+      setIsLoading(true);
       let revenueLoaded = false;
       let expensesLoaded = false;
       const checkLoadingDone = () => {
@@ -93,10 +133,10 @@ export default function FinancialReportPage() {
     }
   }, [user]);
 
-  const filteredData = useMemo(() => {
-    if (!dateRange?.from) return { revenue: [], expenses: [] };
-    const from = dateRange.from;
-    const to = dateRange.to ?? dateRange.from;
+  const filterDataByRange = useCallback((range: DateRange | undefined) => {
+    if (!range?.from) return { revenue: [], expenses: [] };
+    const from = range.from;
+    const to = range.to ?? range.from;
 
     const filteredRevenue = allRevenueStats.filter(stat => 
       isWithinInterval(parseISO(stat.date), { start: from, end: to })
@@ -107,12 +147,23 @@ export default function FinancialReportPage() {
     );
     
     return { revenue: filteredRevenue, expenses: filteredExpenses };
-  }, [allRevenueStats, allExpenseSlips, dateRange]);
+  }, [allRevenueStats, allExpenseSlips]);
 
+  const mainPeriodData = useMemo(() => filterDataByRange(dateRange), [dateRange, filterDataByRange]);
 
-  const summaryData = useMemo(() => {
-    const totalRevenue = filteredData.revenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
-    const revenueBreakdown = filteredData.revenue.reduce((acc, stat) => {
+  const comparisonPeriod = useMemo(() => {
+    if (!compare || !dateRange?.from || !dateRange?.to) return undefined;
+    const diff = dateRange.to.getTime() - dateRange.from.getTime();
+    const from = new Date(dateRange.from.getTime() - diff - (1000 * 60 * 60 * 24)); // Subtract one more day to make it the previous period
+    const to = new Date(dateRange.to.getTime() - diff - (1000 * 60 * 60 * 24));
+    return { from, to };
+  }, [dateRange, compare]);
+
+  const comparisonPeriodData = useMemo(() => filterDataByRange(comparisonPeriod), [comparisonPeriod, filterDataByRange]);
+  
+  const calculateSummary = (data: { revenue: RevenueStats[], expenses: ExpenseSlip[] }) => {
+    const totalRevenue = data.revenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
+    const revenueBreakdown = data.revenue.reduce((acc, stat) => {
         acc.cash += stat.revenueByPaymentMethod.cash || 0;
         acc.techcombankVietQrPro += stat.revenueByPaymentMethod.techcombankVietQrPro || 0;
         acc.shopeeFood += stat.revenueByPaymentMethod.shopeeFood || 0;
@@ -121,95 +172,122 @@ export default function FinancialReportPage() {
         return acc;
     }, { cash: 0, techcombankVietQrPro: 0, shopeeFood: 0, grabFood: 0, bankTransfer: 0 });
 
-    const totalExpense = filteredData.expenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
-    const expenseBreakdown = filteredData.expenses.reduce((acc, slip) => {
-        if (slip.paymentMethod === 'cash') acc.cash += slip.totalAmount;
-        else acc.bank_transfer += slip.totalAmount;
-        return acc;
-    }, { cash: 0, bank_transfer: 0 });
+    const totalExpense = data.expenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
     
-    const expenseByCategory = filteredData.expenses.flatMap(e => e.items).reduce((acc, item) => {
+    const expenseByCategory = data.expenses.flatMap(e => e.items).reduce((acc, item) => {
         const category = item.name.includes("Chi phí sự cố") ? 'Sự cố' : 'Nguyên liệu';
         acc[category] = (acc[category] || 0) + (item.quantity * item.unitPrice);
         return acc;
     }, {} as {[key: string]: number});
     
-    return { totalRevenue, revenueBreakdown, totalExpense, expenseBreakdown, expenseByCategory };
-  }, [filteredData]);
+    const totalProfit = totalRevenue - totalExpense;
+    const totalSlips = data.expenses.length;
 
-  const setDatePreset = (preset: 'this_week' | 'this_month') => {
+    return { totalRevenue, revenueBreakdown, totalExpense, expenseByCategory, totalProfit, totalSlips };
+  };
+
+  const mainSummary = useMemo(() => calculateSummary(mainPeriodData), [mainPeriodData]);
+  const comparisonSummary = useMemo(() => calculateSummary(comparisonPeriodData), [comparisonPeriodData]);
+
+
+  const setDatePreset = (preset: string) => {
     const today = new Date();
-    if (preset === 'this_week') {
-      setDateRange({ from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) });
-    } else {
-      setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    let from, to;
+    switch (preset) {
+        case 'this_week':
+            from = startOfWeek(today, { weekStartsOn: 1 });
+            to = endOfWeek(today, { weekStartsOn: 1 });
+            break;
+        case 'last_week':
+            from = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
+            to = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
+            break;
+        case 'this_month':
+            from = startOfMonth(today);
+            to = endOfMonth(today);
+            break;
+        case 'last_month':
+            from = startOfMonth(subMonths(today, 1));
+            to = endOfMonth(subMonths(today, 1));
+            break;
+        default:
+            return;
     }
+    setDateRange({ from, to });
   };
   
-    const chartData = useMemo(() => {
-        if (!dateRange?.from) return [];
-        const from = dateRange.from;
-        const to = dateRange.to ?? dateRange.from;
-        const days = eachDayOfInterval({start: from, end: to});
+  const chartData = useMemo(() => {
+    if (!dateRange?.from) return [];
+    
+    const getComparisonKey = (date: Date) => {
+        const from = dateRange.from!;
+        const to = dateRange.to ?? from;
+        const diff = to.getTime() - from.getTime();
+        const oneWeek = 6 * 24 * 60 * 60 * 1000;
+        
+        // Weekly comparison
+        if (diff <= oneWeek) {
+            return weekDays[getDay(date) === 0 ? 6 : getDay(date) - 1]; // Mon-Sun
+        }
+        // Monthly comparison
+        return format(date, 'd');
+    }
 
-        return days.map(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
-            const dailyRevenue = filteredData.revenue
-                .filter(stat => stat.date === dateKey)
-                .reduce((sum, stat) => sum + stat.netRevenue, 0);
-            const dailyExpense = filteredData.expenses
-                .filter(slip => slip.date === dateKey)
-                .reduce((sum, slip) => sum + slip.totalAmount, 0);
+    const dataMap = new Map<string, any>();
 
-            return {
-                name: format(day, 'dd/MM'),
-                fullDate: day,
-                'Doanh thu': dailyRevenue,
-                'Chi phí': dailyExpense
-            }
+    const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_') => {
+        periodData.revenue.forEach(stat => {
+            const key = getComparisonKey(parseISO(stat.date));
+            if (!dataMap.has(key)) dataMap.set(key, { name: key });
+            const entry = dataMap.get(key);
+            
+            entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
+            
+            const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
+            entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
+            entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
+            entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
         });
-    }, [dateRange, filteredData]);
+
+        periodData.expenses.forEach(slip => {
+            const key = getComparisonKey(parseISO(slip.date));
+            if (!dataMap.has(key)) dataMap.set(key, { name: key });
+            const entry = dataMap.get(key);
+            entry[`${keyPrefix}expense`] = (entry[`${keyPrefix}expense`] || 0) + slip.totalAmount;
+        });
+    };
+
+    processPeriodData(mainPeriodData, 'main_');
+    if (compare) {
+        processPeriodData(comparisonPeriodData, 'comp_');
+    }
+    
+    const sortedData = Array.from(dataMap.values());
+    const from = dateRange.from!;
+    const to = dateRange.to ?? from;
+    const diff = to.getTime() - from.getTime();
+    const oneWeek = 6 * 24 * 60 * 60 * 1000;
+
+    if (diff <= oneWeek) {
+        sortedData.sort((a,b) => weekDays.indexOf(a.name) - weekDays.indexOf(b.name));
+    } else {
+        sortedData.sort((a,b) => parseInt(a.name) - parseInt(b.name));
+    }
+
+    return sortedData;
+  }, [dateRange, mainPeriodData, comparisonPeriodData, compare]);
   
-    const revenueByChannelChartData = useMemo(() => {
-        if (!dateRange?.from) return [];
-        const from = dateRange.from;
-        const to = dateRange.to ?? dateRange.from;
-        const days = eachDayOfInterval({start: from, end: to});
 
-        return days.map(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
-            const dailyRevenueStats = filteredData.revenue.filter(stat => stat.date === dateKey);
-            
-            const dailyBreakdown = dailyRevenueStats.reduce((acc, stat) => {
-                const atStoreRevenue = (stat.revenueByPaymentMethod.cash || 0) + 
-                                       (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + 
-                                       (stat.revenueByPaymentMethod.bankTransfer || 0);
-
-                acc['Tại quán'] += atStoreRevenue;
-                acc['ShopeeFood'] += stat.revenueByPaymentMethod.shopeeFood || 0;
-                acc['GrabFood'] += stat.revenueByPaymentMethod.grabFood || 0;
-
-                return acc;
-            }, { 'Tại quán': 0, 'ShopeeFood': 0, 'GrabFood': 0 });
-            
-            return {
-                name: format(day, 'dd/MM'),
-                fullDate: day,
-                ...dailyBreakdown
-            };
-        });
-    }, [dateRange, filteredData]);
-
-  const expensePieChartData = Object.entries(summaryData.expenseByCategory).map(([name, value]) => ({ name, value }));
+  const expensePieChartData = Object.entries(mainSummary.expenseByCategory).map(([name, value]) => ({ name, value }));
   
   const detailedData = useMemo(() => {
       const groupedByDate: {[date: string]: {revenue: RevenueStats[], expenses: ExpenseSlip[]}} = {};
       
-      filteredData.revenue.forEach(r => {
+      mainPeriodData.revenue.forEach(r => {
           if (!groupedByDate[r.date]) groupedByDate[r.date] = { revenue: [], expenses: [] };
           groupedByDate[r.date].revenue.push(r);
       });
-      filteredData.expenses.forEach(e => {
+      mainPeriodData.expenses.forEach(e => {
           if (!groupedByDate[e.date]) groupedByDate[e.date] = { revenue: [], expenses: [] };
           groupedByDate[e.date].expenses.push(e);
       });
@@ -217,13 +295,19 @@ export default function FinancialReportPage() {
       return Object.entries(groupedByDate)
         .map(([date, data]) => ({ date, ...data }))
         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredData]);
+  }, [mainPeriodData]);
   
   const formatTooltipLabel = (label: string, payload: any[]) => {
-    if (payload && payload.length > 0 && payload[0].payload.fullDate) {
-        return format(payload[0].payload.fullDate, 'eeee, dd/MM', { locale: vi });
+    if (!dateRange?.from) return label;
+    const from = dateRange.from!;
+    const to = dateRange.to ?? from;
+    const diff = to.getTime() - from.getTime();
+    const oneWeek = 6 * 24 * 60 * 60 * 1000;
+    
+    if (diff <= oneWeek) {
+        return label;
     }
-    return label;
+    return `Ngày ${label}`;
   }
   
   if (isLoading || authLoading) {
@@ -249,79 +333,124 @@ export default function FinancialReportPage() {
 
       {/* Date Range Filter */}
       <Card className="mb-8">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                id="date"
-                variant={"outline"}
-                className={cn(
-                  "w-full sm:w-[300px] justify-start text-left font-normal",
-                  !dateRange && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
-                    </>
-                  ) : (
-                    format(dateRange.from, "dd/MM/yy")
-                  )
-                ) : (
-                  <span>Chọn ngày</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-          <div className='flex gap-2'>
-            <Button variant="outline" onClick={() => setDatePreset('this_week')}>Tuần này</Button>
-            <Button variant="outline" onClick={() => setDatePreset('this_month')}>Tháng này</Button>
-          </div>
+        <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full md:w-auto">
+             <Select onValueChange={setDatePreset}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Chọn nhanh..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="this_week">Tuần này</SelectItem>
+                    <SelectItem value="last_week">Tuần trước</SelectItem>
+                    <SelectItem value="this_month">Tháng này</SelectItem>
+                    <SelectItem value="last_month">Tháng trước</SelectItem>
+                </SelectContent>
+             </Select>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="date"
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal col-span-2",
+                      !dateRange && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "dd/MM/yy")
+                      )
+                    ) : (
+                      <span>Chọn ngày</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+           </div>
+           <div className="flex items-center space-x-2 w-full md:w-auto justify-end">
+              <Switch id="compare-switch" checked={compare} onCheckedChange={setCompare} />
+              <Label htmlFor="compare-switch">So sánh với kỳ trước</Label>
+            </div>
+            {compare && comparisonPeriod && (
+                <div className="text-sm text-muted-foreground">
+                    Kỳ so sánh: {format(comparisonPeriod.from, 'dd/MM/yy')} - {format(comparisonPeriod.to, 'dd/MM/yy')}
+                </div>
+            )}
         </CardContent>
       </Card>
 
       {/* Summary Cards */}
       <div className="grid gap-6 md:grid-cols-2 mb-8">
+        {/* Revenue Card */}
         <Card className="shadow-lg border-green-200 dark:border-green-800 bg-white dark:bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-bold text-green-600 dark:text-green-400">TỔNG DOANH THU</CardTitle>
             <ArrowUpCircle className="h-6 w-6 text-green-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-extrabold text-green-700 dark:text-green-300">{summaryData.totalRevenue.toLocaleString('vi-VN')}đ</div>
+          <CardContent className="grid grid-cols-1">
+             <div className={cn("transition-all duration-300", compare && "grid grid-cols-2 divide-x")}>
+                <div className="p-2">
+                    {compare && <p className="text-xs text-muted-foreground">Kỳ này</p>}
+                    <div className="text-3xl font-extrabold text-green-700 dark:text-green-300">{mainSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
+                </div>
+                {compare && (
+                    <div className="p-2 pl-4">
+                        <p className="text-xs text-muted-foreground">Kỳ trước</p>
+                        <div className="text-3xl font-extrabold text-green-700/70 dark:text-green-300/70">{comparisonSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
+                         <ChangeIndicator value={calculateChange(mainSummary.totalRevenue, comparisonSummary.totalRevenue)} />
+                    </div>
+                )}
+             </div>
             <Separator className="my-4"/>
             <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Tiền mặt:</span> <span className="font-medium">{summaryData.revenueBreakdown.cash.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>Techcombank VietQR:</span> <span className="font-medium">{summaryData.revenueBreakdown.techcombankVietQrPro.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>ShopeeFood:</span> <span className="font-medium">{summaryData.revenueBreakdown.shopeeFood.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>GrabFood:</span> <span className="font-medium">{summaryData.revenueBreakdown.grabFood.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>Chuyển khoản khác:</span> <span className="font-medium">{summaryData.revenueBreakdown.bankTransfer.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>Tiền mặt:</span> <span className="font-medium">{mainSummary.revenueBreakdown.cash.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>Techcombank VietQR:</span> <span className="font-medium">{mainSummary.revenueBreakdown.techcombankVietQrPro.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>ShopeeFood:</span> <span className="font-medium">{mainSummary.revenueBreakdown.shopeeFood.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>GrabFood:</span> <span className="font-medium">{mainSummary.revenueBreakdown.grabFood.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between"><span>Chuyển khoản khác:</span> <span className="font-medium">{mainSummary.revenueBreakdown.bankTransfer.toLocaleString('vi-VN')}đ</span></div>
             </div>
           </CardContent>
         </Card>
+        {/* Expense Card */}
         <Card className="shadow-lg border-red-200 dark:border-red-800 bg-white dark:bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-bold text-red-600 dark:text-red-400">TỔNG CHI PHÍ</CardTitle>
             <ArrowDownCircle className="h-6 w-6 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-extrabold text-red-700 dark:text-red-300">{summaryData.totalExpense.toLocaleString('vi-VN')}đ</div>
+             <div className={cn("transition-all duration-300", compare && "grid grid-cols-2 divide-x")}>
+                 <div className="p-2">
+                    {compare && <p className="text-xs text-muted-foreground">Kỳ này</p>}
+                    <div className="text-3xl font-extrabold text-red-700 dark:text-red-300">{mainSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
+                </div>
+                 {compare && (
+                    <div className="p-2 pl-4">
+                         <p className="text-xs text-muted-foreground">Kỳ trước</p>
+                        <div className="text-3xl font-extrabold text-red-700/70 dark:text-red-300/70">{comparisonSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
+                        <ChangeIndicator value={calculateChange(mainSummary.totalExpense, comparisonSummary.totalExpense)} />
+                    </div>
+                )}
+            </div>
              <Separator className="my-4"/>
              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2"><Wallet className="text-gray-500"/>Chi tiền mặt:</span> <span className="font-medium">{summaryData.expenseBreakdown.cash.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2"><LandPlot className="text-blue-500"/>Chi chuyển khoản:</span> <span className="font-medium">{summaryData.expenseBreakdown.bank_transfer.toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2">Nguyên liệu:</span> <span className="font-medium">{(mainSummary.expenseByCategory['Nguyên liệu'] || 0).toLocaleString('vi-VN')}đ</span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2">Sự cố:</span> <span className="font-medium">{(mainSummary.expenseByCategory['Sự cố'] || 0).toLocaleString('vi-VN')}đ</span></div>
             </div>
           </CardContent>
         </Card>
@@ -338,54 +467,39 @@ export default function FinancialReportPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Xu hướng Doanh thu & Chi phí</CardTitle>
-                         <CardDescription>
-                            Biểu đồ thể hiện biến động theo từng ngày trong khoảng thời gian đã chọn.
-                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
-                                <Tooltip 
-                                    formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}
-                                    labelFormatter={formatTooltipLabel}
-                                />
+                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} labelFormatter={formatTooltipLabel} />
                                 <Legend />
-                                <Line type="monotone" dataKey="Doanh thu" stroke="#16a34a" strokeWidth={2} activeDot={{ r: 8 }} />
-                                <Line type="monotone" dataKey="Chi phí" stroke="#ef4444" strokeWidth={2} />
-                            </LineChart>
+                                <Bar dataKey="main_revenue" name="Doanh thu" fill="#16a34a" barSize={20} />
+                                <Line type="monotone" dataKey="main_expense" name="Chi phí" stroke="#ef4444" strokeWidth={2} />
+                                {compare && <Line type="monotone" dataKey="comp_revenue" name="DT kỳ trước" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 5" />}
+                                {compare && <Line type="monotone" dataKey="comp_expense" name="CP kỳ trước" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" />}
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
                  <Card>
                     <CardHeader>
                         <CardTitle>Xu hướng Doanh thu theo Kênh</CardTitle>
-                        <CardDescription>Phân tích các kênh thanh toán đóng góp vào doanh thu hàng ngày.</CardDescription>
                     </CardHeader>
                     <CardContent>
                          <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={revenueByChannelChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
-                                <Tooltip 
-                                    formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}
-                                    labelFormatter={formatTooltipLabel}
-                                />
+                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} labelFormatter={formatTooltipLabel} />
                                 <Legend />
-                                {Object.keys(REVENUE_CHANNEL_COLORS).map(channel => (
-                                    <Line 
-                                        key={channel}
-                                        type="monotone" 
-                                        dataKey={channel} 
-                                        name={channel}
-                                        stroke={REVENUE_CHANNEL_COLORS[channel as keyof typeof REVENUE_CHANNEL_COLORS]} 
-                                        strokeWidth={2}
-                                        activeDot={{ r: 6 }}
-                                    />
-                                ))}
+                                <Line type="monotone" dataKey="main_at_store" name="Tại quán" stroke={REVENUE_CHANNEL_COLORS['Tại quán']} strokeWidth={2} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="main_shopeefood" name="ShopeeFood" stroke={REVENUE_CHANNEL_COLORS['ShopeeFood']} strokeWidth={2} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="main_grabfood" name="GrabFood" stroke={REVENUE_CHANNEL_COLORS['GrabFood']} strokeWidth={2} activeDot={{ r: 6 }} />
+                                {compare && <Line type="monotone" dataKey="comp_at_store" name="Tại quán (kỳ trước)" stroke={REVENUE_CHANNEL_COLORS['Tại quán']} strokeWidth={2} strokeDasharray="5 5" />}
                             </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -393,15 +507,12 @@ export default function FinancialReportPage() {
                  <Card className="lg:col-span-2">
                     <CardHeader>
                         <CardTitle>Tỷ trọng chi phí</CardTitle>
-                         <CardDescription>
-                            Phân tích cấu trúc chi phí theo từng hạng mục.
-                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                        <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                                 <Pie data={expensePieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                    {expensePieChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                                    {expensePieChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={cn(index === 0 ? "hsl(var(--chart-1))" : "hsl(var(--chart-2))")} />)}
                                 </Pie>
                                 <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
                                 <Legend />
@@ -469,5 +580,6 @@ export default function FinancialReportPage() {
     </div>
   );
 }
+
 
 
