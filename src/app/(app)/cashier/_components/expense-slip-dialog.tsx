@@ -285,7 +285,7 @@ export default function ExpenseSlipDialog({
     
     // --- New State for Expense Type ---
     const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
-    const [otherCostCategory, setOtherCostCategory] = useState('');
+    const [otherCostCategoryId, setOtherCostCategoryId] = useState('');
     const [otherCostDescription, setOtherCostDescription] = useState('');
     const [otherCostAmount, setOtherCostAmount] = useState(0);
 
@@ -317,13 +317,13 @@ export default function ExpenseSlipDialog({
                 setExpenseType(slipToEdit.expenseType);
                 if(slipToEdit.expenseType === 'other_cost' && slipToEdit.items.length > 0) {
                     const otherItem = slipToEdit.items[0];
-                    setOtherCostCategory(otherItem.name);
+                    setOtherCostCategoryId(otherItem.otherCostCategoryId || '');
                     setOtherCostDescription(otherItem.description || '');
                     setOtherCostAmount(otherItem.unitPrice);
                     setItems([]);
                 } else {
                     setItems(slipToEdit.items);
-                    setOtherCostCategory('');
+                    setOtherCostCategoryId('');
                     setOtherCostDescription('');
                     setOtherCostAmount(0);
                 }
@@ -340,7 +340,7 @@ export default function ExpenseSlipDialog({
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
-                setOtherCostCategory('');
+                setOtherCostCategoryId('');
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
@@ -393,6 +393,8 @@ export default function ExpenseSlipDialog({
         }
 
         let finalItems: ExpenseItem[] = [];
+        const selectedCategoryName = otherCostCategories.find(c => c.id === otherCostCategoryId)?.name || '';
+
         if (expenseType === 'goods_import') {
             if (items.length === 0) {
                  toast.error('Vui lòng chọn ít nhất một mặt hàng.');
@@ -400,11 +402,11 @@ export default function ExpenseSlipDialog({
             }
             finalItems = items;
         } else { // other_cost
-            if (!otherCostCategory) {
+            if (!otherCostCategoryId) {
                  toast.error('Vui lòng chọn loại chi phí.');
                  return;
             }
-             if (otherCostCategory === 'Khác' && !otherCostDescription.trim()) {
+             if (selectedCategoryName === 'Khác' && !otherCostDescription.trim()) {
                 toast.error('Vui lòng nhập mô tả cho chi phí "Khác".');
                 return;
             }
@@ -414,7 +416,8 @@ export default function ExpenseSlipDialog({
             }
             finalItems = [{
                 itemId: 'other_cost',
-                name: otherCostCategory,
+                name: selectedCategoryName,
+                otherCostCategoryId: otherCostCategoryId,
                 description: otherCostDescription.trim(),
                 supplier: 'N/A',
                 quantity: 1,
@@ -675,18 +678,18 @@ export default function ExpenseSlipDialog({
                                 <div className="space-y-4">
                                      <div className="space-y-2">
                                         <Label htmlFor="other-cost-category">Loại chi phí</Label>
-                                        <Select value={otherCostCategory} onValueChange={setOtherCostCategory}>
+                                        <Select value={otherCostCategoryId} onValueChange={setOtherCostCategoryId}>
                                             <SelectTrigger id="other-cost-category">
                                                 <SelectValue placeholder="Chọn loại chi phí..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {otherCostCategories.map(cat => (
-                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                      </div>
-                                     {otherCostCategory === 'Khác' && (
+                                     {otherCostCategories.find(c => c.id === otherCostCategoryId)?.name === 'Khác' && (
                                          <div className="space-y-2">
                                             <Label htmlFor="other-cost-description">Mô tả chi phí</Label>
                                             <Input id="other-cost-description" value={otherCostDescription} onChange={(e) => setOtherCostDescription(e.target.value)} placeholder="Nhập mô tả chi tiết..." />
