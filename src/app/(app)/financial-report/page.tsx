@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -12,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, AreaChart, Area } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,21 @@ import type { RevenueStats, ExpenseSlip, ExpenseItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const PAYMENT_METHOD_COLORS = {
+    cash: '#22c55e', // green-500
+    techcombankVietQrPro: '#3b82f6', // blue-500
+    shopeeFood: '#f97316', // orange-500
+    grabFood: '#10b981', // emerald-500
+    bankTransfer: '#8b5cf6', // violet-500
+};
+const PAYMENT_METHOD_NAMES: { [key: string]: string } = {
+    cash: 'Tiền mặt',
+    techcombankVietQrPro: 'TCB VietQR',
+    shopeeFood: 'ShopeeFood',
+    grabFood: 'GrabFood',
+    bankTransfer: 'Chuyển khoản',
+};
+
 
 export default function FinancialReportPage() {
   const { user, loading: authLoading } = useAuth();
@@ -145,6 +161,30 @@ export default function FinancialReportPage() {
         });
     }, [dateRange, filteredData]);
   
+    const revenueByPaymentMethodChartData = useMemo(() => {
+        if (!dateRange?.from) return [];
+        const from = dateRange.from;
+        const to = dateRange.to ?? dateRange.from;
+        const days = eachDayOfInterval({start: from, end: to});
+
+        return days.map(day => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const dailyRevenueStats = filteredData.revenue.filter(stat => stat.date === dateKey);
+            
+            const dailyBreakdown = dailyRevenueStats.reduce((acc, stat) => {
+                for (const method in stat.revenueByPaymentMethod) {
+                    acc[method] = (acc[method] || 0) + stat.revenueByPaymentMethod[method as keyof typeof stat.revenueByPaymentMethod];
+                }
+                return acc;
+            }, {} as {[key: string]: number});
+            
+            return {
+                name: format(day, 'dd/MM'),
+                ...dailyBreakdown
+            };
+        });
+    }, [dateRange, filteredData]);
+
   const expensePieChartData = Object.entries(summaryData.expenseByCategory).map(([name, value]) => ({ name, value }));
   
   const detailedData = useMemo(() => {
@@ -272,7 +312,7 @@ export default function FinancialReportPage() {
           <TabsTrigger value="details"><List className="mr-2" />Chi tiết</TabsTrigger>
         </TabsList>
         <TabsContent value="chart" className="mt-4">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
                         <CardTitle>Xu hướng Doanh thu & Chi phí</CardTitle>
@@ -295,6 +335,35 @@ export default function FinancialReportPage() {
                     </CardContent>
                 </Card>
                  <Card>
+                    <CardHeader>
+                        <CardTitle>Xu hướng Doanh thu theo PTTT</CardTitle>
+                        <CardDescription>Phân tích các kênh thanh toán đóng góp vào doanh thu hàng ngày.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart data={revenueByPaymentMethodChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
+                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
+                                <Legend />
+                                {Object.keys(PAYMENT_METHOD_COLORS).map(method => (
+                                    <Area 
+                                        key={method}
+                                        type="monotone" 
+                                        dataKey={method} 
+                                        name={PAYMENT_METHOD_NAMES[method]}
+                                        stackId="1" 
+                                        stroke={PAYMENT_METHOD_COLORS[method as keyof typeof PAYMENT_METHOD_COLORS]} 
+                                        fill={PAYMENT_METHOD_COLORS[method as keyof typeof PAYMENT_METHOD_COLORS]} 
+                                        fillOpacity={0.6}
+                                    />
+                                ))}
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                 <Card className="lg:col-span-2">
                     <CardHeader>
                         <CardTitle>Tỷ trọng chi phí</CardTitle>
                          <CardDescription>
@@ -373,3 +442,4 @@ export default function FinancialReportPage() {
     </div>
   );
 }
+
