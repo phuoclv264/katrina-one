@@ -97,6 +97,12 @@ export const useFcm = () => {
                 if (token) {
                     console.log('FCM Token:', token);
                     setFcmToken(token);
+                    
+                    // Show token in a toast message
+                    toast.success(`Đã lấy token thành công! Bạn có thể sao chép nó bên dưới.\n\n${token}`, {
+                        duration: 15000, // Show for 15 seconds
+                    });
+
                     const userDocRef = doc(db, 'users', userId);
                     await setDoc(userDocRef, { fcmToken: token }, { merge: true });
                     toast.success("Đã bật thông báo!");
