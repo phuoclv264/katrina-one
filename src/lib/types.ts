@@ -333,19 +333,17 @@ export type ExpenseSlip = {
 export type HandoverReport = {
   id: string; // cashier-handover-{date}
   date: string;
-  posImageUrl?: string;
-  posCashRevenue?: number;
-  posTotalExpense?: number;
-  startOfDayCash: number;
+  handoverImageUrl: string;
+  handoverData: any; // Data extracted by AI from the handover image
+  
   actualCash: number;
+  discrepancy: number; // calculated as actualCash - handoverData.expectedCash
   discrepancyReason?: string;
-  discrepancyProofImageUrl?: string;
+  discrepancyProofPhotos?: string[];
   
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
-  lastModified?: string | Timestamp;
-  isBackfilled?: boolean; // For owner to fill later
-  editHistory?: any[];
+  isVerified: boolean;
 };
 
 export type IncidentReport = {
@@ -385,6 +383,8 @@ export type ExtractedInvoiceItem = {
     itemName: string;
     quantity: number;
     unitPrice: number;
+    totalAmount: number;
+    lineItemDiscount: number;
     matchedItemId: string | null;
     status: 'matched' | 'unmatched';
 };
@@ -395,6 +395,6 @@ export type InvoiceExtractionResult = {
         invoiceTitle: string;
         imageIds: string[];
         items: ExtractedInvoiceItem[];
-        totalDiscount?: number;
+        totalDiscount: number;
     }[];
 };
