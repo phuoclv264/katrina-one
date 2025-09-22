@@ -104,6 +104,7 @@ export default function CashierDashboardPage() {
   const router = useRouter();
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
+  const [dailyIncidents, setDailyIncidents] = useState<IncidentReport[]>([]);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
@@ -143,6 +144,9 @@ export default function CashierDashboardPage() {
     if (user) {
         const date = format(new Date(), 'yyyy-MM-dd');
         const unsubSlips = dataStore.subscribeToDailyExpenseSlips(date, setDailySlips);
+        const unsubIncidents = dataStore.subscribeToAllIncidents((allIncidents) => {
+            setDailyIncidents(allIncidents.filter(i => i.date === date));
+        });
         const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
         const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
         const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(setOtherCostCategories);
@@ -150,16 +154,13 @@ export default function CashierDashboardPage() {
         // Fetch initial data to set loading state correctly
         const fetchInitialData = async () => {
             try {
-                const [slips, revenue, inventory, costCategories] = await Promise.all([
+                const [slips, incidents, revenue, inventory, costCategories] = await Promise.all([
                     dataStore.getDailyExpenseSlips(date),
+                    dataStore.subscribeToAllIncidents((all) => setDailyIncidents(all.filter(i => i.date === date))),
                     dataStore.getRevenueStats(date),
                     dataStore.getInventoryList(),
                     dataStore.getOtherCostCategories(),
                 ]);
-                setDailySlips(slips);
-                setRevenueStats(revenue);
-                setInventoryList(inventory);
-                setOtherCostCategories(costCategories);
             } catch (error) {
                 console.error("Failed to fetch initial cashier data:", error);
                 toast.error("Không thể tải dữ liệu ban đầu.");
@@ -172,6 +173,7 @@ export default function CashierDashboardPage() {
         
         return () => {
             unsubSlips();
+            unsubIncidents(() => {});
             unsubRevenue();
             unsubInventory();
             unsubOtherCostCategories();
@@ -302,126 +304,48 @@ export default function CashierDashboardPage() {
             </p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-            <Card className="lg:col-span-3">
-                <CardHeader>
-                    <CardTitle>Tổng quan trong ngày</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                     <div className="space-y-1 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
-                           <ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt
-                        </p>
-                        <p className="text-2xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                     <div className="space-y-1 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                        <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2">
-                           <ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt
-                        </p>
-                        <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                     <div className="relative space-y-1 p-4 rounded-lg bg-muted">
-                        <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
-                        <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
-                        <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                     <div className="sm:col-span-2 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-1 p-4 rounded-lg bg-muted">
-                           <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+             {/* Left Column */}
+            <div className="lg:col-span-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Tổng quan trong ngày</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                            <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt</p>
+                            <p className="text-2xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+                        </div>
+                        <div className="space-y-1 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                            <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2"><ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt</p>
+                            <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
+                        </div>
+                         <div className="space-y-1 p-4 rounded-lg bg-muted">
+                            <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
                             <p className="text-xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
                         </div>
-                        <div className="space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
+                        <div className="relative space-y-1 p-4 rounded-lg bg-muted">
+                            <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
+                            <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
+                            <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
+                        </div>
+                        <div className="md:col-span-2 space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
                            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Tiền mặt dự kiến cuối ca</p>
                            <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <CardTitle>Quản lý Phiếu chi</CardTitle>
-                            <Button size="sm" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Tạo phiếu chi
-                            </Button>
-                        </div>
-                        <CardDescription>Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {dailySlips.length > 0 ? (
-                           <div className="overflow-x-auto">
-                               <Table>
-                                   <TableHeader>
-                                       <TableRow>
-                                           <TableHead>Nội dung</TableHead>
-                                           <TableHead>Tổng tiền</TableHead>
-                                           <TableHead>Hình thức</TableHead>
-                                           <TableHead className="text-right">Hành động</TableHead>
-                                       </TableRow>
-                                   </TableHeader>
-                                   <TableBody>
-                                       {dailySlips.map(slip => (
-                                           <TableRow key={slip.id}>
-                                               <TableCell className="font-medium">
-                                                    {getSlipContentName(slip.items[0])}
-                                                    {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
-                                                    <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
-                                               </TableCell>
-                                               <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
-                                               <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
-                                               <TableCell className="text-right">
-                                                   <Button variant="ghost" size="icon" onClick={() => handleEditClick(slip)} disabled={isProcessing}>
-                                                        <Edit className="h-4 w-4" />
-                                                   </Button>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
-                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                               </TableCell>
-                                           </TableRow>
-                                       ))}
-                                   </TableBody>
-                               </Table>
-                           </div>
-                        ) : (
-                             <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
-                        )}
-                        {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
                     </CardContent>
                 </Card>
             </div>
-
-            <div className="space-y-6">
-                 <Card>
+            {/* Right Column */}
+            <div className="lg:col-span-1 space-y-6">
+                <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           Thống kê Doanh thu
-                           {revenueStats?.isOutdated && <AlertTriangle className="h-5 w-5 text-yellow-500" title="Dữ liệu có thể đã cũ"/>}
+                        <CardTitle className="flex items-center justify-between">
+                            Thống kê Doanh thu
+                            {revenueStats?.isOutdated && <AlertTriangle className="h-5 w-5 text-yellow-500" title="Dữ liệu có thể đã cũ"/>}
                         </CardTitle>
                         <CardDescription>
-                            Nhập số liệu từ bill tổng kết trên máy POS. 
-                            <span className="block font-semibold text-xs mt-1">
-                                {(revenueStats?.netRevenue || 0).toLocaleString('vi-VN')}đ
-                                <span className="font-normal text-muted-foreground"> - {revenueStats ? `lúc ${format(new Date(revenueStats.createdAt as string), 'HH:mm')}` : 'Chưa nhập'}</span>
-                            </span>
+                            Nhập số liệu từ bill tổng kết trên máy POS.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -431,24 +355,22 @@ export default function CashierDashboardPage() {
                         </Button>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Phiếu bàn giao cuối ngày</CardTitle>
-                        <CardDescription>Đối soát và bàn giao tiền mặt cuối ngày.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <Button className="w-full">
-                            <ArrowRight className="mr-2 h-4 w-4" />
-                            Thực hiện bàn giao
-                        </Button>
-                    </CardContent>
-                </Card>
                  <Card>
                     <CardHeader>
                         <CardTitle>Báo cáo Sự cố</CardTitle>
-                        <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản hoặc nguyên vật liệu.</CardDescription>
+                        <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {dailyIncidents.length > 0 && (
+                            <div className="mb-4 space-y-2 text-sm">
+                                {dailyIncidents.map(incident => (
+                                    <div key={incident.id} className="p-2 bg-muted rounded-md">
+                                        <p className="font-medium">{incident.content}</p>
+                                        <p className="text-xs text-muted-foreground">Chi phí: {incident.cost.toLocaleString('vi-VN')}đ</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
                             <AlertTriangle className="mr-2 h-4 w-4" />
                             Tạo Báo cáo Sự cố
@@ -456,6 +378,75 @@ export default function CashierDashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+        </div>
+        
+        <div className="grid grid-cols-1">
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Quản lý Phiếu chi</CardTitle>
+                        <Button size="sm" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Tạo phiếu chi
+                        </Button>
+                    </div>
+                    <CardDescription>Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {dailySlips.length > 0 ? (
+                       <div className="overflow-x-auto">
+                           <Table>
+                               <TableHeader>
+                                   <TableRow>
+                                       <TableHead>Nội dung</TableHead>
+                                       <TableHead>Tổng tiền</TableHead>
+                                       <TableHead>Hình thức</TableHead>
+                                       <TableHead className="text-right">Hành động</TableHead>
+                                   </TableRow>
+                               </TableHeader>
+                               <TableBody>
+                                   {dailySlips.map(slip => (
+                                       <TableRow key={slip.id}>
+                                           <TableCell className="font-medium">
+                                                {getSlipContentName(slip.items[0])}
+                                                {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
+                                                <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
+                                           </TableCell>
+                                           <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
+                                           <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
+                                           <TableCell className="text-right">
+                                               <Button variant="ghost" size="icon" onClick={() => handleEditClick(slip)} disabled={isProcessing}>
+                                                    <Edit className="h-4 w-4" />
+                                               </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
+                                                            <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                           </TableCell>
+                                       </TableRow>
+                                   ))}
+                               </TableBody>
+                           </Table>
+                       </div>
+                    ) : (
+                         <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
+                    )}
+                    {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
+                </CardContent>
+            </Card>
         </div>
     </div>
     
@@ -485,7 +476,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
-    
-
-    
