@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -129,9 +128,6 @@ export default function CashierReportsPage() {
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
 
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
       router.replace('/');
@@ -167,18 +163,7 @@ export default function CashierReportsPage() {
     };
   }, [user]);
 
-    const { monthlyTotals, groupedReports } = useMemo(() => {
-    const startOfCurrentMonth = startOfMonth(currentDate);
-    const endOfCurrentMonth = endOfMonth(currentDate);
-
-    const filteredRevenue = allData.revenueStats.filter(stat => isSameMonth(parseISO(stat.date), startOfCurrentMonth));
-    const filteredExpenses = allData.expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), startOfCurrentMonth));
-    const filteredIncidents = allData.incidents.filter(incident => isSameMonth(parseISO(incident.date), startOfCurrentMonth));
-
-    const monthlyTotalRevenue = filteredRevenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
-    const monthlyTotalExpense = filteredExpenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
-    const monthlyTotalIncidents = filteredIncidents.length;
-
+    const groupedReports = useMemo(() => {
     const grouped: GroupedReports = {};
     const combined = [...allData.revenueStats, ...allData.expenseSlips, ...allData.incidents];
     
@@ -201,15 +186,8 @@ export default function CashierReportsPage() {
         grouped[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
     }
 
-    return { 
-        monthlyTotals: {
-            revenue: monthlyTotalRevenue,
-            expense: monthlyTotalExpense,
-            incidents: monthlyTotalIncidents,
-        },
-        groupedReports: grouped
-    };
-  }, [allData, currentDate]);
+    return grouped;
+  }, [allData]);
 
   const sortedDates = useMemo(() => Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedReports]);
 
@@ -279,45 +257,6 @@ export default function CashierReportsPage() {
           Tổng hợp toàn bộ báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.
         </p>
       </header>
-
-       <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-             <Calendar className="h-5 w-5" />
-             Tổng quan Tháng {format(currentDate, 'MM/yyyy')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-          <Card className="bg-green-500/10 border-green-500/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-800 dark:text-green-300">Tổng Doanh thu</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-700 dark:text-green-200">{monthlyTotals.revenue.toLocaleString('vi-VN')}đ</div>
-            </CardContent>
-          </Card>
-           <Card className="bg-blue-500/10 border-blue-500/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Tổng Chi</CardTitle>
-              <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-700 dark:text-blue-200">{monthlyTotals.expense.toLocaleString('vi-VN')}đ</div>
-            </CardContent>
-          </Card>
-           <Card className="bg-amber-500/10 border-amber-500/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-300">Tổng Sự cố</CardTitle>
-              <FileWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-700 dark:text-amber-200">{monthlyTotals.incidents}</div>
-            </CardContent>
-          </Card>
-        </CardContent>
-      </Card>
-
 
       {sortedDates.length === 0 ? (
           <Card>
