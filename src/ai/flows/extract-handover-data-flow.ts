@@ -20,17 +20,18 @@ const ExtractHandoverDataOutputSchema = z.object({
     rejectionReason: z.string().optional().describe('The reason why the image was rejected. Provided only if isReceipt is false.'),
     shiftEndTime: z.string().optional().describe('The end time of the shift, usually at the bottom. You MUST extract it exactly as seen and return it in "YYYY-MM-DD HH:mm:ss" format. This is the most critical field.'),
     
-    // Overview section
     expectedCash: z.number().optional().describe('The expected cash amount. Labeled "Tiền mặt dự kiến".'),
-
-    // Cash details section
     startOfDayCash: z.number().optional().describe('The cash amount at the start of the day. Labeled "Tiền mặt đầu ca".'),
     cashExpense: z.number().optional().describe('Cash expenses. Labeled "Chi tiền" under "Phương thức tiền mặt".'),
     cashRevenue: z.number().optional().describe('Total cash revenue. Labeled "Doanh thu tiền mặt".'),
-
-    // Other methods section
-    cardRevenue: z.number().optional().describe('Revenue from card/transfer. Labeled "Doanh thu thẻ".'),
     deliveryPartnerPayout: z.number().optional().describe('The amount paid to delivery partners from non-cash methods. Labeled "Tiền trả ĐTGH" under "Phương thức khác".'),
+    
+    revenueByCard: z.object({
+        techcombankVietQrPro: z.number().optional().describe('Revenue from Techcombank VietQR Pro. Labeled "Techcombank VietQR Pro".'),
+        shopeeFood: z.number().optional().describe('Revenue from ShopeeFood. Labeled "ShopeeFood".'),
+        grabFood: z.number().optional().describe('Revenue from GrabFood. Labeled "Grab Food".'),
+        bankTransfer: z.number().optional().describe('Revenue from other bank transfers. Labeled "Chuyển Khoản".'),
+    }).optional().describe('A breakdown of revenue from card/transfer methods.'),
 });
 
 export type ExtractHandoverDataOutput = z.infer<typeof ExtractHandoverDataOutputSchema>;
@@ -56,13 +57,17 @@ Then, assess the image quality. Is it clear enough to read all numbers and text 
 **Step 2: Extract Data (ONLY if Step 1 passes)**
 If and only if the image is a valid and clear receipt, set \`isReceipt\` to \`true\` and meticulously extract the following fields. All values must be numbers, without currency symbols or formatting. If a field is not present, omit it or use 0.
 
-1.  **shiftEndTime**: CRITICAL. This is the MOST IMPORTANT field. Find the timestamp at the VERY BOTTOM of the receipt. You MUST return it as a string in "YYYY-MM-DD HH:mm:ss" format. If you cannot find this field or it's unreadable, you MUST return null for this field. This is absolutely critical.
-2.  **expectedCash**: Find the value for "Tiền mặt dự kiến" in the "Tổng quan" section.
-3.  **startOfDayCash**: Find the value for "Tiền mặt đầu ca" in the "Phương thức tiền mặt" section.
-4.  **cashExpense**: Find the value for "Chi tiền" in the "Phương thức tiền mặt" section.
-5.  **cashRevenue**: Find the value for "Doanh thu tiền mặt" in the "Phương thức tiền mặt" section.
-6.  **cardRevenue**: Find the value for "Doanh thu thẻ" in the "Phương thức khác" section.
-7.  **deliveryPartnerPayout**: Find the value for "Tiền trả ĐTGH" in the "Phương thức khác" section.
+1.  **shiftEndTime**: CRITICAL. This is the MOST IMPORTANT field. Find the timestamp at the VERY BOTTOM of the receipt. You MUST return it as a string in "YYYY-MM-DD HH:mm:ss" format. If you cannot find this field or it's unreadable, you MUST return null for this field.
+2.  **expectedCash**: Find "Tiền mặt dự kiến" in the "Tổng quan" section.
+3.  **startOfDayCash**: Find "Tiền mặt đầu ca" in the "Phương thức tiền mặt" section.
+4.  **cashExpense**: Find "Chi tiền" in the "Phương thức tiền mặt" section.
+5.  **cashRevenue**: Find "Doanh thu tiền mặt" in the "Phương thức tiền mặt" section.
+6.  **deliveryPartnerPayout**: Find "Tiền trả ĐTGH" in the "Phương thức khác" section.
+7.  **revenueByCard**: This is an object. You need to find the values for the following payment methods, which are usually under "Phương thức khác" section:
+    *   **techcombankVietQrPro**: Find "Techcombank VietQR Pro".
+    *   **shopeeFood**: Find "ShopeeFood".
+    *   **grabFood**: Find "Grab Food".
+    *   **bankTransfer**: Find "Chuyển Khoản".
 
 Analyze the following image and perform your validation and extraction tasks now.
 

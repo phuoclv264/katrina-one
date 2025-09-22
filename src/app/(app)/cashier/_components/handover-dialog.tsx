@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { HandoverReport, ExpenseSlip, RevenueStats, AuthUser, ExtractHandoverDataOutput } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, CheckCircle, ArrowRight, Edit, Clock } from 'lucide-react';
+import type { ExtractHandoverDataOutput } from '@/lib/types';
+import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
 import CameraDialog from '@/components/camera-dialog';
@@ -24,12 +24,11 @@ import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { parseISO, isToday, format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import { Separator } from '@/components/ui/separator';
 
 
 const initialHandoverData = {
@@ -37,8 +36,13 @@ const initialHandoverData = {
     startOfDayCash: 0,
     cashExpense: 0,
     cashRevenue: 0,
-    cardRevenue: 0,
     deliveryPartnerPayout: 0,
+    revenueByCard: {
+        techcombankVietQrPro: 0,
+        shopeeFood: 0,
+        grabFood: 0,
+        bankTransfer: 0,
+    }
 };
 
 const handoverFieldLabels: { [key in keyof typeof initialHandoverData]: string } = {
@@ -46,9 +50,17 @@ const handoverFieldLabels: { [key in keyof typeof initialHandoverData]: string }
     startOfDayCash: 'Tiền mặt đầu ca',
     cashExpense: 'Chi tiền mặt',
     cashRevenue: 'Doanh thu tiền mặt',
-    cardRevenue: 'Doanh thu thẻ',
     deliveryPartnerPayout: 'Trả ĐTGH (khác)',
+    revenueByCard: 'Doanh thu thẻ/CK',
 };
+
+const cardRevenueLabels: { [key in keyof typeof initialHandoverData.revenueByCard]: string } = {
+    techcombankVietQrPro: 'TCB VietQR Pro',
+    shopeeFood: 'ShopeeFood',
+    grabFood: 'Grab Food',
+    bankTransfer: 'Chuyển Khoản',
+};
+
 
 const InputField = React.memo(({ id, label, value, onChange, originalValue }: {
     id: string;
@@ -88,7 +100,6 @@ type HandoverDialogProps = {
 export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcessing }: HandoverDialogProps) {
     const dataSectionRef = useRef<HTMLDivElement>(null);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +115,6 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
 
     const resetState = useCallback(() => {
         setIsOcrLoading(false);
-        setIsSubmitting(false);
         setImageDataUri(null);
         setShiftEndTime(null);
         setHandoverData(initialHandoverData);
@@ -142,14 +152,10 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
 
             if (!result.isReceipt) {
                 toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
             if (!result.shiftEndTime) {
                 toast.error('AI không thể xác định ngày giờ trên phiếu.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
             
@@ -167,8 +173,11 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                 startOfDayCash: result.startOfDayCash ?? 0,
                 cashExpense: result.cashExpense ?? 0,
                 cashRevenue: result.cashRevenue ?? 0,
-                cardRevenue: result.cardRevenue ?? 0,
                 deliveryPartnerPayout: result.deliveryPartnerPayout ?? 0,
+                revenueByCard: {
+                    ...initialHandoverData.revenueByCard,
+                    ...(result.revenueByCard || {}),
+                }
             };
 
             setImageDataUri(uri);
@@ -232,8 +241,19 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
     };
 
     const handleHandoverDataChange = (key: keyof typeof handoverData, value: string) => {
+        if (key === 'revenueByCard') return;
         setHandoverData(prev => ({ ...prev, [key]: Number(value) }));
     };
+
+    const handleCardRevenueChange = (key: keyof typeof initialHandoverData.revenueByCard, value: string) => {
+        setHandoverData(prev => ({
+            ...prev,
+            revenueByCard: {
+                ...prev.revenueByCard,
+                [key]: Number(value)
+            }
+        }));
+    }
 
     const handleFinalSubmit = () => {
         if (!imageDataUri) {
@@ -255,7 +275,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0">
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
                     <div id="handover-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Phiếu Bàn Giao Ca</DialogTitle>
@@ -281,9 +301,9 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                                         </div>
                                     )}
                                     <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm mx-auto mt-4">
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isSubmitting} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                                        <Button variant="secondary" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isSubmitting} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh</Button>
+                                        <Button variant="secondary" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isProcessing} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh</Button>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -295,14 +315,29 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                                     )}
                                      <Card>
                                         <CardContent className="p-4 space-y-3">
-                                            {Object.entries(handoverData).map(([key, value]) => (
+                                            {Object.entries(handoverData).map(([key, value]) => {
+                                                if (key === 'revenueByCard') return null;
+                                                return (
+                                                    <InputField
+                                                        key={`ho-${key}`}
+                                                        id={`ho-${key}`}
+                                                        label={handoverFieldLabels[key as keyof typeof handoverFieldLabels]}
+                                                        value={value as number}
+                                                        onChange={(val) => handleHandoverDataChange(key as any, val)}
+                                                        originalValue={originalData?.[key as keyof typeof originalData]}
+                                                    />
+                                                )
+                                            })}
+                                            <Separator />
+                                            <h4 className="font-medium text-center">Doanh thu khác</h4>
+                                            {Object.entries(handoverData.revenueByCard).map(([cardKey, cardValue]) => (
                                                 <InputField
-                                                    key={`ho-${key}`}
-                                                    id={`ho-${key}`}
-                                                    label={handoverFieldLabels[key as keyof typeof handoverFieldLabels]}
-                                                    value={value}
-                                                    onChange={(val) => handleHandoverDataChange(key as any, val)}
-                                                    originalValue={originalData?.[key as keyof typeof originalData]}
+                                                    key={`ho-card-${cardKey}`}
+                                                    id={`ho-card-${cardKey}`}
+                                                    label={cardRevenueLabels[cardKey as keyof typeof cardRevenueLabels]}
+                                                    value={cardValue as number}
+                                                    onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
+                                                    originalValue={originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard]}
                                                 />
                                             ))}
                                         </CardContent>
