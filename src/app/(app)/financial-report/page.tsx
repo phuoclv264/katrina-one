@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, eachDayOfInterval } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -162,6 +163,7 @@ export default function FinancialReportPage() {
 
             return {
                 name: format(day, 'dd/MM'),
+                fullDate: day,
                 'Doanh thu': dailyRevenue,
                 'Chi phí': dailyExpense
             }
@@ -192,6 +194,7 @@ export default function FinancialReportPage() {
             
             return {
                 name: format(day, 'dd/MM'),
+                fullDate: day,
                 ...dailyBreakdown
             };
         });
@@ -215,6 +218,13 @@ export default function FinancialReportPage() {
         .map(([date, data]) => ({ date, ...data }))
         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredData]);
+  
+  const formatTooltipLabel = (label: string, payload: any[]) => {
+    if (payload && payload.length > 0 && payload[0].payload.fullDate) {
+        return format(payload[0].payload.fullDate, 'eeee, dd/MM', { locale: vi });
+    }
+    return label;
+  }
   
   if (isLoading || authLoading) {
     return (
@@ -338,7 +348,10 @@ export default function FinancialReportPage() {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
-                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
+                                <Tooltip 
+                                    formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}
+                                    labelFormatter={formatTooltipLabel}
+                                />
                                 <Legend />
                                 <Line type="monotone" dataKey="Doanh thu" stroke="#16a34a" strokeWidth={2} activeDot={{ r: 8 }} />
                                 <Line type="monotone" dataKey="Chi phí" stroke="#ef4444" strokeWidth={2} />
@@ -357,7 +370,10 @@ export default function FinancialReportPage() {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
-                                <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}/>
+                                <Tooltip 
+                                    formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`}
+                                    labelFormatter={formatTooltipLabel}
+                                />
                                 <Legend />
                                 {Object.keys(REVENUE_CHANNEL_COLORS).map(channel => (
                                     <Line 
@@ -453,4 +469,5 @@ export default function FinancialReportPage() {
     </div>
   );
 }
+
 
