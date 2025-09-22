@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Dialog,
@@ -141,10 +142,14 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
 
             if (!result.isReceipt) {
                 toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
+                setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
             if (!result.shiftEndTime) {
                 toast.error('AI không thể xác định ngày giờ trên phiếu.');
+                setIsOcrLoading(false);
+                toast.dismiss(toastId);
                 return;
             }
             
@@ -260,12 +265,12 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                     </DialogHeader>
 
                     <div className="flex-grow overflow-y-auto px-6">
-                        <div className="py-4 space-y-6">
+                        <div className="space-y-6 py-4">
                             <Card>
-                                <CardHeader className="pb-2">
+                                <CardHeader className="pb-4">
                                     <CardTitle className="text-base">Ảnh phiếu bàn giao</CardTitle>
                                 </CardHeader>
-                                <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
+                                <CardContent>
                                      {imageDataUri ? (
                                         <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
                                             <Image src={imageDataUri} alt="Ảnh phiếu bàn giao" fill className="object-contain rounded-md" />
@@ -275,7 +280,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                                             <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
                                     )}
-                                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm mx-auto mt-4">
                                         <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isSubmitting} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                                         <Button variant="secondary" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isSubmitting} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh</Button>
