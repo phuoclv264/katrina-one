@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -27,7 +25,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -82,12 +80,13 @@ export const dataStore = {
             const expenseSlipData: Partial<ExpenseSlip> = {
                 date: format(new Date(), 'yyyy-MM-dd'),
                 items: [{
-                    itemId: 'incident_cost',
+                    itemId: 'other_cost',
                     name: `Chi phí sự cố: ${data.content}`,
                     supplier: 'N/A',
                     quantity: 1,
                     unitPrice: data.cost,
                     unit: 'lần',
+                    shortName: 'Sự cố'
                 }],
                 totalAmount: data.cost,
                 paymentMethod: 'cash',
@@ -165,12 +164,13 @@ export const dataStore = {
             const expenseData: Partial<ExpenseSlip> = {
                 date,
                 items: [{
-                    itemId: 'delivery_payout',
+                    itemId: 'other_cost',
                     name: 'Chi trả cho Đối tác Giao hàng',
                     supplier: 'N/A',
                     quantity: 1,
                     unitPrice: data.deliveryPartnerPayout,
                     unit: 'lần',
+                    shortName: 'ĐTGH',
                 }],
                 totalAmount: data.deliveryPartnerPayout,
                 paymentMethod: 'bank_transfer',

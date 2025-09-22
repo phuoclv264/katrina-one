@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -10,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem } from '@/lib/types';
+import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -157,6 +156,14 @@ export default function CashierDashboardPage() {
       setIsExpenseDialogOpen(true);
   }
 
+  const getSlipContentName = (items: ExpenseItem[]): string => {
+    if (!items || items.length === 0) return 'Không có nội dung';
+    if (items.length === 1 && items[0].itemId === 'other_cost') {
+        return items[0].name;
+    }
+    return items.map(i => i.name).join(', ');
+  }
+
   if (authLoading || isLoading || !user) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -249,7 +256,7 @@ export default function CashierDashboardPage() {
                                        {dailySlips.map(slip => (
                                            <TableRow key={slip.id}>
                                                <TableCell className="font-medium">
-                                                    {slip.items.map(i => i.name).join(', ')}
+                                                    {getSlipContentName(slip.items)}
                                                     <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                                </TableCell>
                                                <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>

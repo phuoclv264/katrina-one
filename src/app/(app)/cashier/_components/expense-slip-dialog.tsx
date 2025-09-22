@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -10,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult } from '@/lib/types';
+import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType } from '@/lib/types';
 import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, CornerDownLeft } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -282,6 +280,11 @@ export default function ExpenseSlipDialog({
     // --- Lightbox state ---
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    
+    // --- New State for Expense Type ---
+    const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
+    const [otherCostContent, setOtherCostContent] = useState('');
+    const [otherCostAmount, setOtherCostAmount] = useState(0);
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -307,17 +310,32 @@ export default function ExpenseSlipDialog({
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
+                const isOtherCost = slipToEdit.items.length === 1 && slipToEdit.items[0].itemId === 'other_cost';
+                setExpenseType(isOtherCost ? 'other_cost' : 'goods_import');
+                if(isOtherCost) {
+                    setOtherCostContent(slipToEdit.items[0].name);
+                    setOtherCostAmount(slipToEdit.items[0].unitPrice);
+                    setItems([]);
+                } else {
+                    setItems(slipToEdit.items);
+                    setOtherCostContent('');
+                    setOtherCostAmount(0);
+                }
+
                 setDate(slipToEdit.date);
-                setItems(slipToEdit.items);
                 setPaymentMethod(slipToEdit.paymentMethod);
                 setNotes(slipToEdit.notes || '');
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
+
             } else {
                 // Reset for new slip
+                setExpenseType('goods_import');
                 setDate(format(new Date(), 'yyyy-MM-dd'));
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
+                setOtherCostContent('');
+                setOtherCostAmount(0);
                 setExistingPhotos([]);
             }
             // Always reset local photo state
@@ -329,8 +347,11 @@ export default function ExpenseSlipDialog({
     }, [open, slipToEdit]);
     
     const totalAmount = useMemo(() => {
+        if (expenseType === 'other_cost') {
+            return otherCostAmount;
+        }
         return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    }, [items]);
+    }, [items, expenseType, otherCostAmount]);
 
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
@@ -365,14 +386,32 @@ export default function ExpenseSlipDialog({
             return;
         }
 
-        if (items.length === 0) {
-            toast.error('Vui lòng chọn ít nhất một mặt hàng.');
-            return;
+        let finalItems: ExpenseItem[] = [];
+        if (expenseType === 'goods_import') {
+            if (items.length === 0) {
+                 toast.error('Vui lòng chọn ít nhất một mặt hàng.');
+                 return;
+            }
+            finalItems = items;
+        } else { // other_cost
+            if (!otherCostContent.trim() || otherCostAmount <= 0) {
+                toast.error('Vui lòng nhập nội dung và số tiền chi phí.');
+                return;
+            }
+            finalItems = [{
+                itemId: 'other_cost',
+                name: otherCostContent.trim(),
+                shortName: 'Chi phí khác',
+                supplier: 'N/A',
+                quantity: 1,
+                unitPrice: otherCostAmount,
+                unit: 'lần',
+            }];
         }
 
         const data = {
             date,
-            items,
+            items: finalItems,
             totalAmount,
             paymentMethod,
             notes,
@@ -395,6 +434,10 @@ export default function ExpenseSlipDialog({
             toast.error("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             setShowMissingAttachmentAlert(true);
+            return;
+        }
+        if (expenseType !== 'goods_import') {
+            toast.error("Quét hóa đơn chỉ khả dụng cho loại chi 'Nhập hàng'.");
             return;
         }
 
@@ -428,11 +471,6 @@ export default function ExpenseSlipDialog({
                  toast.dismiss(toastId);
                  return;
             }
-
-            console.log("Sending to AI:", {
-                images: localImages,
-                inventoryItems: inventoryList,
-            });
 
             const result = await extractInvoiceItems({
                 images: localImages,
@@ -529,6 +567,20 @@ export default function ExpenseSlipDialog({
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
+                             <div className="space-y-2">
+                                <Label>Loại chi phí</Label>
+                                <RadioGroup value={expenseType} onValueChange={(v) => setExpenseType(v as ExpenseType)} className="flex gap-4">
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="goods_import" id="et1" />
+                                        <Label htmlFor="et1">Chi nhập hàng</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="other_cost" id="et2" />
+                                        <Label htmlFor="et2">Chi phí khác</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
@@ -583,106 +635,120 @@ export default function ExpenseSlipDialog({
                                 </CardContent>
                             </Card>
                         
-                            {/* --- Item Selection Section --- */}
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                     <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
-                                        {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Dùng AI quét hóa đơn
-                                    </Button>
-                                </div>
-                                <div className="relative text-center my-4">
-                                    <Separator />
-                                    <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-sm text-muted-foreground">Hoặc</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <ItemMultiSelect
-                                        inventoryItems={inventoryList}
-                                        selectedItems={items}
-                                        onChange={handleItemsSelected}
-                                        className="w-full mt-1"
-                                    />
-                                </div>
-                            </div>
-
-
-                            <div className="space-y-2">
-                                <Label>Chi tiết các mặt hàng</Label>
-                                {items.length === 0 ? (
-                                    <div className="text-center text-sm text-muted-foreground p-4 border rounded-md border-dashed">
-                                        Chưa có mặt hàng nào được chọn.
+                           {expenseType === 'goods_import' ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
+                                            {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                            Dùng AI quét hóa đơn
+                                        </Button>
                                     </div>
-                                ) : (
-                                    <>
-                                        {/* Mobile view */}
-                                        <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
-                                            {items.map(item => (
-                                                <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
-                                                    <Card className="cursor-pointer bg-muted/50">
-                                                        <CardContent className="p-4">
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <p className="font-semibold text-sm">{item.name}</p>
-                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                                </div>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
-                                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                                </Button>
-                                                            </div>
-                                                            <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                <p className="text-muted-foreground">Số lượng</p>
-                                                                <p className="text-muted-foreground">Đơn giá</p>
-                                                                <p className="text-muted-foreground">Thành tiền</p>
-                                                                
-                                                                <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
-                                                                <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
-                                                                <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                </EditItemPopover>
-                                            ))}
-                                        </div>
+                                    <div className="relative text-center my-4">
+                                        <Separator />
+                                        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-sm text-muted-foreground">Hoặc</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <ItemMultiSelect
+                                            inventoryItems={inventoryList}
+                                            selectedItems={items}
+                                            onChange={handleItemsSelected}
+                                            className="w-full mt-1"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                     <div className="space-y-2">
+                                        <Label htmlFor="other-cost-content">Nội dung chi</Label>
+                                        <Input id="other-cost-content" value={otherCostContent} onChange={(e) => setOtherCostContent(e.target.value)} placeholder="VD: Sửa chữa máy lạnh, Lương tháng 5..." />
+                                     </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="other-cost-amount">Tổng số tiền</Label>
+                                        <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" />
+                                     </div>
+                                </div>
+                            )}
 
-                                        {/* Desktop view */}
-                                        <div className="hidden md:block border rounded-md bg-card">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Tên mặt hàng</TableHead>
-                                                        <TableHead>Số lượng</TableHead>
-                                                        <TableHead>Đơn vị</TableHead>
-                                                        <TableHead>Đơn giá</TableHead>
-                                                        <TableHead>Thành tiền</TableHead>
-                                                        <TableHead className="text-right">Xóa</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {items.map(item => (
-                                                        <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem}>
-                                                            <TableRow className="cursor-pointer">
-                                                                <TableCell>
-                                                                    <p className="font-medium">{item.name}</p>
-                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                                </TableCell>
-                                                                <TableCell>{item.quantity}</TableCell>
-                                                                <TableCell>{item.unit}</TableCell>
-                                                                <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
-                                                                <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+
+                            {expenseType === 'goods_import' && (
+                                <div className="space-y-2">
+                                    <Label>Chi tiết các mặt hàng</Label>
+                                    {items.length === 0 ? (
+                                        <div className="text-center text-sm text-muted-foreground p-4 border rounded-md border-dashed">
+                                            Chưa có mặt hàng nào được chọn.
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Mobile view */}
+                                            <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
+                                                {items.map(item => (
+                                                    <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                        <Card className="cursor-pointer bg-muted/50">
+                                                            <CardContent className="p-4">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div>
+                                                                        <p className="font-semibold text-sm">{item.name}</p>
+                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                    </div>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
                                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                                     </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        </EditItemPopover>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                                                                </div>
+                                                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
+                                                                    <p className="text-muted-foreground">Số lượng</p>
+                                                                    <p className="text-muted-foreground">Đơn giá</p>
+                                                                    <p className="text-muted-foreground">Thành tiền</p>
+                                                                    
+                                                                    <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
+                                                                    <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                    <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </EditItemPopover>
+                                                ))}
+                                            </div>
+
+                                            {/* Desktop view */}
+                                            <div className="hidden md:block border rounded-md bg-card">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Tên mặt hàng</TableHead>
+                                                            <TableHead>Số lượng</TableHead>
+                                                            <TableHead>Đơn vị</TableHead>
+                                                            <TableHead>Đơn giá</TableHead>
+                                                            <TableHead>Thành tiền</TableHead>
+                                                            <TableHead className="text-right">Xóa</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {items.map(item => (
+                                                            <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                                <TableRow className="cursor-pointer">
+                                                                    <TableCell>
+                                                                        <p className="font-medium">{item.name}</p>
+                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                    </TableCell>
+                                                                    <TableCell>{item.quantity}</TableCell>
+                                                                    <TableCell>{item.unit}</TableCell>
+                                                                    <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
+                                                                    <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                                        </Button>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            </EditItemPopover>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
