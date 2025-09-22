@@ -220,58 +220,52 @@ export default function FinancialReportPage() {
         
         const from = dateRange.from;
         const to = dateRange.to ?? from;
-        const diff = to.getTime() - from.getTime();
-        const oneWeek = 6 * 24 * 60 * 60 * 1000;
-        const isWeekly = diff <= oneWeek;
+        const diffInDays = (to.getTime() - from.getTime()) / (1000 * 3600 * 24);
+        const isWeeklyView = diffInDays <= 7;
 
         const dataMap = new Map<string, any>();
-        const days = isWeekly 
-            ? ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN']
+
+        const days = isWeeklyView
+            ? Array.from({ length: 7 }, (_, i) => format(addDays(startOfWeek(from, { weekStartsOn: 1 }), i), 'EEEE', { locale: vi }))
             : eachDayOfInterval({start: from, end: to}).map(d => format(d, 'd'));
         
-        days.forEach(day => dataMap.set(day, { name: day }));
+        days.forEach(day => dataMap.set(day, { name: day, main_revenue: 0, main_expense: 0, comp_revenue: 0, comp_expense: 0, main_at_store: 0, main_shopeefood: 0, main_grabfood: 0, comp_at_store: 0, comp_shopeefood: 0, comp_grabfood: 0 }));
 
-        const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_', comparisonRange: DateRange | undefined) => {
+        const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_') => {
+            const dateOffset = comparisonPeriod && keyPrefix === 'comp_'
+                ? (dateRange.from!.getTime() - comparisonPeriod.from!.getTime())
+                : 0;
+
             periodData.revenue.forEach(stat => {
-                const statDate = parseISO(stat.date);
-                let key: string;
-                if (isWeekly) {
-                    const dayIndex = getDay(statDate) === 0 ? 6 : getDay(statDate) - 1; // Mon=0..Sun=6
-                    key = days[dayIndex];
-                } else {
-                    key = format(statDate, 'd');
-                }
+                const statDate = new Date(parseISO(stat.date).getTime() + dateOffset);
+                const key = isWeeklyView ? format(statDate, 'EEEE', { locale: vi }) : format(statDate, 'd');
                 
-                const entry = dataMap.get(key) || { name: key };
+                const entry = dataMap.get(key);
+                if (!entry) return;
+
                 entry[`${keyPrefix}fullDate`] = statDate;
                 entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
                 const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
                 entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
                 entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
                 entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
-                dataMap.set(key, entry);
             });
 
             periodData.expenses.forEach(slip => {
-                const slipDate = parseISO(slip.date);
-                 let key: string;
-                if (isWeekly) {
-                    const dayIndex = getDay(slipDate) === 0 ? 6 : getDay(slipDate) - 1;
-                    key = days[dayIndex];
-                } else {
-                    key = format(slipDate, 'd');
-                }
-
-                const entry = dataMap.get(key) || { name: key };
+                const slipDate = new Date(parseISO(slip.date).getTime() + dateOffset);
+                const key = isWeeklyView ? format(slipDate, 'EEEE', { locale: vi }) : format(slipDate, 'd');
+                
+                const entry = dataMap.get(key);
+                 if (!entry) return;
+                
                 if (!entry[`${keyPrefix}fullDate`]) entry[`${keyPrefix}fullDate`] = slipDate;
                 entry[`${keyPrefix}expense`] = (entry[`${keyPrefix}expense`] || 0) + slip.totalAmount;
-                dataMap.set(key, entry);
             });
         };
 
-        processPeriodData(mainPeriodData, 'main_', dateRange);
+        processPeriodData(mainPeriodData, 'main_');
         if (compare && comparisonPeriod) {
-            processPeriodData(comparisonPeriodData, 'comp_', comparisonPeriod);
+            processPeriodData(comparisonPeriodData, 'comp_');
         }
         
         return Array.from(dataMap.values());
@@ -331,9 +325,9 @@ export default function FinancialReportPage() {
       {/* Date Range Filter */}
       <Card className="mb-8">
         <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full md:w-auto">
+           <div className="grid grid-cols-2 md:flex md:items-center gap-2 w-full md:w-auto">
              <Select onValueChange={setDatePreset}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full md:w-[150px]">
                     <SelectValue placeholder="Chọn nhanh..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -350,7 +344,7 @@ export default function FinancialReportPage() {
                     id="date"
                     variant={"outline"}
                     className={cn(
-                      "w-full justify-start text-left font-normal col-span-2",
+                      "w-full justify-start text-left font-normal col-span-2 md:w-auto",
                       !dateRange && "text-muted-foreground"
                     )}
                   >
@@ -380,7 +374,7 @@ export default function FinancialReportPage() {
                 </PopoverContent>
               </Popover>
            </div>
-           <div className="flex items-center space-x-2 w-full md:w-auto justify-end">
+           <div className="flex items-center space-x-2 w-full md:w-auto justify-start md:justify-end">
               <Switch id="compare-switch" checked={compare} onCheckedChange={setCompare} />
               <Label htmlFor="compare-switch">So sánh với kỳ trước</Label>
             </div>
@@ -401,16 +395,18 @@ export default function FinancialReportPage() {
             <ArrowUpCircle className="h-6 w-6 text-green-500" />
           </CardHeader>
           <CardContent className="grid grid-cols-1">
-             <div className={cn("transition-all duration-300", compare && "grid grid-cols-2 divide-x")}>
-                <div className="p-2">
+             <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 p-2">
+                 <div className="flex-1">
                     {compare && <p className="text-xs text-muted-foreground">Kỳ này</p>}
-                    <div className="text-3xl font-extrabold text-green-700 dark:text-green-300">{mainSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
+                    <div className="text-2xl font-extrabold text-green-700 dark:text-green-300">{mainSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
                 </div>
                 {compare && (
-                    <div className="p-2 pl-4">
-                        <p className="text-xs text-muted-foreground">Kỳ trước</p>
-                        <div className="text-3xl font-extrabold text-green-700/70 dark:text-green-300/70">{comparisonSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
-                         <ChangeIndicator value={calculateChange(mainSummary.totalRevenue, comparisonSummary.totalRevenue)} />
+                    <div className="flex-1 md:text-right">
+                         <p className="text-xs text-muted-foreground">Kỳ trước</p>
+                        <div className="text-2xl font-extrabold text-green-700/70 dark:text-green-300/70">{comparisonSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
+                         <div className="flex items-center justify-start md:justify-end">
+                            <ChangeIndicator value={calculateChange(mainSummary.totalRevenue, comparisonSummary.totalRevenue)} />
+                        </div>
                     </div>
                 )}
              </div>
@@ -419,11 +415,11 @@ export default function FinancialReportPage() {
                 {Object.entries(mainSummary.revenueBreakdown).map(([key, value]) => {
                   const comparisonValue = compare ? comparisonSummary.revenueBreakdown[key as keyof typeof comparisonSummary.revenueBreakdown] : undefined;
                   return (
-                    <div key={key} className="flex justify-between items-center">
-                        <span>{PAYMENT_METHOD_NAMES[key]}:</span>
-                        <div className="flex items-center gap-2">
-                            {compare && <span className="font-medium text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
-                            <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span>
+                    <div key={key} className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1">
+                        <span className="font-medium">{PAYMENT_METHOD_NAMES[key]}:</span>
+                        <div className="flex items-baseline gap-2">
+                            {compare && <span className="font-normal text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
+                            <span className="font-semibold">{value.toLocaleString('vi-VN')}đ</span>
                         </div>
                     </div>
                   );
@@ -438,16 +434,18 @@ export default function FinancialReportPage() {
             <ArrowDownCircle className="h-6 w-6 text-red-500" />
           </CardHeader>
           <CardContent>
-             <div className={cn("transition-all duration-300", compare && "grid grid-cols-2 divide-x")}>
-                 <div className="p-2">
+             <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 p-2">
+                 <div className="flex-1">
                     {compare && <p className="text-xs text-muted-foreground">Kỳ này</p>}
-                    <div className="text-3xl font-extrabold text-red-700 dark:text-red-300">{mainSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
+                    <div className="text-2xl font-extrabold text-red-700 dark:text-red-300">{mainSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
                 </div>
                  {compare && (
-                    <div className="p-2 pl-4">
+                    <div className="flex-1 md:text-right">
                          <p className="text-xs text-muted-foreground">Kỳ trước</p>
-                        <div className="text-3xl font-extrabold text-red-700/70 dark:text-red-300/70">{comparisonSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
-                        <ChangeIndicator value={calculateChange(mainSummary.totalExpense, comparisonSummary.totalExpense)} />
+                        <div className="text-2xl font-extrabold text-red-700/70 dark:text-red-300/70">{comparisonSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
+                         <div className="flex items-center justify-start md:justify-end">
+                            <ChangeIndicator value={calculateChange(mainSummary.totalExpense, comparisonSummary.totalExpense)} />
+                        </div>
                     </div>
                 )}
             </div>
@@ -456,11 +454,11 @@ export default function FinancialReportPage() {
                 {Object.entries(mainSummary.expenseByCategory).map(([key, value]) => {
                   const comparisonValue = compare ? (comparisonSummary.expenseByCategory[key] || 0) : undefined;
                   return(
-                    <div className="flex justify-between items-center" key={key}>
-                      <span className="flex items-center gap-2">{key}:</span> 
-                      <div className="flex items-center gap-2">
-                         {compare && <span className="font-medium text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
-                         <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span>
+                    <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1" key={key}>
+                      <span className="font-medium flex items-center gap-2">{key}:</span> 
+                      <div className="flex items-baseline gap-2">
+                         {compare && <span className="font-normal text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
+                         <span className="font-semibold">{value.toLocaleString('vi-VN')}đ</span>
                       </div>
                     </div>
                   )
@@ -491,8 +489,9 @@ export default function FinancialReportPage() {
                                 <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} labelFormatter={formatTooltipLabel} />
                                 <Legend />
                                 <Bar dataKey="main_revenue" name="Doanh thu" fill="#16a34a" barSize={20} />
-                                <Line type="monotone" dataKey="main_expense" name="Chi phí" stroke="#ef4444" strokeWidth={2} />
                                 {compare && <Line type="monotone" dataKey="comp_revenue" name="DT kỳ trước" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 5" />}
+                                <Line type="monotone" dataKey="main_expense" name="Chi phí" stroke="#ef4444" strokeWidth={2} />
+                                {compare && <Line type="monotone" dataKey="comp_expense" name="CP kỳ trước" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" />}
                             </ComposedChart>
                         </ResponsiveContainer>
                     </CardContent>
