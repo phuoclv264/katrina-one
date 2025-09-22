@@ -33,6 +33,14 @@ type CombinedHistoryEntry = {
     sourceId: string;
 };
 
+// For list-based stock items
+const STOCK_LIST_NUMERIC_VALUE: { [key: string]: number } = {
+    'hết': 0,
+    'gần hết': 1,
+    'còn đủ': 2,
+    'dư xài': 3
+};
+
 
 function InventoryHistoryView() {
     const { user, loading: authLoading } = useAuth();
@@ -81,53 +89,107 @@ function InventoryHistoryView() {
     }, [user]);
 
     const combinedHistory = useMemo((): CombinedHistoryEntry[] => {
-        const history: CombinedHistoryEntry[] = [];
         const itemMap = new Map(inventoryList.map(item => [item.id, item]));
+        const allEvents: any[] = [];
 
-        // Process Expense Slips
+        // 1. Prepare all events
         expenseSlips.forEach(slip => {
             slip.items.forEach(item => {
                 const inventoryItem = itemMap.get(item.itemId);
                 if (!inventoryItem) return;
-
-                history.push({
+                allEvents.push({
+                    type: 'expense',
                     date: slip.createdAt as string,
-                    itemName: inventoryItem.name,
-                    itemUnit: inventoryItem.unit,
-                    itemSupplier: inventoryItem.supplier,
-                    type: 'Nhập hàng',
-                    change: `+${item.quantity}`,
-                    newStock: ``, // Can't know new stock without processing all history
-                    priceInfo: `${item.unitPrice.toLocaleString('vi-VN')}đ`,
+                    itemId: item.itemId,
+                    data: item,
                     sourceId: slip.id,
                 });
             });
         });
-        
-        // This part becomes tricky without pre-calculated stock.
-        // We can only show the reported stock, not the change.
+
         inventoryReports.forEach(report => {
             for (const itemId in report.stockLevels) {
                 const record = report.stockLevels[itemId];
-                const inventoryItem = itemMap.get(itemId);
-                if (!inventoryItem) continue;
-
-                history.push({
+                if (record.stock === undefined || String(record.stock).trim() === '') continue;
+                allEvents.push({
+                    type: 'report',
                     date: report.submittedAt as string,
-                    itemName: inventoryItem.name,
-                    itemUnit: inventoryItem.unit,
-                    itemSupplier: inventoryItem.supplier,
-                    type: 'Kiểm kê',
-                    change: ``, // Can't calculate change easily
-                    newStock: `${record.stock}`,
-                    priceInfo: `-`,
+                    itemId: itemId,
+                    data: record,
                     sourceId: report.id,
                 });
             }
         });
 
-        // Filter
-        let filtered = history.filter(entry => {
+        // 2. Sort all events chronologically (oldest first)
+        allEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        // 3. Process events to calculate running stock
+        const runningStock = new Map<string, number>();
+        const processedHistory: CombinedHistoryEntry[] = [];
+
+        allEvents.forEach(event => {
+            const inventoryItem = itemMap.get(event.itemId);
+            if (!inventoryItem) return;
+
+            const previousStock = runningStock.get(event.itemId) || 0;
+            let newStock = previousStock;
+            let change = '';
+            let newStockDisplay = '-';
+            let priceInfo = '-';
+
+            if (event.type === 'expense') {
+                const expenseItem = event.data as ExpenseSlip['items'][0];
+                const conversionRate = inventoryItem.conversionRate || 1;
+                const quantityInBaseUnit = expenseItem.quantity * conversionRate;
+                
+                newStock = previousStock + quantityInBaseUnit;
+                runningStock.set(event.itemId, newStock);
+
+                change = `+${quantityInBaseUnit}`;
+                newStockDisplay = String(newStock);
+                priceInfo = `${expenseItem.unitPrice.toLocaleString('vi-VN')}đ / ${inventoryItem.orderUnit}`;
+            } 
+            else if (event.type === 'report') {
+                const reportItem = event.data as InventoryReport['stockLevels'][0];
+                const isNumeric = inventoryItem.dataType === 'number';
+
+                if (isNumeric) {
+                    const reportedStock = Number(reportItem.stock);
+                    newStock = reportedStock;
+                    runningStock.set(event.itemId, newStock);
+                    const diff = reportedStock - previousStock;
+                    
+                    change = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                    if(diff === 0) change = '0';
+
+                    newStockDisplay = String(reportedStock);
+                } else { // List type
+                    const reportedStockValue = STOCK_LIST_NUMERIC_VALUE[String(reportItem.stock).toLowerCase()] ?? -1;
+                    const previousStockValue = previousStock;
+                    newStock = reportedStockValue;
+                    runningStock.set(event.itemId, newStock);
+
+                    change = `${previousStockValue} → ${reportedStockValue}`;
+                    newStockDisplay = String(reportItem.stock);
+                }
+            }
+
+            processedHistory.push({
+                date: event.date,
+                itemName: inventoryItem.name,
+                itemUnit: inventoryItem.unit,
+                itemSupplier: inventoryItem.supplier,
+                type: event.type === 'expense' ? 'Nhập hàng' : 'Kiểm kê',
+                change: change,
+                newStock: newStockDisplay,
+                priceInfo: priceInfo,
+                sourceId: event.sourceId,
+            });
+        });
+
+        // 4. Filter
+        let filtered = processedHistory.filter(entry => {
              if (filterItemName && !entry.itemName.toLowerCase().includes(filterItemName.toLowerCase())) {
                 return false;
             }
@@ -140,7 +202,7 @@ function InventoryHistoryView() {
             return true;
         });
 
-        // Sort
+        // 5. Sort for display (newest first by default)
         filtered.sort((a, b) => {
             if (sortColumn === 'date') {
                 const dateA = new Date(a.date).getTime();
