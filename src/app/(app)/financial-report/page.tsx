@@ -322,7 +322,7 @@ export default function FinancialReportPage() {
                                 {dayData.expenses.length > 0 ? dayData.expenses.map((item, idx) => (
                                     <TableRow key={`exp-${idx}`}>
                                         <TableCell>
-                                            {item.items.map(i => i.name).join(', ')}
+                                            {item.items.map(i => i.shortName).join(', ')}
                                             <Badge variant={item.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="ml-2">{item.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-red-600">{item.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
