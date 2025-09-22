@@ -112,7 +112,7 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
               ) : categories.length > 0 ? (
                 categories.map(cat => (
                   <div key={cat.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted">
-                    {editingCategory?.id === cat.id ? (
+                    {editingCategory && editingCategory.id === cat.id ? (
                       <Input
                         value={editingCategory.name}
                         onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
