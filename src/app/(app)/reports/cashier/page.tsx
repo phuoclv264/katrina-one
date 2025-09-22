@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -21,6 +22,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 type GroupedReports = {
@@ -323,7 +325,7 @@ export default function CashierReportsPage() {
   }
 
   return (
-    <>
+    <TooltipProvider>
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <Button asChild variant="ghost" className="-ml-4 mb-4">
@@ -380,7 +382,7 @@ export default function CashierReportsPage() {
                     </div>
                     <div className="space-y-4">
                         <h4 className="font-semibold text-lg text-red-600">Chi phí: {monthlySummary.totalExpense.toLocaleString('vi-VN')}đ</h4>
-                         <div className="text-sm space-y-1">
+                        <div className="text-sm space-y-1">
                              <p className="font-medium">Theo Phương thức Thanh toán:</p>
                              <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
                              <p className="pl-4">Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></p>
@@ -413,8 +415,26 @@ export default function CashierReportsPage() {
                                         <div>
                                             <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
                                                 <Receipt /> Doanh thu
-                                                {revenueReport.isOutdated && <AlertTriangle className="h-4 w-4 text-yellow-500" title="Phiếu doanh thu có thể đã cũ"/>}
-                                                {revenueReport.isEdited && <Edit2 className="h-4 w-4 text-orange-500" title="Đã chỉnh sửa thủ công"/>}
+                                                {revenueReport.isOutdated && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Phiếu doanh thu có thể đã cũ</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
+                                                {revenueReport.isEdited && (
+                                                     <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Edit2 className="h-4 w-4 text-orange-500" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Thu ngân đã chỉnh sửa thủ công</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
                                             </CardTitle>
                                             <CardDescription className="text-green-700 dark:text-green-400/80">bởi {revenueReport.createdBy.userName}</CardDescription>
                                         </div>
@@ -480,6 +500,6 @@ export default function CashierReportsPage() {
         open={isCategoryDialogOpen}
         onOpenChange={setIsCategoryDialogOpen}
     />
-    </>
+    </TooltipProvider>
   );
 }
