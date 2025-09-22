@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type CombinedHistoryEntry = {
     date: string | Date;
@@ -27,9 +28,10 @@ type CombinedHistoryEntry = {
     itemUnit: string;
     itemSupplier: string;
     type: 'Nhập hàng' | 'Kiểm kê';
-    change: string; // e.g., "+5", "-2.5", "10 -> 8"
+    change: string; 
+    changeType: 'increase' | 'decrease' | 'neutral';
     newStock: string;
-    priceInfo: string; // e.g., "100,000đ" or "-"
+    priceInfo: string;
     sourceId: string;
 };
 
@@ -135,6 +137,7 @@ function InventoryHistoryView() {
             const previousStock = runningStock.get(event.itemId) || 0;
             let newStock = previousStock;
             let change = '';
+            let changeType: CombinedHistoryEntry['changeType'] = 'neutral';
             let newStockDisplay = '-';
             let priceInfo = '-';
 
@@ -147,6 +150,7 @@ function InventoryHistoryView() {
                 runningStock.set(event.itemId, newStock);
 
                 change = `+${quantityInBaseUnit}`;
+                changeType = 'increase';
                 newStockDisplay = String(newStock);
                 priceInfo = `${expenseItem.unitPrice.toLocaleString('vi-VN')}đ / ${inventoryItem.orderUnit}`;
             } 
@@ -160,17 +164,30 @@ function InventoryHistoryView() {
                     runningStock.set(event.itemId, newStock);
                     const diff = reportedStock - previousStock;
                     
-                    change = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                    const diffFormatted = diff.toFixed(2).replace(/\.00$/, '');
+                    change = diff > 0 ? `+${diffFormatted}` : diffFormatted;
                     if(diff === 0) change = '0';
+                    changeType = diff > 0 ? 'increase' : (diff < 0 ? 'decrease' : 'neutral');
 
                     newStockDisplay = String(reportedStock);
                 } else { // List type
-                    const reportedStockValue = STOCK_LIST_NUMERIC_VALUE[String(reportItem.stock).toLowerCase()] ?? -1;
+                    const reportedValue = String(reportItem.stock).toLowerCase();
+                    const reportedStockValue = STOCK_LIST_NUMERIC_VALUE[reportedValue] ?? -1;
                     const previousStockValue = previousStock;
+                    
                     newStock = reportedStockValue;
                     runningStock.set(event.itemId, newStock);
 
-                    change = `${previousStockValue} → ${reportedStockValue}`;
+                    const prevStockKey = Object.keys(STOCK_LIST_NUMERIC_VALUE).find(key => STOCK_LIST_NUMERIC_VALUE[key] === previousStockValue);
+                    change = `${prevStockKey || previousStockValue} → ${reportedValue}`;
+                    
+                    if (reportedStockValue > previousStockValue) {
+                        changeType = 'increase';
+                    } else if (reportedStockValue < previousStockValue) {
+                        changeType = 'decrease';
+                    } else {
+                        changeType = 'neutral';
+                    }
                     newStockDisplay = String(reportItem.stock);
                 }
             }
@@ -182,6 +199,7 @@ function InventoryHistoryView() {
                 itemSupplier: inventoryItem.supplier,
                 type: event.type === 'expense' ? 'Nhập hàng' : 'Kiểm kê',
                 change: change,
+                changeType: changeType,
                 newStock: newStockDisplay,
                 priceInfo: priceInfo,
                 sourceId: event.sourceId,
@@ -241,6 +259,14 @@ function InventoryHistoryView() {
                 <Card><CardContent><Skeleton className="h-96 w-full" /></CardContent></Card>
             </div>
         );
+    }
+    
+    const getChangeColorClass = (changeType: CombinedHistoryEntry['changeType']): string => {
+        switch (changeType) {
+            case 'increase': return 'text-green-600 dark:text-green-400';
+            case 'decrease': return 'text-red-600 dark:text-red-400';
+            default: return 'text-muted-foreground';
+        }
     }
     
     return (
@@ -307,7 +333,7 @@ function InventoryHistoryView() {
                                                 {entry.type}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className={entry.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}>
+                                        <TableCell className={cn("font-medium", getChangeColorClass(entry.changeType))}>
                                             {entry.change || '-'}
                                         </TableCell>
                                         <TableCell className="font-medium">
@@ -339,3 +365,4 @@ export default function InventoryHistoryPage() {
         </Suspense>
     )
 }
+
