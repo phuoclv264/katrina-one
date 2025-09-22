@@ -295,17 +295,21 @@ export interface AuthUser extends User {
 // --- Cashier Types ---
 
 export type ExpenseType = 'goods_import' | 'other_cost';
-export type OtherCostCategory = string;
+export type OtherCostCategory = {
+  id: string;
+  name: string;
+};
 export type PaymentMethod = 'cash' | 'bank_transfer';
 
 export type ExpenseItem = {
-    itemId: string; // 'other_cost' for other expenses
-    name: string; // Product name or Other Cost Category
-    description?: string; // Detailed description for 'Other' category
-    supplier: string;
+    itemId: string; // Product ID for goods, or 'other_cost'
+    otherCostCategoryId?: string; // ID of the OtherCostCategory
+    name: string; // For goods: Product Name. For 'other': The specific description.
+    description?: string; // Legacy or specific description for 'Khác'
+    supplier?: string;
     quantity: number;
     unitPrice: number;
-    unit: string;
+    unit?: string;
 }
 
 export type ExpenseSlip = {
