@@ -419,11 +419,18 @@ export default function FinancialReportPage() {
              </div>
             <Separator className="my-4"/>
             <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Tiền mặt:</span> <span className="font-medium">{mainSummary.revenueBreakdown.cash.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>Techcombank VietQR:</span> <span className="font-medium">{mainSummary.revenueBreakdown.techcombankVietQrPro.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>ShopeeFood:</span> <span className="font-medium">{mainSummary.revenueBreakdown.shopeeFood.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>GrabFood:</span> <span className="font-medium">{mainSummary.revenueBreakdown.grabFood.toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between"><span>Chuyển khoản khác:</span> <span className="font-medium">{mainSummary.revenueBreakdown.bankTransfer.toLocaleString('vi-VN')}đ</span></div>
+                {Object.entries(mainSummary.revenueBreakdown).map(([key, value]) => {
+                  const comparisonValue = compare ? comparisonSummary.revenueBreakdown[key as keyof typeof comparisonSummary.revenueBreakdown] : undefined;
+                  return (
+                    <div key={key} className="flex justify-between items-center">
+                        <span>{PAYMENT_METHOD_NAMES[key]}:</span>
+                        <div className="flex items-center gap-2">
+                            {comparisonValue !== undefined && <span className="font-medium text-muted-foreground text-xs">({comparisonValue.toLocaleString('vi-VN')}đ)</span>}
+                            <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                    </div>
+                  );
+                })}
             </div>
           </CardContent>
         </Card>
@@ -449,8 +456,18 @@ export default function FinancialReportPage() {
             </div>
              <Separator className="my-4"/>
              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2">Nguyên liệu:</span> <span className="font-medium">{(mainSummary.expenseByCategory['Nguyên liệu'] || 0).toLocaleString('vi-VN')}đ</span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2">Sự cố:</span> <span className="font-medium">{(mainSummary.expenseByCategory['Sự cố'] || 0).toLocaleString('vi-VN')}đ</span></div>
+                {Object.entries(mainSummary.expenseByCategory).map(([key, value]) => {
+                  const comparisonValue = compare ? comparisonSummary.expenseByCategory[key] : undefined;
+                  return(
+                    <div className="flex justify-between items-center" key={key}>
+                      <span className="flex items-center gap-2">{key}:</span> 
+                      <div className="flex items-center gap-2">
+                         {comparisonValue !== undefined && <span className="font-medium text-muted-foreground text-xs">({comparisonValue.toLocaleString('vi-VN')}đ)</span>}
+                         <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
           </CardContent>
         </Card>
@@ -580,6 +597,7 @@ export default function FinancialReportPage() {
     </div>
   );
 }
+
 
 
 
