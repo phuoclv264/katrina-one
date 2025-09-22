@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType } from '@/lib/types';
+import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory } from '@/lib/types';
 import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, CornerDownLeft } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -31,6 +31,7 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
@@ -121,7 +122,6 @@ function AiPreviewDialog({
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
-                    shortName: inventoryItem.shortName,
                     supplier: inventoryItem.supplier,
                     unit: inventoryItem.orderUnit, // Use order unit for expense items
                     quantity: item.quantity,
@@ -245,6 +245,7 @@ type ExpenseSlipDialogProps = {
     slipToEdit: ExpenseSlip | null;
     inventoryList: InventoryItem[];
     reporter: AuthUser;
+    otherCostCategories: OtherCostCategory[];
 };
 
 export default function ExpenseSlipDialog({
@@ -254,7 +255,8 @@ export default function ExpenseSlipDialog({
     isProcessing,
     slipToEdit,
     inventoryList,
-    reporter
+    reporter,
+    otherCostCategories,
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const attachmentCardRef = useRef<HTMLDivElement>(null);
@@ -283,8 +285,10 @@ export default function ExpenseSlipDialog({
     
     // --- New State for Expense Type ---
     const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
-    const [otherCostContent, setOtherCostContent] = useState('');
+    const [otherCostCategory, setOtherCostCategory] = useState('');
+    const [otherCostDescription, setOtherCostDescription] = useState('');
     const [otherCostAmount, setOtherCostAmount] = useState(0);
+
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -310,15 +314,17 @@ export default function ExpenseSlipDialog({
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
-                const isOtherCost = slipToEdit.items.length === 1 && slipToEdit.items[0].itemId === 'other_cost';
-                setExpenseType(isOtherCost ? 'other_cost' : 'goods_import');
-                if(isOtherCost) {
-                    setOtherCostContent(slipToEdit.items[0].name);
-                    setOtherCostAmount(slipToEdit.items[0].unitPrice);
+                setExpenseType(slipToEdit.expenseType);
+                if(slipToEdit.expenseType === 'other_cost' && slipToEdit.items.length > 0) {
+                    const otherItem = slipToEdit.items[0];
+                    setOtherCostCategory(otherItem.name);
+                    setOtherCostDescription(otherItem.description || '');
+                    setOtherCostAmount(otherItem.unitPrice);
                     setItems([]);
                 } else {
                     setItems(slipToEdit.items);
-                    setOtherCostContent('');
+                    setOtherCostCategory('');
+                    setOtherCostDescription('');
                     setOtherCostAmount(0);
                 }
 
@@ -334,7 +340,8 @@ export default function ExpenseSlipDialog({
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
-                setOtherCostContent('');
+                setOtherCostCategory('');
+                setOtherCostDescription('');
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
             }
@@ -359,7 +366,6 @@ export default function ExpenseSlipDialog({
             return existing || {
                 itemId: invItem.id,
                 name: invItem.name,
-                shortName: invItem.shortName,
                 supplier: invItem.supplier,
                 unit: invItem.orderUnit, // Use orderUnit for expense slip
                 quantity: 1, // default
@@ -382,7 +388,7 @@ export default function ExpenseSlipDialog({
         if (totalPhotos === 0) {
             setShowMissingAttachmentAlert(true);
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            toast.error("Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc hàng hóa.");
+            toast.error("Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc bằng chứng.");
             return;
         }
 
@@ -394,14 +400,22 @@ export default function ExpenseSlipDialog({
             }
             finalItems = items;
         } else { // other_cost
-            if (!otherCostContent.trim() || otherCostAmount <= 0) {
-                toast.error('Vui lòng nhập nội dung và số tiền chi phí.');
+            if (!otherCostCategory) {
+                 toast.error('Vui lòng chọn loại chi phí.');
+                 return;
+            }
+             if (otherCostCategory === 'Khác' && !otherCostDescription.trim()) {
+                toast.error('Vui lòng nhập mô tả cho chi phí "Khác".');
+                return;
+            }
+            if (otherCostAmount <= 0) {
+                toast.error('Vui lòng nhập số tiền chi phí.');
                 return;
             }
             finalItems = [{
                 itemId: 'other_cost',
-                name: otherCostContent.trim(),
-                shortName: 'Chi phí khác',
+                name: otherCostCategory,
+                description: otherCostDescription.trim(),
                 supplier: 'N/A',
                 quantity: 1,
                 unitPrice: otherCostAmount,
@@ -410,6 +424,7 @@ export default function ExpenseSlipDialog({
         }
 
         const data = {
+            expenseType,
             date,
             items: finalItems,
             totalAmount,
@@ -563,7 +578,7 @@ export default function ExpenseSlipDialog({
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
-                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
+                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
@@ -659,9 +674,24 @@ export default function ExpenseSlipDialog({
                             ) : (
                                 <div className="space-y-4">
                                      <div className="space-y-2">
-                                        <Label htmlFor="other-cost-content">Nội dung chi</Label>
-                                        <Input id="other-cost-content" value={otherCostContent} onChange={(e) => setOtherCostContent(e.target.value)} placeholder="VD: Sửa chữa máy lạnh, Lương tháng 5..." />
+                                        <Label htmlFor="other-cost-category">Loại chi phí</Label>
+                                        <Select value={otherCostCategory} onValueChange={setOtherCostCategory}>
+                                            <SelectTrigger id="other-cost-category">
+                                                <SelectValue placeholder="Chọn loại chi phí..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {otherCostCategories.map(cat => (
+                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                      </div>
+                                     {otherCostCategory === 'Khác' && (
+                                         <div className="space-y-2">
+                                            <Label htmlFor="other-cost-description">Mô tả chi phí</Label>
+                                            <Input id="other-cost-description" value={otherCostDescription} onChange={(e) => setOtherCostDescription(e.target.value)} placeholder="Nhập mô tả chi tiết..." />
+                                         </div>
+                                     )}
                                       <div className="space-y-2">
                                         <Label htmlFor="other-cost-amount">Tổng số tiền</Label>
                                         <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" />
@@ -670,83 +700,77 @@ export default function ExpenseSlipDialog({
                             )}
 
 
-                            {expenseType === 'goods_import' && (
+                            {expenseType === 'goods_import' && items.length > 0 && (
                                 <div className="space-y-2">
                                     <Label>Chi tiết các mặt hàng</Label>
-                                    {items.length === 0 ? (
-                                        <div className="text-center text-sm text-muted-foreground p-4 border rounded-md border-dashed">
-                                            Chưa có mặt hàng nào được chọn.
+                                    <>
+                                        {/* Mobile view */}
+                                        <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
+                                            {items.map(item => (
+                                                <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                    <Card className="cursor-pointer bg-muted/50">
+                                                        <CardContent className="p-4">
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <p className="font-semibold text-sm">{item.name}</p>
+                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                </div>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </div>
+                                                            <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
+                                                                <p className="text-muted-foreground">Số lượng</p>
+                                                                <p className="text-muted-foreground">Đơn giá</p>
+                                                                <p className="text-muted-foreground">Thành tiền</p>
+                                                                
+                                                                <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
+                                                                <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                </EditItemPopover>
+                                            ))}
                                         </div>
-                                    ) : (
-                                        <>
-                                            {/* Mobile view */}
-                                            <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
-                                                {items.map(item => (
-                                                    <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
-                                                        <Card className="cursor-pointer bg-muted/50">
-                                                            <CardContent className="p-4">
-                                                                <div className="flex justify-between items-start">
-                                                                    <div>
-                                                                        <p className="font-semibold text-sm">{item.name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                                    </div>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+
+                                        {/* Desktop view */}
+                                        <div className="hidden md:block border rounded-md bg-card">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Tên mặt hàng</TableHead>
+                                                        <TableHead>Số lượng</TableHead>
+                                                        <TableHead>Đơn vị</TableHead>
+                                                        <TableHead>Đơn giá</TableHead>
+                                                        <TableHead>Thành tiền</TableHead>
+                                                        <TableHead className="text-right">Xóa</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {items.map(item => (
+                                                        <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                            <TableRow className="cursor-pointer">
+                                                                <TableCell>
+                                                                    <p className="font-medium">{item.name}</p>
+                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                </TableCell>
+                                                                <TableCell>{item.quantity}</TableCell>
+                                                                <TableCell>{item.unit}</TableCell>
+                                                                <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
+                                                                <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
+                                                                <TableCell className="text-right">
+                                                                    <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
                                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                                     </Button>
-                                                                </div>
-                                                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                    <p className="text-muted-foreground">Số lượng</p>
-                                                                    <p className="text-muted-foreground">Đơn giá</p>
-                                                                    <p className="text-muted-foreground">Thành tiền</p>
-                                                                    
-                                                                    <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
-                                                                    <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
-                                                                    <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    </EditItemPopover>
-                                                ))}
-                                            </div>
-
-                                            {/* Desktop view */}
-                                            <div className="hidden md:block border rounded-md bg-card">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Tên mặt hàng</TableHead>
-                                                            <TableHead>Số lượng</TableHead>
-                                                            <TableHead>Đơn vị</TableHead>
-                                                            <TableHead>Đơn giá</TableHead>
-                                                            <TableHead>Thành tiền</TableHead>
-                                                            <TableHead className="text-right">Xóa</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {items.map(item => (
-                                                            <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem}>
-                                                                <TableRow className="cursor-pointer">
-                                                                    <TableCell>
-                                                                        <p className="font-medium">{item.name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
-                                                                    </TableCell>
-                                                                    <TableCell>{item.quantity}</TableCell>
-                                                                    <TableCell>{item.unit}</TableCell>
-                                                                    <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
-                                                                    <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
-                                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                                        </Button>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            </EditItemPopover>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </>
-                                    )}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </EditItemPopover>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </>
                                 </div>
                             )}
 

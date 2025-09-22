@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem } from '@/lib/types';
+import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -26,6 +26,7 @@ export default function CashierDashboardPage() {
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
+  const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -48,18 +49,21 @@ export default function CashierDashboardPage() {
         const unsubSlips = dataStore.subscribeToDailyExpenseSlips(date, setDailySlips);
         const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
         const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
+        const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(setOtherCostCategories);
 
         // Fetch initial data to set loading state correctly
         const fetchInitialData = async () => {
             try {
-                const [slips, revenue, inventory] = await Promise.all([
+                const [slips, revenue, inventory, costCategories] = await Promise.all([
                     dataStore.getDailyExpenseSlips(date),
                     dataStore.getRevenueStats(date),
                     dataStore.getInventoryList(),
+                    dataStore.getOtherCostCategories(),
                 ]);
                 setDailySlips(slips);
                 setRevenueStats(revenue);
                 setInventoryList(inventory);
+                setOtherCostCategories(costCategories);
             } catch (error) {
                 console.error("Failed to fetch initial cashier data:", error);
                 toast.error("Không thể tải dữ liệu ban đầu.");
@@ -74,6 +78,7 @@ export default function CashierDashboardPage() {
             unsubSlips();
             unsubRevenue();
             unsubInventory();
+            unsubOtherCostCategories();
         };
     }
   }, [user]);
@@ -156,12 +161,14 @@ export default function CashierDashboardPage() {
       setIsExpenseDialogOpen(true);
   }
 
-  const getSlipContentName = (items: ExpenseItem[]): string => {
-    if (!items || items.length === 0) return 'Không có nội dung';
-    if (items.length === 1 && items[0].itemId === 'other_cost') {
-        return items[0].name;
+  const getSlipContentName = (item: ExpenseItem): string => {
+      if (item.itemId === 'other_cost') {
+        if (item.name === 'Khác' && item.description) {
+            return item.description;
+        }
+        return item.name;
     }
-    return items.map(i => i.name).join(', ');
+    return item.name;
   }
 
   if (authLoading || isLoading || !user) {
@@ -256,7 +263,8 @@ export default function CashierDashboardPage() {
                                        {dailySlips.map(slip => (
                                            <TableRow key={slip.id}>
                                                <TableCell className="font-medium">
-                                                    {getSlipContentName(slip.items)}
+                                                    {getSlipContentName(slip.items[0])}
+                                                    {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
                                                     <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                                </TableCell>
                                                <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
@@ -354,6 +362,7 @@ export default function CashierDashboardPage() {
         slipToEdit={slipToEdit}
         inventoryList={inventoryList}
         reporter={user}
+        otherCostCategories={otherCostCategories}
     />
     <IncidentReportDialog
         open={isIncidentDialogOpen}

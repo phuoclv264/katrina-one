@@ -295,13 +295,13 @@ export interface AuthUser extends User {
 // --- Cashier Types ---
 
 export type ExpenseType = 'goods_import' | 'other_cost';
-export type OtherCostCategory = 'Lương' | 'Điện' | 'Nước' | 'Dịch vụ' | 'Sự cố' | 'Khác';
+export type OtherCostCategory = string;
 export type PaymentMethod = 'cash' | 'bank_transfer';
 
 export type ExpenseItem = {
-    itemId: string;
-    name: string;
-    shortName: string;
+    itemId: string; // 'other_cost' for other expenses
+    name: string; // Product name or Other Cost Category
+    description?: string; // Detailed description for 'Other' category
     supplier: string;
     quantity: number;
     unitPrice: number;
@@ -311,6 +311,7 @@ export type ExpenseItem = {
 export type ExpenseSlip = {
   id: string;
   date: string; // YYYY-MM-DD
+  expenseType: ExpenseType;
   items: ExpenseItem[];
   totalAmount: number;
   paymentMethod: PaymentMethod;

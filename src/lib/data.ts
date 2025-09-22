@@ -1,6 +1,4 @@
-
-
-import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory } from './types';
+import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory, OtherCostCategory } from './types';
 
 export const staff: { pin: string, name: string }[] = [
   { pin: '0001', name: 'Phước' },
@@ -202,6 +200,17 @@ export const initialViolationCategories: ViolationCategory[] = [
     "Pha chế sai công thức",
     "Khác"
 ];
+
+export const initialOtherCostCategories: OtherCostCategory[] = [
+    "Lương nhân viên",
+    "Tiền điện",
+    "Tiền nước",
+    "Tiền Internet",
+    "Phí giữ xe",
+    "Chi phí sửa chữa",
+    "Khác"
+];
+
 
 export const defaultTimeSlots: TimeSlot[] = [
     { start: '05:30', end: '12:00' },
