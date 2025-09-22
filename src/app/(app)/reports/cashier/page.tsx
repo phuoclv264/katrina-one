@@ -227,9 +227,11 @@ export default function CashierReportsPage() {
 
   const monthlySummary = useMemo(() => {
       const reportsInMonth = Object.values(reportsForCurrentMonth).flat();
+      const allExpenses = reportsInMonth.flatMap(day => day.expenses || []);
+      
       const totalRevenue = reportsInMonth.reduce((sum, day) => sum + (day.revenue?.netRevenue || 0), 0);
-      const totalExpense = reportsInMonth.flatMap(day => day.expenses || []).reduce((sum, slip) => sum + slip.totalAmount, 0);
-
+      const totalExpense = allExpenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
+  
       const revenueByMethod = reportsInMonth.reduce((acc, day) => {
           if (day.revenue) {
               for (const key in day.revenue.revenueByPaymentMethod) {
@@ -239,14 +241,20 @@ export default function CashierReportsPage() {
           return acc;
       }, {} as {[key: string]: number});
       
-      const expenseByType = reportsInMonth.flatMap(day => day.expenses || []).reduce((acc, slip) => {
+      const expenseByPaymentMethod = allExpenses.reduce((acc, slip) => {
+          acc[slip.paymentMethod] = (acc[slip.paymentMethod] || 0) + slip.totalAmount;
+          return acc;
+      }, {} as {[key: string]: number});
+
+      const expenseByType = allExpenses.reduce((acc, slip) => {
           const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (slip.items[0]?.name || 'Khác');
           acc[type] = (acc[type] || 0) + slip.totalAmount;
           return acc;
       }, {} as {[key: string]: number});
       
-      return { totalRevenue, totalExpense, revenueByMethod, expenseByType };
+      return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod };
   }, [reportsForCurrentMonth]);
+
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
@@ -364,16 +372,24 @@ export default function CashierReportsPage() {
                     <div className="space-y-4">
                         <h4 className="font-semibold text-lg text-green-600">Doanh thu: {monthlySummary.totalRevenue.toLocaleString('vi-VN')}đ</h4>
                         <div className="text-sm space-y-1">
+                             <p className="font-medium">Theo phương thức thanh toán:</p>
                             {Object.entries(monthlySummary.revenueByMethod).map(([key, value]) => (
-                                <p key={key}>{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
+                                <p key={key} className="pl-4">{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
                             ))}
                         </div>
                     </div>
                     <div className="space-y-4">
                         <h4 className="font-semibold text-lg text-red-600">Chi phí: {monthlySummary.totalExpense.toLocaleString('vi-VN')}đ</h4>
                         <div className="text-sm space-y-1">
+                             <p className="font-medium">Theo phương thức thanh toán:</p>
+                             <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
+                             <p className="pl-4">Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></p>
+                        </div>
+                        <Separator/>
+                        <div className="text-sm space-y-1">
+                            <p className="font-medium">Theo loại chi phí:</p>
                             {Object.entries(monthlySummary.expenseByType).map(([key, value]) => (
-                                 <p key={key}>{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
+                                 <p key={key} className="pl-4">{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
                             ))}
                         </div>
                     </div>
