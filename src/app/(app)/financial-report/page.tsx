@@ -218,60 +218,63 @@ export default function FinancialReportPage() {
     const chartData = useMemo(() => {
         if (!dateRange?.from) return [];
         
-        const getComparisonKey = (date: Date) => {
-            const from = dateRange.from!;
-            const to = dateRange.to ?? from;
-            const diff = to.getTime() - from.getTime();
-            const oneWeek = 6 * 24 * 60 * 60 * 1000;
-            
-            if (diff <= oneWeek) {
-                return format(date, 'eeee', { locale: vi });
-            }
-            return format(date, 'd');
-        }
+        const from = dateRange.from;
+        const to = dateRange.to ?? from;
+        const diff = to.getTime() - from.getTime();
+        const oneWeek = 6 * 24 * 60 * 60 * 1000;
+        const isWeekly = diff <= oneWeek;
 
         const dataMap = new Map<string, any>();
+        const days = isWeekly 
+            ? ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN']
+            : eachDayOfInterval({start: from, end: to}).map(d => format(d, 'd'));
+        
+        days.forEach(day => dataMap.set(day, { name: day }));
 
-        const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_') => {
+        const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_', comparisonRange: DateRange | undefined) => {
             periodData.revenue.forEach(stat => {
-                const key = getComparisonKey(parseISO(stat.date));
-                if (!dataMap.has(key)) dataMap.set(key, { name: key, fullDate: parseISO(stat.date) });
-                const entry = dataMap.get(key);
+                const statDate = parseISO(stat.date);
+                let key: string;
+                if (isWeekly) {
+                    const dayIndex = getDay(statDate) === 0 ? 6 : getDay(statDate) - 1; // Mon=0..Sun=6
+                    key = days[dayIndex];
+                } else {
+                    key = format(statDate, 'd');
+                }
                 
+                const entry = dataMap.get(key) || { name: key };
+                entry[`${keyPrefix}fullDate`] = statDate;
                 entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
-                
                 const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
                 entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
                 entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
                 entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
+                dataMap.set(key, entry);
             });
 
             periodData.expenses.forEach(slip => {
-                const key = getComparisonKey(parseISO(slip.date));
-                if (!dataMap.has(key)) dataMap.set(key, { name: key, fullDate: parseISO(slip.date) });
-                const entry = dataMap.get(key);
+                const slipDate = parseISO(slip.date);
+                 let key: string;
+                if (isWeekly) {
+                    const dayIndex = getDay(slipDate) === 0 ? 6 : getDay(slipDate) - 1;
+                    key = days[dayIndex];
+                } else {
+                    key = format(slipDate, 'd');
+                }
+
+                const entry = dataMap.get(key) || { name: key };
+                if (!entry[`${keyPrefix}fullDate`]) entry[`${keyPrefix}fullDate`] = slipDate;
                 entry[`${keyPrefix}expense`] = (entry[`${keyPrefix}expense`] || 0) + slip.totalAmount;
+                dataMap.set(key, entry);
             });
         };
 
-        processPeriodData(mainPeriodData, 'main_');
-        if (compare) {
-            processPeriodData(comparisonPeriodData, 'comp_');
+        processPeriodData(mainPeriodData, 'main_', dateRange);
+        if (compare && comparisonPeriod) {
+            processPeriodData(comparisonPeriodData, 'comp_', comparisonPeriod);
         }
         
-        const sortedData = Array.from(dataMap.values());
-        const from = dateRange.from!;
-        const to = dateRange.to ?? from;
-        const diff = to.getTime() - from.getTime();
-        const oneWeek = 6 * 24 * 60 * 60 * 1000;
-
-        if (diff <= oneWeek) {
-            sortedData.sort((a,b) => getDay(a.fullDate) - getDay(b.fullDate));
-        } else {
-            sortedData.sort((a,b) => parseInt(a.name) - parseInt(b.name));
-        }
-
-        return sortedData;
+        return Array.from(dataMap.values());
     }, [dateRange, mainPeriodData, comparisonPeriodData, compare]);
 
   const expensePieChartData = Object.entries(mainSummary.expenseByCategory).map(([name, value]) => ({ name, value }));
@@ -294,8 +297,13 @@ export default function FinancialReportPage() {
   }, [mainPeriodData]);
   
   const formatTooltipLabel = (label: string, payload: any[]) => {
-    if (!payload || payload.length === 0 || !payload[0].payload.fullDate) return label;
-    const fullDate = payload[0].payload.fullDate;
+    if (!payload || payload.length === 0) return label;
+    const item = payload.find(p => p.payload.main_fullDate || p.payload.comp_fullDate);
+    if (!item) return label;
+    
+    const fullDate = item.payload.main_fullDate || item.payload.comp_fullDate;
+    if (!fullDate) return label;
+    
     return format(fullDate, 'eeee, dd/MM', { locale: vi });
   }
   
@@ -446,7 +454,7 @@ export default function FinancialReportPage() {
              <Separator className="my-4"/>
              <div className="space-y-2 text-sm">
                 {Object.entries(mainSummary.expenseByCategory).map(([key, value]) => {
-                  const comparisonValue = compare ? comparisonSummary.expenseByCategory[key] : undefined;
+                  const comparisonValue = compare ? (comparisonSummary.expenseByCategory[key] || 0) : undefined;
                   return(
                     <div className="flex justify-between items-center" key={key}>
                       <span className="flex items-center gap-2">{key}:</span> 
@@ -485,7 +493,6 @@ export default function FinancialReportPage() {
                                 <Bar dataKey="main_revenue" name="Doanh thu" fill="#16a34a" barSize={20} />
                                 <Line type="monotone" dataKey="main_expense" name="Chi phí" stroke="#ef4444" strokeWidth={2} />
                                 {compare && <Line type="monotone" dataKey="comp_revenue" name="DT kỳ trước" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 5" />}
-                                {compare && <Line type="monotone" dataKey="comp_expense" name="CP kỳ trước" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" />}
                             </ComposedChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -496,17 +503,19 @@ export default function FinancialReportPage() {
                     </CardHeader>
                     <CardContent>
                          <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value as number)} />
                                 <Tooltip formatter={(value: number) => `${value.toLocaleString('vi-VN')}đ`} labelFormatter={formatTooltipLabel} />
                                 <Legend />
-                                <Line type="monotone" dataKey="main_at_store" name="Tại quán" stroke={REVENUE_CHANNEL_COLORS['Tại quán']} strokeWidth={2} activeDot={{ r: 6 }} />
-                                <Line type="monotone" dataKey="main_shopeefood" name="ShopeeFood" stroke={REVENUE_CHANNEL_COLORS['ShopeeFood']} strokeWidth={2} activeDot={{ r: 6 }} />
-                                <Line type="monotone" dataKey="main_grabfood" name="GrabFood" stroke={REVENUE_CHANNEL_COLORS['GrabFood']} strokeWidth={2} activeDot={{ r: 6 }} />
+                                <Bar dataKey="main_at_store" name="Tại quán" fill={REVENUE_CHANNEL_COLORS['Tại quán']} stackId="a" barSize={20} />
+                                <Bar dataKey="main_shopeefood" name="ShopeeFood" fill={REVENUE_CHANNEL_COLORS['ShopeeFood']} stackId="a" barSize={20} />
+                                <Bar dataKey="main_grabfood" name="GrabFood" fill={REVENUE_CHANNEL_COLORS['GrabFood']} stackId="a" barSize={20} />
                                 {compare && <Line type="monotone" dataKey="comp_at_store" name="Tại quán (kỳ trước)" stroke={REVENUE_CHANNEL_COLORS['Tại quán']} strokeWidth={2} strokeDasharray="5 5" />}
-                            </LineChart>
+                                {compare && <Line type="monotone" dataKey="comp_shopeefood" name="ShopeeFood (kỳ trước)" stroke={REVENUE_CHANNEL_COLORS['ShopeeFood']} strokeWidth={2} strokeDasharray="5 5" />}
+                                {compare && <Line type="monotone" dataKey="comp_grabfood" name="GrabFood (kỳ trước)" stroke={REVENUE_CHANNEL_COLORS['GrabFood']} strokeWidth={2} strokeDasharray="5 5" />}
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
