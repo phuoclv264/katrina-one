@@ -16,6 +16,8 @@ const ExtractedItemSchema = z.object({
     itemName: z.string().describe("The exact name of the item as it appears on the invoice."),
     quantity: z.number().describe("The quantity of the item."),
     unitPrice: z.number().describe("The price for a single unit of the item. It is CRITICAL that you parse numbers correctly, ignoring thousand separators (like '.' or ',') and correctly identifying the decimal separator. For example: '100.000,00' and '100,000.00' must both be interpreted as the number 100000. A value of '100.000' should be interpreted as 100000."),
+    totalAmount: z.number().describe("The final line item total price ('thành tiền'). This is the most important value to check for discounts. Parse this number with the same rules as unitPrice."),
+    lineItemDiscount: z.number().describe("The calculated discount for this specific line item. You MUST calculate this as `(quantity * unitPrice) - totalAmount`. If the result is negative or zero, this value MUST be 0."),
     matchedItemId: z.string().nullable().describe("The ID of the inventory item that this invoice item most closely matches. Null if no confident match is found."),
     status: z.enum(['matched', 'unmatched']).describe("The status of the match. 'matched' if a confident match was found, 'unmatched' otherwise."),
 });
@@ -24,7 +26,7 @@ const InvoiceResultSchema = z.object({
   invoiceTitle: z.string().describe("A descriptive title for this invoice group, like 'Hóa đơn 1'. This is crucial for grouping."),
   imageIds: z.array(z.string()).describe("An array of IDs of all images that belong to this single invoice."),
   items: z.array(ExtractedItemSchema).describe("An array of all items extracted from this single invoice group."),
-  totalDiscount: z.number().optional().describe("The total discount amount for this invoice group. Look for terms like 'chiết khấu', 'giảm giá'. Sum up all discounts if multiple are present on the same invoice."),
+  totalDiscount: z.number().describe("The total discount for this invoice group. You MUST calculate this by SUMMING UP all `lineItemDiscount` values from every item in this invoice. Do not look for a separate total discount field on the invoice."),
 });
 
 const ExtractInvoiceItemsInputSchema = z.object({
@@ -66,20 +68,17 @@ You MUST process the data with the following strict rules:
     *   Use textual similarity, invoice structure (store name, date, total amount) to confirm duplicates. Each unique invoice = one group with all related image IDs.
 
 3.  **Extract Invoice Line Items:**
-    *   For each invoice group, carefully locate the correct **item name column**.
-    *   Many invoices contain both **item codes (mã hàng)** and **item names (tên hàng)**.
-    *   Always select the column that contains the *full descriptive item name*, not the numeric/short code.
-    *   Example: "CF001 Cà phê Sữa Đá" → extract \`"Cà phê Sữa Đá"\`, ignore \`"CF001"\`.
+    *   For each invoice group, carefully locate the columns for **item name**, **quantity**, **unit price**, and **total amount (thành tiền)**.
+    *   Always select the column that contains the *full descriptive item name*, not the numeric/short code. Example: "CF001 Cà phê Sữa Đá" → extract \`"Cà phê Sữa Đá"\`.
     *   For each line item, extract:
-        *   \`itemName\` (text as shown on invoice, descriptive name only),
-        *   \`quantity\` (integer/decimal),
-        *   \`unitPrice\` (per-unit price, correctly parsed regardless of thousand/decimal separators).
+        *   \`itemName\` (text as shown on invoice, descriptive name only)
+        *   \`quantity\` (integer/decimal)
+        *   \`unitPrice\` (per-unit price, parsed correctly)
+        *   \`totalAmount\` (the final line total price, 'thành tiền', parsed correctly)
 
-4.  **Extract Discount (CRITICAL):**
-    *   For each invoice group, scan the entire invoice for any discount amounts. Look for keywords like **"chiết khấu"**, **"giảm giá"**, "ck", or "gg".
-    *   If found, extract the numeric value of the discount.
-    *   If multiple discount lines are present on the same invoice, SUM them up to get a single \`totalDiscount\` for that invoice group.
-    *   If no discount is found, omit the \`totalDiscount\` field or set it to 0.
+4.  **Calculate Discounts (CRITICAL):**
+    *   **Per Item:** For each extracted line item, you MUST calculate the \`lineItemDiscount\` using the formula: \`(quantity * unitPrice) - totalAmount\`. If this value is less than or equal to zero, the \`lineItemDiscount\` MUST be 0.
+    *   **Total for Invoice:** For each invoice group, you MUST calculate the \`totalDiscount\` by SUMMING UP the \`lineItemDiscount\` of EVERY item within that group. **Do not** look for a separate total discount field on the invoice itself. Your final \`totalDiscount\` is the sum of discounts from each line item.
 
 5.  **Match Items with Inventory:**
     *   Use fuzzy and semantic matching (e.g., "Cafe Robusta" ≈ "Cà phê Robusta").
@@ -91,8 +90,8 @@ You MUST process the data with the following strict rules:
     *   \`results\`: one object per unique invoice group. This array must be empty if no valid invoices were found.
         *   \`invoiceTitle\`: unique name like "Hóa đơn 1", "Hóa đơn 2"...
         *   \`imageIds\`: IDs of all valid images in that group.
-        *   \`items\`: extracted items with \`itemName\`, \`quantity\`, \`unitPrice\`, \`matchedItemId\`, \`status\`.
-        *   \`totalDiscount\`: The total summed discount for this invoice group.
+        *   \`items\`: extracted items with ALL fields, including the calculated \`lineItemDiscount\`.
+        *   \`totalDiscount\`: The total summed discount for this invoice group, calculated as described in step 4.
 
 **Input Provided:**
 - Images (some may be valid invoices, some not, some duplicates)
@@ -109,7 +108,7 @@ You MUST process the data with the following strict rules:
 - A clean JSON object strictly following the provided schema.
 - Ignore invalid or unreadable images completely.
 - Group valid duplicate invoices properly.
-- Ensure extracted item names are always descriptive product names, not item codes.
+- Ensure all calculations are performed as instructed.
 `,
 });
 
