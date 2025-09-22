@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import type { HandoverReport, ExpenseSlip, RevenueStats, AuthUser } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, CheckCircle, ArrowRight, Wallet, X, ListChecks } from 'lucide-react';
+import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, CheckCircle, ArrowRight, Wallet, X, ListChecks, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
 import type { ExtractHandoverDataOutput } from '@/ai/flows/extract-handover-data-flow';
@@ -29,6 +29,10 @@ import { dataStore } from '@/lib/data-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
+
 
 type HandoverDialogProps = {
     open: boolean;
@@ -42,17 +46,13 @@ type HandoverDialogProps = {
     startOfDayCash: number;
 };
 
-type Step = 'upload' | 'confirming' | 'mismatch' | 'finalizing' | 'success';
-
 type ComparisonResult = {
+  field: string;
+  label: string;
+  appValue: number;
+  receiptValue: number;
   isMatch: boolean;
-  mismatches: {
-    field: string;
-    label: string;
-    appValue: number;
-    receiptValue: number;
-  }[];
-};
+}[];
 
 export default function HandoverDialog({
     open,
@@ -67,31 +67,31 @@ export default function HandoverDialog({
 }: HandoverDialogProps) {
     const router = useRouter();
 
-    const [step, setStep] = useState<Step>('upload');
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     const [handoverData, setHandoverData] = useState<ExtractHandoverDataOutput | null>(null);
-    const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
+    const comparisonResult = useRef<ComparisonResult | null>(null);
     
     const [actualCash, setActualCash] = useState<number | null>(null);
     const [discrepancyReason, setDiscrepancyReason] = useState('');
     const [discrepancyPhotoIds, setDiscrepancyPhotoIds] = useState<string[]>([]);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-
+    
+    const [isSuccess, setIsSuccess] = useState(false);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
     
     const resetState = useCallback(() => {
-        setStep('upload');
         setIsOcrLoading(false);
         setImageDataUri(null);
         setHandoverData(null);
-        setComparisonResult(null);
+        comparisonResult.current = null;
         setActualCash(null);
         setDiscrepancyReason('');
         setDiscrepancyPhotoIds([]);
         setServerErrorDialog({ open: false, imageUri: null });
+        setIsSuccess(false);
     }, []);
 
     useEffect(() => {
@@ -139,9 +139,8 @@ export default function HandoverDialog({
                 toast.dismiss(toastId);
                 return;
             }
-
-            // Compare data
-            const mismatches = [];
+            
+            const comparison: ComparisonResult = [];
             const fieldsToCompare: (keyof typeof appData)[] = ['expectedCash', 'startOfDayCash', 'cashExpense', 'cashRevenue', 'cardRevenue', 'deliveryPartnerPayout'];
             const labels: {[key: string]: string} = {
                  expectedCash: 'Tiền mặt dự kiến', startOfDayCash: 'Tiền mặt đầu ca', cashExpense: 'Chi tiền mặt',
@@ -151,17 +150,14 @@ export default function HandoverDialog({
             for (const field of fieldsToCompare) {
                 const appValue = Math.round(appData[field]);
                 const receiptValue = Math.round(result[field as keyof typeof result] as number || 0);
-
-                if (appValue !== receiptValue) {
-                    mismatches.push({ field, label: labels[field], appValue, receiptValue });
-                }
+                comparison.push({ field, label: labels[field], appValue, receiptValue, isMatch: appValue === receiptValue });
             }
 
             setImageDataUri(uri);
             setHandoverData(result);
-            setComparisonResult({ isMatch: mismatches.length === 0, mismatches });
-            setStep(mismatches.length === 0 ? 'finalizing' : 'mismatch');
+            comparisonResult.current = comparison;
             toast.dismiss(toastId);
+            toast.success("Đã phân tích phiếu bàn giao. Vui lòng đối chiếu.");
 
         } catch (error: any) {
              if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
@@ -212,24 +208,40 @@ export default function HandoverDialog({
 
         const dataToSave: Partial<HandoverReport> = {
             handoverData,
-            handoverImageUrl: imageDataUri, // This will be handled for upload by the parent
+            handoverImageUrl: imageDataUri, 
             actualCash,
             discrepancy,
             discrepancyReason: discrepancyReason.trim() || undefined,
-            discrepancyProofPhotos: discrepancyPhotoIds, // IDs for parent to upload
+            discrepancyProofPhotos: discrepancyPhotoIds, 
         };
         onSave(dataToSave);
-        setStep('success');
+        setIsSuccess(true);
     }
-
+    
+    const hasMismatch = comparisonResult.current && comparisonResult.current.some(item => !item.isMatch);
     const discrepancy = (actualCash !== null && handoverData?.expectedCash !== null) 
         ? actualCash - (handoverData?.expectedCash as number)
         : 0;
 
+    if (isSuccess) {
+        return (
+             <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent>
+                    <div className="py-8 text-center space-y-4">
+                        <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                        <h3 className="text-xl font-semibold">Bàn giao thành công!</h3>
+                        <p className="text-muted-foreground">Báo cáo của bạn đã được ghi nhận. Cảm ơn và chúc bạn một ngày tốt lành.</p>
+                         <Button onClick={() => onOpenChange(false)} className="w-full">Hoàn tất</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        )
+    }
+
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Bàn giao cuối ca</DialogTitle>
                         <DialogDescription>
@@ -237,125 +249,143 @@ export default function HandoverDialog({
                         </DialogDescription>
                     </DialogHeader>
 
-                    {step === 'upload' && (
-                        <div className="py-4 space-y-4">
-                            <div className="relative aspect-video w-full flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
-                                {isOcrLoading ? (
-                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                        <span>AI đang phân tích...</span>
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">Vui lòng tải lên hoặc chụp ảnh phiếu bàn giao</p>
-                                )}
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh lên</Button>
-                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                                <Button onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới</Button>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {step === 'mismatch' && comparisonResult && (
-                        <div className="py-4 space-y-4">
-                             <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>Phát hiện sai lệch dữ liệu!</AlertTitle>
-                                <AlertDescription>
-                                    Hệ thống phát hiện có sự khác biệt giữa dữ liệu trên phiếu bàn giao và dữ liệu đã ghi nhận trong ứng dụng. Vui lòng kiểm tra lại.
-                                </AlertDescription>
-                            </Alert>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Hạng mục</TableHead>
-                                        <TableHead className="text-right">Trên ứng dụng</TableHead>
-                                        <TableHead className="text-right">Trên phiếu</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {comparisonResult.mismatches.map(m => (
-                                        <TableRow key={m.field} className="bg-red-100/50 dark:bg-red-900/30">
-                                            <TableCell className="font-semibold">{m.label}</TableCell>
-                                            <TableCell className="text-right font-mono">{m.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                                            <TableCell className="text-right font-mono">{m.receiptValue.toLocaleString('vi-VN')}đ</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                             <div className="flex flex-col sm:flex-row gap-2">
-                                <Button variant="secondary" className="w-full" onClick={() => {router.push('/cashier'); onOpenChange(false); }}>
-                                    <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
-                                </Button>
-                                 <Button variant="secondary" className="w-full" onClick={() => {router.push('/reports/cashier'); onOpenChange(false); }}>
-                                    <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 'finalizing' && handoverData && (
-                        <div className="py-4 space-y-4">
-                             <Alert variant="default" className="bg-green-100/50 border-green-200">
-                                <CheckCircle className="h-4 w-4 text-green-600" />
-                                <AlertTitle className="text-green-800">Dữ liệu đã khớp!</AlertTitle>
-                                <AlertDescription className="text-green-700">
-                                    Tất cả số liệu trên phiếu bàn giao đều trùng khớp với dữ liệu trên ứng dụng.
-                                </AlertDescription>
-                            </Alert>
-                             <Card>
-                                <CardContent className="p-4 grid grid-cols-2 gap-4">
-                                     <div>
-                                        <Label htmlFor="expected-cash">Tiền mặt dự kiến</Label>
-                                        <Input id="expected-cash" disabled value={handoverData.expectedCash.toLocaleString('vi-VN') + 'đ'} className="font-bold text-lg h-12 text-right bg-muted" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="actual-cash">Tiền mặt thực tế</Label>
-                                        <Input id="actual-cash" type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-lg h-12 text-right" autoFocus/>
+                     <ScrollArea className="max-h-[70vh] -mx-6 px-6">
+                        <div className="space-y-6 py-4">
+                            <Card>
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-base">Ảnh phiếu bàn giao</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {imageDataUri ? (
+                                        <div className="relative w-full h-full min-h-48">
+                                            <Image src={imageDataUri} alt="Ảnh phiếu bàn giao" fill className="object-contain rounded-md" />
+                                        </div>
+                                    ) : (
+                                        <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
+                                            <p className="text-sm text-muted-foreground">Chưa có ảnh nào được tải lên</p>
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh lên</Button>
+                                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                                        <Button onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới</Button>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                             {discrepancy !== 0 && (
-                                <Card className="border-destructive">
-                                    <CardContent className="p-4 space-y-2">
-                                        <Label className="text-destructive font-bold">Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</Label>
-                                        <Textarea
-                                            placeholder="Vui lòng nhập lý do chi tiết cho khoản chênh lệch này..."
-                                            value={discrepancyReason}
-                                            onChange={e => setDiscrepancyReason(e.target.value)}
-                                        />
-                                        <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}>
-                                            <Camera className="mr-2 h-4 w-4"/> Chụp ảnh bằng chứng
-                                        </Button>
-                                         {discrepancyPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{discrepancyPhotoIds.length} ảnh đã được chọn.</p>}
-                                    </CardContent>
-                                </Card>
+                             {isOcrLoading && (
+                                <div className="flex flex-col items-center gap-2 text-muted-foreground py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                    <span>AI đang phân tích...</span>
+                                </div>
                             )}
 
-                             <Button onClick={handleFinalSubmit} disabled={isProcessing || actualCash === null} className="w-full">
-                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
-                                Gửi Báo cáo Bàn giao
-                             </Button>
+                            {comparisonResult.current && handoverData && (
+                                <div className="space-y-6">
+                                     <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-base">Đối chiếu dữ liệu</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Hạng mục</TableHead>
+                                                        <TableHead className="text-right">Trên ứng dụng</TableHead>
+                                                        <TableHead className="text-right">Trên phiếu</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {comparisonResult.current.map(item => (
+                                                        <TableRow key={item.field} className={cn(!item.isMatch && "bg-destructive/10")}>
+                                                            <TableCell className="font-semibold">{item.label}</TableCell>
+                                                            <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
+                                                            <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>{item.receiptValue.toLocaleString('vi-VN')}đ</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                             {hasMismatch && (
+                                                <div className="mt-4 space-y-2">
+                                                    <Alert variant="destructive">
+                                                        <AlertCircle className="h-4 w-4" />
+                                                        <AlertTitle>Phát hiện sai lệch dữ liệu!</AlertTitle>
+                                                        <AlertDescription>
+                                                            Vui lòng kiểm tra lại các mục được đánh dấu. Điều này có thể do AI đọc sai hoặc do các báo cáo trong ngày chưa được nhập đúng.
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                     <div className="flex flex-col sm:flex-row gap-2">
+                                                        <Button variant="secondary" className="w-full" onClick={() => {router.push('/cashier'); onOpenChange(false); }}>
+                                                            <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
+                                                        </Button>
+                                                         <Button variant="secondary" className="w-full" onClick={() => {router.push('/reports/cashier'); onOpenChange(false); }}>
+                                                            <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                     </Card>
+                                    
+                                     {!hasMismatch && (
+                                         <div className="space-y-4">
+                                            <Alert variant="default" className="bg-green-100/50 border-green-200">
+                                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                                <AlertTitle className="text-green-800">Dữ liệu đã khớp!</AlertTitle>
+                                                <AlertDescription className="text-green-700">
+                                                    Tất cả số liệu trên phiếu bàn giao đều trùng khớp với dữ liệu trên ứng dụng.
+                                                </AlertDescription>
+                                            </Alert>
+                                            <Card>
+                                                <CardContent className="p-4 grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <Label htmlFor="expected-cash">Tiền mặt dự kiến</Label>
+                                                        <Input id="expected-cash" disabled value={handoverData.expectedCash.toLocaleString('vi-VN') + 'đ'} className="font-bold text-lg h-12 text-right bg-muted" />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="actual-cash">Tiền mặt thực tế</Label>
+                                                        <Input id="actual-cash" type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-lg h-12 text-right" autoFocus/>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+
+                                            {discrepancy !== 0 && (
+                                                <Card className="border-destructive">
+                                                    <CardContent className="p-4 space-y-2">
+                                                        <Label className="text-destructive font-bold">Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</Label>
+                                                        <Textarea
+                                                            placeholder="Vui lòng nhập lý do chi tiết cho khoản chênh lệch này..."
+                                                            value={discrepancyReason}
+                                                            onChange={e => setDiscrepancyReason(e.target.value)}
+                                                        />
+                                                        <div className="flex justify-between items-center">
+                                                            <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}>
+                                                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh bằng chứng
+                                                            </Button>
+                                                            {discrepancyPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{discrepancyPhotoIds.length} ảnh đã được chọn.</p>}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            )}
+                                        </div>
+                                     )}
+                                </div>
+                            )}
                         </div>
-                    )}
-                    
-                    {step === 'success' && (
-                        <div className="py-8 text-center space-y-4">
-                            <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                            <h3 className="text-xl font-semibold">Bàn giao thành công!</h3>
-                            <p className="text-muted-foreground">Báo cáo của bạn đã được ghi nhận. Cảm ơn và chúc bạn một ngày tốt lành.</p>
-                             <Button onClick={() => onOpenChange(false)} className="w-full">Hoàn tất</Button>
-                        </div>
-                    )}
+                     </ScrollArea>
+                    <DialogFooter>
+                         <Button onClick={handleFinalSubmit} disabled={isProcessing || !handoverData || hasMismatch || actualCash === null} className="w-full sm:w-auto">
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
+                            Gửi Báo cáo Bàn giao
+                         </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
             <CameraDialog
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}
-                onSubmit={step === 'upload' ? handlePhotoCapture : (ids) => setDiscrepancyPhotoIds(prev => [...prev, ...ids])}
-                singlePhotoMode={step === 'upload'}
+                onSubmit={imageDataUri ? (ids) => setDiscrepancyPhotoIds(prev => [...prev, ...ids]) : handlePhotoCapture}
+                singlePhotoMode={!imageDataUri}
             />
         </>
     );
