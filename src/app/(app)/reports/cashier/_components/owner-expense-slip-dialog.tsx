@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye } from 'lucide-react';
+import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory, AssignedUser } from '@/lib/types';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, Edit2 } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -284,7 +284,7 @@ export default function OwnerExpenseSlipDialog({
 
     // --- New State for Expense Type ---
     const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
-    const [otherCostCategory, setOtherCostCategory] = useState('');
+    const [otherCostCategoryId, setOtherCostCategoryId] = useState('');
     const [otherCostDescription, setOtherCostDescription] = useState('');
     const [otherCostAmount, setOtherCostAmount] = useState(0);
 
@@ -315,13 +315,13 @@ export default function OwnerExpenseSlipDialog({
                  setExpenseType(slipToEdit.expenseType);
                 if(slipToEdit.expenseType === 'other_cost' && slipToEdit.items.length > 0) {
                     const otherItem = slipToEdit.items[0];
-                    setOtherCostCategory(otherItem.name);
+                    setOtherCostCategoryId(otherItem.otherCostCategoryId || '');
                     setOtherCostDescription(otherItem.description || '');
                     setOtherCostAmount(otherItem.unitPrice);
                     setItems([]);
                 } else {
                     setItems(slipToEdit.items);
-                    setOtherCostCategory('');
+                    setOtherCostCategoryId('');
                     setOtherCostDescription('');
                     setOtherCostAmount(0);
                 }
@@ -335,7 +335,7 @@ export default function OwnerExpenseSlipDialog({
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
-                setOtherCostCategory('');
+                setOtherCostCategoryId('');
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
@@ -387,6 +387,8 @@ export default function OwnerExpenseSlipDialog({
         }
 
         let finalItems: ExpenseItem[] = [];
+        const selectedCategoryName = otherCostCategories.find(c => c.id === otherCostCategoryId)?.name || '';
+
         if (expenseType === 'goods_import') {
             if (items.length === 0) {
                  toast.error('Vui lòng chọn ít nhất một mặt hàng.');
@@ -394,11 +396,11 @@ export default function OwnerExpenseSlipDialog({
             }
             finalItems = items;
         } else { // other_cost
-            if (!otherCostCategory) {
+            if (!otherCostCategoryId) {
                  toast.error('Vui lòng chọn loại chi phí.');
                  return;
             }
-             if (otherCostCategory === 'Khác' && !otherCostDescription.trim()) {
+             if (selectedCategoryName === 'Khác' && !otherCostDescription.trim()) {
                 toast.error('Vui lòng nhập mô tả cho chi phí "Khác".');
                 return;
             }
@@ -408,7 +410,8 @@ export default function OwnerExpenseSlipDialog({
             }
             finalItems = [{
                 itemId: 'other_cost',
-                name: otherCostCategory,
+                name: selectedCategoryName,
+                otherCostCategoryId,
                 description: otherCostDescription.trim(),
                 supplier: 'N/A',
                 quantity: 1,
@@ -460,7 +463,7 @@ export default function OwnerExpenseSlipDialog({
                             reader.readAsDataURL(blob);
                         });
                     }
-                } else if (photo.url.startsWith('https://firebasestorage.googleapis.com')) {
+                } else if (photo.url.includes('firebasestorage.googleapis.com')) {
                     try {
                         const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
                         if (!response.ok) {
@@ -575,8 +578,16 @@ export default function OwnerExpenseSlipDialog({
                 <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => { if (!isLightboxOpen) { e.preventDefault(); } }}>
                     <div id="owner-expense-slip-lightbox-container"></div>
                     <DialogHeader>
-                        <DialogTitle>{slipToEdit ? `Chi tiết Phiếu chi - ${slipToEdit.id.slice(0,8)}` : 'Tạo Phiếu chi'}</DialogTitle>
-                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi hàng hóa.</DialogDescription>
+                        <DialogTitle>{slipToEdit ? `Chi tiết Phiếu chi` : 'Tạo Phiếu chi'}</DialogTitle>
+                         <DialogDescription className="flex items-center gap-4">
+                            <span>ID: {slipToEdit?.id.slice(0, 8) || 'Mới'}</span>
+                            {slipToEdit?.lastModifiedBy && (
+                                <span className="flex items-center gap-1.5 text-xs italic text-yellow-600 dark:text-yellow-400">
+                                    <Edit2 className="h-3 w-3" />
+                                    Chỉnh sửa lần cuối bởi {slipToEdit.lastModifiedBy.userName}
+                                </span>
+                            )}
+                        </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4">
@@ -669,18 +680,18 @@ export default function OwnerExpenseSlipDialog({
                                 <div className="space-y-4">
                                      <div className="space-y-2">
                                         <Label htmlFor="other-cost-category">Loại chi phí</Label>
-                                        <Select value={otherCostCategory} onValueChange={setOtherCostCategory}>
+                                        <Select value={otherCostCategoryId} onValueChange={setOtherCostCategoryId}>
                                             <SelectTrigger id="other-cost-category">
                                                 <SelectValue placeholder="Chọn loại chi phí..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {otherCostCategories.map(cat => (
-                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                      </div>
-                                     {otherCostCategory === 'Khác' && (
+                                     {otherCostCategories.find(c => c.id === otherCostCategoryId)?.name === 'Khác' && (
                                          <div className="space-y-2">
                                             <Label htmlFor="other-cost-description">Mô tả chi phí</Label>
                                             <Input id="other-cost-description" value={otherCostDescription} onChange={(e) => setOtherCostDescription(e.target.value)} placeholder="Nhập mô tả chi tiết..." />

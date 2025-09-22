@@ -304,8 +304,8 @@ export type PaymentMethod = 'cash' | 'bank_transfer';
 export type ExpenseItem = {
     itemId: string; // Product ID for goods, or 'other_cost'
     otherCostCategoryId?: string; // ID of the OtherCostCategory
-    name: string; // For goods: Product Name. For 'other': The specific description.
-    description?: string; // Legacy or specific description for 'Khác'
+    name: string; // For goods: Product Name. For 'other': The specific category name like "Tiền điện"
+    description?: string; // Specific description for 'other_cost' when category is "Khác"
     supplier?: string;
     quantity: number;
     unitPrice: number;
@@ -325,6 +325,7 @@ export type ExpenseSlip = {
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
   lastModified?: string | Timestamp;
+  lastModifiedBy?: AssignedUser; // User who last edited the slip
 };
 
 
