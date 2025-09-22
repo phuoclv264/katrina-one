@@ -196,9 +196,9 @@ function AiPreviewDialog({
                                 </Button>
                              </div>
                              <AccordionContent>
-                                {result.totalDiscount && result.totalDiscount > 0 && (
-                                    <div className="text-sm font-semibold text-red-600 dark:text-red-400 p-2 bg-red-100/50 dark:bg-red-900/30 rounded-md mb-2">
-                                        Chiết khấu hóa đơn: {result.totalDiscount.toLocaleString('vi-VN')}đ
+                                {result.totalDiscount !== undefined && (
+                                    <div className={cn("text-sm font-semibold p-2 rounded-md mb-2", result.totalDiscount > 0 ? "text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30" : "text-muted-foreground bg-muted/50")}>
+                                        Chiết khấu hóa đơn: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
                                     </div>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
@@ -408,7 +408,8 @@ export default function ExpenseSlipDialog({
         }
 
         let finalItems: ExpenseItem[] = [];
-        const selectedCategoryName = otherCostCategories.find(c => c.id === otherCostCategoryId)?.name || '';
+        const selectedCategory = otherCostCategories.find(c => c.id === otherCostCategoryId);
+        const selectedCategoryName = selectedCategory ? selectedCategory.name : '';
 
         if (expenseType === 'goods_import') {
             if (items.length === 0) {
