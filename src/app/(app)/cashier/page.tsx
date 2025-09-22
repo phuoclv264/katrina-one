@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2, DollarSign, ArrowUpCircle, ArrowDownCircle, Edit2 } from 'lucide-react';
+import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2, DollarSign, ArrowUpCircle, ArrowDownCircle, Edit2, Wallet } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory } from '@/lib/types';
@@ -304,8 +305,8 @@ export default function CashierDashboardPage() {
             </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <Card className="lg:col-span-2">
                 <CardHeader>
                     <CardTitle>Tổng quan trong ngày</CardTitle>
                 </CardHeader>
@@ -318,17 +319,19 @@ export default function CashierDashboardPage() {
                         <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2"><ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt</p>
                         <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
                     </div>
-                     <div className="space-y-1 p-4 rounded-lg bg-muted">
-                        <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
-                        <p className="text-xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="relative flex-1 space-y-1 p-4 rounded-lg bg-muted">
+                            <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
+                            <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
+                            <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
+                        </div>
+                        <div className="flex-1 space-y-1 p-4 rounded-lg bg-muted">
+                            <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
+                            <p className="text-2xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
+                        </div>
                     </div>
-                    <div className="relative space-y-1 p-4 rounded-lg bg-muted">
-                        <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
-                        <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
-                        <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                    <div className="md:col-span-2 space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
-                       <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Tiền mặt dự kiến cuối ca</p>
+                    <div className="space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
+                       <p className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2"><Wallet className="h-5 w-5"/>Tiền mặt dự kiến cuối ca</p>
                        <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
                     </div>
                 </CardContent>
