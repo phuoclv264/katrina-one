@@ -24,6 +24,7 @@ const InvoiceResultSchema = z.object({
   invoiceTitle: z.string().describe("A descriptive title for this invoice group, like 'Hóa đơn 1'. This is crucial for grouping."),
   imageIds: z.array(z.string()).describe("An array of IDs of all images that belong to this single invoice."),
   items: z.array(ExtractedItemSchema).describe("An array of all items extracted from this single invoice group."),
+  totalDiscount: z.number().optional().describe("The total discount amount for this invoice group. Look for terms like 'chiết khấu', 'giảm giá'. Sum up all discounts if multiple are present on the same invoice."),
 });
 
 const ExtractInvoiceItemsInputSchema = z.object({
@@ -51,7 +52,7 @@ const prompt = ai.definePrompt({
   output: { schema: ExtractInvoiceItemsOutputSchema },
   prompt: `You are an expert OCR and document analysis AI specialized in restaurant invoices. Your primary goal is ACCURACY.
 
-Your task is to analyze the provided array of images and a list of available inventory items.  
+Your task is to analyze the provided array of images and a list of available inventory items.
 You MUST process the data with the following strict rules:
 
 1.  **Identify and Validate Images (CRITICAL):**
@@ -74,17 +75,24 @@ You MUST process the data with the following strict rules:
         *   \`quantity\` (integer/decimal),
         *   \`unitPrice\` (per-unit price, correctly parsed regardless of thousand/decimal separators).
 
-4.  **Match Items with Inventory:**
+4.  **Extract Discount (CRITICAL):**
+    *   For each invoice group, scan the entire invoice for any discount amounts. Look for keywords like **"chiết khấu"**, **"giảm giá"**, "ck", or "gg".
+    *   If found, extract the numeric value of the discount.
+    *   If multiple discount lines are present on the same invoice, SUM them up to get a single \`totalDiscount\` for that invoice group.
+    *   If no discount is found, omit the \`totalDiscount\` field or set it to 0.
+
+5.  **Match Items with Inventory:**
     *   Use fuzzy and semantic matching (e.g., "Cafe Robusta" ≈ "Cà phê Robusta").
     *   If a confident match is found → return \`matchedItemId\` and \`status = 'matched'\`.
     *   If not confident → return \`matchedItemId = null\` and \`status = 'unmatched'\`.
 
-5.  **Final Output Format:**
+6.  **Final Output Format:**
     *   \`isInvoiceFound\`: set to \`true\` if at least one valid, readable invoice was detected and processed, \`false\` otherwise.
     *   \`results\`: one object per unique invoice group. This array must be empty if no valid invoices were found.
         *   \`invoiceTitle\`: unique name like "Hóa đơn 1", "Hóa đơn 2"...
         *   \`imageIds\`: IDs of all valid images in that group.
         *   \`items\`: extracted items with \`itemName\`, \`quantity\`, \`unitPrice\`, \`matchedItemId\`, \`status\`.
+        *   \`totalDiscount\`: The total summed discount for this invoice group.
 
 **Input Provided:**
 - Images (some may be valid invoices, some not, some duplicates)

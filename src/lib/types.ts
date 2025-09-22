@@ -318,6 +318,7 @@ export type ExpenseSlip = {
   expenseType: ExpenseType;
   items: ExpenseItem[];
   totalAmount: number;
+  discount?: number;
   paymentMethod: PaymentMethod;
   notes?: string;
   attachmentPhotos?: string[]; // URLs to the evidence images
@@ -394,5 +395,6 @@ export type InvoiceExtractionResult = {
         invoiceTitle: string;
         imageIds: string[];
         items: ExtractedInvoiceItem[];
+        totalDiscount?: number;
     }[];
 };

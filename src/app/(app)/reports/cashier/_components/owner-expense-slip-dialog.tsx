@@ -90,7 +90,7 @@ function AiPreviewDialog({
     onOpenChange: (open: boolean) => void, 
     extractionResult: InvoiceExtractionResult, 
     inventoryList: InventoryItem[], 
-    onConfirm: (items: ExpenseItem[]) => void,
+    onConfirm: (items: ExpenseItem[], totalDiscount: number) => void,
     allAttachmentPhotos: {id: string, url: string}[] 
 }) {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -129,7 +129,10 @@ function AiPreviewDialog({
                     unitPrice: item.unitPrice,
                 };
             });
-        onConfirm(confirmedItems);
+        
+        const totalDiscount = (extractionResult.results || []).reduce((sum, result) => sum + (result.totalDiscount || 0), 0);
+
+        onConfirm(confirmedItems, totalDiscount);
         onOpenChange(false);
     };
 
@@ -194,6 +197,11 @@ function AiPreviewDialog({
                                 </Button>
                              </div>
                              <AccordionContent>
+                                {result.totalDiscount && result.totalDiscount > 0 && (
+                                    <div className="text-sm font-semibold text-red-600 dark:text-red-400 p-2 bg-red-100/50 dark:bg-red-900/30 rounded-md mb-2">
+                                        Chiết khấu hóa đơn: {result.totalDiscount.toLocaleString('vi-VN')}đ
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
                                     {/* Matched Items */}
                                     <div className="flex flex-col">
@@ -265,6 +273,7 @@ export default function OwnerExpenseSlipDialog({
     const [items, setItems] = useState<ExpenseItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [notes, setNotes] = useState('');
+    const [discount, setDiscount] = useState(0);
     
     // --- New state for attachments ---
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
@@ -328,6 +337,7 @@ export default function OwnerExpenseSlipDialog({
                 setDate(slipToEdit.date);
                 setPaymentMethod(slipToEdit.paymentMethod);
                 setNotes(slipToEdit.notes || '');
+                setDiscount(slipToEdit.discount || 0);
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
             } else {
                 setExpenseType('goods_import');
@@ -335,6 +345,7 @@ export default function OwnerExpenseSlipDialog({
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
+                setDiscount(0);
                 setOtherCostCategoryId('');
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
@@ -347,12 +358,16 @@ export default function OwnerExpenseSlipDialog({
         }
     }, [open, slipToEdit]);
     
-    const totalAmount = useMemo(() => {
+    const subTotal = useMemo(() => {
          if (expenseType === 'other_cost') {
             return otherCostAmount;
         }
         return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
     }, [items, expenseType, otherCostAmount]);
+
+    const totalAmount = useMemo(() => {
+        return subTotal - discount;
+    }, [subTotal, discount]);
 
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
@@ -425,6 +440,7 @@ export default function OwnerExpenseSlipDialog({
             expenseType,
             items: finalItems,
             totalAmount,
+            discount,
             paymentMethod,
             notes,
             existingPhotos: existingPhotos.map(p => p.url),
@@ -513,12 +529,13 @@ export default function OwnerExpenseSlipDialog({
     };
 
 
-    const handleAiConfirm = (confirmedItems: ExpenseItem[]) => {
+    const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
          const newItemsMap = new Map(items.map(item => [item.itemId, item]));
          confirmedItems.forEach(newItem => {
              newItemsMap.set(newItem.itemId, newItem);
          });
          setItems(Array.from(newItemsMap.values()));
+         setDiscount(prev => prev + totalDiscount); // Add to existing discount
     }
 
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -782,6 +799,11 @@ export default function OwnerExpenseSlipDialog({
                                 )}
                             </div>
                             )}
+
+                             <div className="space-y-2">
+                                <Label>Chiết khấu (nếu có)</Label>
+                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right" />
+                            </div>
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
