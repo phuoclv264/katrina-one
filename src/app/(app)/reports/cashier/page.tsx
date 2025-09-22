@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, isSameMonth, parseISO } from 'date-fns';
+import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
 import { toast } from 'react-hot-toast';
@@ -133,6 +133,8 @@ export default function CashierReportsPage() {
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
 
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
       router.replace('/');
@@ -172,38 +174,89 @@ export default function CashierReportsPage() {
     };
   }, [user]);
 
-  const groupedReportsByMonth = useMemo(() => {
-    const groupedByMonth: { [monthKey: string]: GroupedReports } = {};
+  const allMonthsWithData = useMemo(() => {
+    const monthSet = new Set<string>();
     const combined = [...allData.revenueStats, ...allData.expenseSlips, ...allData.incidents];
-
     combined.forEach(item => {
-        const monthKey = format(parseISO(item.date), 'yyyy-MM');
-        if (!groupedByMonth[monthKey]) groupedByMonth[monthKey] = {};
-
-        const date = item.date;
-        if (!groupedByMonth[monthKey][date]) groupedByMonth[monthKey][date] = {};
-
-        if ('netRevenue' in item) groupedByMonth[monthKey][date].revenue = item;
-        else if ('items' in item) {
-            if (!groupedByMonth[monthKey][date].expenses) groupedByMonth[monthKey][date].expenses = [];
-            groupedByMonth[monthKey][date].expenses!.push(item);
-        } else if ('content' in item) {
-            if (!groupedByMonth[monthKey][date].incidents) groupedByMonth[monthKey][date].incidents = [];
-            groupedByMonth[monthKey][date].incidents!.push(item);
-        }
+        monthSet.add(format(parseISO(item.date), 'yyyy-MM'));
     });
-
-    // Sort expenses and incidents within each day
-    for (const month in groupedByMonth) {
-        for (const date in groupedByMonth[month]) {
-            groupedByMonth[month][date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-            groupedByMonth[month][date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-        }
-    }
-    return groupedByMonth;
+    return Array.from(monthSet).sort().reverse();
   }, [allData]);
 
-  const sortedMonths = useMemo(() => Object.keys(groupedReportsByMonth).sort().reverse(), [groupedReportsByMonth]);
+  useEffect(() => {
+    if (allMonthsWithData.length > 0) {
+      setCurrentMonth(parseISO(`${allMonthsWithData[0]}-01`));
+    }
+  }, [allMonthsWithData]);
+
+  const reportsForCurrentMonth = useMemo(() => {
+    const reports: GroupedReports = {};
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+
+    const filterAndGroup = (items: (RevenueStats | ExpenseSlip | IncidentReport)[]) => {
+      items.forEach(item => {
+        const itemDate = parseISO(item.date);
+        if (isSameMonth(itemDate, currentMonth)) {
+            if (!reports[item.date]) reports[item.date] = {};
+            if ('netRevenue' in item) reports[item.date].revenue = item;
+            else if ('items' in item) {
+                if (!reports[item.date].expenses) reports[item.date].expenses = [];
+                reports[item.date].expenses!.push(item);
+            } else if ('content' in item) {
+                if (!reports[item.date].incidents) reports[item.date].incidents = [];
+                reports[item.date].incidents!.push(item);
+            }
+        }
+      });
+    };
+
+    filterAndGroup(allData.revenueStats);
+    filterAndGroup(allData.expenseSlips);
+    filterAndGroup(allData.incidents);
+
+    for (const date in reports) {
+      reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+      reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+    }
+
+    return reports;
+  }, [currentMonth, allData]);
+
+  const sortedDatesInMonth = useMemo(() => Object.keys(reportsForCurrentMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [reportsForCurrentMonth]);
+
+  const monthlySummary = useMemo(() => {
+      const reportsInMonth = Object.values(reportsForCurrentMonth).flat();
+      const totalRevenue = reportsInMonth.reduce((sum, day) => sum + (day.revenue?.netRevenue || 0), 0);
+      const totalExpense = reportsInMonth.flatMap(day => day.expenses || []).reduce((sum, slip) => sum + slip.totalAmount, 0);
+
+      const revenueByMethod = reportsInMonth.reduce((acc, day) => {
+          if (day.revenue) {
+              for (const key in day.revenue.revenueByPaymentMethod) {
+                  acc[key] = (acc[key] || 0) + day.revenue.revenueByPaymentMethod[key as keyof typeof day.revenue.revenueByPaymentMethod];
+              }
+          }
+          return acc;
+      }, {} as {[key: string]: number});
+      
+      const expenseByType = reportsInMonth.flatMap(day => day.expenses || []).reduce((acc, slip) => {
+          const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (slip.items[0]?.name || 'Khác');
+          acc[type] = (acc[type] || 0) + slip.totalAmount;
+          return acc;
+      }, {} as {[key: string]: number});
+      
+      return { totalRevenue, totalExpense, revenueByMethod, expenseByType };
+  }, [reportsForCurrentMonth]);
+
+  const handleMonthChange = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
+  };
+  
+  const isNextMonthButtonDisabled = useMemo(() => {
+    if (allMonthsWithData.length === 0) return true;
+    const currentMonthKey = format(currentMonth, 'yyyy-MM');
+    return currentMonthKey === allMonthsWithData[0];
+  }, [currentMonth, allMonthsWithData]);
 
 
   const handleEditExpense = (slip: ExpenseSlip) => {
@@ -275,8 +328,13 @@ export default function CashierReportsPage() {
             <div>
                  <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><Banknote /> Báo cáo Thu ngân</h1>
                 <p className="text-muted-foreground mt-2">
-                Tổng hợp toàn bộ báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.
+                Tổng hợp báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.
                 </p>
+            </div>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                <span className="text-lg font-medium w-32 text-center">{format(currentMonth, 'MM/yyyy')}</span>
+                <Button variant="outline" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
             </div>
              <Card>
                 <CardHeader className="p-3 pb-2">
@@ -292,124 +350,85 @@ export default function CashierReportsPage() {
         </div>
       </header>
 
-      {sortedMonths.length === 0 ? (
+      {sortedDatesInMonth.length === 0 ? (
           <Card>
               <CardContent className="py-16 text-center text-muted-foreground">
-                  Chưa có báo cáo nào được gửi.
+                  Chưa có báo cáo nào trong tháng {format(currentMonth, 'MM/yyyy')}.
               </CardContent>
           </Card>
       ) : (
-          <Accordion type="multiple" defaultValue={sortedMonths.slice(0, 1)} className="space-y-4">
-            {sortedMonths.map(monthKey => {
-                const reportsInMonth = Object.values(groupedReportsByMonth[monthKey]).flat();
-                const dailyReports = groupedReportsByMonth[monthKey];
-                const sortedDatesInMonth = Object.keys(dailyReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+        <div className="space-y-6">
+            <Card className="border-primary">
+                <CardHeader><CardTitle>Tổng quan Tháng {format(currentMonth, 'MM/yyyy')}</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <h4 className="font-semibold text-lg text-green-600">Doanh thu: {monthlySummary.totalRevenue.toLocaleString('vi-VN')}đ</h4>
+                        <div className="text-sm space-y-1">
+                            {Object.entries(monthlySummary.revenueByMethod).map(([key, value]) => (
+                                <p key={key}>{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="space-y-4">
+                        <h4 className="font-semibold text-lg text-red-600">Chi phí: {monthlySummary.totalExpense.toLocaleString('vi-VN')}đ</h4>
+                        <div className="text-sm space-y-1">
+                            {Object.entries(monthlySummary.expenseByType).map(([key, value]) => (
+                                 <p key={key}>{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
+                            ))}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
-                // Calculate monthly totals
-                const monthlyTotalRevenue = reportsInMonth.reduce((sum, day) => sum + (day.revenue?.netRevenue || 0), 0);
-                const monthlyTotalExpense = reportsInMonth.flatMap(day => day.expenses || []).reduce((sum, slip) => sum + slip.totalAmount, 0);
-
-                const monthlyRevenueByMethod = reportsInMonth.reduce((acc, day) => {
-                    if (day.revenue) {
-                        for (const key in day.revenue.revenueByPaymentMethod) {
-                            acc[key] = (acc[key] || 0) + day.revenue.revenueByPaymentMethod[key as keyof typeof day.revenue.revenueByPaymentMethod];
-                        }
-                    }
-                    return acc;
-                }, {} as {[key: string]: number});
-                
-                const monthlyExpenseByType = reportsInMonth.flatMap(day => day.expenses || []).reduce((acc, slip) => {
-                    const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (slip.items[0]?.name || 'Khác');
-                    acc[type] = (acc[type] || 0) + slip.totalAmount;
-                    return acc;
-                }, {} as {[key: string]: number});
-
+            <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
+            {sortedDatesInMonth.map(date => {
+                const dayReports = reportsForCurrentMonth[date];
                 return (
-                    <AccordionItem value={monthKey} key={monthKey}>
-                        <AccordionTrigger className="text-xl font-bold p-4 bg-card rounded-lg shadow-sm hover:no-underline">
-                           Tháng {format(parseISO(`${monthKey}-01`), 'MM/yyyy')}
+                    <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
+                        <AccordionTrigger className="p-4 text-base font-semibold">
+                            Ngày {format(parseISO(date), 'dd/MM/yyyy, eeee', { locale: vi })}
                         </AccordionTrigger>
-                        <AccordionContent className="pt-4 space-y-6">
-                            {/* Monthly Overview Card */}
-                            <Card className="border-primary">
-                                <CardHeader><CardTitle>Tổng quan Tháng {format(parseISO(`${monthKey}-01`), 'MM/yyyy')}</CardTitle></CardHeader>
-                                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-4">
-                                        <h4 className="font-semibold text-lg text-green-600">Doanh thu: {monthlyTotalRevenue.toLocaleString('vi-VN')}đ</h4>
-                                        <div className="text-sm space-y-1">
-                                            {Object.entries(monthlyRevenueByMethod).map(([key, value]) => (
-                                                <p key={key}>{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
-                                            ))}
+                        <AccordionContent className="p-4 border-t grid grid-cols-1 gap-6">
+                            {dayReports.revenue ? (
+                                <Card className="bg-green-500/10 border-green-500/30">
+                                     <CardHeader className="flex-row items-center justify-between p-4">
+                                        <div>
+                                            <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle>
+                                            <CardDescription className="text-green-700 dark:text-green-400/80">bởi {dayReports.revenue.createdBy.userName}</CardDescription>
                                         </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <h4 className="font-semibold text-lg text-red-600">Chi phí: {monthlyTotalExpense.toLocaleString('vi-VN')}đ</h4>
-                                        <div className="text-sm space-y-1">
-                                            {Object.entries(monthlyExpenseByType).map(([key, value]) => (
-                                                 <p key={key}>{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                        <Button size="sm" onClick={() => handleEditRevenue(dayReports.revenue!)}>
+                                            Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
+                                        </Button>
+                                    </CardHeader>
+                                </Card>
+                            ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}
                             
-                            {/* Daily Breakdown Accordion */}
-                            <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
-                            {sortedDatesInMonth.map(date => {
-                                const dayReports = dailyReports[date];
-                                return (
-                                    <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
-                                        <AccordionTrigger className="p-4 text-base font-semibold">
-                                            Ngày {format(parseISO(date), 'dd/MM/yyyy, eeee', { locale: vi })}
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-4 border-t grid grid-cols-1 gap-6">
-                                            {/* Revenue */}
-                                            {dayReports.revenue ? (
-                                                <Card className="bg-green-500/10 border-green-500/30">
-                                                     <CardHeader className="flex-row items-center justify-between p-4">
-                                                        <div>
-                                                            <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle>
-                                                            <CardDescription className="text-green-700 dark:text-green-400/80">bởi {dayReports.revenue.createdBy.userName}</CardDescription>
-                                                        </div>
-                                                        <Button size="sm" onClick={() => handleEditRevenue(dayReports.revenue!)}>
-                                                            Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
-                                                        </Button>
-                                                    </CardHeader>
-                                                </Card>
-                                            ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}
-                                            
-                                            {/* Expenses */}
-                                            {dayReports.expenses && dayReports.expenses.length > 0 ? (
-                                                <Card>
-                                                    <CardHeader className="p-4"><CardTitle className="text-base">Phiếu chi</CardTitle></CardHeader>
-                                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} /></CardContent>
-                                                </Card>
-                                            ) : <p className="text-sm text-muted-foreground text-center py-2">Không có phiếu chi.</p>}
-                                            
-                                            {/* Incidents */}
-                                             {dayReports.incidents && dayReports.incidents.length > 0 && (
-                                                <Card>
-                                                    <CardHeader className="p-4"><CardTitle className="text-base text-amber-600">Sự cố</CardTitle></CardHeader>
-                                                    <CardContent className="p-4 space-y-2">
-                                                        {dayReports.incidents.map(incident => (
-                                                            <div key={incident.id} className="text-sm">
-                                                                <p className="font-semibold">{incident.content} (Chi phí: {incident.cost.toLocaleString('vi-VN')}đ)</p>
-                                                                <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName}</p>
-                                                            </div>
-                                                        ))}
-                                                    </CardContent>
-                                                </Card>
-                                            )}
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                );
-                            })}
-                            </Accordion>
+                            {dayReports.expenses && dayReports.expenses.length > 0 ? (
+                                <Card>
+                                    <CardHeader className="p-4"><CardTitle className="text-base">Phiếu chi</CardTitle></CardHeader>
+                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} /></CardContent>
+                                </Card>
+                            ) : <p className="text-sm text-muted-foreground text-center py-2">Không có phiếu chi.</p>}
+                            
+                             {dayReports.incidents && dayReports.incidents.length > 0 && (
+                                <Card>
+                                    <CardHeader className="p-4"><CardTitle className="text-base text-amber-600">Sự cố</CardTitle></CardHeader>
+                                    <CardContent className="p-4 space-y-2">
+                                        {dayReports.incidents.map(incident => (
+                                            <div key={incident.id} className="text-sm">
+                                                <p className="font-semibold">{incident.content} (Chi phí: {incident.cost.toLocaleString('vi-VN')}đ)</p>
+                                                <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName}</p>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
                         </AccordionContent>
                     </AccordionItem>
-                )
+                );
             })}
-          </Accordion>
+            </Accordion>
+        </div>
       )}
     </div>
     <OwnerCashierDialogs
