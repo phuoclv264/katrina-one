@@ -380,14 +380,14 @@ export default function CashierReportsPage() {
                     </div>
                     <div className="space-y-4">
                         <h4 className="font-semibold text-lg text-red-600">Chi phí: {monthlySummary.totalExpense.toLocaleString('vi-VN')}đ</h4>
-                        <div className="text-sm space-y-1">
-                             <p className="font-medium">Theo phương thức thanh toán:</p>
+                         <div className="text-sm space-y-1">
+                             <p className="font-medium">Theo Phương thức Thanh toán:</p>
                              <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
                              <p className="pl-4">Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></p>
                         </div>
                         <Separator/>
                         <div className="text-sm space-y-1">
-                            <p className="font-medium">Theo loại chi phí:</p>
+                            <p className="font-medium">Theo Loại chi phí:</p>
                             {Object.entries(monthlySummary.expenseByType).map(([key, value]) => (
                                  <p key={key} className="pl-4">{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>
                             ))}
@@ -399,23 +399,39 @@ export default function CashierReportsPage() {
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
             {sortedDatesInMonth.map(date => {
                 const dayReports = reportsForCurrentMonth[date];
+                const revenueReport = dayReports.revenue;
+                const atStoreRevenue = revenueReport ? (revenueReport.revenueByPaymentMethod.cash || 0) + (revenueReport.revenueByPaymentMethod.techcombankVietQrPro || 0) + (revenueReport.revenueByPaymentMethod.bankTransfer || 0) : 0;
                 return (
                     <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
                         <AccordionTrigger className="p-4 text-base font-semibold">
                             Ngày {format(parseISO(date), 'dd/MM/yyyy, eeee', { locale: vi })}
                         </AccordionTrigger>
                         <AccordionContent className="p-4 border-t grid grid-cols-1 gap-6">
-                            {dayReports.revenue ? (
+                            {revenueReport ? (
                                 <Card className="bg-green-500/10 border-green-500/30">
-                                     <CardHeader className="flex-row items-center justify-between p-4">
+                                     <CardHeader className="flex-row items-center justify-between p-4 pb-0">
                                         <div>
-                                            <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle>
-                                            <CardDescription className="text-green-700 dark:text-green-400/80">bởi {dayReports.revenue.createdBy.userName}</CardDescription>
+                                            <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
+                                                <Receipt /> Doanh thu
+                                                {revenueReport.isOutdated && <AlertTriangle className="h-4 w-4 text-yellow-500" title="Phiếu doanh thu có thể đã cũ"/>}
+                                                {revenueReport.isEdited && <Edit2 className="h-4 w-4 text-orange-500" title="Đã chỉnh sửa thủ công"/>}
+                                            </CardTitle>
+                                            <CardDescription className="text-green-700 dark:text-green-400/80">bởi {revenueReport.createdBy.userName}</CardDescription>
                                         </div>
-                                        <Button size="sm" onClick={() => handleEditRevenue(dayReports.revenue!)}>
+                                        <Button size="sm" onClick={() => handleEditRevenue(revenueReport)}>
                                             Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
                                         </Button>
                                     </CardHeader>
+                                    <CardContent className="p-4">
+                                        <div className="flex flex-col sm:flex-row justify-between sm:items-center">
+                                            <div className="text-2xl font-bold text-green-700 dark:text-green-200">{revenueReport.netRevenue.toLocaleString('vi-VN')}đ</div>
+                                            <div className="text-sm mt-2 sm:mt-0 sm:text-right">
+                                                <p>Tại quán: <span className="font-semibold">{atStoreRevenue.toLocaleString('vi-VN')}đ</span></p>
+                                                <p>ShopeeFood: <span className="font-semibold">{(revenueReport.revenueByPaymentMethod.shopeeFood || 0).toLocaleString('vi-VN')}đ</span></p>
+                                                <p>GrabFood: <span className="font-semibold">{(revenueReport.revenueByPaymentMethod.grabFood || 0).toLocaleString('vi-VN')}đ</span></p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
                                 </Card>
                             ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}
                             
