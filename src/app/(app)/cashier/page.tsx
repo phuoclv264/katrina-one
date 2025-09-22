@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -8,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2, DollarSign, ArrowUpCircle, ArrowDownCircle, Edit2, Wallet } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Edit2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory } from '@/lib/types';
@@ -267,21 +265,12 @@ export default function CashierDashboardPage() {
       setIsExpenseDialogOpen(true);
   }
 
-    const handleSaveHandover = async (data: Partial<HandoverReport>) => {
-        if (!user) return;
-        setIsProcessing(true);
-        try {
-            await dataStore.addHandoverReport(data, user);
-            // On success, the dialog handles its own 'success' step.
-            // No need to close it from here.
-            toast.success("Đã gửi báo cáo bàn giao thành công!");
-        } catch (error) {
-            console.error("Failed to save handover report:", error);
-            toast.error("Không thể lưu báo cáo bàn giao.");
-            // Don't close the dialog on error, let user retry.
-        } finally {
-            setIsProcessing(false);
-        }
+    const handleHandoverSubmit = (data: any) => {
+        console.log("Handover data to be processed:", data);
+        // This is where we would open the new comparison dialog.
+        // For now, we just log and close the first dialog.
+        setIsHandoverDialogOpen(false);
+        toast.success("Đã nhận dữ liệu, sẵn sàng để đối chiếu.");
     };
 
 
@@ -326,12 +315,12 @@ export default function CashierDashboardPage() {
             </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <Card className="lg:col-span-2">
                 <CardHeader>
                     <CardTitle>Tổng quan trong ngày</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-base">
+                 <CardContent className="space-y-2 text-base">
                      <div className="flex justify-between items-center">
                         <p className="text-muted-foreground flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-green-500"/> Doanh thu tiền mặt</p>
                         <p className="font-bold text-green-700 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
@@ -503,15 +492,9 @@ export default function CashierDashboardPage() {
     <HandoverDialog
         open={isHandoverDialogOpen}
         onOpenChange={setIsHandoverDialogOpen}
-        onSave={handleSaveHandover}
+        onSubmit={handleHandoverSubmit}
         isProcessing={isProcessing}
-        reporter={user}
-        dailyCashExpense={totalCashExpense}
-        dailyCardExpense={totalBankExpense}
-        dailyRevenueStats={revenueStats}
-        startOfDayCash={startOfDayCash}
     />
     </>
   );
 }
-

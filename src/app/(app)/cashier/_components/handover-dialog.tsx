@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -9,157 +8,170 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Textarea } from '@/components/ui/textarea';
-import type { HandoverReport, ExpenseSlip, RevenueStats, AuthUser } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, CheckCircle, ArrowRight, Wallet, X, ListChecks, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import type { HandoverReport, ExpenseSlip, RevenueStats, AuthUser, ExtractHandoverDataOutput } from '@/lib/types';
+import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, CheckCircle, ArrowRight, Edit, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
-import type { ExtractHandoverDataOutput } from '@/ai/flows/extract-handover-data-flow';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { parseISO, isToday, format } from 'date-fns';
-import { dataStore } from '@/lib/data-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
+
+const initialHandoverData = {
+    expectedCash: 0,
+    startOfDayCash: 0,
+    cashExpense: 0,
+    cashRevenue: 0,
+    cardRevenue: 0,
+    deliveryPartnerPayout: 0,
+};
+
+const handoverFieldLabels: { [key in keyof typeof initialHandoverData]: string } = {
+    expectedCash: 'Tiền mặt dự kiến',
+    startOfDayCash: 'Tiền mặt đầu ca',
+    cashExpense: 'Chi tiền mặt',
+    cashRevenue: 'Doanh thu tiền mặt',
+    cardRevenue: 'Doanh thu thẻ',
+    deliveryPartnerPayout: 'Trả ĐTGH (khác)',
+};
+
+const InputField = React.memo(({ id, label, value, onChange, originalValue }: {
+    id: string;
+    label: string;
+    value: number;
+    onChange: (val: string) => void;
+    originalValue?: number;
+}) => {
+    const [localValue, setLocalValue] = useState(String(value));
+    
+    useEffect(() => { setLocalValue(String(value)); }, [value]);
+
+    const handleBlur = () => { if (String(value) !== localValue) { onChange(localValue); } };
+    
+    const isEdited = originalValue !== undefined && value !== originalValue;
+
+    return (
+        <div key={id} className="grid grid-cols-2 items-center gap-2">
+            <Label htmlFor={id} className="text-right flex items-center gap-2 justify-end">
+                 {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
+                {label}
+            </Label>
+            <Input id={id} type="number" value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleBlur} onFocus={(e) => e.target.select()} placeholder="0" className="text-right h-9" />
+        </div>
+    );
+});
+InputField.displayName = 'InputField';
 
 type HandoverDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: any) => void;
+    onSubmit: (data: any) => void;
     isProcessing: boolean;
-    reporter: AuthUser;
-    dailyCashExpense: number;
-    dailyCardExpense: number;
-    dailyRevenueStats: RevenueStats | null;
-    startOfDayCash: number;
 };
 
-type ComparisonResult = {
-  field: string;
-  label: string;
-  appValue: number;
-  receiptValue: number;
-  isMatch: boolean;
-}[];
 
-export default function HandoverDialog({
-    open,
-    onOpenChange,
-    onSave,
-    isProcessing,
-    reporter,
-    dailyCashExpense,
-    dailyCardExpense,
-    dailyRevenueStats,
-    startOfDayCash
-}: HandoverDialogProps) {
-    const router = useRouter();
-
+export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcessing }: HandoverDialogProps) {
+    const dataSectionRef = useRef<HTMLDivElement>(null);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    const [handoverData, setHandoverData] = useState<ExtractHandoverDataOutput | null>(null);
-    const comparisonResult = useRef<ComparisonResult | null>(null);
-    
-    const [actualCash, setActualCash] = useState<number | null>(null);
-    const [discrepancyReason, setDiscrepancyReason] = useState('');
-    const [discrepancyPhotoIds, setDiscrepancyPhotoIds] = useState<string[]>([]);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-    
-    const [isSuccess, setIsSuccess] = useState(false);
+
+    const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
+    const [handoverData, setHandoverData] = useState<Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime'>>(initialHandoverData);
+    const [originalData, setOriginalData] = useState<Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime'> | null>(null);
+
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
-    
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+
     const resetState = useCallback(() => {
         setIsOcrLoading(false);
+        setIsSubmitting(false);
         setImageDataUri(null);
-        setHandoverData(null);
-        comparisonResult.current = null;
-        setActualCash(null);
-        setDiscrepancyReason('');
-        setDiscrepancyPhotoIds([]);
+        setShiftEndTime(null);
+        setHandoverData(initialHandoverData);
+        setOriginalData(null);
         setServerErrorDialog({ open: false, imageUri: null });
-        setIsSuccess(false);
     }, []);
 
+    useEffect(() => { if (open) resetState(); }, [open, resetState]);
+    
     useEffect(() => {
-        if(open) resetState();
-    }, [open, resetState]);
-
-    const appData = useMemo(() => {
-        const cashRevenue = dailyRevenueStats?.revenueByPaymentMethod?.cash || 0;
-        const cardRevenue = (dailyRevenueStats?.netRevenue || 0) - cashRevenue;
-        
-        return {
-            startOfDayCash: startOfDayCash,
-            cashRevenue: cashRevenue,
-            cashExpense: dailyCashExpense,
-            cardRevenue: cardRevenue,
-            deliveryPartnerPayout: dailyRevenueStats?.deliveryPartnerPayout || 0,
-            expectedCash: cashRevenue - dailyCashExpense + startOfDayCash,
+        if (originalData && dataSectionRef.current) {
+            setTimeout(() => dataSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
         }
-    }, [startOfDayCash, dailyCashExpense, dailyRevenueStats]);
+    }, [originalData]);
+    
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (isLightboxOpen) { event.preventDefault(); setIsLightboxOpen(false); }
+        };
+        if (isLightboxOpen) {
+            window.history.pushState(null, '', window.location.href);
+            window.addEventListener('popstate', handlePopState);
+        }
+        return () => { window.removeEventListener('popstate', handlePopState); };
+    }, [isLightboxOpen]);
+
 
     const processImage = async (uri: string) => {
         setIsOcrLoading(true);
         const toastId = toast.loading('AI đang phân tích phiếu bàn giao...');
-        
+        setServerErrorDialog({ open: false, imageUri: null });
+
         try {
             const result = await extractHandoverData({ imageDataUri: uri });
+
             if (!result.isReceipt) {
                 toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
-
             if (!result.shiftEndTime) {
                 toast.error('AI không thể xác định ngày giờ trên phiếu.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
-
+            
+            // Comment out date check for testing
             /*
             const reportTime = parseISO(result.shiftEndTime);
             if (!isToday(reportTime)) {
                 toast.error(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
             */
-            
-            const comparison: ComparisonResult = [];
-            const fieldsToCompare: (keyof typeof appData)[] = ['expectedCash', 'startOfDayCash', 'cashExpense', 'cashRevenue', 'cardRevenue', 'deliveryPartnerPayout'];
-            const labels: {[key: string]: string} = {
-                 expectedCash: 'Tiền mặt dự kiến', startOfDayCash: 'Tiền mặt đầu ca', cashExpense: 'Chi tiền mặt',
-                 cashRevenue: 'Doanh thu tiền mặt', cardRevenue: 'Doanh thu thẻ', deliveryPartnerPayout: 'Trả ĐTGH (khác)'
+
+            const aiData = {
+                expectedCash: result.expectedCash ?? 0,
+                startOfDayCash: result.startOfDayCash ?? 0,
+                cashExpense: result.cashExpense ?? 0,
+                cashRevenue: result.cashRevenue ?? 0,
+                cardRevenue: result.cardRevenue ?? 0,
+                deliveryPartnerPayout: result.deliveryPartnerPayout ?? 0,
             };
 
-            for (const field of fieldsToCompare) {
-                const appValue = Math.round(appData[field]);
-                const receiptValue = Math.round(result[field as keyof typeof result] as number || 0);
-                comparison.push({ field, label: labels[field], appValue, receiptValue, isMatch: appValue === receiptValue });
-            }
-
             setImageDataUri(uri);
-            setHandoverData(result);
-            comparisonResult.current = comparison;
-            toast.success("Đã phân tích phiếu bàn giao. Vui lòng đối chiếu.");
+            setHandoverData(aiData);
+            setOriginalData(aiData);
+            setShiftEndTime(result.shiftEndTime);
+
+            toast.success("Đã điền dữ liệu từ phiếu. Vui lòng kiểm tra lại.");
 
         } catch (error: any) {
              if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
@@ -201,195 +213,146 @@ export default function HandoverDialog({
         }
     };
 
+    const handleManualEntry = () => {
+        const imageUri = serverErrorDialog.imageUri;
+        if (!imageUri) return;
+    
+        setImageDataUri(imageUri);
+        setHandoverData(initialHandoverData);
+        setOriginalData(initialHandoverData); // Set original to zeros so any entry is an "edit"
+        setShiftEndTime(null);
+    
+        setServerErrorDialog({ open: false, imageUri: null });
+        toast.success("Chuyển sang nhập thủ công. Vui lòng nhập các số liệu từ phiếu.");
+    };
+
+    const handleHandoverDataChange = (key: keyof typeof handoverData, value: string) => {
+        setHandoverData(prev => ({ ...prev, [key]: Number(value) }));
+    };
+
     const handleFinalSubmit = () => {
-        if (!handoverData || !imageDataUri || actualCash === null) return;
-        const discrepancy = actualCash - handoverData.expectedCash;
-        if (discrepancy !== 0 && !discrepancyReason.trim()) {
-            toast.error('Vui lòng nhập lý do chênh lệch tiền mặt.');
+        if (!imageDataUri) {
+            toast.error("Vui lòng cung cấp ảnh phiếu bàn giao.");
             return;
         }
 
-        const dataToSave: Partial<HandoverReport> = {
+        const isEdited = JSON.stringify(originalData) !== JSON.stringify(handoverData);
+
+        const dataToSubmit = {
             handoverData,
-            handoverImageUrl: imageDataUri, 
-            actualCash,
-            discrepancy,
-            discrepancyReason: discrepancyReason.trim() || undefined,
-            discrepancyProofPhotos: discrepancyPhotoIds, 
+            imageDataUri,
+            shiftEndTime,
+            isEdited,
         };
-        onSave(dataToSave);
-        setIsSuccess(true);
+        onSubmit(dataToSubmit);
     }
     
-    const hasMismatch = comparisonResult.current && comparisonResult.current.some(item => !item.isMatch);
-    const discrepancy = (actualCash !== null && handoverData?.expectedCash !== null) 
-        ? actualCash - (handoverData?.expectedCash as number)
-        : 0;
-
-    if (isSuccess) {
-        return (
-             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent>
-                    <div className="py-8 text-center space-y-4">
-                        <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                        <h3 className="text-xl font-semibold">Bàn giao thành công!</h3>
-                        <p className="text-muted-foreground">Báo cáo của bạn đã được ghi nhận. Cảm ơn và chúc bạn một ngày tốt lành.</p>
-                         <Button onClick={() => onOpenChange(false)} className="w-full">Hoàn tất</Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        )
-    }
-
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Bàn giao cuối ca</DialogTitle>
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0">
+                    <div id="handover-lightbox-container"></div>
+                    <DialogHeader className="shrink-0 p-6 pb-0">
+                        <DialogTitle>Nhập Phiếu Bàn Giao Ca</DialogTitle>
                         <DialogDescription>
-                           Tải lên phiếu bàn giao để hệ thống đối chiếu và xác nhận.
+                           Tải hoặc chụp ảnh phiếu bàn giao để AI điền tự động.
                         </DialogDescription>
                     </DialogHeader>
 
-                     <ScrollArea className="max-h-[70vh] -mx-6 px-6">
-                        <div className="space-y-6 py-4">
+                    <div className="flex-grow overflow-y-auto px-6">
+                        <div className="py-4 space-y-6">
                             <Card>
-                                <CardHeader className="pb-4">
+                                <CardHeader className="pb-2">
                                     <CardTitle className="text-base">Ảnh phiếu bàn giao</CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    {imageDataUri ? (
-                                        <div className="relative w-full h-full min-h-48">
+                                <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
+                                     {imageDataUri ? (
+                                        <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
                                             <Image src={imageDataUri} alt="Ảnh phiếu bàn giao" fill className="object-contain rounded-md" />
                                         </div>
                                     ) : (
                                         <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
-                                            <p className="text-sm text-muted-foreground">Chưa có ảnh nào được tải lên</p>
+                                            <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
                                     )}
-                                    <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh lên</Button>
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isSubmitting} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                                        <Button onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới</Button>
+                                        <Button variant="secondary" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isSubmitting} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh</Button>
                                     </div>
                                 </CardContent>
                             </Card>
-
-                             {isOcrLoading && (
-                                <div className="flex flex-col items-center gap-2 text-muted-foreground py-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    <span>AI đang phân tích...</span>
-                                </div>
-                            )}
-
-                            {comparisonResult.current && handoverData && (
-                                <div className="space-y-6">
+                            
+                            {imageDataUri && (
+                                <div ref={dataSectionRef} className="space-y-4 rounded-md border bg-muted/30 shadow-inner p-4">
+                                    {shiftEndTime && (
+                                        <Card><CardContent className="p-3 text-center text-sm font-semibold flex items-center justify-center gap-2"><Clock className="h-4 w-4"/>Thời gian trên phiếu: {format(parseISO(shiftEndTime), 'HH:mm:ss, dd/MM/yyyy')}</CardContent></Card>
+                                    )}
                                      <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-base">Đối chiếu dữ liệu</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Hạng mục</TableHead>
-                                                        <TableHead className="text-right">Trên ứng dụng</TableHead>
-                                                        <TableHead className="text-right">Trên phiếu</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {comparisonResult.current.map(item => (
-                                                        <TableRow key={item.field} className={cn(!item.isMatch && "bg-destructive/10")}>
-                                                            <TableCell className="font-semibold">{item.label}</TableCell>
-                                                            <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                                                            <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>{item.receiptValue.toLocaleString('vi-VN')}đ</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                             {hasMismatch && (
-                                                <div className="mt-4 space-y-2">
-                                                    <Alert variant="destructive">
-                                                        <AlertCircle className="h-4 w-4" />
-                                                        <AlertTitle>Phát hiện sai lệch dữ liệu!</AlertTitle>
-                                                        <AlertDescription>
-                                                            Vui lòng kiểm tra lại các mục được đánh dấu. Điều này có thể do AI đọc sai hoặc do các báo cáo trong ngày chưa được nhập đúng.
-                                                        </AlertDescription>
-                                                    </Alert>
-                                                     <div className="flex flex-col sm:flex-row gap-2">
-                                                        <Button variant="secondary" className="w-full" onClick={() => {router.push('/cashier'); onOpenChange(false); }}>
-                                                            <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
-                                                        </Button>
-                                                         <Button variant="secondary" className="w-full" onClick={() => {router.push('/reports/cashier'); onOpenChange(false); }}>
-                                                            <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            )}
+                                        <CardContent className="p-4 space-y-3">
+                                            {Object.entries(handoverData).map(([key, value]) => (
+                                                <InputField
+                                                    key={`ho-${key}`}
+                                                    id={`ho-${key}`}
+                                                    label={handoverFieldLabels[key as keyof typeof handoverFieldLabels]}
+                                                    value={value}
+                                                    onChange={(val) => handleHandoverDataChange(key as any, val)}
+                                                    originalValue={originalData?.[key as keyof typeof originalData]}
+                                                />
+                                            ))}
                                         </CardContent>
-                                     </Card>
-                                    
-                                     {!hasMismatch && (
-                                         <div className="space-y-4">
-                                            <Alert variant="default" className="bg-green-100/50 border-green-200">
-                                                <CheckCircle className="h-4 w-4 text-green-600" />
-                                                <AlertTitle className="text-green-800">Dữ liệu đã khớp!</AlertTitle>
-                                                <AlertDescription className="text-green-700">
-                                                    Tất cả số liệu trên phiếu bàn giao đều trùng khớp với dữ liệu trên ứng dụng.
-                                                </AlertDescription>
-                                            </Alert>
-                                            <Card>
-                                                <CardContent className="p-4 grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <Label htmlFor="expected-cash">Tiền mặt dự kiến</Label>
-                                                        <Input id="expected-cash" disabled value={handoverData.expectedCash.toLocaleString('vi-VN') + 'đ'} className="font-bold text-lg h-12 text-right bg-muted" />
-                                                    </div>
-                                                    <div>
-                                                        <Label htmlFor="actual-cash">Tiền mặt thực tế</Label>
-                                                        <Input id="actual-cash" type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-lg h-12 text-right" autoFocus/>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-
-                                            {discrepancy !== 0 && (
-                                                <Card className="border-destructive">
-                                                    <CardContent className="p-4 space-y-2">
-                                                        <Label className="text-destructive font-bold">Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</Label>
-                                                        <Textarea
-                                                            placeholder="Vui lòng nhập lý do chi tiết cho khoản chênh lệch này..."
-                                                            value={discrepancyReason}
-                                                            onChange={e => setDiscrepancyReason(e.target.value)}
-                                                        />
-                                                        <div className="flex justify-between items-center">
-                                                            <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}>
-                                                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh bằng chứng
-                                                            </Button>
-                                                            {discrepancyPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{discrepancyPhotoIds.length} ảnh đã được chọn.</p>}
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            )}
-                                        </div>
-                                     )}
+                                    </Card>
                                 </div>
                             )}
+
                         </div>
-                     </ScrollArea>
-                    <DialogFooter>
-                         <Button onClick={handleFinalSubmit} disabled={isProcessing || !handoverData || hasMismatch || actualCash === null} className="w-full sm:w-auto">
-                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
-                            Gửi Báo cáo Bàn giao
+                    </div>
+
+                    <DialogFooter className="shrink-0 p-6 pt-0">
+                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                         <Button onClick={handleFinalSubmit} disabled={isProcessing || isOcrLoading || !imageDataUri}>
+                            {(isProcessing || isOcrLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
+                            Tiếp tục
                          </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            <CameraDialog
-                isOpen={isCameraOpen}
-                onClose={() => setIsCameraOpen(false)}
-                onSubmit={imageDataUri ? (ids) => setDiscrepancyPhotoIds(prev => [...prev, ...ids]) : handlePhotoCapture}
-                singlePhotoMode={!imageDataUri}
-            />
+
+            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handlePhotoCapture} singlePhotoMode={true} />
+
+            <AlertDialog open={serverErrorDialog.open}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                         <AlertDialogTitleComponent className="flex items-center gap-2">
+                            <ServerCrash className="text-destructive"/> Lỗi phân tích ảnh
+                        </AlertDialogTitleComponent>
+                        <AlertDialogDescriptionComponent>
+                           Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
+                        </AlertDialogDescriptionComponent>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="outline" className="w-full" onClick={() => setServerErrorDialog({ open: false, imageUri: null })}>Hủy</Button>
+                        <Button variant="secondary" className="w-full" onClick={() => processImage(serverErrorDialog.imageUri!)}>
+                           <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
+                        </Button>
+                         <Button className="w-full" onClick={handleManualEntry}>
+                            <FileText className="mr-2 h-4 w-4" /> Nhập thủ công
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            {imageDataUri && (
+                 <Lightbox
+                    open={isLightboxOpen}
+                    close={() => setIsLightboxOpen(false)}
+                    slides={[{ src: imageDataUri }]}
+                    plugins={[Zoom]}
+                    portal={{ root: document.getElementById("handover-lightbox-container") ?? undefined }}
+                    carousel={{ finite: true }}
+                    zoom={{ maxZoomPixelRatio: 5 }}
+                />
+            )}
         </>
     );
 }
