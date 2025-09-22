@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Edit2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory } from '@/lib/types';
+import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory, ExtractHandoverDataOutput } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -18,6 +18,7 @@ import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
 import HandoverDialog from './_components/handover-dialog';
+import HandoverComparisonDialog from './_components/handover-comparison-dialog';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -117,6 +118,11 @@ export default function CashierDashboardPage() {
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [isHandoverDialogOpen, setIsHandoverDialogOpen] = useState(false);
+  
+  const [isComparisonDialogOpen, setIsComparisonDialogOpen] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState<any[] | null>(null);
+  const [handoverReceiptData, setHandoverReceiptData] = useState<any | null>(null);
+
 
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
 
@@ -163,8 +169,8 @@ export default function CashierDashboardPage() {
                     dataStore.getOtherCostCategories(),
                 ]);
             } catch (error) {
-                console.error("Failed to fetch initial cashier data:", error);
-                toast.error("Không thể tải dữ liệu ban đầu.");
+                console.error("Failed to fetch cashier data:", error);
+                toast.error("Không thể tải dữ liệu.");
             } finally {
                 setIsLoading(false);
             }
@@ -265,12 +271,59 @@ export default function CashierDashboardPage() {
       setIsExpenseDialogOpen(true);
   }
 
-    const handleHandoverSubmit = (data: any) => {
-        console.log("Handover data to be processed:", data);
-        // This is where we would open the new comparison dialog.
-        // For now, we just log and close the first dialog.
-        setIsHandoverDialogOpen(false);
-        toast.success("Đã nhận dữ liệu, sẵn sàng để đối chiếu.");
+  const handleHandoverSubmit = (data: ExtractHandoverDataOutput & {imageDataUri: string}) => {
+    setIsHandoverDialogOpen(false); // Close the input dialog
+    
+    const receiptData = data.handoverData;
+    const appData = {
+        expectedCash: expectedCashOnHand,
+        startOfDayCash: startOfDayCash,
+        cashExpense: totalCashExpense,
+        cashRevenue: revenueStats?.revenueByPaymentMethod.cash || 0,
+        deliveryPartnerPayout: revenueStats?.deliveryPartnerPayout || 0,
+        revenueByCard: {
+            techcombankVietQrPro: revenueStats?.revenueByPaymentMethod.techcombankVietQrPro || 0,
+            shopeeFood: revenueStats?.revenueByPaymentMethod.shopeeFood || 0,
+            grabFood: revenueStats?.revenueByPaymentMethod.grabFood || 0,
+            bankTransfer: revenueStats?.revenueByPaymentMethod.bankTransfer || 0,
+        }
+    };
+    
+    const comparison = [
+        { field: 'expectedCash', label: 'Tiền mặt dự kiến', appValue: appData.expectedCash, receiptValue: receiptData.expectedCash },
+        { field: 'startOfDayCash', label: 'Tiền mặt đầu ca', appValue: appData.startOfDayCash, receiptValue: receiptData.startOfDayCash },
+        { field: 'cashExpense', label: 'Chi tiền mặt', appValue: appData.cashExpense, receiptValue: receiptData.cashExpense },
+        { field: 'cashRevenue', label: 'Doanh thu tiền mặt', appValue: appData.cashRevenue, receiptValue: receiptData.cashRevenue },
+        { field: 'deliveryPartnerPayout', label: 'Trả ĐTGH', appValue: appData.deliveryPartnerPayout, receiptValue: receiptData.deliveryPartnerPayout },
+        { field: 'techcombankVietQrPro', label: 'DT: TCB VietQR', appValue: appData.revenueByCard.techcombankVietQrPro, receiptValue: receiptData.revenueByCard.techcombankVietQrPro },
+        { field: 'shopeeFood', label: 'DT: ShopeeFood', appValue: appData.revenueByCard.shopeeFood, receiptValue: receiptData.revenueByCard.shopeeFood },
+        { field: 'grabFood', label: 'DT: GrabFood', appValue: appData.revenueByCard.grabFood, receiptValue: receiptData.revenueByCard.grabFood },
+        { field: 'bankTransfer', label: 'DT: Chuyển Khoản', appValue: appData.revenueByCard.bankTransfer, receiptValue: receiptData.revenueByCard.bankTransfer },
+    ].map(item => ({ ...item, isMatch: Math.abs(item.appValue - item.receiptValue) < 1 })); // Allow for rounding errors
+
+    setComparisonResult(comparison);
+    setHandoverReceiptData(data); // Store the full data including image URI
+    setIsComparisonDialogOpen(true);
+  };
+  
+    const handleFinalHandoverSubmit = async (finalData: any) => {
+        if (!user || !handoverReceiptData) return;
+        
+        setIsProcessing(true);
+        try {
+            const reportData = {
+                ...handoverReceiptData, // Includes image URI, AI data, edited status etc.
+                ...finalData, // Includes actualCash, discrepancy, reason, and photo IDs
+            };
+            await dataStore.addHandoverReport(reportData, user);
+            toast.success("Báo cáo bàn giao đã được gửi thành công!");
+            setIsComparisonDialogOpen(false);
+        } catch (error) {
+            console.error("Failed to submit final handover report:", error);
+            toast.error("Lỗi: Không thể gửi báo cáo bàn giao.");
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
 
@@ -495,6 +548,16 @@ export default function CashierDashboardPage() {
         onSubmit={handleHandoverSubmit}
         isProcessing={isProcessing}
     />
+    {handoverReceiptData && (
+        <HandoverComparisonDialog
+            open={isComparisonDialogOpen}
+            onOpenChange={setIsComparisonDialogOpen}
+            onFinalSubmit={handleFinalHandoverSubmit}
+            isProcessing={isProcessing}
+            comparisonResult={comparisonResult}
+            handoverData={handoverReceiptData.handoverData}
+        />
+    )}
     </>
   );
 }
