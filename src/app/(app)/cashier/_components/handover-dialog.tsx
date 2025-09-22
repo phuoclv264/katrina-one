@@ -121,23 +121,17 @@ export default function HandoverDialog({
             const result = await extractHandoverData({ imageDataUri: uri });
             if (!result.isReceipt) {
                 toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
 
             if (!result.shiftEndTime) {
                 toast.error('AI không thể xác định ngày giờ trên phiếu.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
 
             const reportTime = parseISO(result.shiftEndTime);
             if (!isToday(reportTime)) {
                 toast.error(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
             
@@ -157,7 +151,6 @@ export default function HandoverDialog({
             setImageDataUri(uri);
             setHandoverData(result);
             comparisonResult.current = comparison;
-            toast.dismiss(toastId);
             toast.success("Đã phân tích phiếu bàn giao. Vui lòng đối chiếu.");
 
         } catch (error: any) {
@@ -167,8 +160,9 @@ export default function HandoverDialog({
                 console.error('OCR Error:', error);
                 toast.error('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
              }
-             setIsOcrLoading(false);
-             toast.dismiss(toastId);
+        } finally {
+            setIsOcrLoading(false);
+            toast.dismiss(toastId);
         }
     };
     
