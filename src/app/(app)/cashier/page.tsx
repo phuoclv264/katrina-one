@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, ArrowRight, Upload, Receipt, AlertTriangle, FileBox, Banknote, Edit, Trash2, Loader2, DollarSign, ArrowUpCircle, ArrowDownCircle, Edit2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory } from '@/lib/types';
@@ -17,7 +18,86 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
+
+function StartOfDayCashDialog({ 
+    currentValue, 
+    onSave 
+}: { 
+    currentValue: number, 
+    onSave: (newValue: number, reason: string) => void 
+}) {
+    const [newValue, setNewValue] = useState(currentValue);
+    const [reason, setReason] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setNewValue(currentValue);
+            setReason('');
+        }
+    }, [isOpen, currentValue]);
+
+    const handleSave = () => {
+        if (newValue !== 1_500_000 && !reason.trim()) {
+            toast.error('Vui lòng nhập lý do thay đổi số tiền đầu ca.');
+            return;
+        }
+        onSave(newValue, reason);
+        setIsOpen(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-auto p-1 absolute top-2 right-2 text-muted-foreground hover:text-primary">
+                    <Edit2 className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Thay đổi Tiền mặt đầu ca</DialogTitle>
+                    <DialogDescription>
+                        Giá trị mặc định là 1.500.000đ. Nếu có thay đổi, vui lòng ghi rõ lý do.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="start-of-day-cash">Số tiền mặt đầu ca</Label>
+                        <Input
+                            id="start-of-day-cash"
+                            type="number"
+                            value={newValue}
+                            onChange={(e) => setNewValue(Number(e.target.value))}
+                            onFocus={e => e.target.select()}
+                        />
+                    </div>
+                    {newValue !== 1_500_000 && (
+                         <div className="space-y-2">
+                            <Label htmlFor="reason">Lý do thay đổi (bắt buộc)</Label>
+                            <Textarea
+                                id="reason"
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                placeholder="VD: Bù tiền thối thiếu từ ca trước..."
+                            />
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Hủy</Button>
+                    </DialogClose>
+                    <Button onClick={handleSave}>Lưu thay đổi</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function CashierDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -29,6 +109,8 @@ export default function CashierDashboardPage() {
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [startOfDayCash, setStartOfDayCash] = useState(1_500_000);
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
@@ -36,6 +118,20 @@ export default function CashierDashboardPage() {
 
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
 
+  useEffect(() => {
+    // Load start of day cash from local storage
+    const savedCash = localStorage.getItem(`startOfDayCash-${format(new Date(), 'yyyy-MM-dd')}`);
+    if (savedCash) {
+      setStartOfDayCash(JSON.parse(savedCash).value);
+    }
+  }, []);
+
+  const handleSaveStartOfDayCash = (newValue: number, reason: string) => {
+    const data = { value: newValue, reason: reason, timestamp: new Date().toISOString() };
+    localStorage.setItem(`startOfDayCash-${format(new Date(), 'yyyy-MM-dd')}`, JSON.stringify(data));
+    setStartOfDayCash(newValue);
+    toast.success("Đã cập nhật tiền mặt đầu ca.");
+  };
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'Thu ngân' && !user.secondaryRoles?.includes('Thu ngân')) {
@@ -83,8 +179,8 @@ export default function CashierDashboardPage() {
     }
   }, [user]);
 
-  const { totalCashExpense, totalBankExpense } = useMemo(() => {
-    return dailySlips.reduce((acc, slip) => {
+  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand } = useMemo(() => {
+    const { totalCashExpense, totalBankExpense } = dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
         acc.totalCashExpense += slip.totalAmount;
       } else if (slip.paymentMethod === 'bank_transfer') {
@@ -92,7 +188,12 @@ export default function CashierDashboardPage() {
       }
       return acc;
     }, { totalCashExpense: 0, totalBankExpense: 0 });
-  }, [dailySlips]);
+
+    const cashRevenue = revenueStats?.revenueByPaymentMethod.cash || 0;
+    const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
+
+    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand };
+  }, [dailySlips, revenueStats, startOfDayCash]);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -179,9 +280,7 @@ export default function CashierDashboardPage() {
             <Skeleton className="h-4 w-1/2" />
         </header>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
+            <Skeleton className="h-48" />
         </div>
         <div className="mt-6">
             <Skeleton className="h-64" />
@@ -204,32 +303,38 @@ export default function CashierDashboardPage() {
         </header>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-            {/* Summary Cards */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tổng chi tiền mặt</CardTitle>
+            <Card className="lg:col-span-3">
+                <CardHeader>
+                    <CardTitle>Tổng quan trong ngày</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</div>
-                    <p className="text-xs text-muted-foreground">trong hôm nay</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tổng chi chuyển khoản</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</div>
-                    <p className="text-xs text-muted-foreground">trong hôm nay</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tiền mặt thực tế</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">Chưa khớp</div>
-                     <p className="text-xs text-muted-foreground">Cần thực hiện bàn giao</p>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                     <div className="space-y-1 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
+                           <ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt
+                        </p>
+                        <p className="text-2xl font-bold">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                     <div className="space-y-1 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                        <p className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2">
+                           <ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt
+                        </p>
+                        <p className="text-2xl font-bold">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                     <div className="relative space-y-1 p-4 rounded-lg bg-muted">
+                        <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} />
+                        <p className="text-sm font-medium text-muted-foreground">Tiền mặt đầu ca</p>
+                        <p className="text-2xl font-bold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
+                    </div>
+                     <div className="sm:col-span-2 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-1 p-4 rounded-lg bg-muted">
+                           <p className="text-sm font-medium text-muted-foreground">Tổng chi chuyển khoản</p>
+                            <p className="text-xl font-bold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
+                        </div>
+                        <div className="space-y-1 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500">
+                           <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Tiền mặt dự kiến cuối ca</p>
+                           <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
@@ -380,5 +485,7 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
+    
 
     
