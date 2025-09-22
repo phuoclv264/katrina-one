@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, ArrowRight, CheckCircle, ListChecks, FileText, Loader2, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -97,26 +98,53 @@ export default function HandoverComparisonDialog({
                   Vui lòng kiểm tra lại các mục được đánh dấu. Điều này có thể do AI đọc sai, hoặc do các báo cáo thu/chi trong ngày chưa được nhập đúng.
                 </AlertDescription>
               </Alert>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Hạng mục</TableHead>
-                    <TableHead className="text-right">Trên ứng dụng</TableHead>
-                    <TableHead className="text-right">Trên phiếu</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {comparisonResult.map(item => (
-                    <TableRow key={item.field} className={cn(!item.isMatch && "bg-destructive/10")}>
-                      <TableCell className="font-semibold">{item.label}</TableCell>
-                      <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                      <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>
-                        {item.receiptValue.toLocaleString('vi-VN')}đ
-                      </TableCell>
+              
+              {/* Desktop View: Table */}
+              <div className="hidden md:block">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Hạng mục</TableHead>
+                        <TableHead className="text-right">Trên ứng dụng</TableHead>
+                        <TableHead className="text-right">Trên phiếu</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                    {comparisonResult.map(item => (
+                        <TableRow key={item.field} className={cn(!item.isMatch && "bg-destructive/10")}>
+                        <TableCell className="font-semibold">{item.label}</TableCell>
+                        <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
+                        <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>
+                            {item.receiptValue.toLocaleString('vi-VN')}đ
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+              </div>
+
+                {/* Mobile View: Cards */}
+                <div className="md:hidden space-y-3">
+                    {comparisonResult.map(item => (
+                        <Card key={item.field} className={cn(!item.isMatch && "border-destructive")}>
+                            <CardHeader className="p-3 pb-2">
+                                <CardTitle className="text-base">{item.label}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 pt-0 space-y-1 text-sm">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Trên ứng dụng:</span>
+                                    <span className="font-mono font-semibold">{item.appValue.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-destructive")}>
+                                    <span className={cn(!item.isMatch && "text-destructive/80")}>Trên phiếu:</span>
+                                    <span className="font-mono">{item.receiptValue.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+
               <div className="flex flex-col sm:flex-row gap-2 pt-4">
                 <Button variant="secondary" className="w-full" onClick={() => { router.push('/cashier'); onOpenChange(false); }}>
                   <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
