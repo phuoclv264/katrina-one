@@ -26,13 +26,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { v4 as uuidv4 } from 'uuid';
+
 
 export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
   const [categories, setCategories] = useState<OtherCostCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newCategory, setNewCategory] = useState('');
-  const [editingCategory, setEditingCategory] = useState<{ oldName: string; newName: string } | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState<OtherCostCategory | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -56,28 +58,29 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
   };
 
   const handleAdd = () => {
-    if (newCategory.trim() === '') return;
-    if (categories.includes(newCategory.trim())) {
+    if (newCategoryName.trim() === '') return;
+    if (categories.some(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
       toast.error('Loại chi phí này đã tồn tại.');
       return;
     }
-    const newList = [...categories, newCategory.trim()].sort((a, b) => a.localeCompare(b, 'vi'));
+    const newCategory: OtherCostCategory = { id: uuidv4(), name: newCategoryName.trim() };
+    const newList = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
     handleSave(newList);
-    setNewCategory('');
+    setNewCategoryName('');
   };
 
   const handleUpdate = () => {
-    if (!editingCategory || !editingCategory.newName.trim()) {
+    if (!editingCategory || !editingCategory.name.trim()) {
       setEditingCategory(null);
       return;
     }
-    const newList = categories.map(c => c === editingCategory.oldName ? editingCategory.newName.trim() : c);
+    const newList = categories.map(c => c.id === editingCategory.id ? { ...c, name: editingCategory.name.trim() } : c);
     handleSave(newList);
     setEditingCategory(null);
   };
 
-  const handleDelete = (categoryToDelete: string) => {
-    const newList = categories.filter(c => c !== categoryToDelete);
+  const handleDelete = (categoryToDeleteId: string) => {
+    const newList = categories.filter(c => c.id !== categoryToDeleteId);
     handleSave(newList);
   };
 
@@ -94,8 +97,8 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
           <div className="flex gap-2">
             <Input
               placeholder="Tên loại chi phí mới..."
-              value={newCategory}
-              onChange={e => setNewCategory(e.target.value)}
+              value={newCategoryName}
+              onChange={e => setNewCategoryName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
             <Button onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm</Button>
@@ -108,36 +111,36 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
                 </div>
               ) : categories.length > 0 ? (
                 categories.map(cat => (
-                  <div key={cat} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted">
-                    {editingCategory?.oldName === cat ? (
+                  <div key={cat.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted">
+                    {editingCategory?.id === cat.id ? (
                       <Input
-                        value={editingCategory.newName}
-                        onChange={e => setEditingCategory({ ...editingCategory, newName: e.target.value })}
+                        value={editingCategory.name}
+                        onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
                         onKeyDown={e => e.key === 'Enter' && handleUpdate()}
                         onBlur={handleUpdate}
                         autoFocus
                         className="h-8"
                       />
                     ) : (
-                      <p className="flex-1">{cat}</p>
+                      <p className="flex-1">{cat.name}</p>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCategory({ oldName: cat, newName: cat })}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCategory(cat)}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <AlertDialog>
                        <AlertDialogTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={cat === 'Khác'}>
+                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={cat.name === 'Khác'}>
                             <Trash2 className="h-4 w-4" />
                            </Button>
                        </AlertDialogTrigger>
                        <AlertDialogContent>
                             <AlertDialogHeader>
-                                <AlertDialogTitle>Xóa "{cat}"?</AlertDialogTitle>
+                                <AlertDialogTitle>Xóa "{cat.name}"?</AlertDialogTitle>
                                 <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(cat)}>Xóa</AlertDialogAction>
+                                <AlertDialogAction onClick={() => handleDelete(cat.id)}>Xóa</AlertDialogAction>
                             </AlertDialogFooter>
                        </AlertDialogContent>
                     </AlertDialog>
