@@ -143,16 +143,18 @@ function InventoryHistoryView() {
             
             if (event.type === 'expense') {
                 const expenseItem = event.data as ExpenseSlip['items'][0];
-                const conversionRate = inventoryItem.conversionRate || 1;
+                const selectedUnitDef = inventoryItem.units.find(u => u.name === expenseItem.unit);
+                const conversionRate = selectedUnitDef?.conversionRate || 1;
                 const quantityInBaseUnit = expenseItem.quantity * conversionRate;
-
-                latestPriceMap.set(event.itemId, { price: expenseItem.unitPrice, unit: inventoryItem.orderUnit });
+                
+                const orderUnitName = inventoryItem.units.find(u => !u.isBaseUnit)?.name || inventoryItem.baseUnit;
+                latestPriceMap.set(event.itemId, { price: expenseItem.unitPrice, unit: orderUnitName });
                 
                 if (inventoryItem.dataType === 'number') {
                     newStock = previousStock + quantityInBaseUnit;
                     runningStock.set(event.itemId, newStock);
-                    change = `+${quantityInBaseUnit}`;
-                    newStockDisplay = String(newStock);
+                    change = `+${quantityInBaseUnit.toLocaleString()}`;
+                    newStockDisplay = String(newStock.toLocaleString());
                 } else { // 'list' type
                     newStock = STOCK_LIST_NUMERIC_VALUE['dư xài'];
                     runningStock.set(event.itemId, newStock);
@@ -198,12 +200,13 @@ function InventoryHistoryView() {
             }
 
             const latestPriceInfo = latestPriceMap.get(event.itemId);
-            const priceInfo = latestPriceInfo ? `${latestPriceInfo.price.toLocaleString('vi-VN')}đ / ${latestPriceInfo.unit}` : '0đ';
+            const orderUnitName = inventoryItem.units.find(u => !u.isBaseUnit)?.name || inventoryItem.baseUnit;
+            const priceInfo = latestPriceInfo ? `${latestPriceInfo.price.toLocaleString('vi-VN')}đ / ${orderUnitName}` : '0đ';
 
             processedHistory.push({
                 date: event.date,
                 itemName: inventoryItem.name,
-                itemUnit: inventoryItem.unit,
+                itemUnit: inventoryItem.baseUnit,
                 itemSupplier: inventoryItem.supplier,
                 type: event.type === 'expense' ? 'Nhập hàng' : 'Kiểm kê',
                 change: change,

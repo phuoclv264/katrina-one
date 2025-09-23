@@ -128,11 +128,7 @@ export type InventoryItem = {
 export type Suppliers = string[];
 
 // Type for AI-parsed items before they get a real ID
-export type ParsedInventoryItem = Omit<InventoryItem, 'id'> & {
-    orderUnit?: string;
-    unit?: string;
-    conversionRate?: number;
-};
+export type ParsedInventoryItem = Omit<InventoryItem, 'id'>;
 
 
 export type UpdateInventoryItemsOutput = {

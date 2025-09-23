@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
@@ -265,10 +264,10 @@ export default function InventoryPage() {
                 if (!ordersBySupplier[item.supplier]) {
                     ordersBySupplier[item.supplier] = [];
                 }
-
+                const orderUnitName = item.units.find(u => !u.isBaseUnit)?.name || item.baseUnit;
                 ordersBySupplier[item.supplier].push({
                     itemId: item.id,
-                    quantityToOrder: `${item.orderSuggestion} ${item.orderUnit}`,
+                    quantityToOrder: `${item.orderSuggestion} ${orderUnitName}`,
                 });
             }
         });
