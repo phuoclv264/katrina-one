@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -298,7 +297,6 @@ export const dataStore = {
         const date = docSnap.data().date;
 
         await deleteDoc(docRef);
-
     },
 
 
@@ -335,7 +333,6 @@ export const dataStore = {
         const docRef = id ? doc(db, 'expense_slips', id) : doc(collection(db, 'expense_slips'));
         const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
     
-        // Handle Photos
         if (photosToDelete && photosToDelete.length > 0) {
             await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
         }
@@ -353,14 +350,15 @@ export const dataStore = {
         }
         const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
 
-        // Recalculate totalAmount right before saving to ensure it's always correct
         slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
-         // Ensure createdBy is a plain object, not the full AuthUser
         const createdBy = slipData.createdBy ? { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName } : null;
 
-        // Prepare slip data
         const finalData: Partial<ExpenseSlip> = { ...slipData, createdBy, attachmentPhotos: finalPhotos };
+        
+        if (slipData.paymentMethod !== 'cash') {
+            delete finalData.actualPaidAmount;
+        }
         
         if (id) {
             finalData.lastModified = serverTimestamp();
@@ -369,12 +367,9 @@ export const dataStore = {
             }
         } else {
             finalData.createdAt = serverTimestamp();
-            if (!finalData.date) { // Ensure date is set for new slips
+            if (!finalData.date) {
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
             }
-        }
-
-        if(!finalData.lastModifiedBy) {
             delete finalData.lastModifiedBy;
         }
 
@@ -2164,3 +2159,5 @@ export const dataStore = {
     
 
 
+
+    
