@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
@@ -327,6 +328,7 @@ export type ExpenseSlip = {
   createdAt: string | Timestamp;
   lastModified?: string | Timestamp;
   lastModifiedBy?: AssignedUser; // User who last edited the slip
+  associatedRevenueStatsId?: string; // Link to the revenue_stats document
 };
 
 

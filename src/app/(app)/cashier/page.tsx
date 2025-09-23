@@ -242,6 +242,11 @@ export default function CashierDashboardPage() {
   const handleDeleteSlip = async (slip: ExpenseSlip) => {
     setIsProcessing(true);
     try {
+        if (slip.associatedRevenueStatsId) {
+            toast.error("Không thể xóa phiếu chi được tạo tự động. Vui lòng xóa phiếu thống kê doanh thu tương ứng.");
+            setIsProcessing(false);
+            return;
+        }
         await dataStore.deleteExpenseSlip(slip);
         toast.success("Phiếu chi đã được xóa.");
     } catch(error) {
@@ -288,10 +293,11 @@ export default function CashierDashboardPage() {
   }, [user, revenueStatsToEdit]);
 
    const handleDeleteRevenue = async (id: string) => {
+    if (!user) return;
     setIsProcessing(true);
     try {
-        await dataStore.deleteRevenueStats(id);
-        toast.success("Đã xóa phiếu thống kê doanh thu.");
+        await dataStore.deleteRevenueStats(id, user);
+        toast.success("Đã xóa phiếu thống kê doanh thu. Phiếu chi ĐTGH liên quan (nếu có) cũng đã được cập nhật.");
     } catch(error) {
         console.error("Failed to delete revenue stats:", error);
         toast.error("Không thể xóa phiếu thống kê.");
@@ -315,12 +321,13 @@ export default function CashierDashboardPage() {
     
     const receiptData = data.handoverData;
     
-    // Use the memoized values which are based on the latest revenue stat
+    const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
+    
     const revenueByCardFromApp = {
-        techcombankVietQrPro: dailyRevenueStats[0]?.revenueByPaymentMethod.techcombankVietQrPro || 0,
-        shopeeFood: dailyRevenueStats[0]?.revenueByPaymentMethod.shopeeFood || 0,
-        grabFood: dailyRevenueStats[0]?.revenueByPaymentMethod.grabFood || 0,
-        bankTransfer: dailyRevenueStats[0]?.revenueByPaymentMethod.bankTransfer || 0,
+        techcombankVietQrPro: latestRevenueStats?.revenueByPaymentMethod.techcombankVietQrPro || 0,
+        shopeeFood: latestRevenueStats?.revenueByPaymentMethod.shopeeFood || 0,
+        grabFood: latestRevenueStats?.revenueByPaymentMethod.grabFood || 0,
+        bankTransfer: latestRevenueStats?.revenueByPaymentMethod.bankTransfer || 0,
     };
 
     const appData = {
@@ -479,21 +486,25 @@ export default function CashierDashboardPage() {
                 <CardHeader>
                     <CardTitle>Thống kê Doanh thu</CardTitle>
                     <CardDescription>
-                        Nhập số liệu từ bill tổng kết trên máy POS. Mỗi lần nhập sẽ tạo một phiếu riêng.
+                        Nhập số liệu từ bill tổng kết trên máy POS. Phiếu mới nhất sẽ được dùng để tính toán tổng quan.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {dailyRevenueStats.length > 0 && (
                         isMobile ? (
                             <div className="space-y-3">
-                                {dailyRevenueStats.map(stat => {
+                                {dailyRevenueStats.map((stat, index) => {
                                     const canEdit = stat.createdBy.userId === user.uid;
+                                    const isLatest = index === 0;
                                     return (
-                                        <Card key={stat.id}>
+                                        <Card key={stat.id} className={cn(isLatest && "border-primary")}>
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1">
-                                                        <p className="font-semibold">Phiếu của {stat.createdBy.userName}</p>
+                                                        <p className="font-semibold flex items-center gap-2">
+                                                            {isLatest && <Badge>Mới nhất</Badge>}
+                                                            Phiếu của {stat.createdBy.userName}
+                                                        </p>
                                                          <p className="text-xs text-muted-foreground">
                                                             {format(new Date(stat.createdAt as string), 'HH:mm')}
                                                             {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}
@@ -519,20 +530,21 @@ export default function CashierDashboardPage() {
                         <Table>
                             <TableHeader><TableRow><TableHead>Người tạo</TableHead><TableHead>Thời gian</TableHead><TableHead>Doanh thu Net</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                             <TableBody>
-                                {dailyRevenueStats.map(stat => {
+                                {dailyRevenueStats.map((stat, index) => {
                                     const canEdit = stat.createdBy.userId === user.uid;
+                                    const isLatest = index === 0;
                                     return (
-                                        <TableRow key={stat.id}>
+                                        <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                             <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
-                                            <TableCell>{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</TableCell>
+                                            <TableCell>{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
                                             <TableCell className="text-right">
                                                 {canEdit && (
                                                     <>
                                                         <Button variant="ghost" size="icon" onClick={() => handleEditRevenue(stat)}><Edit className="h-4 w-4" /></Button>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác và sẽ cập nhật lại các phiếu chi liên quan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                                         </AlertDialog>
                                                     </>
                                                 )}
@@ -567,7 +579,7 @@ export default function CashierDashboardPage() {
                        isMobile ? (
                             <div className="space-y-3">
                                 {dailySlips.map(slip => {
-                                      const canEdit = slip.createdBy.userId === user.uid;
+                                      const canEdit = slip.createdBy.userId === user.uid && !slip.associatedRevenueStatsId;
                                       return (
                                         <Card key={slip.id}>
                                             <CardContent className="p-3">
@@ -575,7 +587,7 @@ export default function CashierDashboardPage() {
                                                     <div className="space-y-1 pr-2">
                                                         <p className="font-semibold text-sm">{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {slip.createdBy.userName} • {format(new Date(slip.createdAt as string), 'HH:mm')}
+                                                            {slip.createdBy.userName} • {format(new Date(slip.lastModified || slip.createdAt as string), 'HH:mm')}
                                                             {slip.lastModifiedBy && <Badge variant="secondary" className="ml-2 text-xs">Sửa</Badge>}
                                                         </p>
                                                     </div>
@@ -615,12 +627,13 @@ export default function CashierDashboardPage() {
                                </TableHeader>
                                <TableBody>
                                    {dailySlips.map(slip => {
-                                      const canEdit = slip.createdBy.userId === user.uid;
+                                      const canEdit = slip.createdBy.userId === user.uid && !slip.associatedRevenueStatsId;
                                       return (
                                        <TableRow key={slip.id}>
                                            <TableCell className="font-medium">
                                                 {getSlipContentName(slip.items[0])}
                                                 {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
+                                                {slip.associatedRevenueStatsId && <Badge variant="outline" className="ml-2 font-normal">Tự động</Badge>}
                                                 <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                            </TableCell>
                                            <TableCell className="text-sm text-muted-foreground">

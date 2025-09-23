@@ -230,10 +230,59 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async deleteRevenueStats(id: string): Promise<void> {
-        const docRef = doc(db, 'revenue_stats', id);
-        await deleteDoc(docRef);
+    async syncDeliveryPayoutExpense(date: string, user: AuthUser): Promise<void> {
+        // 1. Delete all auto-generated delivery payout slips for the day
+        const expenseQuery = query(
+            collection(db, 'expense_slips'),
+            where('date', '==', date),
+            where('associatedRevenueStatsId', '!=', null)
+        );
+        const oldSlipsSnap = await getDocs(expenseQuery);
+        const batch = writeBatch(db);
+        oldSlipsSnap.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // 2. Find the latest revenue stat for the day
+        const revenueQuery = query(
+            collection(db, 'revenue_stats'),
+            where('date', '==', date),
+            orderBy('createdAt', 'desc'),
+            limit(1)
+        );
+        const revenueSnap = await getDocs(revenueQuery);
+        
+        if (revenueSnap.empty) {
+            return; // No revenue stats, so no payout expense needed.
+        }
+
+        // 3. Create a new expense slip if there's a payout
+        const latestStatDoc = revenueSnap.docs[0];
+        const latestStat = latestStatDoc.data() as RevenueStats;
+
+        if (latestStat.deliveryPartnerPayout > 0) {
+            const expenseData: Partial<ExpenseSlip> = {
+                date: date,
+                expenseType: 'other_cost',
+                items: [{
+                    itemId: 'other_cost',
+                    name: 'Chi trả cho Đối tác Giao hàng',
+                    supplier: 'N/A',
+                    quantity: 1,
+                    unitPrice: latestStat.deliveryPartnerPayout,
+                    unit: 'lần',
+                }],
+                totalAmount: latestStat.deliveryPartnerPayout,
+                paymentMethod: 'bank_transfer',
+                notes: 'Tự động tạo từ thống kê doanh thu.',
+                createdBy: user, // Use the user who triggered the action
+                associatedRevenueStatsId: latestStatDoc.id, // Link to the revenue stat
+            };
+            await this.addOrUpdateExpenseSlip(expenseData);
+        }
     },
+
 
     async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
@@ -252,28 +301,6 @@ export const dataStore = {
         } else if (data.invoiceImageUrl === undefined) {
              delete finalData.invoiceImageUrl;
         }
-    
-        // If there's a delivery partner payout, also create an expense slip
-        if (data.deliveryPartnerPayout > 0) {
-            const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
-            const expenseData: Partial<ExpenseSlip> = {
-                date,
-                expenseType: 'other_cost',
-                items: [{
-                    itemId: 'other_cost',
-                    name: 'Chi trả cho Đối tác Giao hàng',
-                    supplier: 'N/A',
-                    quantity: 1,
-                    unitPrice: data.deliveryPartnerPayout,
-                    unit: 'lần',
-                }],
-                totalAmount: data.deliveryPartnerPayout,
-                paymentMethod: 'bank_transfer',
-                notes: 'Tự động tạo từ thống kê doanh thu.',
-                createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-            };
-            this.addOrUpdateExpenseSlip(expenseData).catch(e => console.error("Failed to auto-create expense slip for delivery payout:", e));
-        }
         
         if (documentId) {
             await updateDoc(docRef, finalData);
@@ -283,6 +310,24 @@ export const dataStore = {
             finalData.createdAt = serverTimestamp();
             await setDoc(docRef, finalData);
         }
+
+        // Sync delivery payout expense after saving
+        const dateToSync = documentId ? (await getDoc(docRef)).data()?.date : finalData.date;
+        if(dateToSync) {
+            await this.syncDeliveryPayoutExpense(dateToSync, user);
+        }
+    },
+
+    async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
+        const docRef = doc(db, 'revenue_stats', id);
+        const docSnap = await getDoc(docRef);
+        if(!docSnap.exists()) return;
+        const date = docSnap.data().date;
+
+        await deleteDoc(docRef);
+
+        // After deleting, sync the payout expense based on the new latest revenue stat
+        await this.syncDeliveryPayoutExpense(date, user);
     },
 
 
@@ -295,6 +340,7 @@ export const dataStore = {
                 id: doc.id,
                 ...doc.data(),
                 createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                lastModified: (doc.data().lastModified as Timestamp)?.toDate()?.toISOString(),
             } as ExpenseSlip));
             callback(slips);
         }, (error) => {
@@ -367,6 +413,7 @@ export const dataStore = {
                 id: doc.id,
                 ...doc.data(),
                 createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                lastModified: (doc.data().lastModified as Timestamp)?.toDate()?.toISOString(),
             } as ExpenseSlip));
             callback(slips);
         });
