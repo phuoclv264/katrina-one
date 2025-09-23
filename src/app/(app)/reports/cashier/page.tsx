@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -70,7 +71,7 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
                 <TableCell>
                     {getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}
                     {expense.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
-                     {expense.notes === 'Tự động tạo từ thống kê doanh thu.' && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
+                     {expense.associatedHandoverReportId && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
                 </TableCell>
                 <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
                 <TableCell className="text-sm">
@@ -119,7 +120,7 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
                 <div>
                     <p className="font-medium text-sm pr-2">
                         {getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}
-                        {expense.notes === 'Tự động tạo từ thống kê doanh thu.' && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
+                        {expense.associatedHandoverReportId && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
                     </p>
                     <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
                 </div>
@@ -345,7 +346,7 @@ export default function CashierReportsPage() {
 
   const handleEditRevenue = (stats: RevenueStats) => {
       setRevenueStatsToEdit(stats);
-      setIsRevenueDialogOpen(true);
+setIsRevenueDialogOpen(true);
   }
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
@@ -509,7 +510,7 @@ export default function CashierReportsPage() {
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
             {sortedDatesInMonth.map(date => {
                 const dayReports = reportsForCurrentMonth[date];
-                const revenueReports = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+                const revenueReports = (dayReports.revenue || []).sort((a,b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
 
                 return (
                     <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
@@ -526,60 +527,60 @@ export default function CashierReportsPage() {
                                 <CardContent className="p-4 pt-0 space-y-4">
                                 {revenueReports.length > 0 ? (
                                     revenueReports.map((stat, index) => {
-                                        const prevStat = index < revenueReports.length - 1 ? revenueReports[index + 1] : null;
+                                        const prevStat = index > 0 ? revenueReports[index - 1] : null;
                                         const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : stat.netRevenue;
                                         const netRevenueDisplay = prevStat ? `${netRevenueDiff >= 0 ? '+' : ''}${netRevenueDiff.toLocaleString('vi-VN')}đ` : `${stat.netRevenue.toLocaleString('vi-VN')}đ`;
 
-                                        return(
-                                            <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
-                                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-                                                    <CardDescription className="text-green-700 dark:text-green-400/80 mb-2 sm:mb-0">
-                                                        Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}
-                                                    </CardDescription>
-                                                    <div className="flex items-center gap-2">
-                                                        {stat.isEdited && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild><Edit2 className="h-4 w-4 text-orange-500" /></TooltipTrigger>
-                                                                <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
-                                                            </Tooltip>
-                                                        )}
-                                                         {stat.isOutdated && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 text-yellow-500" /></TooltipTrigger>
-                                                                <TooltipContent><p>Phiếu doanh thu có thể đã cũ</p></TooltipContent>
-                                                            </Tooltip>
-                                                        )}
-                                                        <Button size="sm" onClick={() => handleEditRevenue(stat)}>
-                                                            Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
-                                                        </Button>
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>Hành động này sẽ xóa phiếu doanh thu và cập nhật lại phiếu chi ĐTGH tương ứng.</AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
-                                                     {prevStat && (
-                                                         <Badge className={cn(netRevenueDiff >= 0 ? "bg-green-600" : "bg-red-600", "text-white")}>
-                                                            {netRevenueDisplay}
-                                                        </Badge>
-                                                    )}
-                                                </div>
+                                        return (
+                                        <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                                            <CardDescription className="text-green-700 dark:text-green-400/80 mb-2 sm:mb-0">
+                                                Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}
+                                            </CardDescription>
+                                            <div className="flex items-center gap-2">
+                                                {stat.isEdited && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild><Edit2 className="h-4 w-4 text-orange-500" /></TooltipTrigger>
+                                                    <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
+                                                </Tooltip>
+                                                )}
+                                                {stat.isOutdated && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 text-yellow-500" /></TooltipTrigger>
+                                                    <TooltipContent><p>Phiếu doanh thu có thể đã cũ</p></TooltipContent>
+                                                </Tooltip>
+                                                )}
+                                                <Button size="sm" onClick={() => handleEditRevenue(stat)}>
+                                                Chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                                <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                    <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                    <AlertDialogDescription>Hành động này sẽ xóa phiếu doanh thu và cập nhật lại phiếu chi ĐTGH tương ứng.</AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                                </AlertDialog>
                                             </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
+                                            {prevStat && (
+                                                <Badge className={cn(netRevenueDiff >= 0 ? "bg-green-600" : "bg-red-600", "text-white")}>
+                                                    {netRevenueDisplay}
+                                                </Badge>
+                                            )}
+                                            </div>
+                                        </div>
                                         )
                                     })
                                 ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}

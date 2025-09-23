@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -221,13 +222,13 @@ export default function CashierDashboardPage() {
     const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
 
     const totalNetRevenue = latestRevenueStats?.netRevenue || 0;
-    const totalDeliveryPayout = latestRevenueStats?.deliveryPartnerPayout || 0;
+    const totalDeliveryPayout = handoverReport?.handoverData.deliveryPartnerPayout || 0;
     const cashRevenue = latestRevenueStats?.revenueByPaymentMethod.cash || 0;
     
     const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
 
     return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue, totalDeliveryPayout };
-  }, [dailySlips, dailyRevenueStats, startOfDayCash]);
+  }, [dailySlips, dailyRevenueStats, startOfDayCash, handoverReport]);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -252,8 +253,8 @@ export default function CashierDashboardPage() {
   const handleDeleteSlip = async (slip: ExpenseSlip) => {
     setIsProcessing(true);
     try {
-        if (slip.associatedRevenueStatsId) {
-            toast.error("Không thể xóa phiếu chi được tạo tự động. Vui lòng xóa phiếu thống kê doanh thu tương ứng.");
+        if (slip.associatedHandoverReportId) {
+            toast.error("Không thể xóa phiếu chi được tạo tự động từ bàn giao ca.");
             setIsProcessing(false);
             return;
         }
@@ -306,7 +307,7 @@ export default function CashierDashboardPage() {
     setIsProcessing(true);
     try {
         await dataStore.deleteRevenueStats(id, user);
-        toast.success("Đã xóa phiếu thống kê doanh thu. Phiếu chi ĐTGH liên quan (nếu có) cũng đã được cập nhật.");
+        toast.success("Đã xóa phiếu thống kê doanh thu.");
     } catch(error) {
         console.error("Failed to delete revenue stats:", error);
         toast.error("Không thể xóa phiếu thống kê.");
@@ -344,7 +345,7 @@ export default function CashierDashboardPage() {
         startOfDayCash: startOfDayCash,
         cashExpense: totalCashExpense,
         cashRevenue: cashRevenue,
-        deliveryPartnerPayout: totalDeliveryPayout,
+        deliveryPartnerPayout: receiptData.deliveryPartnerPayout, // Use receipt data for comparison
         revenueByCard: revenueByCardFromApp,
     };
     
@@ -545,7 +546,7 @@ export default function CashierDashboardPage() {
                                                         <Button variant="ghost" size="icon" onClick={() => handleEditRevenue(stat)}><Edit className="h-4 w-4" /></Button>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác và sẽ cập nhật lại các phiếu chi liên quan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                                         </AlertDialog>
                                                     </>
                                                 )}
@@ -580,14 +581,14 @@ export default function CashierDashboardPage() {
                        isMobile ? (
                             <div className="space-y-3">
                                 {dailySlips.map(slip => {
-                                    const canEdit = slip.createdBy.userId === user.uid && !slip.associatedRevenueStatsId;
+                                    const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
                                     return (
                                         <Card key={slip.id}>
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1 pr-2">
                                                         <div className="font-semibold text-sm flex items-center gap-2">
-                                                            {slip.associatedRevenueStatsId && <Badge variant="outline" className="font-normal">Tự động</Badge>}
+                                                            {slip.associatedHandoverReportId && <Badge variant="outline" className="font-normal">Tự động</Badge>}
                                                             <p>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
                                                         </div>
                                                         <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -633,13 +634,13 @@ export default function CashierDashboardPage() {
                                </TableHeader>
                                <TableBody>
                                    {dailySlips.map(slip => {
-                                      const canEdit = slip.createdBy.userId === user.uid && !slip.associatedRevenueStatsId;
+                                      const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
                                       return (
                                        <TableRow key={slip.id}>
                                            <TableCell className="font-medium">
                                                 {getSlipContentName(slip.items[0])}
                                                 {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
-                                                {slip.associatedRevenueStatsId && <Badge variant="outline" className="ml-2 font-normal">Tự động</Badge>}
+                                                {slip.associatedHandoverReportId && <Badge variant="outline" className="ml-2 font-normal">Tự động</Badge>}
                                                 <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                            </TableCell>
                                            <TableCell className="text-sm text-muted-foreground">

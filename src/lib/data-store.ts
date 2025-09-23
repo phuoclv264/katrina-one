@@ -98,7 +98,7 @@ export const dataStore = {
 
     async addHandoverReport(data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
         const date = format(new Date(), 'yyyy-MM-dd');
-        const docRef = doc(db, 'handover_reports', date);
+        const handoverReportRef = doc(db, 'handover_reports', date);
         
         let handoverImageUrl = data.handoverData.imageDataUri;
         if (handoverImageUrl && handoverImageUrl.startsWith('data:')) {
@@ -121,7 +121,7 @@ export const dataStore = {
             await photoStore.deletePhotos(data.discrepancyProofPhotos);
         }
 
-        const finalData = {
+        const finalHandoverData = {
             ...data,
             date,
             handoverImageUrl,
@@ -131,10 +131,41 @@ export const dataStore = {
             isVerified: false,
         };
         // The imageDataUri from AI flow is large, don't save it to firestore.
-        delete finalData.handoverData.imageDataUri;
+        delete finalHandoverData.handoverData.imageDataUri;
+        await setDoc(handoverReportRef, finalHandoverData);
 
+        // --- New Logic: Create delivery partner expense slip ---
+        const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
+        if (deliveryPayout > 0) {
+            let categories = await this.getOtherCostCategories();
+            let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
+            if (!payoutCategory) {
+                payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
+                const newCategories = [...categories, payoutCategory];
+                await this.updateOtherCostCategories(newCategories);
+            }
 
-        await setDoc(docRef, finalData);
+            const slipData: Omit<ExpenseSlip, 'id'> = {
+                date,
+                expenseType: 'other_cost',
+                items: [{
+                    itemId: 'other_cost',
+                    name: payoutCategory.name,
+                    otherCostCategoryId: payoutCategory.id,
+                    supplier: 'Đối tác',
+                    quantity: 1,
+                    unitPrice: deliveryPayout,
+                    unit: 'lần',
+                }],
+                totalAmount: deliveryPayout,
+                paymentMethod: 'bank_transfer',
+                notes: `Tự động tạo từ báo cáo bàn giao cuối ca.`,
+                createdBy: { userId: user.uid, userName: user.displayName },
+                createdAt: serverTimestamp(),
+                associatedHandoverReportId: handoverReportRef.id,
+            };
+            await this.addOrUpdateExpenseSlip(slipData);
+        }
     },
 
     async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>, user: AuthUser): Promise<void> {
@@ -231,70 +262,6 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async syncDeliveryPayoutExpense(date: string, user: AuthUser): Promise<void> {
-        const q = query(
-            collection(db, 'revenue_stats'), 
-            where('date', '==', date), 
-            orderBy('createdAt', 'desc'), 
-            limit(1)
-        );
-        const revenueSnap = await getDocs(q);
-
-        const latestStatDoc = revenueSnap.empty ? null : revenueSnap.docs[0];
-        const latestStat = latestStatDoc?.data() as RevenueStats | null;
-        
-        const expenseQuery = query(
-            collection(db, 'expense_slips'),
-            where('date', '==', date),
-            where('notes', '==', 'Tự động tạo từ thống kê doanh thu.')
-        );
-        const expenseSnap = await getDocs(expenseQuery);
-        const existingExpenseDoc = expenseSnap.empty ? null : expenseSnap.docs[0];
-
-        if (!latestStat || !latestStat.deliveryPartnerPayout || latestStat.deliveryPartnerPayout <= 0) {
-            if (existingExpenseDoc) {
-                await deleteDoc(existingExpenseDoc.ref);
-            }
-            return;
-        }
-
-        const payout = Math.abs(latestStat.deliveryPartnerPayout);
-        
-        let categories = await this.getOtherCostCategories();
-        let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
-        if (!payoutCategory) {
-            payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
-            const newCategories = [...categories, payoutCategory];
-            await this.updateOtherCostCategories(newCategories);
-        }
-
-        const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
-            date: date,
-            expenseType: 'other_cost',
-            items: [{
-                itemId: 'other_cost',
-                name: payoutCategory.name,
-                otherCostCategoryId: payoutCategory.id,
-                supplier: 'Đối tác',
-                quantity: 1,
-                unitPrice: payout,
-                unit: 'lần',
-            }],
-            totalAmount: payout,
-            paymentMethod: 'bank_transfer',
-            notes: 'Tự động tạo từ thống kê doanh thu.',
-            createdBy: { userId: user.uid, userName: user.displayName },
-            associatedRevenueStatsId: latestStatDoc!.id,
-            lastModified: serverTimestamp()
-        };
-
-        if (existingExpenseDoc) {
-            await updateDoc(existingExpenseDoc.ref, expenseData);
-        } else {
-            await addDoc(collection(db, 'expense_slips'), {...expenseData, createdAt: serverTimestamp()});
-        }
-    },
-
     async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
         
@@ -313,33 +280,20 @@ export const dataStore = {
              delete finalData.invoiceImageUrl;
         }
         
-        const dateToSync = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
-
         if (documentId) {
             finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             await updateDoc(docRef, finalData);
         } else {
-            finalData.date = dateToSync;
+            finalData.date = format(new Date(), 'yyyy-MM-dd');
             finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             finalData.createdAt = serverTimestamp();
             await setDoc(docRef, finalData);
-        }
-
-        if(dateToSync) {
-            await this.syncDeliveryPayoutExpense(dateToSync, user);
         }
     },
 
     async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
         const docRef = doc(db, 'revenue_stats', id);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) return;
-        const date = docSnap.data().date;
-
         await deleteDoc(docRef);
-
-        // After deletion, re-sync based on the new latest document for that day.
-        await this.syncDeliveryPayoutExpense(date, user);
     },
 
 
