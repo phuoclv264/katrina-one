@@ -222,7 +222,8 @@ export const dataStore = {
     },
 
     async getDailyRevenueStats(date: string): Promise<RevenueStats[]> {
-        const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'));
+         const slipsCollection = collection(db, 'revenue_stats');
+        const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
         const snapshot = await getDocs(q);
         return snapshot.docs.map(doc => ({
             id: doc.id,
@@ -231,7 +232,7 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async syncDeliveryPayoutExpense(user: AuthUser, date: string): Promise<void> {
+    async syncDeliveryPayoutExpense(date: string, user: AuthUser): Promise<void> {
         // 1. Find the latest revenue stat for the day
         const revenueQuery = query(
             collection(db, 'revenue_stats'),
@@ -268,49 +269,49 @@ export const dataStore = {
         const payout = latestStat.deliveryPartnerPayout || 0;
 
         // Case 3: Revenue stat exists, but payout is 0. If an old expense exists, delete it.
-        if (payout === 0 && existingExpenseDoc) {
-            await deleteDoc(existingExpenseDoc.ref);
+        if (payout === 0) {
+            if(existingExpenseDoc) {
+                 await deleteDoc(existingExpenseDoc.ref);
+            }
             return;
         }
 
         // Case 4: Revenue stat exists and has payout > 0.
-        if (payout > 0) {
-            // Ensure the "Chi trả ĐTGH" category exists
-            const categories = await this.getOtherCostCategories();
-            let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
-            if (!payoutCategory) {
-                payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
-                const newCategories = [...categories, payoutCategory];
-                await this.updateOtherCostCategories(newCategories);
-            }
+        // Ensure the "Chi trả ĐTGH" category exists
+        const categories = await this.getOtherCostCategories();
+        let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
+        if (!payoutCategory) {
+            payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
+            const newCategories = [...categories, payoutCategory];
+            await this.updateOtherCostCategories(newCategories);
+        }
 
-            const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
-                date: date,
-                expenseType: 'other_cost',
-                items: [{
-                    itemId: 'other_cost',
-                    name: payoutCategory.name,
-                    otherCostCategoryId: payoutCategory.id,
-                    supplier: 'Đối tác',
-                    quantity: 1,
-                    unitPrice: payout,
-                    unit: 'lần',
-                }],
-                totalAmount: payout,
-                paymentMethod: 'bank_transfer',
-                notes: 'Tự động tạo từ thống kê doanh thu.',
-                createdBy: { userId: latestStat.createdBy.userId, userName: latestStat.createdBy.userName },
-                associatedRevenueStatsId: latestStatId!,
-                lastModified: serverTimestamp()
-            };
+        const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
+            date: date,
+            expenseType: 'other_cost',
+            items: [{
+                itemId: 'other_cost',
+                name: payoutCategory.name,
+                otherCostCategoryId: payoutCategory.id,
+                supplier: 'Đối tác',
+                quantity: 1,
+                unitPrice: payout,
+                unit: 'lần',
+            }],
+            totalAmount: payout,
+            paymentMethod: 'bank_transfer',
+            notes: 'Tự động tạo từ thống kê doanh thu.',
+            createdBy: { userId: user.uid, userName: user.displayName },
+            associatedRevenueStatsId: latestStatId!,
+            lastModified: serverTimestamp()
+        };
 
-            if (existingExpenseDoc) {
-                // Update existing expense
-                await updateDoc(existingExpenseDoc.ref, expenseData);
-            } else {
-                // Create new expense
-                await addDoc(collection(db, 'expense_slips'), {...expenseData, createdAt: serverTimestamp()});
-            }
+        if (existingExpenseDoc) {
+            // Update existing expense
+            await updateDoc(existingExpenseDoc.ref, expenseData);
+        } else {
+            // Create new expense
+            await addDoc(collection(db, 'expense_slips'), {...expenseData, createdAt: serverTimestamp()});
         }
     },
 
@@ -346,7 +347,7 @@ export const dataStore = {
         }
 
         if(dateToSync) {
-            await this.syncDeliveryPayoutExpense(user, dateToSync);
+            await this.syncDeliveryPayoutExpense(dateToSync, user);
         }
     },
 
@@ -359,7 +360,7 @@ export const dataStore = {
         await deleteDoc(docRef);
 
         // After deleting, sync the expense slip based on the *new* latest revenue stat
-        await this.syncDeliveryPayoutExpense(user, date);
+        await this.syncDeliveryPayoutExpense(date, user);
     },
 
 
@@ -417,7 +418,7 @@ export const dataStore = {
         // Recalculate totalAmount right before saving to ensure it's always correct
         slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
-        // Ensure createdBy is a plain object
+         // Ensure createdBy is a plain object
         const createdBy = slipData.createdBy ? { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName } : null;
 
         // Prepare slip data
@@ -2212,5 +2213,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
