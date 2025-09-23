@@ -84,8 +84,11 @@ export default function HandoverComparisonDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl rounded-2xl border shadow-2xl">
-          <DialogHeader className="p-6">
+        <DialogContent 
+            className="max-w-4xl rounded-2xl border shadow-2xl bg-background p-0"
+            onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="p-6 pb-4">
             <DialogTitle className={cn("flex items-center gap-3 text-2xl font-bold", hasMismatch ? 'text-destructive' : 'text-green-600')}>
               {hasMismatch ? <AlertCircle className="h-7 w-7"/> : <CheckCircle className="h-7 w-7"/>}
               {hasMismatch ? 'Phát hiện sai lệch dữ liệu!' : 'Đối chiếu thành công!'}
@@ -98,8 +101,8 @@ export default function HandoverComparisonDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[60vh] border-y px-6">
-            <div className="py-6 space-y-6">
+          <ScrollArea className="max-h-[60vh] border-y bg-card">
+            <div className="p-6 space-y-6">
               {hasMismatch && comparisonResult ? (
                 <div className="space-y-4">
                   <Alert variant="destructive">
@@ -209,7 +212,7 @@ export default function HandoverComparisonDialog({
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6">
+          <DialogFooter className="p-6 pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
             {!hasMismatch && (
               <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null}>
