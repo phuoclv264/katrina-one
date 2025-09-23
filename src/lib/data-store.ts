@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -162,7 +163,7 @@ export const dataStore = {
                 totalAmount: data.cost,
                 paymentMethod: 'cash',
                 notes: `Tự động tạo từ báo cáo sự cố (ID: ${incidentRef.id}).`,
-                createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+                createdBy: { userId: user.uid, userName: user.displayName },
                 createdAt: serverTimestamp(),
             };
             await this.addOrUpdateExpenseSlip(slipData);
@@ -259,7 +260,7 @@ export const dataStore = {
 
         const payout = Math.abs(latestStat.deliveryPartnerPayout);
         
-        const categories = await this.getOtherCostCategories();
+        let categories = await this.getOtherCostCategories();
         let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
         if (!payoutCategory) {
             payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
@@ -332,11 +333,12 @@ export const dataStore = {
     async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
         const docRef = doc(db, 'revenue_stats', id);
         const docSnap = await getDoc(docRef);
-        if(!docSnap.exists()) return;
+        if (!docSnap.exists()) return;
         const date = docSnap.data().date;
 
         await deleteDoc(docRef);
 
+        // After deletion, re-sync based on the new latest document for that day.
         await this.syncDeliveryPayoutExpense(date, user);
     },
 
@@ -395,7 +397,7 @@ export const dataStore = {
         // Recalculate totalAmount right before saving to ensure it's always correct
         slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
-         // Ensure createdBy is a plain object
+         // Ensure createdBy is a plain object, not the full AuthUser
         const createdBy = slipData.createdBy ? { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName } : null;
 
         // Prepare slip data
@@ -2194,3 +2196,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    
