@@ -149,7 +149,7 @@ export const dataStore = {
 
         // If there's a cost, create a corresponding expense slip
         if (data.cost > 0) {
-            const expenseSlipData: Partial<ExpenseSlip> = {
+            const slipData: Omit<ExpenseSlip, 'id'> = {
                 date: format(new Date(), 'yyyy-MM-dd'),
                 expenseType: 'other_cost',
                 items: [{
@@ -165,8 +165,9 @@ export const dataStore = {
                 paymentMethod: 'cash',
                 notes: `Tự động tạo từ báo cáo sự cố.`,
                 createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+                createdAt: serverTimestamp(),
             };
-            await this.addOrUpdateExpenseSlip(expenseSlipData);
+            await this.addOrUpdateExpenseSlip(slipData);
         }
     },
     
@@ -230,13 +231,11 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async syncDeliveryPayoutExpense(user: AuthUser, date?: string): Promise<void> {
-        const syncDate = date || format(new Date(), 'yyyy-MM-dd');
-
+    async syncDeliveryPayoutExpense(user: AuthUser, date: string): Promise<void> {
         // 1. Find the latest revenue stat for the day
         const revenueQuery = query(
             collection(db, 'revenue_stats'),
-            where('date', '==', syncDate),
+            where('date', '==', date),
             orderBy('createdAt', 'desc'),
             limit(1)
         );
@@ -249,7 +248,7 @@ export const dataStore = {
         // 2. Find any existing auto-generated expense for the day
         const expenseQuery = query(
             collection(db, 'expense_slips'),
-            where('date', '==', syncDate),
+            where('date', '==', date),
             where('notes', '==', 'Tự động tạo từ thống kê doanh thu.')
         );
         const expenseSnap = await getDocs(expenseQuery);
@@ -286,7 +285,7 @@ export const dataStore = {
             }
 
             const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
-                date: syncDate,
+                date: date,
                 expenseType: 'other_cost',
                 items: [{
                     itemId: 'other_cost',
@@ -300,7 +299,7 @@ export const dataStore = {
                 totalAmount: payout,
                 paymentMethod: 'bank_transfer',
                 notes: 'Tự động tạo từ thống kê doanh thu.',
-                createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+                createdBy: { userId: latestStat.createdBy.userId, userName: latestStat.createdBy.userName },
                 associatedRevenueStatsId: latestStatId!,
                 lastModified: serverTimestamp()
             };
@@ -334,16 +333,18 @@ export const dataStore = {
              delete finalData.invoiceImageUrl;
         }
         
+        const dateToSync = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
+
         if (documentId) {
+            finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             await updateDoc(docRef, finalData);
         } else {
-            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            finalData.date = dateToSync;
             finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             finalData.createdAt = serverTimestamp();
             await setDoc(docRef, finalData);
         }
 
-        const dateToSync = documentId ? (await getDoc(docRef)).data()?.date : finalData.date;
         if(dateToSync) {
             await this.syncDeliveryPayoutExpense(user, dateToSync);
         }
@@ -357,6 +358,7 @@ export const dataStore = {
 
         await deleteDoc(docRef);
 
+        // After deleting, sync the expense slip based on the *new* latest revenue stat
         await this.syncDeliveryPayoutExpense(user, date);
     },
 
