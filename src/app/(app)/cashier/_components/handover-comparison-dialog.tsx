@@ -31,6 +31,8 @@ type HandoverComparisonDialogProps = {
   isProcessing: boolean;
   comparisonResult: ComparisonResult | null;
   handoverData: any;
+  onNavigateToExpenses: () => void;
+  onNavigateToRevenue: () => void;
 };
 
 export default function HandoverComparisonDialog({
@@ -40,6 +42,8 @@ export default function HandoverComparisonDialog({
   isProcessing,
   comparisonResult,
   handoverData,
+  onNavigateToExpenses,
+  onNavigateToRevenue,
 }: HandoverComparisonDialogProps) {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -145,7 +149,7 @@ export default function HandoverComparisonDialog({
                             </TableHeader>
                             <TableBody>
                             {comparisonResult.map(item => (
-                                <TableRow key={item.field} className={cn(!item.isMatch && "bg-destructive/10")}>
+                                <TableRow key={item.field}>
                                 <TableCell className="font-semibold">{item.label}</TableCell>
                                 <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
                                 <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>
@@ -157,15 +161,6 @@ export default function HandoverComparisonDialog({
                         </Table>
                     </div>
                   )}
-
-                  <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                    <Button variant="secondary" className="w-full" onClick={() => { router.push('/cashier'); onOpenChange(false); }}>
-                      <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
-                    </Button>
-                    <Button variant="secondary" className="w-full" onClick={() => { router.push('/reports/cashier'); onOpenChange(false); }}>
-                      <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
-                    </Button>
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -212,14 +207,28 @@ export default function HandoverComparisonDialog({
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-            {!hasMismatch && (
-              <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null}>
-                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
-                {isProcessing ? 'Đang gửi...' : 'Hoàn tất & Gửi Báo cáo'}
-              </Button>
-            )}
+          <DialogFooter className="p-6 pt-4 flex sm:justify-between items-center">
+            <div className="w-full flex justify-start gap-2">
+                 {hasMismatch && (
+                    <>
+                        <Button variant="secondary" onClick={onNavigateToExpenses}>
+                            <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
+                        </Button>
+                        <Button variant="secondary" onClick={onNavigateToRevenue}>
+                            <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
+                        </Button>
+                    </>
+                )}
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                {!hasMismatch && (
+                <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null}>
+                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
+                    {isProcessing ? 'Đang gửi...' : 'Hoàn tất & Gửi Báo cáo'}
+                </Button>
+                )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

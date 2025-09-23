@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -103,6 +103,9 @@ function StartOfDayCashDialog({
 export default function CashierDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  
+  const expenseSlipsRef = useRef<HTMLDivElement>(null);
+  const revenueStatsRef = useRef<HTMLDivElement>(null);
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [dailyIncidents, setDailyIncidents] = useState<IncidentReport[]>([]);
@@ -325,6 +328,16 @@ export default function CashierDashboardPage() {
             setIsProcessing(false);
         }
     };
+    
+    const handleNavigateToExpenses = () => {
+        setIsComparisonDialogOpen(false);
+        setTimeout(() => expenseSlipsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+    
+    const handleNavigateToRevenue = () => {
+        setIsComparisonDialogOpen(false);
+        setTimeout(() => revenueStatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
 
 
   const getSlipContentName = (item: ExpenseItem): string => {
@@ -422,7 +435,7 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card>
+             <Card ref={revenueStatsRef}>
                 <CardHeader>
                     <CardTitle>Thống kê Doanh thu</CardTitle>
                     <CardDescription>
@@ -437,7 +450,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card ref={expenseSlipsRef}>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Quản lý Phiếu chi</CardTitle>
@@ -510,7 +523,7 @@ export default function CashierDashboardPage() {
                     <CardDescription>Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full" onClick={() => setIsHandoverDialogOpen(true)}>
+                    <Button className="w-full" onClick={() => setIsHandoverDialogOpen(true)} disabled={!revenueStats}>
                         <ArrowRight className="mr-2 h-4 w-4" />
                         Thực hiện bàn giao
                     </Button>
@@ -556,6 +569,8 @@ export default function CashierDashboardPage() {
             isProcessing={isProcessing}
             comparisonResult={comparisonResult}
             handoverData={handoverReceiptData.handoverData}
+            onNavigateToExpenses={handleNavigateToExpenses}
+            onNavigateToRevenue={handleNavigateToRevenue}
         />
     )}
     </>
