@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -58,7 +58,7 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
             <TableRow>
                 <TableHead>Thời gian</TableHead>
                 <TableHead>Nội dung</TableHead>
-                <TableHead>Số tiền</TableHead>
+                <TableHead>Tổng tiền / Thực trả</TableHead>
                 <TableHead>Phương thức</TableHead>
                 <TableHead>Người lập</TableHead>
                 <TableHead className="text-right">Hành động</TableHead>
@@ -73,7 +73,14 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
                     {expense.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
                      {expense.associatedHandoverReportId && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
                 </TableCell>
-                <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
+                <TableCell>
+                    <div className='flex flex-col items-start'>
+                        <span>{expense.totalAmount.toLocaleString('vi-VN')}đ</span>
+                        {(expense.paymentMethod === 'cash' && typeof expense.actualPaidAmount === 'number' && expense.actualPaidAmount !== expense.totalAmount) && (
+                                <span className='text-xs text-red-600'>({(expense.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
+                        )}
+                    </div>
+                </TableCell>
                 <TableCell className="text-sm">
                     <Badge variant={expense.paymentMethod === 'cash' ? 'secondary' : 'outline'}>
                         {expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
@@ -113,7 +120,9 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
   // Mobile View
   return (
     <div className="space-y-3" ref={containerRef}>
-      {expenses.map((expense, index) => (
+      {expenses.map((expense, index) => {
+        const actualAmount = expense.paymentMethod === 'cash' ? expense.actualPaidAmount ?? expense.totalAmount : expense.totalAmount;
+        return(
         <React.Fragment key={expense.id}>
           <div className="p-3">
             <div className="flex justify-between items-start">
@@ -126,6 +135,9 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
                 </div>
                 <div className="text-right">
                     <p className="font-bold text-base">{expense.totalAmount.toLocaleString('vi-VN')}đ</p>
+                    {(expense.paymentMethod === 'cash' && typeof expense.actualPaidAmount === 'number' && expense.actualPaidAmount !== expense.totalAmount) && (
+                        <p className='text-xs text-red-600'>({(expense.actualPaidAmount).toLocaleString('vi-VN')}đ)</p>
+                    )}
                 </div>
             </div>
             <div className="flex justify-between items-center mt-2 text-xs">
@@ -164,7 +176,8 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
           </div>
           {index < expenses.length - 1 && <Separator />}
         </React.Fragment>
-      ))}
+        )}
+      )}
     </div>
   );
 };
@@ -346,7 +359,7 @@ export default function CashierReportsPage() {
 
   const handleEditRevenue = (stats: RevenueStats) => {
       setRevenueStatsToEdit(stats);
-setIsRevenueDialogOpen(true);
+      setIsRevenueDialogOpen(true);
   }
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
