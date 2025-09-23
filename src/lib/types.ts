@@ -100,35 +100,40 @@ export type ShiftReport = {
 };
 
 // --- Inventory Types ---
+export type UnitDefinition = {
+  name: string;
+  isBaseUnit: boolean;
+  conversionRate: number; // How many base units are in this unit. The base unit itself has a rate of 1.
+};
+
 export type InventoryItem = {
     id: string;
     name: string;
-    shortName: string; // New field for abbreviation
+    shortName: string; 
     category: string;
     supplier: string;
-    unit: string;
-    orderUnit: string; // New field for ordering unit
-    conversionRate: number; // New field for conversion rate, e.g., 1 'orderUnit' = X 'unit'
-    minStock: number;
+    
+    baseUnit: string; // The smallest unit for stock tracking (e.g., "ml", "gram")
+    units: UnitDefinition[]; // Array of all possible units for this item
+    
+    minStock: number; // In baseUnit
     orderSuggestion: string; // e.g., "4" or "5kg"
     requiresPhoto?: boolean;
     isImportant?: boolean;
     dataType: 'number' | 'list';
     listOptions?: string[];
-    // Deprecated fields removed: unitPrice, stock, priceHistory, stockHistory
 };
 
-export type UnitConversion = {
-  id: string;
-  fromUnit: string;
-  toUnit: string;
-  rate: number; // 1 fromUnit = X toUnit
-}
 
 export type Suppliers = string[];
 
 // Type for AI-parsed items before they get a real ID
-export type ParsedInventoryItem = Omit<InventoryItem, 'id'>;
+export type ParsedInventoryItem = Omit<InventoryItem, 'id'> & {
+    orderUnit?: string;
+    unit?: string;
+    conversionRate?: number;
+};
+
 
 export type UpdateInventoryItemsOutput = {
     items: InventoryItem[];
@@ -311,7 +316,7 @@ export type ExpenseItem = {
     supplier?: string;
     quantity: number;
     unitPrice: number;
-    unit: string;
+    unit: string; // The name of the UnitDefinition used for this transaction.
 }
 
 export type ExpenseSlip = {

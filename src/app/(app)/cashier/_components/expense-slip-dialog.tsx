@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -53,7 +54,8 @@ function EditItemPopover({ item, onSave, children, inventoryItem }: { item: Expe
         setOpen(false); // Close popover on save
     };
     
-    const canSelectUnit = inventoryItem && inventoryItem.unit !== inventoryItem.orderUnit;
+    const availableUnits = inventoryItem?.units?.map(u => u.name) || [item.unit];
+    const canSelectUnit = availableUnits.length > 1;
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -65,7 +67,7 @@ function EditItemPopover({ item, onSave, children, inventoryItem }: { item: Expe
                         <p className="text-sm text-muted-foreground">Nhập số lượng, đơn vị và đơn giá.</p>
                     </div>
                     <div className="grid gap-2">
-                         {canSelectUnit && inventoryItem && (
+                         {canSelectUnit && (
                              <div className="grid grid-cols-3 items-center gap-4">
                                 <Label htmlFor="unit">Đơn vị</Label>
                                 <Select value={selectedUnit} onValueChange={(v) => setSelectedUnit(v)}>
@@ -73,8 +75,9 @@ function EditItemPopover({ item, onSave, children, inventoryItem }: { item: Expe
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value={inventoryItem.unit}>{inventoryItem.unit}</SelectItem>
-                                        <SelectItem value={inventoryItem.orderUnit}>{inventoryItem.orderUnit}</SelectItem>
+                                        {availableUnits.map(unitName => (
+                                            <SelectItem key={unitName} value={unitName}>{unitName}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -137,11 +140,12 @@ function AiPreviewDialog({
             .filter(item => item.status === 'matched' && item.matchedItemId)
             .map(item => {
                 const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId)!;
+                const orderUnit = inventoryItem.units.find(u => !u.isBaseUnit) || inventoryItem.units[0];
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
                     supplier: inventoryItem.supplier,
-                    unit: inventoryItem.orderUnit, // Use order unit for expense items
+                    unit: orderUnit.name,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                 };
@@ -410,11 +414,12 @@ export default function ExpenseSlipDialog({
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
             const existing = items.find(exItem => exItem.itemId === invItem.id);
+            const orderUnit = invItem.units.find(u => !u.isBaseUnit) || invItem.units[0];
             return existing || {
                 itemId: invItem.id,
                 name: invItem.name,
                 supplier: invItem.supplier,
-                unit: invItem.orderUnit, // Use orderUnit for expense slip
+                unit: orderUnit.name,
                 quantity: 1, // default
                 unitPrice: 0 // default
             };
