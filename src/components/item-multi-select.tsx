@@ -58,7 +58,7 @@ export function ItemMultiSelect({
         itemId: inventoryItem.id,
         name: inventoryItem.name,
         supplier: inventoryItem.supplier,
-        unit: inventoryItem.unit,
+        unit: inventoryItem.baseUnit, // Default to base unit
         quantity: 1,
         unitPrice: 0,
       }

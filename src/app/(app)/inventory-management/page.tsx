@@ -141,10 +141,19 @@ export default function InventoryManagementPage() {
   const handleAddItem = () => {
     if (!inventoryList) return;
     const newItem: InventoryItem = {
-      id: `item-${Date.now()}`, name: 'Mặt hàng mới', shortName: 'MHM', category: categoryFilter !== 'all' ? categoryFilter : 'CHƯA PHÂN LOẠI',
-      supplier: 'Chưa xác định', unit: 'cái', orderUnit: 'cái', conversionRate: 1, minStock: 1,
-      orderSuggestion: '1', dataType: 'number',
-      listOptions: ['hết', 'gần hết', 'còn đủ', 'dư xài'], isImportant: false, requiresPhoto: false,
+      id: `item-${Date.now()}`,
+      name: 'Mặt hàng mới',
+      shortName: 'MHM',
+      category: categoryFilter !== 'all' ? categoryFilter : 'CHƯA PHÂN LOẠI',
+      supplier: 'Chưa xác định',
+      baseUnit: 'cái',
+      units: [{ name: 'cái', isBaseUnit: true, conversionRate: 1 }],
+      minStock: 1,
+      orderSuggestion: '1',
+      dataType: 'number',
+      listOptions: ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+      isImportant: false,
+      requiresPhoto: false,
     };
     const newList = [...inventoryList, newItem];
     handleUpdateAndSave(newList);
@@ -215,11 +224,17 @@ export default function InventoryManagementPage() {
   const handleExport = () => {
     if (!inventoryList) return;
     let textToCopy = '';
-    const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'Đơn vị', 'ĐV Đặt hàng', 'Tỷ lệ quy đổi', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
+    const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'ĐV Cơ sở', 'Các ĐV', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
     const rows = inventoryList.map(item => 
-        [item.name, item.shortName, item.category, item.supplier, item.unit, item.orderUnit, item.conversionRate, item.minStock, item.orderSuggestion, item.requiresPhoto ? 'CÓ' : 'KHÔNG', item.isImportant ? 'CÓ' : 'KHÔNG'].join('|')
+        [
+            item.name, item.shortName, item.category, item.supplier, item.baseUnit,
+            item.units.map(u => `${u.name}(${u.conversionRate})`).join(';'),
+            item.minStock, item.orderSuggestion,
+            item.requiresPhoto ? 'CÓ' : 'KHÔNG',
+            item.isImportant ? 'CÓ' : 'KHÔNG'
+        ].join('\t') // Use tab separation for better spreadsheet pasting
     );
-    textToCopy = [headers.join('|'), ...rows].join('\n');
+    textToCopy = [headers.join('\t'), ...rows].join('\n');
     
     navigator.clipboard.writeText(textToCopy).then(() => {
         toast.success("Danh sách đã được sao chép vào bộ nhớ tạm.");
@@ -227,7 +242,7 @@ export default function InventoryManagementPage() {
         toast.error("Không thể sao chép danh sách.");
         console.error("Copy to clipboard failed:", err);
     });
-  };
+};
 
   const allCategories = useMemo(() => {
       if(!inventoryList) return [];
@@ -349,15 +364,19 @@ export default function InventoryManagementPage() {
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id)}}><Trash2 className="h-4 w-4" /></Button>
                                                             </div>
                                                         </div>
-                                                        <div className="grid grid-cols-3 gap-2 text-center text-xs border-t pt-3">
-                                                            <div><p className="text-muted-foreground">Nhà CC</p><p className="font-semibold truncate">{item.supplier}</p></div>
-                                                            <div><p className="text-muted-foreground">Đơn vị</p><p className="font-semibold">{item.unit}</p></div>
-                                                            <div><p className="text-muted-foreground">ĐV Đặt</p><p className="font-semibold">{item.orderUnit}</p></div>
+                                                        <div className="grid grid-cols-2 gap-2 text-sm border-t pt-3">
+                                                            <div><p className="text-xs text-muted-foreground">Nhà CC</p><p className="font-semibold truncate">{item.supplier}</p></div>
+                                                            <div><p className="text-xs text-muted-foreground">ĐV Cơ sở</p><p className="font-semibold">{item.baseUnit}</p></div>
                                                         </div>
-                                                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                                            <div><p className="text-muted-foreground">Tồn Min</p><p className="font-semibold">{item.minStock}</p></div>
-                                                            <div><p className="text-muted-foreground">Gợi ý Đặt</p><p className="font-semibold">{item.orderSuggestion}</p></div>
-                                                            <div><p className="text-muted-foreground">Tỷ lệ</p><p className="font-semibold">{item.conversionRate}</p></div>
+                                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                                            <div><p className="text-xs text-muted-foreground">Tồn Min</p><p className="font-semibold">{item.minStock}</p></div>
+                                                            <div><p className="text-xs text-muted-foreground">Gợi ý Đặt</p><p className="font-semibold">{item.orderSuggestion}</p></div>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-muted-foreground">Các đơn vị khác</p>
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {item.units.filter(u => !u.isBaseUnit).map(u => <Badge key={u.name} variant="secondary">{u.name}</Badge>)}
+                                                            </div>
                                                         </div>
                                                     </CardContent>
                                                     <CardFooter className="p-3 bg-muted/50 rounded-b-lg flex justify-between items-center">
@@ -387,5 +406,3 @@ export default function InventoryManagementPage() {
     </div>
   );
 }
-
-    
