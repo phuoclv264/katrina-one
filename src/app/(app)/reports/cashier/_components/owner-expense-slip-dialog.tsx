@@ -35,22 +35,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // ... (Các sub-component giữ nguyên)
 
-function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode }) {
+function EditItemPopover({ item, onSave, children, inventoryItem }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode, inventoryItem: InventoryItem | undefined }) {
     const [open, setOpen] = useState(false);
     const [quantity, setQuantity] = useState(item.quantity);
     const [unitPrice, setUnitPrice] = useState(item.unitPrice);
+    const [selectedUnit, setSelectedUnit] = useState(item.unit);
     
     useEffect(() => {
         if(open) {
             setQuantity(item.quantity);
             setUnitPrice(item.unitPrice);
+            setSelectedUnit(item.unit);
         }
     }, [open, item]);
 
     const handleSave = () => {
-        onSave({ ...item, quantity, unitPrice });
+        onSave({ ...item, quantity, unitPrice, unit: selectedUnit });
         setOpen(false); // Close popover on save
     };
+    
+    const canSelectUnit = inventoryItem && inventoryItem.unit !== inventoryItem.orderUnit;
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -59,11 +63,25 @@ function EditItemPopover({ item, onSave, children }: { item: ExpenseItem; onSave
                 <div className="grid gap-4">
                     <div className="space-y-2">
                         <h4 className="font-medium leading-none">{item.name}</h4>
-                        <p className="text-sm text-muted-foreground">Nhập số lượng và đơn giá.</p>
+                        <p className="text-sm text-muted-foreground">Nhập số lượng, đơn vị và đơn giá.</p>
                     </div>
                     <div className="grid gap-2">
+                         {canSelectUnit && inventoryItem && (
+                             <div className="grid grid-cols-3 items-center gap-4">
+                                <Label htmlFor="unit">Đơn vị</Label>
+                                <Select value={selectedUnit} onValueChange={(v) => setSelectedUnit(v)}>
+                                    <SelectTrigger className="col-span-2 h-8">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={inventoryItem.unit}>{inventoryItem.unit}</SelectItem>
+                                        <SelectItem value={inventoryItem.orderUnit}>{inventoryItem.orderUnit}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                         )}
                         <div className="grid grid-cols-3 items-center gap-4">
-                            <Label htmlFor="quantity">Số lượng ({item.unit})</Label>
+                            <Label htmlFor="quantity">Số lượng</Label>
                             <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
                         </div>
                         <div className="grid grid-cols-3 items-center gap-4">
@@ -748,32 +766,35 @@ export default function OwnerExpenseSlipDialog({
                                 ) : (
                                     <>
                                         <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
-                                            {items.map(item => (
-                                                <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem}>
-                                                    <Card className="cursor-pointer bg-muted/50">
-                                                        <CardContent className="p-4">
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <p className="font-semibold text-sm">{item.name}</p>
-                                                                    <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                            {items.map(item => {
+                                                const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+                                                return (
+                                                    <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
+                                                        <Card className="cursor-pointer bg-muted/50">
+                                                            <CardContent className="p-4">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div>
+                                                                        <p className="font-semibold text-sm">{item.name}</p>
+                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                    </div>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    </Button>
                                                                 </div>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
-                                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                                </Button>
-                                                            </div>
-                                                            <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                <p className="text-muted-foreground">Số lượng</p>
-                                                                <p className="text-muted-foreground">Đơn giá</p>
-                                                                <p className="text-muted-foreground">Thành tiền</p>
-                                                                
-                                                                <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
-                                                                <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
-                                                                <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                </EditItemPopover>
-                                            ))}
+                                                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
+                                                                    <p className="text-muted-foreground">Số lượng</p>
+                                                                    <p className="text-muted-foreground">Đơn giá</p>
+                                                                    <p className="text-muted-foreground">Thành tiền</p>
+                                                                    
+                                                                    <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
+                                                                    <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                    <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </EditItemPopover>
+                                                )}
+                                            )}
                                         </div>
 
                                         <div className="hidden md:block border rounded-md bg-card">
@@ -789,8 +810,10 @@ export default function OwnerExpenseSlipDialog({
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {items.map(item => (
-                                                        <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem}>
+                                                    {items.map(item => {
+                                                         const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+                                                        return (
+                                                        <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
                                                             <TableRow className="cursor-pointer">
                                                                 <TableCell>
                                                                     <p className="font-medium">{item.name}</p>
@@ -807,7 +830,8 @@ export default function OwnerExpenseSlipDialog({
                                                                 </TableCell>
                                                             </TableRow>
                                                         </EditItemPopover>
-                                                    ))}
+                                                        )}
+                                                    )}
                                                 </TableBody>
                                             </Table>
                                         </div>

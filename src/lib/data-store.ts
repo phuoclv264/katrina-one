@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -291,11 +292,7 @@ export const dataStore = {
 
     async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
         const docRef = doc(db, 'revenue_stats', id);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) return;
-
-        const date = docSnap.data().date;
-
+        if (!docRef) return;
         await deleteDoc(docRef);
     },
 
@@ -386,12 +383,25 @@ export const dataStore = {
     subscribeToAllExpenseSlips(callback: (slips: ExpenseSlip[]) => void): () => void {
         const q = query(collection(db, 'expense_slips'), orderBy('createdAt', 'desc'));
         return onSnapshot(q, snapshot => {
-            const slips = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                lastModified: (doc.data().lastModified as Timestamp)?.toDate()?.toISOString(),
-            } as ExpenseSlip));
+            const slips = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const inventoryItems = dataStore.getInventoryList();
+                const items = (data.items || []).map((item: ExpenseItem) => {
+                    const inventoryItem = inventoryItems.find(i => i.id === item.itemId);
+                    let quantityInBaseUnit = item.quantity;
+                    if (inventoryItem && item.unit === inventoryItem.orderUnit) {
+                        quantityInBaseUnit *= inventoryItem.conversionRate || 1;
+                    }
+                    return { ...item, quantityInBaseUnit };
+                });
+                return {
+                    id: doc.id,
+                    ...data,
+                    items,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    lastModified: (data.lastModified as Timestamp)?.toDate()?.toISOString(),
+                } as ExpenseSlip;
+            });
             callback(slips);
         });
     },

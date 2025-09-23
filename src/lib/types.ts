@@ -311,7 +311,7 @@ export type ExpenseItem = {
     supplier?: string;
     quantity: number;
     unitPrice: number;
-    unit?: string;
+    unit: string;
 }
 
 export type ExpenseSlip = {
@@ -380,6 +380,7 @@ export type RevenueStats = {
 
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
+  lastModifiedBy?: AssignedUser;
 };
 
 // --- AI Invoice Extraction Types ---

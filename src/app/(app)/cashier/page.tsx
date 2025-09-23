@@ -596,7 +596,7 @@ export default function CashierDashboardPage() {
                                                         <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
                                                             <span>{slip.createdBy.userName}</span>
                                                             <span>•</span>
-                                                            <span>{slip.lastModifiedBy ? format(new Date(slip.lastModified as string), 'HH:mm') : format(new Date(slip.createdAt as string), 'HH:mm')}</span>
+                                                            <span>{slip.lastModified ? format(new Date(slip.lastModified as string), 'HH:mm') : format(new Date(slip.createdAt as string), 'HH:mm')}</span>
                                                             {slip.lastModifiedBy && <Badge variant="secondary" className="text-xs">Sửa</Badge>}
                                                         </div>
                                                     </div>
@@ -604,6 +604,7 @@ export default function CashierDashboardPage() {
                                                         <p className="font-bold text-base text-red-600">-{actualAmount.toLocaleString('vi-VN')}đ</p>
                                                         <div className="flex items-center justify-end gap-2 text-sm mt-1">
                                                             {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}
+                                                            <span>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -658,8 +659,8 @@ export default function CashierDashboardPage() {
                                            <TableCell>
                                                 <div className='flex flex-col items-start'>
                                                     <span>{slip.totalAmount.toLocaleString('vi-VN')}đ</span>
-                                                    {(slip.paymentMethod === 'cash' && slip.actualPaidAmount !== slip.totalAmount) && (
-                                                         <span className='text-xs text-red-600'>({(slip.actualPaidAmount ?? slip.totalAmount).toLocaleString('vi-VN')}đ)</span>
+                                                    {(slip.paymentMethod === 'cash' && typeof slip.actualPaidAmount === 'number' && slip.actualPaidAmount !== slip.totalAmount) && (
+                                                         <span className='text-xs text-red-600'>({(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
                                                     )}
                                                 </div>
                                            </TableCell>
