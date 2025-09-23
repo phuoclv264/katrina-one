@@ -90,10 +90,10 @@ export default function HandoverComparisonDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-            className="max-w-md md:max-w-4xl h-[90vh] rounded-2xl border shadow-2xl bg-background p-0 flex flex-col"
+            className="max-w-md md:max-w-4xl"
             onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="p-6 pb-4 shrink-0">
+          <DialogHeader>
             <DialogTitle className={cn("flex items-center gap-3 text-2xl font-bold", hasMismatch ? 'text-destructive' : 'text-green-600')}>
               {hasMismatch ? <AlertCircle className="h-7 w-7"/> : <CheckCircle className="h-7 w-7"/>}
               {hasMismatch ? 'Phát hiện sai lệch dữ liệu!' : 'Đối chiếu thành công!'}
@@ -106,8 +106,7 @@ export default function HandoverComparisonDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-grow border-y bg-card relative">
-            <ScrollArea className="absolute inset-0">
+          <ScrollArea className="max-h-[60vh] p-1">
               <div className="p-6 space-y-6">
                 {hasMismatch && comparisonResult ? (
                   <div className="space-y-4">
@@ -207,10 +206,9 @@ export default function HandoverComparisonDialog({
                   </div>
                 )}
               </div>
-            </ScrollArea>
-          </div>
+          </ScrollArea>
 
-          <DialogFooter className="p-6 pt-4 flex flex-col sm:flex-row sm:justify-between items-center gap-2 shrink-0">
+          <DialogFooter className="pt-4 flex flex-col sm:flex-row sm:justify-between items-center gap-2">
              {hasMismatch ? (
                 <>
                     {/* Mobile layout for mismatch */}
