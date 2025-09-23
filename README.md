@@ -30,4 +30,25 @@ API này cho phép ứng dụng có quyền thực hiện việc sao lưu.
 
 ---
 
-Sau khi hoàn tất hai bước trên, hệ thống sẽ tự động sao lưu dữ liệu của bạn vào lúc **3 giờ sáng mỗi ngày** (giờ Việt Nam). Bạn có thể kiểm tra các bản sao lưu bằng cách truy cập **Firebase Console** -> **Storage** -> thư mục `backups`.
+## Làm thế nào để kiểm tra?
+
+Sau khi hoàn tất hai bước trên, hệ thống sẽ tự động sao lưu dữ liệu của bạn vào lúc **3 giờ sáng mỗi ngày** (giờ Việt Nam). Bạn có thể kiểm tra hoạt động của tính năng này bằng 2 cách sau:
+
+### 1. Kiểm tra File sao lưu trong Storage
+
+Đây là cách đơn giản nhất. Sau 3 giờ sáng, bạn có thể vào và kiểm tra xem có bản sao lưu mới được tạo ra không.
+
+1.  Truy cập **Firebase Console** -> **Storage**.
+2.  Bạn sẽ thấy một thư mục có tên `backups`.
+3.  Bên trong thư mục này, bạn sẽ thấy các thư mục con được đặt tên theo ngày tháng (ví dụ: `2024-07-28`). Sự tồn tại của thư mục với ngày hiện tại chứng tỏ việc sao lưu đã diễn ra.
+
+### 2. Kiểm tra Nhật ký (Logs) của Cloud Function
+
+Đây là cách kiểm tra chi tiết và chính xác nhất, giúp bạn biết được hàm sao lưu đã chạy thành công hay gặp lỗi.
+
+1.  Truy cập **Firebase Console**.
+2.  Từ menu bên trái, chọn **Functions** (biểu tượng fx).
+3.  Chuyển đến tab **Nhật ký** (Logs).
+4.  Bạn có thể lọc theo tên hàm là `backupFirestore`.
+    *   Nếu bạn thấy các log màu xanh lá với nội dung như `Starting Firestore backup...` và `Backup operation completed...` thì chức năng đã hoạt động thành công.
+    *   Nếu bạn thấy các log màu đỏ với thông báo lỗi, điều đó có nghĩa là có sự cố đã xảy ra (ví dụ: chưa bật API, lỗi quyền...).
