@@ -50,24 +50,29 @@ const prompt = ai.definePrompt({
     output: { schema: GenerateInventoryListOutputSchema },
     prompt: `You are an expert data entry assistant. Your task is to analyze the provided input (either text or an image) and extract a list of inventory items with a flexible unit system.
 
-The input contains a list of products for a coffee shop. You must extract the following fields for each item:
-- name: The full name of the product.
-- shortName: A short, unique abbreviation. If not explicitly provided, create a meaningful one.
-- category: The group or type of the product. Infer this from the context if not explicitly stated.
-- supplier: The name of the supplier for this item.
-- baseUnit: CRITICAL. Determine the smallest, most logical unit for tracking stock (e.g., 'hộp', 'kg', 'ml', 'gram').
+The input could be a multi-line string where each line represents an item with fields separated by hyphens, OR it could be a table pasted from a spreadsheet, where columns are separated by '|'.
+
+The table format has the following columns:
+Nhóm | Tên mặt hàng | Tên viết tắt | Nhà cung cấp | ĐV Cơ sở | Tồn tối thiểu | Gợi ý đặt hàng
+
+You must extract the following fields for each item:
+- name: The full name of the product. From 'Tên mặt hàng'.
+- shortName: A short, unique abbreviation. From 'Tên viết tắt'. If not explicitly provided, create a meaningful one.
+- category: The group or type of the product. From 'Nhóm'. Infer this from the context if not explicitly stated.
+- supplier: The name of the supplier for this item. From 'Nhà cung cấp'.
+- baseUnit: CRITICAL. The base unit from 'ĐV Cơ sở'. Determine the smallest, most logical unit for tracking stock (e.g., 'hộp', 'kg', 'ml', 'gram').
 - units: CRITICAL. This MUST be an array of unit definitions.
     - It MUST contain at least one entry for the \`baseUnit\`, with \`isBaseUnit: true\` and \`conversionRate: 1\`.
     - If other units are mentioned (e.g., 'thùng' which contains 12 'hộp'), you MUST create another entry for it. Example: \`{ name: 'thùng', isBaseUnit: false, conversionRate: 12 }\`. This means 1 thùng = 12 baseUnits (hộp).
     - If no other units are mentioned, the 'units' array will contain only the base unit definition.
-- minStock: The minimum stock quantity, measured in the \`baseUnit\`.
-- orderSuggestion: The suggested quantity to order when stock is low.
-- isImportant: Boolean. If text indicates it's critical, set to true. Default to false.
-- requiresPhoto: Boolean. If text mentions a photo, set to true. Default to false.
+- minStock: The minimum stock quantity, measured in the \`baseUnit\`. From 'Tồn tối thiểu'.
+- orderSuggestion: The suggested quantity to order when stock is low. From 'Gợi ý đặt hàng'.
+- isImportant: Boolean. If text indicates it's critical, set to true. Default to false if not provided.
+- requiresPhoto: Boolean. If text mentions a photo, set to true. Default to false if not provided.
 - dataType: 'number' or 'list'. Default to 'number'.
 - listOptions: If dataType is 'list', provide a default array: ['hết', 'gần hết', 'còn đủ', 'dư xài'].
 
-The input text could be a table pasted from a spreadsheet, or it could be a multi-line string where each line represents an item, with fields separated by a hyphen '-'.
+If a field is not present in the input text, you MUST default it to a sensible value (e.g., empty string for text fields, 0 for numbers, false for booleans).
 
 Analyze the following input and extract all items. Pay close attention to the columns, rows, or separators.
 If the input is an image, use OCR to read the text from the image first.
