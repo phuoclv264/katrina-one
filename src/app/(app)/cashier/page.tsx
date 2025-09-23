@@ -203,9 +203,11 @@ export default function CashierDashboardPage() {
       return acc;
     }, { totalCashExpense: 0, totalBankExpense: 0 });
 
-    const totalNetRevenue = dailyRevenueStats.reduce((sum, stat) => sum + (stat.netRevenue || 0), 0);
-    const totalDeliveryPayout = dailyRevenueStats.reduce((sum, stat) => sum + (stat.deliveryPartnerPayout || 0), 0);
-    const cashRevenue = dailyRevenueStats.reduce((sum, stat) => sum + (stat.revenueByPaymentMethod.cash || 0), 0);
+    const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
+
+    const totalNetRevenue = latestRevenueStats?.netRevenue || 0;
+    const totalDeliveryPayout = latestRevenueStats?.deliveryPartnerPayout || 0;
+    const cashRevenue = latestRevenueStats?.revenueByPaymentMethod.cash || 0;
     
     const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
 
@@ -308,13 +310,13 @@ export default function CashierDashboardPage() {
     
     const receiptData = data.handoverData;
     
-    const revenueByCardFromApp = dailyRevenueStats.reduce((acc, stat) => {
-        acc.techcombankVietQrPro += stat.revenueByPaymentMethod.techcombankVietQrPro || 0;
-        acc.shopeeFood += stat.revenueByPaymentMethod.shopeeFood || 0;
-        acc.grabFood += stat.revenueByPaymentMethod.grabFood || 0;
-        acc.bankTransfer += stat.revenueByPaymentMethod.bankTransfer || 0;
-        return acc;
-    }, { techcombankVietQrPro: 0, shopeeFood: 0, grabFood: 0, bankTransfer: 0 });
+    // Use the memoized values which are based on the latest revenue stat
+    const revenueByCardFromApp = {
+        techcombankVietQrPro: dailyRevenueStats[0]?.revenueByPaymentMethod.techcombankVietQrPro || 0,
+        shopeeFood: dailyRevenueStats[0]?.revenueByPaymentMethod.shopeeFood || 0,
+        grabFood: dailyRevenueStats[0]?.revenueByPaymentMethod.grabFood || 0,
+        bankTransfer: dailyRevenueStats[0]?.revenueByPaymentMethod.bankTransfer || 0,
+    };
 
     const appData = {
         expectedCash: expectedCashOnHand,
