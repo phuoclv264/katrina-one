@@ -27,7 +27,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 type GroupedReports = {
   [date: string]: {
-    revenue?: RevenueStats;
+    revenue: RevenueStats[]; // Changed to array
     expenses?: ExpenseSlip[];
     incidents?: IncidentReport[];
   };
@@ -191,24 +191,25 @@ export default function CashierReportsPage() {
     }
   }, [allMonthsWithData]);
 
-  const reportsForCurrentMonth = useMemo(() => {
+    const reportsForCurrentMonth = useMemo(() => {
     const reports: GroupedReports = {};
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
 
     const filterAndGroup = (items: (RevenueStats | ExpenseSlip | IncidentReport)[]) => {
       items.forEach(item => {
         const itemDate = parseISO(item.date);
         if (isSameMonth(itemDate, currentMonth)) {
-            if (!reports[item.date]) reports[item.date] = {};
-            if ('netRevenue' in item) reports[item.date].revenue = item;
-            else if ('items' in item) {
-                if (!reports[item.date].expenses) reports[item.date].expenses = [];
-                reports[item.date].expenses!.push(item);
-            } else if ('content' in item) {
-                if (!reports[item.date].incidents) reports[item.date].incidents = [];
-                reports[item.date].incidents!.push(item);
-            }
+          if (!reports[item.date]) {
+            reports[item.date] = { revenue: [] }; // Initialize revenue as an array
+          }
+          if ('netRevenue' in item) {
+            reports[item.date].revenue.push(item);
+          } else if ('items' in item) {
+            if (!reports[item.date].expenses) reports[item.date].expenses = [];
+            reports[item.date].expenses!.push(item);
+          } else if ('content' in item) {
+            if (!reports[item.date].incidents) reports[item.date].incidents = [];
+            reports[item.date].incidents!.push(item);
+          }
         }
       });
     };
@@ -217,7 +218,10 @@ export default function CashierReportsPage() {
     filterAndGroup(allData.expenseSlips);
     filterAndGroup(allData.incidents);
 
+    // Sort entries within each day
     for (const date in reports) {
+      // Sort revenue reports by time (oldest first)
+      reports[date].revenue?.sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
       reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
     }
@@ -230,14 +234,23 @@ export default function CashierReportsPage() {
   const monthlySummary = useMemo(() => {
       const reportsInMonth = Object.values(reportsForCurrentMonth).flat();
       const allExpenses = reportsInMonth.flatMap(day => day.expenses || []);
+      const allRevenueStats = reportsInMonth.flatMap(day => day.revenue || []);
+
+      // Use the latest stat of each day for summary
+      const latestDailyStats: { [date: string]: RevenueStats } = {};
+        allRevenueStats.forEach(stat => {
+            if (!latestDailyStats[stat.date] || new Date(stat.createdAt as string) > new Date(latestDailyStats[stat.date].createdAt as string)) {
+                latestDailyStats[stat.date] = stat;
+            }
+        });
       
-      const totalRevenue = reportsInMonth.reduce((sum, day) => sum + (day.revenue?.netRevenue || 0), 0);
+      const totalRevenue = Object.values(latestDailyStats).reduce((sum, stat) => sum + (stat.netRevenue || 0), 0);
       const totalExpense = allExpenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
   
-      const revenueByMethod = reportsInMonth.reduce((acc, day) => {
-          if (day.revenue) {
-              for (const key in day.revenue.revenueByPaymentMethod) {
-                  acc[key] = (acc[key] || 0) + day.revenue.revenueByPaymentMethod[key as keyof typeof day.revenue.revenueByPaymentMethod];
+      const revenueByMethod = Object.values(latestDailyStats).reduce((acc, stat) => {
+          if (stat.revenueByPaymentMethod) {
+              for (const key in stat.revenueByPaymentMethod) {
+                  acc[key] = (acc[key] || 0) + stat.revenueByPaymentMethod[key as keyof typeof stat.revenueByPaymentMethod];
               }
           }
           return acc;
@@ -401,59 +414,63 @@ export default function CashierReportsPage() {
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
             {sortedDatesInMonth.map(date => {
                 const dayReports = reportsForCurrentMonth[date];
-                const revenueReport = dayReports.revenue;
-                const atStoreRevenue = revenueReport ? (revenueReport.revenueByPaymentMethod.cash || 0) + (revenueReport.revenueByPaymentMethod.techcombankVietQrPro || 0) + (revenueReport.revenueByPaymentMethod.bankTransfer || 0) : 0;
+                const revenueReports = dayReports.revenue || [];
+
                 return (
                     <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
                         <AccordionTrigger className="p-4 text-base font-semibold">
                             Ngày {format(parseISO(date), 'dd/MM/yyyy, eeee', { locale: vi })}
                         </AccordionTrigger>
                         <AccordionContent className="p-4 border-t grid grid-cols-1 gap-6">
-                            {revenueReport ? (
-                                <Card className="bg-green-500/10 border-green-500/30">
-                                     <CardHeader className="flex-row items-center justify-between p-4 pb-0">
-                                        <div>
-                                            <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
-                                                <Receipt /> Doanh thu
-                                                {revenueReport.isOutdated && (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Phiếu doanh thu có thể đã cũ</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                )}
-                                                {revenueReport.isEdited && (
-                                                     <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Edit2 className="h-4 w-4 text-orange-500" />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Thu ngân đã chỉnh sửa thủ công</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                )}
-                                            </CardTitle>
-                                            <CardDescription className="text-green-700 dark:text-green-400/80">bởi {revenueReport.createdBy.userName}</CardDescription>
-                                        </div>
-                                        <Button size="sm" onClick={() => handleEditRevenue(revenueReport)}>
-                                            Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
-                                        </Button>
-                                    </CardHeader>
-                                    <CardContent className="p-4">
-                                        <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                                            <div className="text-2xl font-bold text-green-700 dark:text-green-200">{revenueReport.netRevenue.toLocaleString('vi-VN')}đ</div>
-                                            <div className="text-sm mt-2 sm:mt-0 sm:text-right">
-                                                <p>Tại quán: <span className="font-semibold">{atStoreRevenue.toLocaleString('vi-VN')}đ</span></p>
-                                                <p>ShopeeFood: <span className="font-semibold">{(revenueReport.revenueByPaymentMethod.shopeeFood || 0).toLocaleString('vi-VN')}đ</span></p>
-                                                <p>GrabFood: <span className="font-semibold">{(revenueReport.revenueByPaymentMethod.grabFood || 0).toLocaleString('vi-VN')}đ</span></p>
+                            <Card className="bg-green-500/10 border-green-500/30">
+                                <CardHeader className="p-4 pb-2">
+                                    <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
+                                        <Receipt /> Doanh thu
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-0 space-y-4">
+                                {revenueReports.length > 0 ? (
+                                    revenueReports.map((stat, index) => {
+                                        const prevStat = index > 0 ? revenueReports[index - 1] : null;
+                                        const netRevenueDisplay = prevStat ? stat.netRevenue - prevStat.netRevenue : stat.netRevenue;
+                                        return(
+                                            <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                                                    <CardDescription className="text-green-700 dark:text-green-400/80 mb-2 sm:mb-0">
+                                                        Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}
+                                                    </CardDescription>
+                                                    <div className="flex items-center gap-2">
+                                                        {stat.isEdited && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild><Edit2 className="h-4 w-4 text-orange-500" /></TooltipTrigger>
+                                                                <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                         {stat.isOutdated && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 text-yellow-500" /></TooltipTrigger>
+                                                                <TooltipContent><p>Phiếu doanh thu có thể đã cũ</p></TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        <Button size="sm" onClick={() => handleEditRevenue(stat)}>
+                                                            Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {prevStat && <span className="text-sm text-muted-foreground">{prevStat.netRevenue.toLocaleString('vi-VN')}đ</span>}
+                                                    {prevStat && <ArrowRight className="h-4 w-4 text-muted-foreground"/>}
+                                                    <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
+                                                    {prevStat && (
+                                                        <span className="font-semibold text-green-600">(+{netRevenueDisplay.toLocaleString('vi-VN')}đ)</span>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}
+                                        )
+                                    })
+                                ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}
+                                </CardContent>
+                            </Card>
                             
                             {dayReports.expenses && dayReports.expenses.length > 0 ? (
                                 <Card>
