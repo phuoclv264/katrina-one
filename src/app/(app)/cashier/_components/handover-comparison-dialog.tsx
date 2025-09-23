@@ -90,7 +90,7 @@ export default function HandoverComparisonDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-            className="max-w-md md:max-w-4xl max-h-[90vh] rounded-2xl border shadow-2xl bg-background p-0 flex flex-col"
+            className="max-w-md md:max-w-4xl h-[90vh] rounded-2xl border shadow-2xl bg-background p-0 flex flex-col"
             onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="p-6 pb-4 shrink-0">
@@ -106,107 +106,109 @@ export default function HandoverComparisonDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-grow border-y bg-card">
-            <div className="p-6 space-y-6">
-              {hasMismatch && comparisonResult ? (
-                <div className="space-y-4">
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Dữ liệu không khớp</AlertTitle>
-                    <AlertDescription>
-                      Điều này có thể do AI đọc sai, hoặc do các báo cáo thu/chi trong ngày chưa được nhập đúng đắn.
-                    </AlertDescription>
-                  </Alert>
-                  
-                  {isMobile ? (
-                    <div className="space-y-3">
-                        {comparisonResult.map(item => (
-                            <Card key={item.field} className={cn(!item.isMatch && "border-destructive border-2")}>
-                                <CardHeader className="p-3 pb-2">
-                                    <CardTitle className="text-base">{item.label}</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-3 pt-0 space-y-1 text-sm">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-muted-foreground">Trên ứng dụng:</span>
-                                        <span className="font-mono font-semibold">{item.appValue.toLocaleString('vi-VN')}đ</span>
-                                    </div>
-                                    <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-destructive")}>
-                                        <span className={cn(!item.isMatch && "text-destructive/80")}>Trên phiếu:</span>
-                                        <span className="font-mono">{item.receiptValue.toLocaleString('vi-VN')}đ</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                            <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
-                                <TableRow>
-                                    <TableHead className="font-bold">Hạng mục</TableHead>
-                                    <TableHead className="text-right font-bold">Trên ứng dụng</TableHead>
-                                    <TableHead className="text-right font-bold">Trên phiếu</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {comparisonResult.map(item => (
-                                <TableRow key={item.field}>
-                                <TableCell className="font-semibold">{item.label}</TableCell>
-                                <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                                <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>
-                                    {item.receiptValue.toLocaleString('vi-VN')}đ
-                                </TableCell>
-                                </TableRow>
-                            ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <Alert variant="default" className="border-green-500/30 bg-green-500/10">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertTitle className="text-green-800 dark:text-green-300">Dữ liệu đã khớp!</AlertTitle>
-                    <AlertDescription className="text-green-700 dark:text-green-400">
-                      Tất cả số liệu trên phiếu bàn giao đều trùng khớp với dữ liệu trên ứng dụng.
-                    </AlertDescription>
-                  </Alert>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-base">Tiền mặt dự kiến</CardTitle></CardHeader>
-                        <CardContent><Input disabled value={handoverData.expectedCash?.toLocaleString('vi-VN') + 'đ'} className="font-bold text-xl h-14 text-right bg-muted" /></CardContent>
-                    </Card>
-                    <Card className="border-primary ring-2 ring-primary/50">
-                        <CardHeader className="pb-2"><CardTitle className="text-base">Tiền mặt thực tế</CardTitle></CardHeader>
-                        <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-xl h-14 text-right" autoFocus onFocus={e => e.target.select()}/></CardContent>
-                    </Card>
+          <div className="flex-grow border-y bg-card relative">
+            <ScrollArea className="absolute inset-0">
+              <div className="p-6 space-y-6">
+                {hasMismatch && comparisonResult ? (
+                  <div className="space-y-4">
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Dữ liệu không khớp</AlertTitle>
+                      <AlertDescription>
+                        Điều này có thể do AI đọc sai, hoặc do các báo cáo thu/chi trong ngày chưa được nhập đúng đắn.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    {isMobile ? (
+                      <div className="space-y-3">
+                          {comparisonResult.map(item => (
+                              <Card key={item.field} className={cn(!item.isMatch && "border-destructive border-2")}>
+                                  <CardHeader className="p-3 pb-2">
+                                      <CardTitle className="text-base">{item.label}</CardTitle>
+                                  </CardHeader>
+                                  <CardContent className="p-3 pt-0 space-y-1 text-sm">
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-muted-foreground">Trên ứng dụng:</span>
+                                          <span className="font-mono font-semibold">{item.appValue.toLocaleString('vi-VN')}đ</span>
+                                      </div>
+                                      <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-destructive")}>
+                                          <span className={cn(!item.isMatch && "text-destructive/80")}>Trên phiếu:</span>
+                                          <span className="font-mono">{item.receiptValue.toLocaleString('vi-VN')}đ</span>
+                                      </div>
+                                  </CardContent>
+                              </Card>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg overflow-hidden">
+                          <Table>
+                              <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
+                                  <TableRow>
+                                      <TableHead className="font-bold">Hạng mục</TableHead>
+                                      <TableHead className="text-right font-bold">Trên ứng dụng</TableHead>
+                                      <TableHead className="text-right font-bold">Trên phiếu</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                              {comparisonResult.map(item => (
+                                  <TableRow key={item.field}>
+                                  <TableCell className="font-semibold">{item.label}</TableCell>
+                                  <TableCell className="text-right font-mono">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
+                                  <TableCell className={cn("text-right font-mono", !item.isMatch && "font-bold text-destructive")}>
+                                      {item.receiptValue.toLocaleString('vi-VN')}đ
+                                  </TableCell>
+                                  </TableRow>
+                              ))}
+                              </TableBody>
+                          </Table>
+                      </div>
+                    )}
                   </div>
-                  {discrepancy !== 0 && (
-                    <Card className="border-destructive ring-2 ring-destructive/30">
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-destructive flex items-center gap-2"><AlertCircle/> Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</CardTitle>
-                            <CardDescription>Vui lòng nhập lý do chi tiết và chụp ảnh bằng chứng (nếu cần).</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <Textarea
-                            placeholder="Nhập lý do chênh lệch ở đây..."
-                            value={discrepancyReason}
-                            onChange={e => setDiscrepancyReason(e.target.value)}
-                          />
-                          <div className="flex justify-between items-center">
-                            <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}>
-                              <Camera className="mr-2 h-4 w-4" /> Chụp ảnh bằng chứng
-                            </Button>
-                            {discrepancyPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{discrepancyPhotoIds.length} ảnh đã được chọn.</p>}
-                          </div>
-                        </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                ) : (
+                  <div className="space-y-6">
+                    <Alert variant="default" className="border-green-500/30 bg-green-500/10">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertTitle className="text-green-800 dark:text-green-300">Dữ liệu đã khớp!</AlertTitle>
+                      <AlertDescription className="text-green-700 dark:text-green-400">
+                        Tất cả số liệu trên phiếu bàn giao đều trùng khớp với dữ liệu trên ứng dụng.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                          <CardHeader className="pb-2"><CardTitle className="text-base">Tiền mặt dự kiến</CardTitle></CardHeader>
+                          <CardContent><Input disabled value={handoverData.expectedCash?.toLocaleString('vi-VN') + 'đ'} className="font-bold text-xl h-14 text-right bg-muted" /></CardContent>
+                      </Card>
+                      <Card className="border-primary ring-2 ring-primary/50">
+                          <CardHeader className="pb-2"><CardTitle className="text-base">Tiền mặt thực tế</CardTitle></CardHeader>
+                          <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-xl h-14 text-right" autoFocus onFocus={e => e.target.select()}/></CardContent>
+                      </Card>
+                    </div>
+                    {discrepancy !== 0 && (
+                      <Card className="border-destructive ring-2 ring-destructive/30">
+                          <CardHeader className="pb-4">
+                              <CardTitle className="text-destructive flex items-center gap-2"><AlertCircle/> Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</CardTitle>
+                              <CardDescription>Vui lòng nhập lý do chi tiết và chụp ảnh bằng chứng (nếu cần).</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <Textarea
+                              placeholder="Nhập lý do chênh lệch ở đây..."
+                              value={discrepancyReason}
+                              onChange={e => setDiscrepancyReason(e.target.value)}
+                            />
+                            <div className="flex justify-between items-center">
+                              <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}>
+                                <Camera className="mr-2 h-4 w-4" /> Chụp ảnh bằng chứng
+                              </Button>
+                              {discrepancyPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{discrepancyPhotoIds.length} ảnh đã được chọn.</p>}
+                            </div>
+                          </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
 
           <DialogFooter className="p-6 pt-4 flex flex-col sm:flex-row sm:justify-between items-center gap-2 shrink-0">
              {hasMismatch ? (
