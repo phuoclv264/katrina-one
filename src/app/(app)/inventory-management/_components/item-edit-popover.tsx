@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -31,9 +32,77 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SupplierCombobox } from '@/components/supplier-combobox';
 import { toast } from 'react-hot-toast';
 import isEqual from 'lodash.isequal';
-import type { InventoryItem } from '@/lib/types';
+import type { InventoryItem, UnitDefinition } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { Box, Settings, SlidersHorizontal, ToggleRight } from 'lucide-react';
+import { Box, Settings, SlidersHorizontal, ToggleRight, Trash2, Plus, Star } from 'lucide-react';
+
+
+function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void }) {
+    
+    const handleAddUnit = () => {
+        const newUnit: UnitDefinition = { name: 'Đơn vị mới', isBaseUnit: false, conversionRate: 1 };
+        onUnitsChange([...units, newUnit]);
+    }
+
+    const handleUpdateUnit = (index: number, field: keyof UnitDefinition, value: string | number | boolean) => {
+        const newUnits = [...units];
+        const unitToUpdate = { ...newUnits[index] };
+
+        if (field === 'isBaseUnit' && value === true) {
+            // If setting a new base unit, unset the old one
+            newUnits.forEach((u, i) => {
+                if(u.isBaseUnit) newUnits[i] = {...u, isBaseUnit: false};
+            });
+            unitToUpdate.isBaseUnit = true;
+            unitToUpdate.conversionRate = 1; // Base unit always has rate of 1
+        } else {
+             (unitToUpdate as any)[field] = value;
+        }
+
+        newUnits[index] = unitToUpdate;
+        onUnitsChange(newUnits);
+    }
+    
+    const handleDeleteUnit = (index: number) => {
+        if(units[index].isBaseUnit && units.length > 1) {
+            toast.error("Không thể xóa đơn vị cơ sở. Vui lòng đặt một đơn vị khác làm cơ sở trước.");
+            return;
+        }
+        if(units.length === 1){
+            toast.error("Phải có ít nhất một đơn vị.");
+            return;
+        }
+        const newUnits = units.filter((_, i) => i !== index);
+        onUnitsChange(newUnits);
+    }
+
+    const baseUnitName = units.find(u => u.isBaseUnit)?.name || 'N/A';
+
+    return (
+        <div className="space-y-3">
+             {units.map((unit, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md">
+                    <div className="col-span-4">
+                        <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
+                        <Input id={`unit-name-${index}`} value={unit.name} onChange={e => handleUpdateUnit(index, 'name', e.target.value)} />
+                    </div>
+                     <div className="col-span-5">
+                        <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">1 {unit.name} = ? {baseUnitName}</Label>
+                        <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} disabled={unit.isBaseUnit} />
+                    </div>
+                     <div className="col-span-2 flex flex-col items-center justify-center pt-4">
+                        <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
+                        <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
+                    </div>
+                    <div className="col-span-1 flex items-center justify-center pt-5">
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm đơn vị</Button>
+        </div>
+    )
+}
 
 
 export default function ItemEditPopover({
@@ -66,7 +135,6 @@ export default function ItemEditPopover({
       setHasUnsavedChanges(!isEqual(item, initialItem));
     }, [item, initialItem]);
     
-    // --- Back button handling ---
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
         if (isOpen) {
@@ -87,16 +155,28 @@ export default function ItemEditPopover({
     }, [isOpen, hasUnsavedChanges]);
 
 
-    const handleFieldChange = (field: keyof InventoryItem, value: string | number | boolean | string[]) => {
-        setItem(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleTimeChange = (field: 'start' | 'end', value: string) => {
-        // This function seems to be a leftover from another component, but we'll keep it in case it's used elsewhere implicitly.
-        // Or we can remove it if it's confirmed to be unused. For now, let's assume it might be needed by a prop.
+    const handleFieldChange = (field: keyof InventoryItem, value: any) => {
+        setItem(prev => {
+            if (field === 'units') {
+                const newUnits = value as UnitDefinition[];
+                const newBaseUnit = newUnits.find(u => u.isBaseUnit)?.name || prev.baseUnit;
+                return { ...prev, units: newUnits, baseUnit: newBaseUnit };
+            }
+            return { ...prev, [field]: value }
+        });
     };
 
     const handleSave = () => {
+        const baseUnitCount = item.units.filter(u => u.isBaseUnit).length;
+        if (baseUnitCount === 0) {
+            toast.error("Phải có một đơn vị được chọn làm đơn vị cơ sở.");
+            return;
+        }
+        if (baseUnitCount > 1) {
+            toast.error("Chỉ có thể có một đơn vị cơ sở.");
+            return;
+        }
+
         if (hasUnsavedChanges) {
             onUpdate(item);
             if (item.supplier && !suppliers.includes(item.supplier)) {
@@ -136,7 +216,6 @@ export default function ItemEditPopover({
                  <ScrollArea className="max-h-[70vh] -mx-6 px-6">
                     <div className="space-y-6 py-4 px-1">
                         
-                        {/* Basic Info */}
                         <div className="space-y-4">
                             <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Box className="h-4 w-4"/>Thông tin cơ bản</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -161,35 +240,18 @@ export default function ItemEditPopover({
 
                         <Separator/>
 
-                        {/* Units & Conversion */}
                         <div className="space-y-4">
                              <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><SlidersHorizontal className="h-4 w-4"/>Đơn vị & Quy đổi</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               <div className="space-y-1">
-                                    <Label htmlFor={`unit-${item.id}`} className="text-xs text-muted-foreground">Đơn vị tính (tồn kho)</Label>
-                                    <Input id={`unit-${item.id}`} value={item.unit} onChange={e => handleFieldChange('unit', e.target.value)} className="rounded-lg"/>
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor={`orderUnit-${item.id}`} className="text-xs text-muted-foreground">Đơn vị đặt hàng</Label>
-                                    <Input id={`orderUnit-${item.id}`} value={item.orderUnit} onChange={e => handleFieldChange('orderUnit', e.target.value)} className="rounded-lg"/>
-                                </div>
-                            </div>
-                             {item.orderUnit !== item.unit && (
-                                <div className="space-y-1">
-                                    <Label htmlFor={`conversionRate-${item.id}`} className="text-xs text-muted-foreground">Tỷ lệ quy đổi (1 {item.orderUnit || 'ĐV Đặt'} = ? {item.unit || 'ĐV Tính'})</Label>
-                                    <Input id={`conversionRate-${item.id}`} type="number" value={item.conversionRate} onChange={e => handleFieldChange('conversionRate', Number(e.target.value) || 1)} className="rounded-lg"/>
-                                </div>
-                            )}
+                            <UnitEditor units={item.units} onUnitsChange={(newUnits) => handleFieldChange('units', newUnits)} />
                         </div>
                         
                          <Separator/>
 
-                        {/* Stock Management */}
                          <div className="space-y-4">
                              <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Settings className="h-4 w-4"/>Quản lý tồn kho</h4>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <Label htmlFor={`minStock-${item.id}`} className="text-xs text-muted-foreground">Tồn kho tối thiểu</Label>
+                                    <Label htmlFor={`minStock-${item.id}`} className="text-xs text-muted-foreground">Tồn kho tối thiểu ({item.baseUnit})</Label>
                                     <Input id={`minStock-${item.id}`} type="number" value={item.minStock} onChange={e => handleFieldChange('minStock', Number(e.target.value) || 0)} className="rounded-lg"/>
                                 </div>
                                 <div className="space-y-1">
@@ -217,7 +279,6 @@ export default function ItemEditPopover({
                         
                         <Separator/>
                         
-                        {/* Flags */}
                         <div className="space-y-4">
                             <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><ToggleRight className="h-4 w-4"/>Tùy chọn</h4>
                              <div className="space-y-4">
@@ -264,4 +325,3 @@ export default function ItemEditPopover({
         </Dialog>
     );
 }
-    

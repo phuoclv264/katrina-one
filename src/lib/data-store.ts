@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -27,7 +26,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -1312,6 +1311,7 @@ export const dataStore = {
             category: item.category ?? 'CHƯA PHÂN LOẠI',
             dataType: item.dataType || 'number',
             listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+             units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || '', isBaseUnit: true, conversionRate: 1 }]
         }));
     }
     return initialInventoryList;
@@ -1327,7 +1327,7 @@ export const dataStore = {
           ...item,
           shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
           baseUnit: item.baseUnit || (item as any).unit || 'cái',
-          units: item.units && item.units.length > 0 ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }],
+          units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }],
           supplier: item.supplier ?? 'Chưa xác định',
           category: item.category ?? 'CHƯA PHÂN LOẠI',
           dataType: item.dataType || 'number',
@@ -2169,9 +2169,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
-
-
-
-    
