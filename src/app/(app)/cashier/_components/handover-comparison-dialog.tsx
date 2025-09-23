@@ -103,12 +103,12 @@ export default function HandoverComparisonDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-            className="max-w-4xl h-full md:h-auto md:max-h-[90vh] flex flex-col p-0"
+            className="max-w-md md:max-w-4xl h-full md:h-auto md:max-h-[90vh] flex flex-col p-0 rounded-lg"
             onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className={cn(
             "p-4 md:p-6 flex flex-row items-center gap-4 space-y-0 shrink-0",
-             hasMismatch ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-600"
+             hasMismatch ? "bg-red-50 dark:bg-destructive/20 text-destructive" : "bg-green-50 dark:bg-green-500/10 text-green-600"
           )}>
             {hasMismatch ? <AlertCircle className="h-8 w-8 shrink-0"/> : <CheckCircle className="h-8 w-8 shrink-0"/>}
             <div className="flex-1">
@@ -118,7 +118,7 @@ export default function HandoverComparisonDialog({
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-grow">
+          <ScrollArea className="flex-grow bg-white dark:bg-card">
               <div className="p-4 md:p-6 space-y-6">
                 {hasMismatch && comparisonResult ? (
                   <div className="space-y-4">
@@ -133,7 +133,7 @@ export default function HandoverComparisonDialog({
                     {isMobile ? (
                       <div className="space-y-3">
                           {comparisonResult.map(item => (
-                              <Card key={item.field} className={cn(!item.isMatch && "border-destructive border-2")}>
+                              <Card key={item.field} className={cn("rounded-xl shadow-sm", !item.isMatch && "border-destructive border-2")}>
                                   <CardHeader className="p-3 pb-2 flex-row justify-between items-center">
                                       <CardTitle className="text-base">{item.label}</CardTitle>
                                       {!item.isMatch && <Badge variant="destructive">Sai lệch</Badge>}
@@ -152,7 +152,7 @@ export default function HandoverComparisonDialog({
                           ))}
                       </div>
                     ) : (
-                      <div className="border rounded-lg overflow-hidden">
+                      <ScrollArea className="max-h-[300px] w-full rounded-lg border">
                           <Table>
                               <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                                   <TableRow>
@@ -163,22 +163,22 @@ export default function HandoverComparisonDialog({
                               </TableHeader>
                               <TableBody>
                               {comparisonResult.map(item => (
-                                  <TableRow key={item.field} className={cn(!item.isMatch && "bg-destructive/10")}>
+                                  <TableRow key={item.field}>
                                   <TableCell className="font-semibold">{item.label}</TableCell>
                                   <TableCell className="text-right font-mono text-base">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                                  <TableCell className={cn("text-right font-mono text-base", !item.isMatch && "font-bold text-destructive")}>
+                                  <TableCell className={cn("text-right font-mono text-base", !item.isMatch && "font-bold text-destructive bg-red-50 dark:bg-destructive/20")}>
                                       {item.receiptValue.toLocaleString('vi-VN')}đ
                                   </TableCell>
                                   </TableRow>
                               ))}
                               </TableBody>
                           </Table>
-                      </div>
+                      </ScrollArea>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <Alert variant="default" className="border-green-500/30 bg-green-500/10">
+                    <Alert variant="default" className="border-green-500/30 bg-green-500/10 rounded-xl">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <AlertTitle className="text-green-800 dark:text-green-300">Dữ liệu đã khớp!</AlertTitle>
                       <AlertDescription className="text-green-700 dark:text-green-400">
@@ -186,19 +186,19 @@ export default function HandoverComparisonDialog({
                       </AlertDescription>
                     </Alert>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card>
-                          <CardHeader className="pb-2"><CardTitle className="text-base">Tiền mặt dự kiến</CardTitle></CardHeader>
+                      <Card className="rounded-xl">
+                          <CardHeader className="pb-2"><CardTitle className="text-base text-muted-foreground">Tiền mặt dự kiến</CardTitle></CardHeader>
                           <CardContent><Input disabled value={handoverData.expectedCash?.toLocaleString('vi-VN') + 'đ'} className="font-bold text-2xl h-14 text-right bg-muted" /></CardContent>
                       </Card>
-                      <Card className="border-primary ring-2 ring-primary/50">
-                          <CardHeader className="pb-2"><CardTitle className="text-base">Tiền mặt thực tế</CardTitle></CardHeader>
+                      <Card className="border-primary ring-2 ring-primary/50 rounded-xl">
+                          <CardHeader className="pb-2"><CardTitle className="text-base text-primary">Tiền mặt thực tế</CardTitle></CardHeader>
                           <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()}/></CardContent>
                       </Card>
                     </div>
                     {discrepancy !== 0 && (
-                      <Card className="border-destructive ring-2 ring-destructive/30 mt-6">
+                      <Card className="border-destructive ring-2 ring-destructive/30 mt-6 rounded-xl">
                           <CardHeader className="pb-4">
-                              <CardTitle className="text-destructive flex items-center gap-2 text-xl"><AlertCircle/> Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</CardTitle>
+                              <CardTitle className="text-destructive flex items-center gap-2 text-lg md:text-xl"><AlertCircle/> Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</CardTitle>
                               <CardDescription>Vui lòng nhập lý do chi tiết và chụp ảnh bằng chứng (nếu cần).</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
@@ -227,23 +227,23 @@ export default function HandoverComparisonDialog({
               </div>
           </ScrollArea>
 
-          <DialogFooter className="p-4 md:p-6 border-t shrink-0">
+          <DialogFooter className="p-4 md:p-6 border-t shrink-0 bg-white dark:bg-card rounded-b-lg">
              {hasMismatch ? (
                 <div className="w-full flex flex-col md:flex-row md:justify-between gap-3">
-                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                        <Button variant="secondary" onClick={onNavigateToExpenses} className="w-full h-11 md:h-auto">
+                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto order-2 md:order-1">
+                        <Button variant="secondary" onClick={onNavigateToExpenses} className="w-full h-11 md:h-10 text-base md:text-sm">
                             <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
                         </Button>
-                        <Button variant="secondary" onClick={onNavigateToRevenue} className="w-full h-11 md:h-auto">
+                        <Button variant="secondary" onClick={onNavigateToRevenue} className="w-full h-11 md:h-10 text-base md:text-sm">
                             <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
                         </Button>
                     </div>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full md:w-auto h-11 md:h-auto">Hủy</Button>
+                     <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full md:w-auto h-11 md:h-10 text-base md:text-sm order-1 md:order-2">Hủy</Button>
                 </div>
              ) : (
                 <div className="w-full flex flex-col md:flex-row md:justify-end gap-3">
-                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full md:w-auto h-11 md:h-auto">Hủy</Button>
-                    <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null} className="w-full md:w-auto h-11 md:h-auto text-base">
+                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full md:w-auto h-11 md:h-10 text-base md:text-sm">Hủy</Button>
+                    <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null} className="w-full md:w-auto h-12 md:h-10 text-base">
                         {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <ArrowRight className="mr-2 h-5 w-5"/>}
                         {isProcessing ? 'Đang gửi...' : 'Hoàn tất & Gửi Báo cáo'}
                     </Button>
@@ -256,3 +256,6 @@ export default function HandoverComparisonDialog({
     </>
   );
 }
+
+
+    
