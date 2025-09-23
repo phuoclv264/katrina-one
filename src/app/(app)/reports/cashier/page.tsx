@@ -523,7 +523,7 @@ export default function CashierReportsPage() {
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
             {sortedDatesInMonth.map(date => {
                 const dayReports = reportsForCurrentMonth[date];
-                const revenueReports = (dayReports.revenue || []).sort((a,b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+                const revenueReports = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
 
                 return (
                     <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
@@ -540,9 +540,12 @@ export default function CashierReportsPage() {
                                 <CardContent className="p-4 pt-0 space-y-4">
                                 {revenueReports.length > 0 ? (
                                     revenueReports.map((stat, index) => {
-                                        const prevStat = index > 0 ? revenueReports[index - 1] : null;
+                                        const prevStat = index < revenueReports.length - 1 ? revenueReports[index + 1] : null;
                                         const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : stat.netRevenue;
-                                        const netRevenueDisplay = prevStat ? `${netRevenueDiff >= 0 ? '+' : ''}${netRevenueDiff.toLocaleString('vi-VN')}đ` : `${stat.netRevenue.toLocaleString('vi-VN')}đ`;
+                                        
+                                        const netRevenueDisplay = prevStat 
+                                            ? `${netRevenueDiff >= 0 ? '+' : ''}${netRevenueDiff.toLocaleString('vi-VN')}đ` 
+                                            : `${stat.netRevenue.toLocaleString('vi-VN')}đ`;
 
                                         return (
                                         <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
@@ -588,7 +591,7 @@ export default function CashierReportsPage() {
                                             <div className="flex items-center gap-2 mt-1">
                                             <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
                                             {prevStat && (
-                                                <Badge className={cn(netRevenueDiff >= 0 ? "bg-green-600" : "bg-red-600", "text-white")}>
+                                                <Badge className={cn(netRevenueDiff > 0 ? "bg-green-600" : (netRevenueDiff < 0 ? "bg-red-600" : "bg-gray-500"), "text-white")}>
                                                     {netRevenueDisplay}
                                                 </Badge>
                                             )}
