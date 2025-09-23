@@ -1321,18 +1321,22 @@ export const dataStore = {
     const docRef = doc(db, 'app-data', 'inventoryList');
      const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        const items = docSnap.data().items as InventoryItem[];
+        const items = (docSnap.data().items || []) as InventoryItem[];
         // Data sanitization step to ensure data consistency
-        const sanitizedItems = items.map(item => ({
-          ...item,
-          shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
-          baseUnit: item.baseUnit || (item as any).unit || 'cái',
-          units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }],
-          supplier: item.supplier ?? 'Chưa xác định',
-          category: item.category ?? 'CHƯA PHÂN LOẠI',
-          dataType: item.dataType || 'number',
-          listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
-        }));
+        const sanitizedItems = items.map(item => {
+          const baseUnit = item.baseUnit || (item as any).unit || 'cái';
+          const units = (item.units && item.units.length > 0) ? item.units : [{ name: baseUnit, isBaseUnit: true, conversionRate: 1 }];
+          return {
+            ...item,
+            shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
+            baseUnit,
+            units,
+            supplier: item.supplier ?? 'Chưa xác định',
+            category: item.category ?? 'CHƯA PHÂN LOẠI',
+            dataType: item.dataType || 'number',
+            listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+          };
+        });
         callback(sanitizedItems);
       } else {
         try {
@@ -1840,7 +1844,7 @@ export const dataStore = {
        });
        reports.sort((a, b) => {
          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-         const timeB = new Date(b.submittedAt as string).getTime();
+         const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
          return timeA - timeB;
        });
        callback(reports);
