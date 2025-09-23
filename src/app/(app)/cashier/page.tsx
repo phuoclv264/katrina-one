@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Edit2 } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory, ExtractHandoverDataOutput } from '@/lib/types';
@@ -56,7 +57,7 @@ function StartOfDayCashDialog({
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-auto p-1 text-muted-foreground hover:text-primary">
-                    <Edit2 className="h-4 w-4" />
+                    <Edit className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
             <DialogContent>
@@ -109,7 +110,9 @@ export default function CashierDashboardPage() {
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [dailyIncidents, setDailyIncidents] = useState<IncidentReport[]>([]);
-  const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
+  const [dailyRevenueStats, setDailyRevenueStats] = useState<RevenueStats[]>([]);
+  const [handoverReport, setHandoverReport] = useState<HandoverReport | null>(null);
+
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,8 +129,9 @@ export default function CashierDashboardPage() {
   const [comparisonResult, setComparisonResult] = useState<any[] | null>(null);
   const [handoverReceiptData, setHandoverReceiptData] = useState<any | null>(null);
 
-
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
+  const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
+
 
   useEffect(() => {
     // Load start of day cash from local storage
@@ -157,29 +161,24 @@ export default function CashierDashboardPage() {
         const unsubIncidents = dataStore.subscribeToAllIncidents((allIncidents) => {
             setDailyIncidents(allIncidents.filter(i => i.date === date));
         });
-        const unsubRevenue = dataStore.subscribeToRevenueStats(date, setRevenueStats);
+        const unsubRevenue = dataStore.subscribeToDailyRevenueStats(date, setDailyRevenueStats);
         const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
         const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(setOtherCostCategories);
+        const unsubHandover = dataStore.subscribeToHandoverReport(date, setHandoverReport);
 
-        // Fetch initial data to set loading state correctly
-        const fetchInitialData = async () => {
-            try {
-                const [slips, incidents, revenue, inventory, costCategories] = await Promise.all([
-                    dataStore.getDailyExpenseSlips(date),
-                    dataStore.subscribeToAllIncidents((all) => setDailyIncidents(all.filter(i => i.date === date))),
-                    dataStore.getRevenueStats(date),
-                    dataStore.getInventoryList(),
-                    dataStore.getOtherCostCategories(),
-                ]);
-            } catch (error) {
-                console.error("Failed to fetch cashier data:", error);
-                toast.error("Không thể tải dữ liệu.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchInitialData();
+        Promise.all([
+            dataStore.getDailyExpenseSlips(date),
+            dataStore.subscribeToAllIncidents((all) => setDailyIncidents(all.filter(i => i.date === date))),
+            dataStore.getDailyRevenueStats(date),
+            dataStore.getInventoryList(),
+            dataStore.getOtherCostCategories(),
+            dataStore.getHandoverReport(date),
+        ]).catch(error => {
+            console.error("Failed to fetch cashier data:", error);
+            toast.error("Không thể tải dữ liệu.");
+        }).finally(() => {
+            setIsLoading(false);
+        });
         
         return () => {
             unsubSlips();
@@ -187,11 +186,12 @@ export default function CashierDashboardPage() {
             unsubRevenue();
             unsubInventory();
             unsubOtherCostCategories();
+            unsubHandover();
         };
     }
   }, [user]);
 
-  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand } = useMemo(() => {
+  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue, totalDeliveryPayout } = useMemo(() => {
     const { totalCashExpense, totalBankExpense } = dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
         acc.totalCashExpense += slip.totalAmount;
@@ -201,17 +201,24 @@ export default function CashierDashboardPage() {
       return acc;
     }, { totalCashExpense: 0, totalBankExpense: 0 });
 
-    const cashRevenue = revenueStats?.revenueByPaymentMethod.cash || 0;
+    const totalNetRevenue = dailyRevenueStats.reduce((sum, stat) => sum + (stat.netRevenue || 0), 0);
+    const totalDeliveryPayout = dailyRevenueStats.reduce((sum, stat) => sum + (stat.deliveryPartnerPayout || 0), 0);
+    const cashRevenue = dailyRevenueStats.reduce((sum, stat) => sum + (stat.revenueByPaymentMethod.cash || 0), 0);
+    
     const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
 
-    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand };
-  }, [dailySlips, revenueStats, startOfDayCash]);
+    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue, totalDeliveryPayout };
+  }, [dailySlips, dailyRevenueStats, startOfDayCash]);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setIsProcessing(true);
     try {
-        const slipData = { ...data, createdBy: { userId: user.uid, userName: user.displayName }};
+        const slipData = { 
+            ...data, 
+            createdBy: slipToEdit?.createdBy || { userId: user.uid, userName: user.displayName },
+            lastModifiedBy: id ? { userId: user.uid, userName: user.displayName } : undefined,
+        };
         await dataStore.addOrUpdateExpenseSlip(slipData, id);
         toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
         setIsExpenseDialogOpen(false);
@@ -221,7 +228,7 @@ export default function CashierDashboardPage() {
     } finally {
         setIsProcessing(false);
     }
-  }, [user]);
+  }, [user, slipToEdit]);
   
   const handleDeleteSlip = async (slip: ExpenseSlip) => {
     setIsProcessing(true);
@@ -254,42 +261,64 @@ export default function CashierDashboardPage() {
       }
   }, [user]);
   
-  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean, id?: string) => {
     if(!user) return;
     setIsProcessing(true);
     try {
-        await dataStore.addOrUpdateRevenueStats(data, user, isEdited);
-        toast.success("Đã cập nhật doanh thu.");
+        await dataStore.addOrUpdateRevenueStats(data, user, isEdited, id);
+        toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu thống kê.`);
         setIsRevenueDialogOpen(false);
     } catch(error) {
         console.error("Failed to save revenue stats", error);
-        toast.error("Không thể lưu doanh thu.");
+        toast.error("Không thể lưu thống kê doanh thu.");
     } finally {
         setIsProcessing(false);
     }
   }, [user]);
+
+   const handleDeleteRevenue = async (id: string) => {
+    setIsProcessing(true);
+    try {
+        await dataStore.deleteRevenueStats(id);
+        toast.success("Đã xóa phiếu thống kê doanh thu.");
+    } catch(error) {
+        console.error("Failed to delete revenue stats:", error);
+        toast.error("Không thể xóa phiếu thống kê.");
+    } finally {
+        setIsProcessing(false);
+    }
+  }
   
-  const handleEditClick = (slip: ExpenseSlip) => {
+  const handleEditSlip = (slip: ExpenseSlip) => {
       setSlipToEdit(slip);
       setIsExpenseDialogOpen(true);
+  }
+
+  const handleEditRevenue = (stats: RevenueStats) => {
+      setRevenueStatsToEdit(stats);
+      setIsRevenueDialogOpen(true);
   }
 
   const handleHandoverSubmit = (data: ExtractHandoverDataOutput & {imageDataUri: string}) => {
     setIsHandoverDialogOpen(false); // Close the input dialog
     
     const receiptData = data.handoverData;
+    
+    const revenueByCardFromApp = dailyRevenueStats.reduce((acc, stat) => {
+        acc.techcombankVietQrPro += stat.revenueByPaymentMethod.techcombankVietQrPro || 0;
+        acc.shopeeFood += stat.revenueByPaymentMethod.shopeeFood || 0;
+        acc.grabFood += stat.revenueByPaymentMethod.grabFood || 0;
+        acc.bankTransfer += stat.revenueByPaymentMethod.bankTransfer || 0;
+        return acc;
+    }, { techcombankVietQrPro: 0, shopeeFood: 0, grabFood: 0, bankTransfer: 0 });
+
     const appData = {
         expectedCash: expectedCashOnHand,
         startOfDayCash: startOfDayCash,
         cashExpense: totalCashExpense,
-        cashRevenue: revenueStats?.revenueByPaymentMethod.cash || 0,
-        deliveryPartnerPayout: revenueStats?.deliveryPartnerPayout || 0,
-        revenueByCard: {
-            techcombankVietQrPro: revenueStats?.revenueByPaymentMethod.techcombankVietQrPro || 0,
-            shopeeFood: revenueStats?.revenueByPaymentMethod.shopeeFood || 0,
-            grabFood: revenueStats?.revenueByPaymentMethod.grabFood || 0,
-            bankTransfer: revenueStats?.revenueByPaymentMethod.bankTransfer || 0,
-        }
+        cashRevenue: cashRevenue,
+        deliveryPartnerPayout: totalDeliveryPayout,
+        revenueByCard: revenueByCardFromApp,
     };
     
     const comparison = [
@@ -439,13 +468,40 @@ export default function CashierDashboardPage() {
                 <CardHeader>
                     <CardTitle>Thống kê Doanh thu</CardTitle>
                     <CardDescription>
-                        Nhập số liệu từ bill tổng kết trên máy POS.
+                        Nhập số liệu từ bill tổng kết trên máy POS. Mỗi lần nhập sẽ tạo một phiếu riêng.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Button className="w-full" onClick={() => setIsRevenueDialogOpen(true)}>
-                        <Receipt className="mr-2 h-4 w-4" />
-                        {revenueStats ? 'Cập nhật' : 'Nhập'} Doanh thu
+                <CardContent className="space-y-4">
+                    {dailyRevenueStats.length > 0 && (
+                        <Table>
+                            <TableHeader><TableRow><TableHead>Người tạo</TableHead><TableHead>Doanh thu Net</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                                {dailyRevenueStats.map(stat => {
+                                    const canEdit = stat.createdBy.userId === user.uid;
+                                    return (
+                                        <TableRow key={stat.id}>
+                                            <TableCell className="font-medium">{stat.createdBy.userName}</TableCell>
+                                            <TableCell>{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</TableCell>
+                                            <TableCell className="text-right">
+                                                {canEdit && (
+                                                    <>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleEditRevenue(stat)}><Edit className="h-4 w-4" /></Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+                    )}
+                    <Button className="w-full" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Nhập Thống kê Doanh thu
                     </Button>
                 </CardContent>
             </Card>
@@ -470,11 +526,14 @@ export default function CashierDashboardPage() {
                                        <TableHead>Nội dung</TableHead>
                                        <TableHead>Tổng tiền</TableHead>
                                        <TableHead>Hình thức</TableHead>
+                                       <TableHead>Người tạo</TableHead>
                                        <TableHead className="text-right">Hành động</TableHead>
                                    </TableRow>
                                </TableHeader>
                                <TableBody>
-                                   {dailySlips.map(slip => (
+                                   {dailySlips.map(slip => {
+                                      const canEdit = slip.createdBy.userId === user.uid;
+                                      return (
                                        <TableRow key={slip.id}>
                                            <TableCell className="font-medium">
                                                 {getSlipContentName(slip.items[0])}
@@ -483,30 +542,36 @@ export default function CashierDashboardPage() {
                                            </TableCell>
                                            <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
                                            <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
+                                           <TableCell>{slip.createdBy.userName}</TableCell>
                                            <TableCell className="text-right">
-                                               <Button variant="ghost" size="icon" onClick={() => handleEditClick(slip)} disabled={isProcessing}>
-                                                    <Edit className="h-4 w-4" />
-                                               </Button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
-                                                            <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                               {canEdit ? (
+                                                <>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleEditSlip(slip)} disabled={isProcessing}>
+                                                            <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                </>
+                                               ) : null}
                                            </TableCell>
                                        </TableRow>
-                                   ))}
+                                      )
+                                   })}
                                </TableBody>
                            </Table>
                        </div>
@@ -520,12 +585,16 @@ export default function CashierDashboardPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Bàn giao cuối ca</CardTitle>
-                    <CardDescription>Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
+                    {handoverReport ? (
+                        <CardDescription>Ca hôm nay đã được bàn giao bởi <span className="font-semibold">{handoverReport.createdBy.userName}</span>.</CardDescription>
+                    ) : (
+                        <CardDescription>Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
+                    )}
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full" onClick={() => setIsHandoverDialogOpen(true)} disabled={!revenueStats}>
-                        <ArrowRight className="mr-2 h-4 w-4" />
-                        Thực hiện bàn giao
+                    <Button className="w-full" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
+                       {handoverReport ? <Lock className="mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                       {handoverReport ? 'Đã Bàn Giao' : 'Thực hiện bàn giao'}
                     </Button>
                 </CardContent>
             </Card>
@@ -551,9 +620,9 @@ export default function CashierDashboardPage() {
     <RevenueStatsDialog
         open={isRevenueDialogOpen}
         onOpenChange={setIsRevenueDialogOpen}
-        onSave={handleSaveRevenue}
+        onSave={(data, isEdited) => handleSaveRevenue(data, isEdited, revenueStatsToEdit?.id)}
         isProcessing={isProcessing}
-        existingStats={revenueStats}
+        existingStats={revenueStatsToEdit}
     />
     <HandoverDialog
         open={isHandoverDialogOpen}

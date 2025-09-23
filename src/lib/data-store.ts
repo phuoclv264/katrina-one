@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -64,11 +65,41 @@ photoStore.cleanupOldPhotos();
 export const dataStore = {
      // --- Cashier ---
 
+    subscribeToHandoverReport(date: string, callback: (report: HandoverReport | null) => void): () => void {
+        const docRef = doc(db, 'handover_reports', date);
+        return onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                 const data = docSnap.data();
+                 callback({
+                     ...data,
+                     id: docSnap.id,
+                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                 } as HandoverReport);
+            } else {
+                callback(null);
+            }
+        });
+    },
+
+     async getHandoverReport(date: string): Promise<HandoverReport | null> {
+        const docRef = doc(db, 'handover_reports', date);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+             const data = docSnap.data();
+             return {
+                 ...data,
+                 id: docSnap.id,
+                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+             } as HandoverReport;
+        }
+        return null;
+    },
+
     async addHandoverReport(data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
         const date = format(new Date(), 'yyyy-MM-dd');
         const docRef = doc(db, 'handover_reports', date);
         
-        let handoverImageUrl = data.handoverImageUrl;
+        let handoverImageUrl = data.handoverData.imageDataUri;
         if (handoverImageUrl && handoverImageUrl.startsWith('data:')) {
             const blob = await (await fetch(handoverImageUrl)).blob();
             const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
@@ -98,6 +129,9 @@ export const dataStore = {
             createdAt: serverTimestamp(),
             isVerified: false,
         };
+        // The imageDataUri from AI flow is large, don't save it to firestore.
+        delete finalData.handoverData.imageDataUri;
+
 
         await setDoc(docRef, finalData);
     },
@@ -170,43 +204,40 @@ export const dataStore = {
         const docRef = doc(db, 'app-data', 'otherCostCategories');
         await setDoc(docRef, { list: newCategories });
     },
-
-    subscribeToRevenueStats(date: string, callback: (stats: RevenueStats | null) => void): () => void {
-        const docRef = doc(db, 'revenue_stats', date);
-        return onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                 const data = docSnap.data();
-                 callback({
-                     id: docSnap.id,
-                     ...data,
-                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                 } as RevenueStats);
-            } else {
-                callback(null);
-            }
+    
+    subscribeToDailyRevenueStats(date: string, callback: (stats: RevenueStats[]) => void): () => void {
+        const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, (snapshot) => {
+            const stats = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as RevenueStats));
+            callback(stats);
         }, (error) => {
-            console.error(`[Firestore Read Error] Could not read revenue stats: ${error.code}`);
-            callback(null);
+            console.error(`[Firestore Read Error] Could not read daily revenue stats: ${error.code}`);
+            callback([]);
         });
     },
 
-    async getRevenueStats(date: string): Promise<RevenueStats | null> {
-        const docRef = doc(db, 'revenue_stats', date);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-             const data = docSnap.data();
-             return {
-                 id: docSnap.id,
-                 ...data,
-                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-             } as RevenueStats;
-        }
-        return null;
+    async getDailyRevenueStats(date: string): Promise<RevenueStats[]> {
+        const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as RevenueStats));
+    },
+    
+    async deleteRevenueStats(id: string): Promise<void> {
+        const docRef = doc(db, 'revenue_stats', id);
+        await deleteDoc(docRef);
     },
 
     async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
-        const date = documentId ? documentId : format(new Date(), 'yyyy-MM-dd');
-        const docRef = doc(db, 'revenue_stats', date);
+        const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
+        const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
 
         let finalData: Partial<RevenueStats> = {
             ...data,
@@ -214,23 +245,13 @@ export const dataStore = {
             isEdited: isEdited,
         };
 
-        const docSnap = await getDoc(docRef);
-        if(!docSnap.exists()){
-            finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
-            finalData.createdAt = serverTimestamp();
-        }
-
-
         if (data.invoiceImageUrl && data.invoiceImageUrl.startsWith('data:')) {
             const blob = await (await fetch(data.invoiceImageUrl)).blob();
             const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, blob);
             finalData.invoiceImageUrl = await getDownloadURL(storageRef);
-        } else {
-            // if image is not new, don't update it unless it's explicitly passed as null/undefined to be cleared
-            if (data.invoiceImageUrl === undefined) {
-                 delete finalData.invoiceImageUrl;
-            }
+        } else if (data.invoiceImageUrl === undefined) {
+             delete finalData.invoiceImageUrl;
         }
     
         // If there's a delivery partner payout, also create an expense slip
@@ -253,8 +274,14 @@ export const dataStore = {
             };
             this.addOrUpdateExpenseSlip(expenseData).catch(e => console.error("Failed to auto-create expense slip for delivery payout:", e));
         }
-
-        await setDoc(docRef, finalData, { merge: true });
+        
+        if (documentId) {
+            await updateDoc(docRef, finalData);
+        } else {
+            finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
+            finalData.createdAt = serverTimestamp();
+            await setDoc(docRef, finalData);
+        }
     },
 
 
@@ -309,7 +336,7 @@ export const dataStore = {
         const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
 
         // Recalculate totalAmount right before saving to ensure it's always correct
-        slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0);
+        slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
         // Prepare slip data
         const finalData = { ...slipData, attachmentPhotos: finalPhotos };
@@ -1917,7 +1944,7 @@ export const dataStore = {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
         const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, blob);
+        await uploadBytes(storageRef, photoBlob);
         return getDownloadURL(storageRef);
     });
     
@@ -1996,7 +2023,7 @@ export const dataStore = {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
         const storageRef = ref(storage, `violations/${violationId}/comments/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, blob);
+        await uploadBytes(storageRef, photoBlob);
         return getDownloadURL(storageRef);
     });
     const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
