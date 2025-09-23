@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, ExpenseItem, OtherCostCategory, ExtractHandoverDataOutput } from '@/lib/types';
+import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -25,6 +25,9 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 
 function StartOfDayCashDialog({ 
@@ -108,6 +111,8 @@ export default function CashierDashboardPage() {
   
   const expenseSlipsRef = useRef<HTMLDivElement>(null);
   const revenueStatsRef = useRef<HTMLDivElement>(null);
+  
+  const isMobile = useIsMobile();
 
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [dailyIncidents, setDailyIncidents] = useState<IncidentReport[]>([]);
@@ -479,14 +484,47 @@ export default function CashierDashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {dailyRevenueStats.length > 0 && (
+                        isMobile ? (
+                            <div className="space-y-3">
+                                {dailyRevenueStats.map(stat => {
+                                    const canEdit = stat.createdBy.userId === user.uid;
+                                    return (
+                                        <Card key={stat.id}>
+                                            <CardContent className="p-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="space-y-1">
+                                                        <p className="font-semibold">Phiếu của {stat.createdBy.userName}</p>
+                                                         <p className="text-xs text-muted-foreground">
+                                                            {format(new Date(stat.createdAt as string), 'HH:mm')}
+                                                            {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}
+                                                         </p>
+                                                    </div>
+                                                    <p className="font-bold text-lg text-primary">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
+                                                </div>
+                                                 {canEdit && (
+                                                    <div className="flex justify-end gap-2 mt-2 border-t pt-2">
+                                                        <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                 )}
+                                            </CardContent>
+                                        </Card>
+                                    )
+                                })}
+                            </div>
+                        ) : (
                         <Table>
-                            <TableHeader><TableRow><TableHead>Người tạo</TableHead><TableHead>Doanh thu Net</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Người tạo</TableHead><TableHead>Thời gian</TableHead><TableHead>Doanh thu Net</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {dailyRevenueStats.map(stat => {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     return (
                                         <TableRow key={stat.id}>
-                                            <TableCell className="font-medium">{stat.createdBy.userName}</TableCell>
+                                            <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
                                             <TableCell>{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</TableCell>
                                             <TableCell className="text-right">
                                                 {canEdit && (
@@ -504,6 +542,7 @@ export default function CashierDashboardPage() {
                                 })}
                             </TableBody>
                         </Table>
+                        )
                     )}
                     <Button className="w-full" onClick={() => { setRevenueStatsToEdit(null); setIsNewRevenueDialogOpen(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -525,11 +564,49 @@ export default function CashierDashboardPage() {
                 </CardHeader>
                 <CardContent>
                     {dailySlips.length > 0 ? (
+                       isMobile ? (
+                            <div className="space-y-3">
+                                {dailySlips.map(slip => {
+                                      const canEdit = slip.createdBy.userId === user.uid;
+                                      return (
+                                        <Card key={slip.id}>
+                                            <CardContent className="p-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="space-y-1 pr-2">
+                                                        <p className="font-semibold text-sm">{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {slip.createdBy.userName} • {format(new Date(slip.createdAt as string), 'HH:mm')}
+                                                            {slip.lastModifiedBy && <Badge variant="secondary" className="ml-2 text-xs">Sửa</Badge>}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                         <p className="font-bold text-base text-red-600">-{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
+                                                        <Badge variant={slip.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="text-xs mt-1">
+                                                            {slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                                {canEdit && (
+                                                    <div className="flex justify-end gap-2 mt-2 border-t pt-2">
+                                                        <Button variant="ghost" size="sm" onClick={() => handleEditSlip(slip)} disabled={isProcessing}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive" disabled={isProcessing}><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                      )
+                                })}
+                            </div>
+                       ) : (
                        <div className="overflow-x-auto">
                            <Table>
                                <TableHeader>
                                    <TableRow>
                                        <TableHead>Nội dung</TableHead>
+                                       <TableHead>Thời gian</TableHead>
                                        <TableHead>Tổng tiền</TableHead>
                                        <TableHead>Hình thức</TableHead>
                                        <TableHead>Người tạo</TableHead>
@@ -546,6 +623,16 @@ export default function CashierDashboardPage() {
                                                 {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
                                                 <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                            </TableCell>
+                                           <TableCell className="text-sm text-muted-foreground">
+                                             {slip.lastModifiedBy ? (
+                                                <div className="flex items-center gap-1">
+                                                    <Edit2 className="h-3 w-3 text-yellow-500" />
+                                                    {format(new Date(slip.lastModified as string), 'HH:mm')}
+                                                </div>
+                                             ) : (
+                                                format(new Date(slip.createdAt as string), 'HH:mm')
+                                             )}
+                                            </TableCell>
                                            <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
                                            <TableCell>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</TableCell>
                                            <TableCell>{slip.createdBy.userName}</TableCell>
@@ -581,6 +668,7 @@ export default function CashierDashboardPage() {
                                </TableBody>
                            </Table>
                        </div>
+                       )
                     ) : (
                          <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
                     )}
@@ -658,3 +746,5 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
+    
