@@ -340,7 +340,7 @@ export const dataStore = {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
                 const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
+                await uploadBytes(storageRef, blob);
                 return getDownloadURL(storageRef);
             });
             newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
