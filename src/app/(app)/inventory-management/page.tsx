@@ -232,9 +232,9 @@ export default function InventoryManagementPage() {
             item.minStock, item.orderSuggestion,
             item.requiresPhoto ? 'CÓ' : 'KHÔNG',
             item.isImportant ? 'CÓ' : 'KHÔNG'
-        ].join('\t') // Use tab separation for better spreadsheet pasting
+        ].join('|')
     );
-    textToCopy = [headers.join('\t'), ...rows].join('\n');
+    textToCopy = [headers.join('|'), ...rows].join('\n');
     
     navigator.clipboard.writeText(textToCopy).then(() => {
         toast.success("Danh sách đã được sao chép vào bộ nhớ tạm.");
