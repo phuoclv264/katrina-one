@@ -209,10 +209,12 @@ export default function CashierDashboardPage() {
     }
   }, [user]);
 
-  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue, totalDeliveryPayout } = useMemo(() => {
+  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue } = useMemo(() => {
     const { totalCashExpense, totalBankExpense } = dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
-        acc.totalCashExpense += slip.totalAmount;
+        // Use actualPaidAmount if available for cash payments, otherwise fall back to totalAmount
+        const amount = slip.actualPaidAmount ?? slip.totalAmount;
+        acc.totalCashExpense += amount;
       } else if (slip.paymentMethod === 'bank_transfer') {
         acc.totalBankExpense += slip.totalAmount;
       }
@@ -222,13 +224,12 @@ export default function CashierDashboardPage() {
     const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
 
     const totalNetRevenue = latestRevenueStats?.netRevenue || 0;
-    const totalDeliveryPayout = handoverReport?.handoverData.deliveryPartnerPayout || 0;
     const cashRevenue = latestRevenueStats?.revenueByPaymentMethod.cash || 0;
     
     const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
 
-    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue, totalDeliveryPayout };
-  }, [dailySlips, dailyRevenueStats, startOfDayCash, handoverReport]);
+    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue };
+  }, [dailySlips, dailyRevenueStats, startOfDayCash]);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -582,6 +583,7 @@ export default function CashierDashboardPage() {
                             <div className="space-y-3">
                                 {dailySlips.map(slip => {
                                     const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
+                                    const actualAmount = slip.paymentMethod === 'cash' ? slip.actualPaidAmount ?? slip.totalAmount : slip.totalAmount;
                                     return (
                                         <Card key={slip.id}>
                                             <CardContent className="p-3">
@@ -594,12 +596,12 @@ export default function CashierDashboardPage() {
                                                         <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
                                                             <span>{slip.createdBy.userName}</span>
                                                             <span>•</span>
-                                                            <span>{format(new Date(slip.lastModified || slip.createdAt as string), 'HH:mm')}</span>
+                                                            <span>{slip.lastModifiedBy ? format(new Date(slip.lastModified as string), 'HH:mm') : format(new Date(slip.createdAt as string), 'HH:mm')}</span>
                                                             {slip.lastModifiedBy && <Badge variant="secondary" className="text-xs">Sửa</Badge>}
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-base text-red-600">-{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
+                                                        <p className="font-bold text-base text-red-600">-{actualAmount.toLocaleString('vi-VN')}đ</p>
                                                         <div className="flex items-center justify-end gap-2 text-sm mt-1">
                                                             {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}
                                                         </div>
@@ -626,7 +628,7 @@ export default function CashierDashboardPage() {
                                    <TableRow>
                                        <TableHead>Nội dung</TableHead>
                                        <TableHead>Thời gian</TableHead>
-                                       <TableHead>Tổng tiền</TableHead>
+                                       <TableHead>Tổng tiền / Thực trả</TableHead>
                                        <TableHead>Hình thức</TableHead>
                                        <TableHead>Người tạo</TableHead>
                                        <TableHead className="text-right">Hành động</TableHead>
@@ -653,7 +655,14 @@ export default function CashierDashboardPage() {
                                                 format(new Date(slip.createdAt as string), 'HH:mm')
                                              )}
                                             </TableCell>
-                                           <TableCell>{slip.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
+                                           <TableCell>
+                                                <div className='flex flex-col items-start'>
+                                                    <span>{slip.totalAmount.toLocaleString('vi-VN')}đ</span>
+                                                    {(slip.paymentMethod === 'cash' && slip.actualPaidAmount !== slip.totalAmount) && (
+                                                         <span className='text-xs text-red-600'>({(slip.actualPaidAmount ?? slip.totalAmount).toLocaleString('vi-VN')}đ)</span>
+                                                    )}
+                                                </div>
+                                           </TableCell>
                                            <TableCell>
                                              <div className="flex items-center gap-2 text-sm">
                                                 {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}

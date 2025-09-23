@@ -320,6 +320,7 @@ export type ExpenseSlip = {
   expenseType: ExpenseType;
   items: ExpenseItem[];
   totalAmount: number;
+  actualPaidAmount?: number;
   discount?: number;
   paymentMethod: PaymentMethod;
   notes?: string;

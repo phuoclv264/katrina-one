@@ -163,7 +163,7 @@ export const dataStore = {
                 createdAt: serverTimestamp(),
                 associatedHandoverReportId: handoverReportRef.id,
             };
-            await this.addOrUpdateExpenseSlip(slipData, undefined, user);
+            await this.addOrUpdateExpenseSlip(slipData);
         }
     },
 
@@ -196,7 +196,7 @@ export const dataStore = {
                 createdBy: { userId: user.uid, userName: user.displayName },
                 createdAt: serverTimestamp(),
             };
-            await this.addOrUpdateExpenseSlip(slipData, undefined, user);
+            await this.addOrUpdateExpenseSlip(slipData);
         }
     },
     
@@ -299,8 +299,6 @@ export const dataStore = {
 
         await deleteDoc(docRef);
 
-        // After deleting, sync the delivery payout again based on the new latest receipt.
-        await this.syncDeliveryPayoutExpense(date, user);
     },
 
 
@@ -333,7 +331,7 @@ export const dataStore = {
         } as ExpenseSlip));
     },
 
-    async addOrUpdateExpenseSlip(data: any, id?: string, user?: AuthUser): Promise<void> {
+    async addOrUpdateExpenseSlip(data: any, id?: string): Promise<void> {
         const docRef = id ? doc(db, 'expense_slips', id) : doc(collection(db, 'expense_slips'));
         const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
     
@@ -367,9 +365,7 @@ export const dataStore = {
         if (id) {
             finalData.lastModified = serverTimestamp();
             if (slipData.lastModifiedBy) {
-                finalData.lastModifiedBy = { userId: slipData.lastModifiedBy.userId, userName: slipData.lastModifiedBy.userName };
-            } else if (user) {
-                finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName };
+                 finalData.lastModifiedBy = { userId: slipData.lastModifiedBy.userId, userName: slipData.lastModifiedBy.userName };
             }
         } else {
             finalData.createdAt = serverTimestamp();
@@ -2166,4 +2162,5 @@ export const dataStore = {
 };
 
     
+
 

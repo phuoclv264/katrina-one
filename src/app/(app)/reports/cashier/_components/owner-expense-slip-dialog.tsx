@@ -279,6 +279,7 @@ export default function OwnerExpenseSlipDialog({
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [notes, setNotes] = useState('');
     const [discount, setDiscount] = useState(0);
+    const [actualPaidAmount, setActualPaidAmount] = useState(0);
     
     // --- New state for attachments ---
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
@@ -343,6 +344,7 @@ export default function OwnerExpenseSlipDialog({
                 setPaymentMethod(slipToEdit.paymentMethod);
                 setNotes(slipToEdit.notes || '');
                 setDiscount(slipToEdit.discount || 0);
+                setActualPaidAmount(slipToEdit.actualPaidAmount ?? slipToEdit.totalAmount);
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
             } else {
                 setExpenseType('goods_import');
@@ -351,6 +353,7 @@ export default function OwnerExpenseSlipDialog({
                 setPaymentMethod('cash');
                 setNotes('');
                 setDiscount(0);
+                setActualPaidAmount(0);
                 setOtherCostCategoryId('');
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
@@ -373,6 +376,12 @@ export default function OwnerExpenseSlipDialog({
     const totalAmount = useMemo(() => {
         return subTotal - discount;
     }, [subTotal, discount]);
+
+    useEffect(() => {
+        if (paymentMethod === 'cash') {
+            setActualPaidAmount(totalAmount);
+        }
+    }, [totalAmount, paymentMethod]);
 
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
@@ -446,6 +455,7 @@ export default function OwnerExpenseSlipDialog({
             expenseType,
             items: finalItems,
             totalAmount,
+            actualPaidAmount: paymentMethod === 'cash' ? actualPaidAmount : undefined,
             discount,
             paymentMethod,
             notes,
@@ -830,10 +840,16 @@ export default function OwnerExpenseSlipDialog({
                                         </div>
                                     </RadioGroup>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="notes">Ghi chú</Label>
-                                    <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." onFocus={(e) => e.target.select()} />
-                                </div>
+                                 {paymentMethod === 'cash' && (
+                                     <div className="space-y-2">
+                                        <Label htmlFor="actualPaidAmount">Số tiền thực trả</Label>
+                                        <Input id="actualPaidAmount" type="number" value={actualPaidAmount} onChange={(e) => setActualPaidAmount(Number(e.target.value) || 0)} placeholder="0" className="text-right" onFocus={(e) => e.target.select()} />
+                                     </div>
+                                )}
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="notes">Ghi chú</Label>
+                                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." onFocus={(e) => e.target.select()} />
                             </div>
                         </div>
                     </ScrollArea>
