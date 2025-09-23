@@ -34,6 +34,17 @@ type GroupedReports = {
   };
 };
 
+const getSlipContentName = (item: ExpenseItem): string => {
+    if (item.itemId === 'other_cost') {
+      if (item.name === 'Khác' && item.description) {
+          return item.description;
+      }
+      return item.name;
+  }
+  return item.name;
+}
+
+
 const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile(containerRef);
@@ -57,7 +68,7 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
                 <TableRow key={expense.id}>
                 <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
                 <TableCell>
-                    {expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}
+                    {getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}
                     {expense.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
                      {expense.notes === 'Tự động tạo từ thống kê doanh thu.' && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
                 </TableCell>
@@ -107,7 +118,7 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
             <div className="flex justify-between items-start">
                 <div>
                     <p className="font-medium text-sm pr-2">
-                        {expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}
+                        {getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}
                         {expense.notes === 'Tự động tạo từ thống kê doanh thu.' && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
                     </p>
                     <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
@@ -307,7 +318,7 @@ export default function CashierReportsPage() {
       }, {} as {[key: string]: number});
 
       const expenseByType = allExpenses.reduce((acc, slip) => {
-          const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (slip.items[0]?.name || 'Khác');
+          const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (getSlipContentName(slip.items[0]) || 'Khác');
           acc[type] = (acc[type] || 0) + slip.totalAmount;
           return acc;
       }, {} as {[key: string]: number});
@@ -498,7 +509,7 @@ export default function CashierReportsPage() {
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
             {sortedDatesInMonth.map(date => {
                 const dayReports = reportsForCurrentMonth[date];
-                const revenueReports = dayReports.revenue || [];
+                const revenueReports = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
 
                 return (
                     <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
@@ -516,7 +527,9 @@ export default function CashierReportsPage() {
                                 {revenueReports.length > 0 ? (
                                     revenueReports.map((stat, index) => {
                                         const prevStat = index < revenueReports.length - 1 ? revenueReports[index + 1] : null;
-                                        const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
+                                        const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : stat.netRevenue;
+                                        const netRevenueDisplay = prevStat ? `${netRevenueDiff >= 0 ? '+' : ''}${netRevenueDiff.toLocaleString('vi-VN')}đ` : `${stat.netRevenue.toLocaleString('vi-VN')}đ`;
+
                                         return(
                                             <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
                                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
@@ -561,8 +574,8 @@ export default function CashierReportsPage() {
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
                                                      {prevStat && (
-                                                         <Badge variant={netRevenueDiff >= 0 ? "default" : "destructive"} className={cn(netRevenueDiff >= 0 && "bg-green-600")}>
-                                                            {netRevenueDiff >= 0 ? '+' : ''}{netRevenueDiff.toLocaleString('vi-VN')}đ
+                                                         <Badge className={cn(netRevenueDiff >= 0 ? "bg-green-600" : "bg-red-600", "text-white")}>
+                                                            {netRevenueDisplay}
                                                         </Badge>
                                                     )}
                                                 </div>
@@ -620,19 +633,21 @@ export default function CashierReportsPage() {
         </div>
       )}
     </div>
-    <OwnerCashierDialogs
-        inventoryList={allData.inventoryList}
-        isExpenseDialogOpen={isExpenseDialogOpen}
-        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
-        handleSaveSlip={handleSaveSlip}
-        isProcessing={isProcessing}
-        slipToEdit={slipToEdit}
-        isRevenueDialogOpen={isRevenueDialogOpen}
-        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
-        handleSaveRevenue={handleSaveRevenue}
-        revenueStatsToEdit={revenueStatsToEdit}
-        otherCostCategories={allData.otherCostCategories}
-    />
+    {user && 
+        <OwnerCashierDialogs
+            inventoryList={allData.inventoryList}
+            isExpenseDialogOpen={isExpenseDialogOpen}
+            setIsExpenseDialogOpen={setIsExpenseDialogOpen}
+            handleSaveSlip={handleSaveSlip}
+            isProcessing={isProcessing}
+            slipToEdit={slipToEdit}
+            isRevenueDialogOpen={isRevenueDialogOpen}
+            setIsRevenueDialogOpen={setIsRevenueDialogOpen}
+            handleSaveRevenue={handleSaveRevenue}
+            revenueStatsToEdit={revenueStatsToEdit}
+            otherCostCategories={allData.otherCostCategories}
+        />
+    }
     <OtherCostCategoryDialog
         open={isCategoryDialogOpen}
         onOpenChange={setIsCategoryDialogOpen}
