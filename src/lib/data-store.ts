@@ -230,56 +230,88 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async syncDeliveryPayoutExpense(date: string, user: AuthUser): Promise<void> {
-        // 1. Delete all auto-generated delivery payout slips for the day
-        const expenseQuery = query(
-            collection(db, 'expense_slips'),
-            where('date', '==', date),
-            where('notes', '==', 'Tự động tạo từ thống kê doanh thu.')
-        );
-        const oldSlipsSnap = await getDocs(expenseQuery);
-        const batch = writeBatch(db);
-        oldSlipsSnap.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
+    async syncDeliveryPayoutExpense(user: AuthUser, date?: string): Promise<void> {
+        const syncDate = date || format(new Date(), 'yyyy-MM-dd');
 
-        // 2. Find the latest revenue stat for the day
+        // 1. Find the latest revenue stat for the day
         const revenueQuery = query(
             collection(db, 'revenue_stats'),
-            where('date', '==', date),
+            where('date', '==', syncDate),
             orderBy('createdAt', 'desc'),
             limit(1)
         );
         const revenueSnap = await getDocs(revenueQuery);
         
-        if (revenueSnap.empty) {
-            return; // No revenue stats, so no payout expense needed.
+        const latestStatDoc = revenueSnap.empty ? null : revenueSnap.docs[0];
+        const latestStat = latestStatDoc?.data() as RevenueStats | null;
+        const latestStatId = latestStatDoc?.id || null;
+
+        // 2. Find any existing auto-generated expense for the day
+        const expenseQuery = query(
+            collection(db, 'expense_slips'),
+            where('date', '==', syncDate),
+            where('notes', '==', 'Tự động tạo từ thống kê doanh thu.')
+        );
+        const expenseSnap = await getDocs(expenseQuery);
+        const existingExpenseDoc = expenseSnap.empty ? null : expenseSnap.docs[0];
+
+        // Case 1: No revenue stat, but an old expense exists -> delete the expense.
+        if (!latestStat && existingExpenseDoc) {
+            await deleteDoc(existingExpenseDoc.ref);
+            return;
         }
 
-        // 3. Create a new expense slip if there's a payout
-        const latestStatDoc = revenueSnap.docs[0];
-        const latestStat = latestStatDoc.data() as RevenueStats;
+        // Case 2: No revenue stat, no expense -> do nothing.
+        if (!latestStat) {
+            return;
+        }
 
-        if (latestStat.deliveryPartnerPayout > 0) {
-            const expenseData: Partial<ExpenseSlip> = {
-                date: date,
+        const payout = latestStat.deliveryPartnerPayout || 0;
+
+        // Case 3: Revenue stat exists, but payout is 0. If an old expense exists, delete it.
+        if (payout === 0 && existingExpenseDoc) {
+            await deleteDoc(existingExpenseDoc.ref);
+            return;
+        }
+
+        // Case 4: Revenue stat exists and has payout > 0.
+        if (payout > 0) {
+            // Ensure the "Chi trả ĐTGH" category exists
+            const categories = await this.getOtherCostCategories();
+            let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
+            if (!payoutCategory) {
+                payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
+                const newCategories = [...categories, payoutCategory];
+                await this.updateOtherCostCategories(newCategories);
+            }
+
+            const expenseData: Omit<ExpenseSlip, 'id' | 'createdAt'> = {
+                date: syncDate,
                 expenseType: 'other_cost',
                 items: [{
                     itemId: 'other_cost',
-                    name: 'Chi trả cho Đối tác Giao hàng',
-                    supplier: 'N/A',
+                    name: payoutCategory.name,
+                    otherCostCategoryId: payoutCategory.id,
+                    supplier: 'Đối tác',
                     quantity: 1,
-                    unitPrice: latestStat.deliveryPartnerPayout,
+                    unitPrice: payout,
                     unit: 'lần',
                 }],
-                totalAmount: latestStat.deliveryPartnerPayout,
+                totalAmount: payout,
                 paymentMethod: 'bank_transfer',
                 notes: 'Tự động tạo từ thống kê doanh thu.',
                 createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-                associatedRevenueStatsId: latestStatDoc.id, // Link to the revenue stat
+                associatedRevenueStatsId: latestStatId!,
+                lastModified: serverTimestamp()
             };
-            await this.addOrUpdateExpenseSlip(expenseData);
+
+            if (existingExpenseDoc) {
+                // Update existing expense
+                await updateDoc(existingExpenseDoc.ref, expenseData);
+            } else {
+                // Create new expense
+                await addDoc(collection(db, 'expense_slips'), {...expenseData, createdAt: serverTimestamp()});
+            }
         }
     },
 
@@ -311,10 +343,9 @@ export const dataStore = {
             await setDoc(docRef, finalData);
         }
 
-        // Sync delivery payout expense after saving
         const dateToSync = documentId ? (await getDoc(docRef)).data()?.date : finalData.date;
         if(dateToSync) {
-            await this.syncDeliveryPayoutExpense(user);
+            await this.syncDeliveryPayoutExpense(user, dateToSync);
         }
     },
 
@@ -326,8 +357,7 @@ export const dataStore = {
 
         await deleteDoc(docRef);
 
-        // After deleting, sync the payout expense based on the new latest revenue stat
-        await this.syncDeliveryPayoutExpense(date, user);
+        await this.syncDeliveryPayoutExpense(user, date);
     },
 
 
@@ -392,6 +422,9 @@ export const dataStore = {
         const finalData = { ...slipData, createdBy, attachmentPhotos: finalPhotos };
         if (id) {
             finalData.lastModified = serverTimestamp();
+            if (slipData.lastModifiedBy) {
+                finalData.lastModifiedBy = { userId: slipData.lastModifiedBy.userId, userName: slipData.lastModifiedBy.userName };
+            }
         } else {
             finalData.createdAt = serverTimestamp();
             if (!finalData.date) { // Ensure date is set for new slips
