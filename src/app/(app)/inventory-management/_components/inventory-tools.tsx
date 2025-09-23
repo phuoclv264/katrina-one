@@ -44,7 +44,7 @@ export default function InventoryTools({
     // States for "Add with AI"
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
-    const [previewNewItems, setPreviewNewItems] = useState<InventoryItem[]>([]);
+    const [previewNewItems, setPreviewNewItems] = useState<ParsedInventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
     const [showAddPreview, setShowAddPreview] = useState(false);
     
@@ -90,14 +90,14 @@ export default function InventoryTools({
             const result = await generateInventoryList(input);
             if (!result || !result.items) throw new Error("AI không trả về kết quả hợp lệ.");
             const existingNames = new Set(inventoryList.map(item => item.name.trim().toLowerCase()));
-            const newItems: InventoryItem[] = [];
+            const newItems: ParsedInventoryItem[] = [];
             const existingItems: ParsedInventoryItem[] = [];
             result.items.forEach(item => {
                 if (existingNames.has(item.name.trim().toLowerCase())) {
                     existingItems.push(item);
                 } else {
                     newItems.push({
-                         ...item, id: `item-${Date.now()}-${Math.random()}`,
+                         ...item,
                         shortName: item.shortName || item.name.split(' ').slice(0,2).join(' '),
                         isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false, dataType: item.dataType || 'number',
@@ -117,8 +117,12 @@ export default function InventoryTools({
     };
 
     const handleConfirmAdd = () => {
-        onItemsGenerated(previewNewItems);
-        toast.success(`Đã thêm ${previewNewItems.length} mặt hàng mới.`);
+        const newItemsWithIds: InventoryItem[] = previewNewItems.map(item => ({
+            ...item,
+            id: `item-${Date.now()}-${Math.random()}`
+        }));
+        onItemsGenerated(newItemsWithIds);
+        toast.success(`Đã thêm ${newItemsWithIds.length} mặt hàng mới.`);
         resetAddState();
         setShowAddPreview(false);
     };
@@ -143,8 +147,8 @@ export default function InventoryTools({
     
             const parts = line.split('|').map(p => p.trim());
             const [
-                name, shortName, category, supplier, unit, orderUnit,
-                conversionRateStr, minStockStr, orderSuggestion,
+                name, shortName, category, supplier, baseUnit, unitsStr, // Adjusted to match new structure
+                 minStockStr, orderSuggestion,
                 requiresPhotoStr, isImportantStr
             ] = parts;
     
@@ -160,8 +164,9 @@ export default function InventoryTools({
                 itemToUpdate.shortName = shortName || itemToUpdate.shortName;
                 itemToUpdate.category = category || itemToUpdate.category;
                 itemToUpdate.supplier = supplier || itemToUpdate.supplier;
-                // This logic is simplified and might need adjustment based on the new unit structure
-                itemToUpdate.baseUnit = unit || itemToUpdate.baseUnit;
+                itemToUpdate.baseUnit = baseUnit || itemToUpdate.baseUnit;
+                // Note: Simplified logic for units from text paste. A more robust implementation would parse `unitsStr`
+                // For now, it keeps the existing units if not provided.
                 itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
                 itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
                 itemToUpdate.requiresPhoto = requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : itemToUpdate.requiresPhoto;
@@ -277,19 +282,51 @@ export default function InventoryTools({
         const categoryToSort = sortTargetCategory;
         const sortedNames = sortPreviewData.newOrder;
         
-        const itemsInCategory = inventoryList.filter(item => item.category === categoryToSort);
-        const otherItems = inventoryList.filter(item => item.category !== categoryToSort);
+        // Separate items of the target category from the rest
+        const itemsInCategoryMap = new Map<string, InventoryItem>();
+        const otherItems: InventoryItem[] = [];
         
-        const itemMap = new Map(itemsInCategory.map(item => [item.name, item]));
-        const sortedItems = sortedNames.map(name => itemMap.get(name)).filter(Boolean) as InventoryItem[];
+        inventoryList.forEach(item => {
+            if (item.category === categoryToSort) {
+                itemsInCategoryMap.set(item.name, item);
+            } else {
+                otherItems.push(item);
+            }
+        });
+        
+        // Re-order the items of the target category based on AI's result
+        const sortedCategoryItems: InventoryItem[] = sortedNames
+            .map(name => itemsInCategoryMap.get(name))
+            .filter((item): item is InventoryItem => !!item);
 
-        if (sortedItems.length === itemsInCategory.length) {
-            const finalSortedList = [...otherItems, ...sortedItems];
-            onItemsUpdated(finalSortedList);
-            toast.success(`Đã sắp xếp lại nhóm "${categoryToSort}".`);
-        } else {
-            toast.error("Không thể khớp các mặt hàng đã sắp xếp. Thay đổi đã bị hủy.");
+        if (sortedCategoryItems.length !== itemsInCategoryMap.size) {
+            toast.error("Lỗi: Không thể khớp các mặt hàng đã sắp xếp. Thay đổi đã bị hủy.");
+            setShowSortPreview(false);
+            return;
         }
+
+        // Reconstruct the full inventory list with the sorted category
+        // To maintain overall order, we need to find the original position of the category
+        const finalSortedList: InventoryItem[] = [];
+        const processedCategories = new Set<string>();
+
+        inventoryList.forEach(item => {
+            if(item.category === categoryToSort) {
+                if(!processedCategories.has(categoryToSort)){
+                    finalSortedList.push(...sortedCategoryItems);
+                    processedCategories.add(categoryToSort);
+                }
+            } else {
+                if(!processedCategories.has(item.category)){
+                    finalSortedList.push(...inventoryList.filter(i => i.category === item.category));
+                    processedCategories.add(item.category);
+                }
+            }
+        });
+
+
+        onItemsUpdated(finalSortedList);
+        toast.success(`Đã sắp xếp lại nhóm "${categoryToSort}".`);
         setShowSortPreview(false);
     };
 
@@ -378,7 +415,7 @@ export default function InventoryTools({
             </Card>
 
             {/* DIALOGS */}
-            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}><AlertDialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle><AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription></AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item) => (<TableRow key={item.id}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.baseUnit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}><AlertDialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle><AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription></AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item, index) => (<TableRow key={index}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.baseUnit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
             <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview}><AlertDialogContent className="max-w-6xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle><AlertDialogDescription>Các thay đổi sẽ được highlight màu xanh. Vui lòng kiểm tra kỹ trước khi áp dụng.</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>Tên VT</TableHead><TableHead>Nhóm</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead><TableHead>Các ĐV</TableHead><TableHead>Tồn min</TableHead><TableHead>Gợi ý</TableHead><TableHead>Bắt buộc?</TableHead><TableHead>Y/c ảnh?</TableHead></TableRow></TableHeader><TableBody>{updatePreview.newList.map((newItem) => { const oldItem = updatePreview.oldList.find(item => item.id === newItem.id); if (!oldItem) return null; const hasChanged = !isEqual(oldItem, newItem); return (<TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}><TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell><TableCell>{renderDiff(oldItem.shortName || '', newItem.shortName || '')}</TableCell><TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell><TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell><TableCell>{renderDiff(oldItem.baseUnit, newItem.baseUnit)}</TableCell><TableCell>{renderUnitsDiff(oldItem.units, newItem.units)}</TableCell><TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell><TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell><TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell><TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell></TableRow>)})}</TableBody></Table></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUpdate}>Áp dụng các thay đổi</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
             <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}><DialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle><AlertDialogDescription>AI đề xuất sắp xếp lại nhóm <span className="font-bold">"{sortTargetCategory}"</span> như sau. Bạn có muốn áp dụng?</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4"><div><h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4><ul className="space-y-2 text-sm">{sortPreviewData.oldOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-muted/50">{index + 1}. {task}</li>))}</ul></div><div><h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4><ul className="space-y-2 text-sm">{sortPreviewData.newOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-green-100/50">{index + 1}. {renderDiff(sortPreviewData.oldOrder[index], task)}</li>))}</ul></div></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction></AlertDialogFooter></DialogContent></Dialog>
         </>
