@@ -163,7 +163,7 @@ export const dataStore = {
                 createdAt: serverTimestamp(),
                 associatedHandoverReportId: handoverReportRef.id,
             };
-            await this.addOrUpdateExpenseSlip(slipData);
+            await this.addOrUpdateExpenseSlip(slipData, undefined, user);
         }
     },
 
@@ -196,7 +196,7 @@ export const dataStore = {
                 createdBy: { userId: user.uid, userName: user.displayName },
                 createdAt: serverTimestamp(),
             };
-            await this.addOrUpdateExpenseSlip(slipData);
+            await this.addOrUpdateExpenseSlip(slipData, undefined, user);
         }
     },
     
@@ -292,7 +292,15 @@ export const dataStore = {
 
     async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
         const docRef = doc(db, 'revenue_stats', id);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) return;
+
+        const date = docSnap.data().date;
+
         await deleteDoc(docRef);
+
+        // After deleting, sync the delivery payout again based on the new latest receipt.
+        await this.syncDeliveryPayoutExpense(date, user);
     },
 
 
@@ -325,7 +333,7 @@ export const dataStore = {
         } as ExpenseSlip));
     },
 
-    async addOrUpdateExpenseSlip(data: any, id?: string): Promise<void> {
+    async addOrUpdateExpenseSlip(data: any, id?: string, user?: AuthUser): Promise<void> {
         const docRef = id ? doc(db, 'expense_slips', id) : doc(collection(db, 'expense_slips'));
         const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
     
@@ -354,17 +362,24 @@ export const dataStore = {
         const createdBy = slipData.createdBy ? { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName } : null;
 
         // Prepare slip data
-        const finalData = { ...slipData, createdBy, attachmentPhotos: finalPhotos };
+        const finalData: Partial<ExpenseSlip> = { ...slipData, createdBy, attachmentPhotos: finalPhotos };
+        
         if (id) {
             finalData.lastModified = serverTimestamp();
             if (slipData.lastModifiedBy) {
                 finalData.lastModifiedBy = { userId: slipData.lastModifiedBy.userId, userName: slipData.lastModifiedBy.userName };
+            } else if (user) {
+                finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName };
             }
         } else {
             finalData.createdAt = serverTimestamp();
             if (!finalData.date) { // Ensure date is set for new slips
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
             }
+        }
+
+        if(!finalData.lastModifiedBy) {
+            delete finalData.lastModifiedBy;
         }
 
         await setDoc(docRef, finalData, { merge: true });
@@ -2151,3 +2166,4 @@ export const dataStore = {
 };
 
     
+
