@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -23,17 +23,18 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 type GroupedReports = {
   [date: string]: {
-    revenue: RevenueStats[]; // Changed to array
+    revenue: RevenueStats[];
     expenses?: ExpenseSlip[];
     incidents?: IncidentReport[];
   };
 };
 
-const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void }) => {
+const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile(containerRef);
 
@@ -58,6 +59,7 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
                 <TableCell>
                     {expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}
                     {expense.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
+                     {expense.notes === 'Tự động tạo từ thống kê doanh thu.' && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
                 </TableCell>
                 <TableCell>{expense.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
                 <TableCell className="text-sm">
@@ -68,6 +70,25 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
                  <TableCell>{expense.createdBy.userName}</TableCell>
                 <TableCell className="text-right">
                     <Button variant="outline" size="sm" onClick={() => onEdit(expense)}>Chi tiết</Button>
+                    {canDelete && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Xóa phiếu chi này?</AlertDialogTitle>
+                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu chi và không thể hoàn tác.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(expense.id)}>Xóa</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
                 </TableCell>
                 </TableRow>
             ))}
@@ -85,7 +106,10 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
           <div className="p-3">
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="font-medium text-sm pr-2">{expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}</p>
+                    <p className="font-medium text-sm pr-2">
+                        {expense.expenseType === 'other_cost' ? (expense.items[0]?.name || 'Chi phí khác') : expense.items.map(i => i.name).join(', ')}
+                        {expense.notes === 'Tự động tạo từ thống kê doanh thu.' && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
+                    </p>
                     <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
                 </div>
                 <div className="text-right">
@@ -100,9 +124,30 @@ const ExpenseList = ({ expenses, onEdit }: { expenses: ExpenseSlip[], onEdit: (s
                     </Badge>
                     <span className="text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</span>
                 </div>
-                <Button variant="link" size="sm" onClick={() => onEdit(expense)} className="h-auto p-0">
-                    Xem chi tiết
-                </Button>
+                 <div className="flex items-center">
+                    <Button variant="link" size="sm" onClick={() => onEdit(expense)} className="h-auto p-0">
+                        Xem chi tiết
+                    </Button>
+                     {canDelete && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                             <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Xóa phiếu chi này?</AlertDialogTitle>
+                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu chi và không thể hoàn tác.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(expense.id)}>Xóa</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                 </div>
             </div>
           </div>
           {index < expenses.length - 1 && <Separator />}
@@ -220,8 +265,8 @@ export default function CashierReportsPage() {
 
     // Sort entries within each day
     for (const date in reports) {
-      // Sort revenue reports by time (oldest first)
-      reports[date].revenue?.sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+      // Sort revenue reports by time (newest first)
+      reports[date].revenue?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
     }
@@ -327,6 +372,45 @@ export default function CashierReportsPage() {
     }
   }, [user, revenueStatsToEdit]);
 
+    const handleDeleteExpense = async (id: string) => {
+        const slip = allData.expenseSlips.find(s => s.id === id);
+        if(!slip) return;
+        setIsProcessing(true);
+        try {
+            await dataStore.deleteExpenseSlip(slip);
+            toast.success("Đã xóa phiếu chi.");
+        } catch(error) {
+            toast.error("Lỗi: Không thể xóa phiếu chi.");
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+
+    const handleDeleteRevenue = async (id: string) => {
+        if (!user) return;
+        setIsProcessing(true);
+        try {
+            await dataStore.deleteRevenueStats(id, user);
+            toast.success("Đã xóa phiếu thống kê doanh thu.");
+        } catch(error) {
+            toast.error("Lỗi: Không thể xóa phiếu thống kê.");
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+
+    const handleDeleteIncident = async (id: string) => {
+        setIsProcessing(true);
+        try {
+            await dataStore.deleteIncident(id);
+            toast.success("Đã xóa báo cáo sự cố.");
+        } catch(error) {
+            toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+
 
   if (isLoading || authLoading) {
     return (
@@ -431,7 +515,7 @@ export default function CashierReportsPage() {
                                 <CardContent className="p-4 pt-0 space-y-4">
                                 {revenueReports.length > 0 ? (
                                     revenueReports.map((stat, index) => {
-                                        const prevStat = index > 0 ? revenueReports[index - 1] : null;
+                                        const prevStat = index < revenueReports.length - 1 ? revenueReports[index + 1] : null;
                                         const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                                         return(
                                             <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
@@ -455,12 +539,29 @@ export default function CashierReportsPage() {
                                                         <Button size="sm" onClick={() => handleEditRevenue(stat)}>
                                                             Chi tiết <ArrowRight className="ml-2 h-4 w-4"/>
                                                         </Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>Hành động này sẽ xóa phiếu doanh thu và cập nhật lại phiếu chi ĐTGH tương ứng.</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
-                                                    {prevStat && (
-                                                        <Badge variant={netRevenueDiff >= 0 ? "default" : "destructive"} className={cn(netRevenueDiff >= 0 && "bg-green-600")}>
+                                                     {prevStat && (
+                                                         <Badge variant={netRevenueDiff >= 0 ? "default" : "destructive"} className={cn(netRevenueDiff >= 0 && "bg-green-600")}>
                                                             {netRevenueDiff >= 0 ? '+' : ''}{netRevenueDiff.toLocaleString('vi-VN')}đ
                                                         </Badge>
                                                     )}
@@ -475,7 +576,7 @@ export default function CashierReportsPage() {
                             {dayReports.expenses && dayReports.expenses.length > 0 ? (
                                 <Card>
                                     <CardHeader className="p-4"><CardTitle className="text-base">Phiếu chi</CardTitle></CardHeader>
-                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} /></CardContent>
+                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} isProcessing={isProcessing} /></CardContent>
                                 </Card>
                             ) : <p className="text-sm text-muted-foreground text-center py-2">Không có phiếu chi.</p>}
                             
@@ -484,9 +585,28 @@ export default function CashierReportsPage() {
                                     <CardHeader className="p-4"><CardTitle className="text-base text-amber-600">Sự cố</CardTitle></CardHeader>
                                     <CardContent className="p-4 space-y-2">
                                         {dayReports.incidents.map(incident => (
-                                            <div key={incident.id} className="text-sm">
-                                                <p className="font-semibold">{incident.content} (Chi phí: {incident.cost.toLocaleString('vi-VN')}đ)</p>
-                                                <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName}</p>
+                                            <div key={incident.id} className="text-sm flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-semibold">{incident.content} (Chi phí: {incident.cost.toLocaleString('vi-VN')}đ)</p>
+                                                    <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName}</p>
+                                                </div>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 -mr-2 flex-shrink-0" disabled={isProcessing}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Xóa báo cáo sự cố?</AlertDialogTitle>
+                                                            <AlertDialogDescription>Hành động này sẽ không ảnh hưởng đến phiếu chi được tạo tự động (nếu có).</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                             </div>
                                         ))}
                                     </CardContent>

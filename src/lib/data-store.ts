@@ -137,15 +137,13 @@ export const dataStore = {
     },
 
     async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>, user: AuthUser): Promise<void> {
-        const incidentData = {
+        const incidentCollection = collection(db, 'incidents');
+        const incidentRef = await addDoc(incidentCollection, {
             ...data,
             date: format(new Date(), 'yyyy-MM-dd'),
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
-        };
-
-        const incidentCollection = collection(db, 'incidents');
-        await addDoc(incidentCollection, incidentData);
+        });
 
         // If there's a cost, create a corresponding expense slip
         if (data.cost > 0) {
@@ -163,7 +161,7 @@ export const dataStore = {
                 }],
                 totalAmount: data.cost,
                 paymentMethod: 'cash',
-                notes: `Tự động tạo từ báo cáo sự cố.`,
+                notes: `Tự động tạo từ báo cáo sự cố (ID: ${incidentRef.id}).`,
                 createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
                 createdAt: serverTimestamp(),
             };
@@ -233,20 +231,17 @@ export const dataStore = {
     },
     
     async syncDeliveryPayoutExpense(date: string, user: AuthUser): Promise<void> {
-        // 1. Find the latest revenue stat for the day
-        const revenueQuery = query(
-            collection(db, 'revenue_stats'),
-            where('date', '==', date),
-            orderBy('createdAt', 'desc'),
+        const q = query(
+            collection(db, 'revenue_stats'), 
+            where('date', '==', date), 
+            orderBy('createdAt', 'desc'), 
             limit(1)
         );
-        const revenueSnap = await getDocs(revenueQuery);
-        
+        const revenueSnap = await getDocs(q);
+
         const latestStatDoc = revenueSnap.empty ? null : revenueSnap.docs[0];
         const latestStat = latestStatDoc?.data() as RevenueStats | null;
-        const latestStatId = latestStatDoc?.id || null;
-
-        // 2. Find any existing auto-generated expense for the day
+        
         const expenseQuery = query(
             collection(db, 'expense_slips'),
             where('date', '==', date),
@@ -255,29 +250,15 @@ export const dataStore = {
         const expenseSnap = await getDocs(expenseQuery);
         const existingExpenseDoc = expenseSnap.empty ? null : expenseSnap.docs[0];
 
-        // Case 1: No revenue stat, but an old expense exists -> delete the expense.
-        if (!latestStat && existingExpenseDoc) {
-            await deleteDoc(existingExpenseDoc.ref);
-            return;
-        }
-
-        // Case 2: No revenue stat, no expense -> do nothing.
-        if (!latestStat) {
-            return;
-        }
-
-        const payout = Math.abs(latestStat.deliveryPartnerPayout || 0);
-
-        // Case 3: Revenue stat exists, but payout is 0. If an old expense exists, delete it.
-        if (payout === 0) {
-            if(existingExpenseDoc) {
-                 await deleteDoc(existingExpenseDoc.ref);
+        if (!latestStat || !latestStat.deliveryPartnerPayout || latestStat.deliveryPartnerPayout <= 0) {
+            if (existingExpenseDoc) {
+                await deleteDoc(existingExpenseDoc.ref);
             }
             return;
         }
 
-        // Case 4: Revenue stat exists and has payout > 0.
-        // Ensure the "Chi trả ĐTGH" category exists
+        const payout = Math.abs(latestStat.deliveryPartnerPayout);
+        
         const categories = await this.getOtherCostCategories();
         let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
         if (!payoutCategory) {
@@ -302,19 +283,16 @@ export const dataStore = {
             paymentMethod: 'bank_transfer',
             notes: 'Tự động tạo từ thống kê doanh thu.',
             createdBy: { userId: user.uid, userName: user.displayName },
-            associatedRevenueStatsId: latestStatId!,
+            associatedRevenueStatsId: latestStatDoc!.id,
             lastModified: serverTimestamp()
         };
 
         if (existingExpenseDoc) {
-            // Update existing expense
             await updateDoc(existingExpenseDoc.ref, expenseData);
         } else {
-            // Create new expense
             await addDoc(collection(db, 'expense_slips'), {...expenseData, createdAt: serverTimestamp()});
         }
     },
-
 
     async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
@@ -359,7 +337,6 @@ export const dataStore = {
 
         await deleteDoc(docRef);
 
-        // After deleting, sync the expense slip based on the *new* latest revenue stat
         await this.syncDeliveryPayoutExpense(date, user);
     },
 
@@ -468,6 +445,10 @@ export const dataStore = {
             } as IncidentReport));
             callback(incidents);
         });
+    },
+
+    async deleteIncident(id: string): Promise<void> {
+        await deleteDoc(doc(db, 'incidents', id));
     },
 
     subscribeToAllRevenueStats(callback: (stats: RevenueStats[]) => void): () => void {
