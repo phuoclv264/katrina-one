@@ -149,7 +149,7 @@ export const dataStore = {
 
         // If there's a cost, create a corresponding expense slip
         if (data.cost > 0) {
-            const slipData: Omit<ExpenseSlip, 'id'> = {
+             const slipData: Omit<ExpenseSlip, 'id'> = {
                 date: format(new Date(), 'yyyy-MM-dd'),
                 expenseType: 'other_cost',
                 items: [{
