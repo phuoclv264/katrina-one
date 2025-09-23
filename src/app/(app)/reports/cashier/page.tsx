@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -431,7 +432,7 @@ export default function CashierReportsPage() {
                                 {revenueReports.length > 0 ? (
                                     revenueReports.map((stat, index) => {
                                         const prevStat = index > 0 ? revenueReports[index - 1] : null;
-                                        const netRevenueDisplay = prevStat ? stat.netRevenue - prevStat.netRevenue : stat.netRevenue;
+                                        const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                                         return(
                                             <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
                                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
@@ -457,11 +458,11 @@ export default function CashierReportsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {prevStat && <span className="text-sm text-muted-foreground">{prevStat.netRevenue.toLocaleString('vi-VN')}đ</span>}
-                                                    {prevStat && <ArrowRight className="h-4 w-4 text-muted-foreground"/>}
                                                     <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
                                                     {prevStat && (
-                                                        <span className="font-semibold text-green-600">({netRevenueDisplay.toLocaleString('vi-VN')}đ)</span>
+                                                        <Badge variant={netRevenueDiff >= 0 ? "default" : "destructive"} className={cn(netRevenueDiff >= 0 && "bg-green-600")}>
+                                                            {netRevenueDiff >= 0 ? '+' : ''}{netRevenueDiff.toLocaleString('vi-VN')}đ
+                                                        </Badge>
                                                     )}
                                                 </div>
                                             </div>
@@ -519,4 +520,3 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
-
