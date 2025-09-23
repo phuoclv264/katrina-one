@@ -431,7 +431,7 @@ export const dataStore = {
             const stats = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
-                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             } as RevenueStats));
             callback(stats);
         });
@@ -1311,7 +1311,8 @@ export const dataStore = {
             category: item.category ?? 'CHƯA PHÂN LOẠI',
             dataType: item.dataType || 'number',
             listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
-             units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || '', isBaseUnit: true, conversionRate: 1 }]
+            baseUnit: item.baseUnit || (item as any).unit || 'cái',
+            units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }]
         }));
     }
     return initialInventoryList;
@@ -1319,10 +1320,16 @@ export const dataStore = {
 
   subscribeToInventoryList(callback: (items: InventoryItem[]) => void): () => void {
     const docRef = doc(db, 'app-data', 'inventoryList');
-     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        const items = (docSnap.data().items || []) as InventoryItem[];
-        // Data sanitization step to ensure data consistency
+        let items = (docSnap.data().items || []) as InventoryItem[];
+        // If the list is empty, restore from default
+        if (items.length === 0) {
+            console.warn("Inventory list is empty. Restoring from default.");
+            await setDoc(docRef, { items: initialInventoryList });
+            items = initialInventoryList;
+        }
+
         const sanitizedItems = items.map(item => {
           const baseUnit = item.baseUnit || (item as any).unit || 'cái';
           const units = (item.units && item.units.length > 0) ? item.units : [{ name: baseUnit, isBaseUnit: true, conversionRate: 1 }];
@@ -2173,3 +2180,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
