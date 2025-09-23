@@ -349,9 +349,7 @@ export const dataStore = {
 
         slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
-        const createdBy = slipData.createdBy ? { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName } : null;
-
-        const finalData: Partial<ExpenseSlip> = { ...slipData, createdBy, attachmentPhotos: finalPhotos };
+        const finalData: Partial<ExpenseSlip> = { ...slipData, attachmentPhotos: finalPhotos };
         
         if (slipData.paymentMethod !== 'cash') {
             delete finalData.actualPaidAmount;
@@ -366,6 +364,9 @@ export const dataStore = {
             finalData.createdAt = serverTimestamp();
             if (!finalData.date) {
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
+            }
+            if (slipData.createdBy) {
+                 finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
             }
             delete finalData.lastModifiedBy;
         }
@@ -382,15 +383,18 @@ export const dataStore = {
     
     subscribeToAllExpenseSlips(callback: (slips: ExpenseSlip[]) => void): () => void {
         const q = query(collection(db, 'expense_slips'), orderBy('createdAt', 'desc'));
-        return onSnapshot(q, snapshot => {
+        return onSnapshot(q, async (snapshot) => {
+            const inventoryItems = await dataStore.getInventoryList();
             const slips = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const inventoryItems = dataStore.getInventoryList();
                 const items = (data.items || []).map((item: ExpenseItem) => {
                     const inventoryItem = inventoryItems.find(i => i.id === item.itemId);
                     let quantityInBaseUnit = item.quantity;
-                    if (inventoryItem && item.unit === inventoryItem.orderUnit) {
-                        quantityInBaseUnit *= inventoryItem.conversionRate || 1;
+                    if (inventoryItem) {
+                        const unitDef = inventoryItem.units.find(u => u.name === item.unit);
+                        if(unitDef) {
+                           quantityInBaseUnit *= unitDef.conversionRate;
+                        }
                     }
                     return { ...item, quantityInBaseUnit };
                 });
@@ -1322,8 +1326,8 @@ export const dataStore = {
         const sanitizedItems = items.map(item => ({
           ...item,
           shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
-          orderUnit: item.orderUnit || item.unit,
-          conversionRate: item.conversionRate || 1,
+          baseUnit: item.baseUnit || (item as any).unit || 'cái',
+          units: item.units && item.units.length > 0 ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }],
           supplier: item.supplier ?? 'Chưa xác định',
           category: item.category ?? 'CHƯA PHÂN LOẠI',
           dataType: item.dataType || 'number',
