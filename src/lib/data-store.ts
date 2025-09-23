@@ -235,7 +235,7 @@ export const dataStore = {
         const expenseQuery = query(
             collection(db, 'expense_slips'),
             where('date', '==', date),
-            where('associatedRevenueStatsId', '!=', null)
+            where('notes', '==', 'Tự động tạo từ thống kê doanh thu.')
         );
         const oldSlipsSnap = await getDocs(expenseQuery);
         const batch = writeBatch(db);
@@ -276,7 +276,7 @@ export const dataStore = {
                 totalAmount: latestStat.deliveryPartnerPayout,
                 paymentMethod: 'bank_transfer',
                 notes: 'Tự động tạo từ thống kê doanh thu.',
-                createdBy: user, // Use the user who triggered the action
+                createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
                 associatedRevenueStatsId: latestStatDoc.id, // Link to the revenue stat
             };
             await this.addOrUpdateExpenseSlip(expenseData);
@@ -314,7 +314,7 @@ export const dataStore = {
         // Sync delivery payout expense after saving
         const dateToSync = documentId ? (await getDoc(docRef)).data()?.date : finalData.date;
         if(dateToSync) {
-            await this.syncDeliveryPayoutExpense(dateToSync, user);
+            await this.syncDeliveryPayoutExpense(user);
         }
     },
 
@@ -385,8 +385,11 @@ export const dataStore = {
         // Recalculate totalAmount right before saving to ensure it's always correct
         slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
+        // Ensure createdBy is a plain object
+        const createdBy = slipData.createdBy ? { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName } : null;
+
         // Prepare slip data
-        const finalData = { ...slipData, attachmentPhotos: finalPhotos };
+        const finalData = { ...slipData, createdBy, attachmentPhotos: finalPhotos };
         if (id) {
             finalData.lastModified = serverTimestamp();
         } else {
@@ -2174,3 +2177,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    
