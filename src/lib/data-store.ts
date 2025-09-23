@@ -266,7 +266,7 @@ export const dataStore = {
             return;
         }
 
-        const payout = latestStat.deliveryPartnerPayout || 0;
+        const payout = Math.abs(latestStat.deliveryPartnerPayout || 0);
 
         // Case 3: Revenue stat exists, but payout is 0. If an old expense exists, delete it.
         if (payout === 0) {
