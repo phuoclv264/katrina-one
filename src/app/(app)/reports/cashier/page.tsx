@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -462,7 +461,7 @@ export default function CashierReportsPage() {
                                                     {prevStat && <ArrowRight className="h-4 w-4 text-muted-foreground"/>}
                                                     <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
                                                     {prevStat && (
-                                                        <span className="font-semibold text-green-600">(+{netRevenueDisplay.toLocaleString('vi-VN')}đ)</span>
+                                                        <span className="font-semibold text-green-600">({netRevenueDisplay.toLocaleString('vi-VN')}đ)</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -520,3 +519,4 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
+
