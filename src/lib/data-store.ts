@@ -134,7 +134,6 @@ export const dataStore = {
         delete finalHandoverData.handoverData.imageDataUri;
         await setDoc(handoverReportRef, finalHandoverData);
 
-        // --- New Logic: Create delivery partner expense slip ---
         const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
         if (deliveryPayout > 0) {
             let categories = await this.getOtherCostCategories();
@@ -340,7 +339,7 @@ export const dataStore = {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
                 const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, blob);
+                await uploadBytes(storageRef, photoBlob);
                 return getDownloadURL(storageRef);
             });
             newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -2124,7 +2123,7 @@ export const dataStore = {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
         const storageRef = ref(storage, `penalties/${violationId}/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, blob);
+        await uploadBytes(storageRef, photoBlob);
         return getDownloadURL(storageRef);
     });
     
