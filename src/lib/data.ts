@@ -180,7 +180,36 @@ export const comprehensiveTasks: ComprehensiveTaskSection[] = [
 
 
 export const inventoryList: InventoryItem[] = [
-    // ... all existing items need to be updated with new fields
+    {
+      "id": "item-1", "name": "Cà phê Robusta", "shortName": "CF Robusta", "category": "CÀ PHÊ", "supplier": "Thiên Phước",
+      "baseUnit": "gram", "units": [{ "name": "gram", "isBaseUnit": true, "conversionRate": 1 }, { "name": "kg", "isBaseUnit": false, "conversionRate": 1000 }],
+      "minStock": 500, "orderSuggestion": "2kg", "isImportant": true, "requiresPhoto": true, "dataType": 'number'
+    },
+    {
+      "id": "item-2", "name": "Sữa đặc", "shortName": "Sữa đặc", "category": "SỮA", "supplier": "Siêu thị",
+      "baseUnit": "hộp", "units": [{ "name": "hộp", "isBaseUnit": true, "conversionRate": 1 }, { "name": "thùng", "isBaseUnit": false, "conversionRate": 24 }],
+      "minStock": 5, "orderSuggestion": "1 thùng", "isImportant": true, "requiresPhoto": false, "dataType": 'number'
+    },
+    {
+      "id": "item-3", "name": "Sữa tươi không đường", "shortName": "Sữa tươi", "category": "SỮA", "supplier": "Siêu thị",
+      "baseUnit": "hộp", "units": [{ "name": "hộp", "isBaseUnit": true, "conversionRate": 1 }, { "name": "thùng", "isBaseUnit": false, "conversionRate": 12 }],
+      "minStock": 3, "orderSuggestion": "1 thùng", "isImportant": true, "requiresPhoto": false, "dataType": 'number'
+    },
+     {
+      "id": "item-4", "name": "Chanh", "shortName": "Chanh", "category": "TRÁI CÂY", "supplier": "Chợ",
+      "baseUnit": "kg", "units": [{ "name": "kg", "isBaseUnit": true, "conversionRate": 1 }],
+      "minStock": 1, "orderSuggestion": "2kg", "isImportant": false, "requiresPhoto": true, "dataType": 'number'
+    },
+    {
+      "id": "item-5", "name": "Ly nhựa", "shortName": "Ly nhựa", "category": "VẬT TƯ", "supplier": "Ly Giấy Việt",
+      "baseUnit": "cái", "units": [{ "name": "cái", "isBaseUnit": true, "conversionRate": 1 }, { "name": "cây", "isBaseUnit": false, "conversionRate": 50 }],
+      "minStock": 100, "orderSuggestion": "5 cây", "isImportant": false, "requiresPhoto": false, "dataType": 'number'
+    },
+    {
+      "id": "item-6", "name": "Gas", "shortName": "Gas", "category": "VẬT TƯ", "supplier": "Tạp hóa",
+      "baseUnit": "bình", "units": [{ "name": "bình", "isBaseUnit": true, "conversionRate": 1 }],
+      "minStock": 1, "orderSuggestion": "1 bình", "isImportant": true, "requiresPhoto": false, "dataType": "list", "listOptions": ["hết", "còn"]
+    }
 ];
 
 export const suppliers: Suppliers = [

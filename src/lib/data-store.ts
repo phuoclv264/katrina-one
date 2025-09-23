@@ -383,15 +383,15 @@ export const dataStore = {
     subscribeToAllExpenseSlips(callback: (slips: ExpenseSlip[]) => void): () => void {
         const q = query(collection(db, 'expense_slips'), orderBy('createdAt', 'desc'));
         return onSnapshot(q, async (snapshot) => {
-            const inventoryItems = await dataStore.getInventoryList();
+            const inventoryItems: InventoryItem[] = await dataStore.getInventoryList();
             const slips = snapshot.docs.map(doc => {
                 const data = doc.data();
                 const items = (data.items || []).map((item: ExpenseItem) => {
                     const inventoryItem = inventoryItems.find(i => i.id === item.itemId);
                     let quantityInBaseUnit = item.quantity;
-                    if (inventoryItem) {
+                    if (inventoryItem && inventoryItem.units) {
                         const unitDef = inventoryItem.units.find(u => u.name === item.unit);
-                        if(unitDef) {
+                        if(unitDef && unitDef.conversionRate) {
                            quantityInBaseUnit *= unitDef.conversionRate;
                         }
                     }
@@ -415,7 +415,7 @@ export const dataStore = {
             const incidents = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
-                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             } as IncidentReport));
             callback(incidents);
         });
@@ -428,11 +428,14 @@ export const dataStore = {
     subscribeToAllRevenueStats(callback: (stats: RevenueStats[]) => void): () => void {
         const q = query(collection(db, 'revenue_stats'), orderBy('date', 'desc'));
         return onSnapshot(q, snapshot => {
-            const stats = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-            } as RevenueStats));
+            const stats = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...doc.data(),
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                } as RevenueStats
+            });
             callback(stats);
         });
     },
@@ -2180,4 +2183,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
