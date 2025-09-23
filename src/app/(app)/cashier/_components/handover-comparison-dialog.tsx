@@ -89,10 +89,10 @@ export default function HandoverComparisonDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-            className="max-w-4xl rounded-2xl border shadow-2xl bg-background p-0"
+            className="max-w-md md:max-w-4xl max-h-[90vh] rounded-2xl border shadow-2xl bg-background p-0 flex flex-col"
             onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="p-6 pb-4">
+          <DialogHeader className="p-6 pb-4 shrink-0">
             <DialogTitle className={cn("flex items-center gap-3 text-2xl font-bold", hasMismatch ? 'text-destructive' : 'text-green-600')}>
               {hasMismatch ? <AlertCircle className="h-7 w-7"/> : <CheckCircle className="h-7 w-7"/>}
               {hasMismatch ? 'Phát hiện sai lệch dữ liệu!' : 'Đối chiếu thành công!'}
@@ -105,7 +105,7 @@ export default function HandoverComparisonDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[60vh] border-y bg-card">
+          <ScrollArea className="flex-grow border-y bg-card">
             <div className="p-6 space-y-6">
               {hasMismatch && comparisonResult ? (
                 <div className="space-y-4">
@@ -207,28 +207,41 @@ export default function HandoverComparisonDialog({
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 pt-4 flex sm:justify-between items-center">
-            <div className="w-full flex justify-start gap-2">
-                 {hasMismatch && (
-                    <>
+          <DialogFooter className="p-6 pt-4 flex flex-col sm:flex-row sm:justify-between items-center gap-2 shrink-0">
+             {hasMismatch ? (
+                <>
+                    {/* Mobile layout for mismatch */}
+                    <div className="w-full flex-col space-y-2 sm:hidden">
+                        <Button variant="secondary" onClick={onNavigateToExpenses} className="w-full h-auto whitespace-normal py-2">
+                            <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại phiếu thu/chi
+                        </Button>
+                         <Button variant="secondary" onClick={onNavigateToRevenue} className="w-full h-auto whitespace-normal py-2">
+                            <FileText className="mr-2 h-4 w-4" /> Kiểm tra lại phiếu doanh thu
+                        </Button>
+                         <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full h-auto whitespace-normal py-2">Hủy</Button>
+                    </div>
+                     {/* Desktop layout for mismatch */}
+                    <div className="hidden sm:flex justify-start gap-2">
                         <Button variant="secondary" onClick={onNavigateToExpenses}>
                             <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
                         </Button>
                         <Button variant="secondary" onClick={onNavigateToRevenue}>
                             <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
                         </Button>
-                    </>
-                )}
-            </div>
-            <div className="flex gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                {!hasMismatch && (
-                <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null}>
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
-                    {isProcessing ? 'Đang gửi...' : 'Hoàn tất & Gửi Báo cáo'}
-                </Button>
-                )}
-            </div>
+                    </div>
+                    <div className="hidden sm:flex gap-2">
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                    </div>
+                </>
+             ) : (
+                <>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Hủy</Button>
+                    <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null} className="w-full sm:w-auto">
+                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ArrowRight className="mr-2 h-4 w-4"/>}
+                        {isProcessing ? 'Đang gửi...' : 'Hoàn tất & Gửi Báo cáo'}
+                    </Button>
+                </>
+             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
