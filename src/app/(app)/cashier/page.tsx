@@ -345,7 +345,7 @@ export default function CashierDashboardPage() {
         startOfDayCash: startOfDayCash,
         cashExpense: totalCashExpense,
         cashRevenue: cashRevenue,
-        deliveryPartnerPayout: receiptData.deliveryPartnerPayout, // Use receipt data for comparison
+        deliveryPartnerPayout: Math.abs(receiptData.deliveryPartnerPayout), // Use receipt data for comparison
         revenueByCard: revenueByCardFromApp,
     };
     
@@ -354,7 +354,7 @@ export default function CashierDashboardPage() {
         { field: 'startOfDayCash', label: 'Tiền mặt đầu ca', appValue: appData.startOfDayCash, receiptValue: receiptData.startOfDayCash },
         { field: 'cashExpense', label: 'Chi tiền mặt', appValue: appData.cashExpense, receiptValue: receiptData.cashExpense },
         { field: 'cashRevenue', label: 'Doanh thu tiền mặt', appValue: appData.cashRevenue, receiptValue: receiptData.cashRevenue },
-        { field: 'deliveryPartnerPayout', label: 'Trả ĐTGH', appValue: appData.deliveryPartnerPayout, receiptValue: receiptData.deliveryPartnerPayout },
+        { field: 'deliveryPartnerPayout', label: 'Trả ĐTGH', appValue: appData.deliveryPartnerPayout, receiptValue: Math.abs(receiptData.deliveryPartnerPayout) },
         { field: 'techcombankVietQrPro', label: 'DT: TCB VietQR', appValue: appData.revenueByCard.techcombankVietQrPro, receiptValue: receiptData.revenueByCard.techcombankVietQrPro },
         { field: 'shopeeFood', label: 'DT: ShopeeFood', appValue: appData.revenueByCard.shopeeFood, receiptValue: receiptData.revenueByCard.shopeeFood },
         { field: 'grabFood', label: 'DT: GrabFood', appValue: appData.revenueByCard.grabFood, receiptValue: receiptData.revenueByCard.grabFood },
@@ -644,7 +644,7 @@ export default function CashierDashboardPage() {
                                                 <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                            </TableCell>
                                            <TableCell className="text-sm text-muted-foreground">
-                                             {slip.lastModifiedBy ? (
+                                             {slip.lastModifiedBy && slip.lastModified ? (
                                                 <div className="flex items-center gap-1">
                                                     <Edit2 className="h-3 w-3 text-yellow-500" />
                                                     {format(new Date(slip.lastModified as string), 'HH:mm')}
