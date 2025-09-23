@@ -11,6 +11,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { UnitDefinition } from '@/lib/types';
 
 const GenerateInventoryListInputSchema = z.object({
     source: z.enum(['text', 'image']),
@@ -24,10 +25,9 @@ const ParsedInventoryItemSchema = z.object({
     shortName: z.string().optional().describe("A short, unique abbreviation for the item name. If not provided, generate a reasonable one."),
     category: z.string().describe('The category or group of the item (e.g., "TRÁI CÂY", "TOPPING", "SIRO").'),
     supplier: z.string().describe('The name of the supplier for this item.'),
-    unit: z.string().describe('The unit of measurement for the item (e.g., "kg", "box", "lon", "cây").'),
-    orderUnit: z.string().optional().describe("The unit used for ordering, if different from the main unit. E.g., 'thùng', 'két'."),
-    conversionRate: z.number().optional().describe("If orderUnit is provided, this is how many 'units' are in one 'orderUnit'. E.g., if unit is 'lon' and orderUnit is 'thùng' with 24 cans, this is 24."),
-    minStock: z.number().describe('The minimum required stock level for this item.'),
+    baseUnit: z.string().describe("The base unit for stock tracking (e.g., 'kg', 'hộp'). This is the smallest unit of measurement."),
+    units: z.custom<UnitDefinition[]>().describe("An array of all possible units for this item. MUST include the baseUnit with `isBaseUnit: true` and `conversionRate: 1`. Other units must have their conversion rate to the base unit."),
+    minStock: z.number().describe('The minimum required stock level for this item, measured in the `baseUnit`.'),
     orderSuggestion: z.string().describe('The suggested quantity to order when stock is low (e.g., "5" or "5kg").'),
     isImportant: z.boolean().optional().describe('Whether this item requires a stock count to submit the report.'),
     requiresPhoto: z.boolean().optional().describe('Whether this item requires a photo as proof.'),
@@ -48,21 +48,23 @@ const prompt = ai.definePrompt({
     name: 'generateInventoryListPrompt',
     input: { schema: GenerateInventoryListInputSchema },
     output: { schema: GenerateInventoryListOutputSchema },
-    prompt: `You are an expert data entry assistant. Your task is to analyze the provided input (either text or an image) and extract a list of inventory items.
+    prompt: `You are an expert data entry assistant. Your task is to analyze the provided input (either text or an image) and extract a list of inventory items with a flexible unit system.
 
 The input contains a list of products for a coffee shop. You must extract the following fields for each item:
 - name: The full name of the product.
 - shortName: A short, unique abbreviation. If not explicitly provided, create a meaningful one.
-- category: The group or type of the product. Infer this from the context if not explicitly stated. Examples: SIRO, TRÁI CÂY, TOPPING, CCDC.
+- category: The group or type of the product. Infer this from the context if not explicitly stated.
 - supplier: The name of the supplier for this item.
-- unit: The base unit of measurement (e.g., kg, gram, hộp, gói, lon, cây, etc.).
-- orderUnit: The unit used for ordering. Look for text like "(12 hộp/thùng)" which implies 'thùng' is the orderUnit. If not specified, 'orderUnit' should be the same as 'unit'.
-- conversionRate: How many 'unit' are in one 'orderUnit'. From "(12 hộp/thùng)", the conversionRate is 12. If not specified or if units are the same, it MUST be 1.
-- minStock: The minimum stock quantity required.
+- baseUnit: CRITICAL. Determine the smallest, most logical unit for tracking stock (e.g., 'hộp', 'kg', 'ml', 'gram').
+- units: CRITICAL. This MUST be an array of unit definitions.
+    - It MUST contain at least one entry for the \`baseUnit\`, with \`isBaseUnit: true\` and \`conversionRate: 1\`.
+    - If other units are mentioned (e.g., 'thùng' which contains 12 'hộp'), you MUST create another entry for it. Example: \`{ name: 'thùng', isBaseUnit: false, conversionRate: 12 }\`. This means 1 thùng = 12 baseUnits (hộp).
+    - If no other units are mentioned, the 'units' array will contain only the base unit definition.
+- minStock: The minimum stock quantity, measured in the \`baseUnit\`.
 - orderSuggestion: The suggested quantity to order when stock is low.
-- isImportant: A boolean. If the text indicates this is a critical or mandatory item to check, set this to true. Default to false.
-- requiresPhoto: A boolean. If the text mentions needing a photo or visual proof, set this to true. Default to false.
-- dataType: The type of stock checking. If the item's unit is countable (like 'cái', 'hộp'), default to 'number'. If it's more of a state (like for fresh produce 'còn', 'hết'), default to 'list'. If unsure, default to 'number'.
+- isImportant: Boolean. If text indicates it's critical, set to true. Default to false.
+- requiresPhoto: Boolean. If text mentions a photo, set to true. Default to false.
+- dataType: 'number' or 'list'. Default to 'number'.
 - listOptions: If dataType is 'list', provide a default array: ['hết', 'gần hết', 'còn đủ', 'dư xài'].
 
 The input text could be a table pasted from a spreadsheet, or it could be a multi-line string where each line represents an item, with fields separated by a hyphen '-'.

@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput } from '@/lib/types';
+import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UnitDefinition } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -99,7 +99,6 @@ export default function InventoryTools({
                     newItems.push({
                          ...item, id: `item-${Date.now()}-${Math.random()}`,
                         shortName: item.shortName || item.name.split(' ').slice(0,2).join(' '),
-                        orderUnit: item.orderUnit || item.unit, conversionRate: item.conversionRate || 1,
                         isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false, dataType: item.dataType || 'number',
                     });
@@ -161,9 +160,8 @@ export default function InventoryTools({
                 itemToUpdate.shortName = shortName || itemToUpdate.shortName;
                 itemToUpdate.category = category || itemToUpdate.category;
                 itemToUpdate.supplier = supplier || itemToUpdate.supplier;
-                itemToUpdate.unit = unit || itemToUpdate.unit;
-                itemToUpdate.orderUnit = orderUnit || itemToUpdate.orderUnit;
-                itemToUpdate.conversionRate = Number(conversionRateStr) || itemToUpdate.conversionRate;
+                // This logic is simplified and might need adjustment based on the new unit structure
+                itemToUpdate.baseUnit = unit || itemToUpdate.baseUnit;
                 itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
                 itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
                 itemToUpdate.requiresPhoto = requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : itemToUpdate.requiresPhoto;
@@ -295,7 +293,9 @@ export default function InventoryTools({
         setShowSortPreview(false);
     };
 
-    const renderDiff = (oldText: string, newText: string) => {
+    const renderDiff = (oldValue: any, newValue: any) => {
+        const oldText = String(oldValue);
+        const newText = String(newValue);
         if (oldText === newText) return newText;
         const differences = diffChars(oldText, newText);
         return differences.map((part, index) => {
@@ -309,6 +309,11 @@ export default function InventoryTools({
         const newText = newValue ? 'CÓ' : 'KHÔNG';
         if (oldValue === newValue) return newText;
         return <span className="bg-green-200 dark:bg-green-900/50">{newText}</span>;
+    }
+
+    const renderUnitsDiff = (oldUnits: UnitDefinition[], newUnits: UnitDefinition[]) => {
+      if (isEqual(oldUnits, newUnits)) return <>{newUnits.map(u => u.name).join(', ')}</>;
+      return <span className="bg-green-200 dark:bg-green-900/50">{newUnits.map(u => u.name).join(', ')}</span>;
     }
     
     const uniqueCategories = [...new Set(inventoryList.map(item => item.category))].sort();
@@ -373,8 +378,8 @@ export default function InventoryTools({
             </Card>
 
             {/* DIALOGS */}
-            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}><AlertDialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle><AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription></AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>Đơn vị</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item) => (<TableRow key={item.id}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.unit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-            <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview}><AlertDialogContent className="max-w-6xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle><AlertDialogDescription>Các thay đổi sẽ được highlight màu xanh (thêm) và đỏ (xóa). Vui lòng kiểm tra kỹ trước khi áp dụng.</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>Tên VT</TableHead><TableHead>Nhóm</TableHead><TableHead>NCC</TableHead><TableHead>ĐV</TableHead><TableHead>ĐV Đặt</TableHead><TableHead>Tỷ lệ</TableHead><TableHead>Tồn min</TableHead><TableHead>Gợi ý</TableHead><TableHead>Bắt buộc?</TableHead><TableHead>Y/c ảnh?</TableHead></TableRow></TableHeader><TableBody>{updatePreview.newList.map((newItem) => { const oldItem = updatePreview.oldList.find(item => item.id === newItem.id); if (!oldItem) return null; const hasChanged = JSON.stringify(oldItem) !== JSON.stringify(newItem); return (<TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}><TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell><TableCell>{renderDiff(oldItem.shortName || '', newItem.shortName || '')}</TableCell><TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell><TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell><TableCell>{renderDiff(oldItem.unit, newItem.unit)}</TableCell><TableCell>{renderDiff(oldItem.orderUnit || '', newItem.orderUnit || '')}</TableCell><TableCell>{renderDiff(String(oldItem.conversionRate), String(newItem.conversionRate))}</TableCell><TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell><TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell><TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell><TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell></TableRow>)})}</TableBody></Table></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUpdate}>Áp dụng các thay đổi</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}><AlertDialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle><AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription></AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item) => (<TableRow key={item.id}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.baseUnit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview}><AlertDialogContent className="max-w-6xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle><AlertDialogDescription>Các thay đổi sẽ được highlight màu xanh. Vui lòng kiểm tra kỹ trước khi áp dụng.</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>Tên VT</TableHead><TableHead>Nhóm</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead><TableHead>Các ĐV</TableHead><TableHead>Tồn min</TableHead><TableHead>Gợi ý</TableHead><TableHead>Bắt buộc?</TableHead><TableHead>Y/c ảnh?</TableHead></TableRow></TableHeader><TableBody>{updatePreview.newList.map((newItem) => { const oldItem = updatePreview.oldList.find(item => item.id === newItem.id); if (!oldItem) return null; const hasChanged = !isEqual(oldItem, newItem); return (<TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}><TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell><TableCell>{renderDiff(oldItem.shortName || '', newItem.shortName || '')}</TableCell><TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell><TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell><TableCell>{renderDiff(oldItem.baseUnit, newItem.baseUnit)}</TableCell><TableCell>{renderUnitsDiff(oldItem.units, newItem.units)}</TableCell><TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell><TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell><TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell><TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell></TableRow>)})}</TableBody></Table></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUpdate}>Áp dụng các thay đổi</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
             <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}><DialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle><AlertDialogDescription>AI đề xuất sắp xếp lại nhóm <span className="font-bold">"{sortTargetCategory}"</span> như sau. Bạn có muốn áp dụng?</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4"><div><h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4><ul className="space-y-2 text-sm">{sortPreviewData.oldOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-muted/50">{index + 1}. {task}</li>))}</ul></div><div><h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4><ul className="space-y-2 text-sm">{sortPreviewData.newOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-green-100/50">{index + 1}. {renderDiff(sortPreviewData.oldOrder[index], task)}</li>))}</ul></div></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction></AlertDialogFooter></DialogContent></Dialog>
         </>
     )
