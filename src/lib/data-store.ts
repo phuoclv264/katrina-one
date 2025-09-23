@@ -237,15 +237,14 @@ export const dataStore = {
 
     async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
-        const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
-
+        
         let finalData: Partial<RevenueStats> = {
             ...data,
-            date,
             isEdited: isEdited,
         };
 
         if (data.invoiceImageUrl && data.invoiceImageUrl.startsWith('data:')) {
+            const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
             const blob = await (await fetch(data.invoiceImageUrl)).blob();
             const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, blob);
@@ -256,6 +255,7 @@ export const dataStore = {
     
         // If there's a delivery partner payout, also create an expense slip
         if (data.deliveryPartnerPayout > 0) {
+            const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
             const expenseData: Partial<ExpenseSlip> = {
                 date,
                 expenseType: 'other_cost',
@@ -278,6 +278,7 @@ export const dataStore = {
         if (documentId) {
             await updateDoc(docRef, finalData);
         } else {
+            finalData.date = format(new Date(), 'yyyy-MM-dd');
             finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             finalData.createdAt = serverTimestamp();
             await setDoc(docRef, finalData);

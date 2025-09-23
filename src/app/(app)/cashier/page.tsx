@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
+import OwnerRevenueStatsDialog from '../reports/cashier/_components/owner-revenue-stats-dialog';
 import HandoverDialog from './_components/handover-dialog';
 import HandoverComparisonDialog from './_components/handover-comparison-dialog';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -122,7 +123,8 @@ export default function CashierDashboardPage() {
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
-  const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
+  const [isNewRevenueDialogOpen, setIsNewRevenueDialogOpen] = useState(false);
+  const [isEditRevenueDialogOpen, setIsEditRevenueDialogOpen] = useState(false);
   const [isHandoverDialogOpen, setIsHandoverDialogOpen] = useState(false);
   
   const [isComparisonDialogOpen, setIsComparisonDialogOpen] = useState(false);
@@ -261,20 +263,22 @@ export default function CashierDashboardPage() {
       }
   }, [user]);
   
-  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean, id?: string) => {
+ const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
     setIsProcessing(true);
     try {
-        await dataStore.addOrUpdateRevenueStats(data, user, isEdited, id);
-        toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu thống kê.`);
-        setIsRevenueDialogOpen(false);
+        await dataStore.addOrUpdateRevenueStats(data, user, isEdited, revenueStatsToEdit?.id);
+        toast.success(`Đã ${revenueStatsToEdit ? 'cập nhật' : 'tạo'} phiếu thống kê.`);
+        setIsNewRevenueDialogOpen(false);
+        setIsEditRevenueDialogOpen(false);
+        setRevenueStatsToEdit(null);
     } catch(error) {
         console.error("Failed to save revenue stats", error);
         toast.error("Không thể lưu thống kê doanh thu.");
     } finally {
         setIsProcessing(false);
     }
-  }, [user]);
+  }, [user, revenueStatsToEdit]);
 
    const handleDeleteRevenue = async (id: string) => {
     setIsProcessing(true);
@@ -296,7 +300,7 @@ export default function CashierDashboardPage() {
 
   const handleEditRevenue = (stats: RevenueStats) => {
       setRevenueStatsToEdit(stats);
-      setIsRevenueDialogOpen(true);
+      setIsEditRevenueDialogOpen(true);
   }
 
   const handleHandoverSubmit = (data: ExtractHandoverDataOutput & {imageDataUri: string}) => {
@@ -499,7 +503,7 @@ export default function CashierDashboardPage() {
                             </TableBody>
                         </Table>
                     )}
-                    <Button className="w-full" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
+                    <Button className="w-full" onClick={() => { setRevenueStatsToEdit(null); setIsNewRevenueDialogOpen(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Nhập Thống kê Doanh thu
                     </Button>
@@ -618,9 +622,16 @@ export default function CashierDashboardPage() {
         isProcessing={isProcessing}
     />
     <RevenueStatsDialog
-        open={isRevenueDialogOpen}
-        onOpenChange={setIsRevenueDialogOpen}
-        onSave={(data, isEdited) => handleSaveRevenue(data, isEdited, revenueStatsToEdit?.id)}
+        open={isNewRevenueDialogOpen}
+        onOpenChange={setIsNewRevenueDialogOpen}
+        onSave={handleSaveRevenue}
+        isProcessing={isProcessing}
+        existingStats={null}
+    />
+    <OwnerRevenueStatsDialog
+        open={isEditRevenueDialogOpen}
+        onOpenChange={setIsEditRevenueDialogOpen}
+        onSave={(data, isEdited) => handleSaveRevenue(data, isEdited)}
         isProcessing={isProcessing}
         existingStats={revenueStatsToEdit}
     />
