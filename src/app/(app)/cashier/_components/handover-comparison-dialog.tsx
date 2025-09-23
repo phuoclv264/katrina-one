@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -62,8 +61,12 @@ export default function HandoverComparisonDialog({
       setActualCash(null);
       setDiscrepancyReason('');
       setDiscrepancyPhotoIds([]);
+      
+      // Revoke any existing object URLs to prevent memory leaks
+      discrepancyPhotoUrls.forEach(url => URL.revokeObjectURL(url));
       setDiscrepancyPhotoUrls([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const hasMismatch = comparisonResult && comparisonResult.some(item => !item.isMatch);
@@ -107,7 +110,7 @@ export default function HandoverComparisonDialog({
             onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className={cn(
-            "p-4 md:p-6 flex flex-row items-center gap-4 space-y-0 shrink-0",
+            "p-4 md:p-6 flex flex-row items-center gap-4 space-y-0 shrink-0 rounded-t-lg",
              hasMismatch ? "bg-red-50 dark:bg-destructive/20 text-red-700" : "bg-green-50 dark:bg-green-500/10 text-green-600"
           )}>
             {hasMismatch ? <AlertCircle className="h-8 w-8 shrink-0"/> : <CheckCircle className="h-8 w-8 shrink-0"/>}
@@ -118,7 +121,7 @@ export default function HandoverComparisonDialog({
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-grow bg-white dark:bg-card">
+          <div className="flex-grow overflow-y-auto bg-white dark:bg-card">
               <div className="p-4 md:p-6 space-y-6">
                 {hasMismatch && comparisonResult ? (
                   <div className="space-y-4">
@@ -130,51 +133,53 @@ export default function HandoverComparisonDialog({
                       </AlertDescription>
                     </Alert>
                     
-                    {isMobile ? (
-                      <div className="space-y-3">
-                          {comparisonResult.map(item => (
-                              <Card key={item.field} className={cn("rounded-xl shadow-sm", !item.isMatch && "border-destructive border-2")}>
-                                  <CardHeader className="p-3 pb-2 flex-row justify-between items-center">
-                                      <CardTitle className="text-base">{item.label}</CardTitle>
-                                      {!item.isMatch && <Badge variant="destructive">Sai lệch</Badge>}
-                                  </CardHeader>
-                                  <CardContent className="p-3 pt-0 space-y-1 text-sm">
-                                      <div className="flex justify-between items-center">
-                                          <span className="text-muted-foreground">Trên ứng dụng:</span>
-                                          <span className="font-mono font-semibold text-base">{item.appValue.toLocaleString('vi-VN')}đ</span>
-                                      </div>
-                                      <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-red-700")}>
-                                          <span className={cn(!item.isMatch && "text-red-700/80")}>Trên phiếu:</span>
-                                          <span className="font-mono text-base">{item.receiptValue.toLocaleString('vi-VN')}đ</span>
-                                      </div>
-                                  </CardContent>
-                              </Card>
-                          ))}
-                      </div>
-                    ) : (
-                      <ScrollArea className="max-h-[300px] w-full rounded-lg border shadow-sm">
-                          <Table>
-                              <TableHeader className="sticky top-0 bg-white z-10">
-                                  <TableRow>
-                                      <TableHead className="font-bold px-4 py-2">Hạng mục</TableHead>
-                                      <TableHead className="text-right font-bold px-4 py-2">Trên ứng dụng</TableHead>
-                                      <TableHead className="text-right font-bold px-4 py-2">Trên phiếu</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                              {comparisonResult.map(item => (
-                                  <TableRow key={item.field}>
-                                  <TableCell className="font-semibold px-4 py-2">{item.label}</TableCell>
-                                  <TableCell className="text-right font-mono text-base px-4 py-2">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                                  <TableCell className={cn("text-right font-mono text-base px-4 py-2", !item.isMatch && "font-bold text-red-700 bg-red-100")}>
-                                      {item.receiptValue.toLocaleString('vi-VN')}đ
-                                  </TableCell>
-                                  </TableRow>
-                              ))}
-                              </TableBody>
-                          </Table>
-                      </ScrollArea>
-                    )}
+                    {/* Mobile View */}
+                    <div className="md:hidden space-y-3">
+                        {comparisonResult.map(item => (
+                            <Card key={item.field} className={cn("rounded-xl shadow-sm", !item.isMatch && "border-destructive border-2")}>
+                                <CardHeader className="p-3 pb-2 flex-row justify-between items-center">
+                                    <CardTitle className="text-base">{item.label}</CardTitle>
+                                    {!item.isMatch && <Badge variant="destructive">Sai lệch</Badge>}
+                                </CardHeader>
+                                <CardContent className="p-3 pt-0 space-y-1 text-sm">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground">Trên ứng dụng:</span>
+                                        <span className="font-mono font-semibold text-base">{item.appValue.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                    <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-red-700")}>
+                                        <span className={cn(!item.isMatch && "text-red-700/80")}>Trên phiếu:</span>
+                                        <span className="font-mono text-base">{item.receiptValue.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Desktop View */}
+                    <div className="hidden md:block">
+                        <ScrollArea className="max-h-[300px] w-full rounded-lg border shadow-sm">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-white dark:bg-card z-10">
+                                    <TableRow>
+                                        <TableHead className="font-bold px-4 py-2">Hạng mục</TableHead>
+                                        <TableHead className="text-right font-bold px-4 py-2">Trên ứng dụng</TableHead>
+                                        <TableHead className="text-right font-bold px-4 py-2">Trên phiếu</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                {comparisonResult.map(item => (
+                                    <TableRow key={item.field}>
+                                        <TableCell className="font-semibold px-4 py-2">{item.label}</TableCell>
+                                        <TableCell className="text-right font-mono text-base px-4 py-2">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
+                                        <TableCell className={cn("text-right font-mono text-base px-4 py-2", !item.isMatch && "font-bold text-red-700 bg-red-100 dark:bg-red-900/50")}>
+                                            {item.receiptValue.toLocaleString('vi-VN')}đ
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -186,7 +191,7 @@ export default function HandoverComparisonDialog({
                       </AlertDescription>
                     </Alert>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="rounded-xl">
+                      <Card className="rounded-xl bg-muted/50 dark:bg-muted/30">
                           <CardHeader className="pb-2"><CardTitle className="text-base text-muted-foreground">Tiền mặt dự kiến</CardTitle></CardHeader>
                           <CardContent><Input disabled value={handoverData.expectedCash?.toLocaleString('vi-VN') + 'đ'} className="font-bold text-2xl h-14 text-right bg-muted" /></CardContent>
                       </Card>
@@ -225,16 +230,16 @@ export default function HandoverComparisonDialog({
                   </div>
                 )}
               </div>
-          </ScrollArea>
+          </div>
 
           <DialogFooter className="p-4 md:p-6 border-t shrink-0 bg-white dark:bg-card rounded-b-lg">
              {hasMismatch ? (
                 <div className="w-full flex flex-col md:flex-row md:justify-between gap-3">
                     <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto order-2 md:order-1">
-                        <Button variant="secondary" onClick={onNavigateToExpenses} className="w-full h-11 md:h-10 text-base md:text-sm">
+                        <Button variant="secondary" onClick={onNavigateToExpenses} className="w-full h-11 md:h-10 text-base md:text-sm whitespace-normal">
                             <ListChecks className="mr-2 h-4 w-4" /> Kiểm tra lại thu/chi
                         </Button>
-                        <Button variant="secondary" onClick={onNavigateToRevenue} className="w-full h-11 md:h-10 text-base md:text-sm">
+                        <Button variant="secondary" onClick={onNavigateToRevenue} className="w-full h-11 md:h-10 text-base md:text-sm whitespace-normal">
                             <FileText className="mr-2 h-4 w-4" /> Kiểm tra doanh thu
                         </Button>
                     </div>
