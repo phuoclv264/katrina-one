@@ -108,7 +108,7 @@ export default function HandoverComparisonDialog({
         >
           <DialogHeader className={cn(
             "p-4 md:p-6 flex flex-row items-center gap-4 space-y-0 shrink-0",
-             hasMismatch ? "bg-red-50 dark:bg-destructive/20 text-destructive" : "bg-green-50 dark:bg-green-500/10 text-green-600"
+             hasMismatch ? "bg-red-50 dark:bg-destructive/20 text-red-700" : "bg-green-50 dark:bg-green-500/10 text-green-600"
           )}>
             {hasMismatch ? <AlertCircle className="h-8 w-8 shrink-0"/> : <CheckCircle className="h-8 w-8 shrink-0"/>}
             <div className="flex-1">
@@ -143,8 +143,8 @@ export default function HandoverComparisonDialog({
                                           <span className="text-muted-foreground">Trên ứng dụng:</span>
                                           <span className="font-mono font-semibold text-base">{item.appValue.toLocaleString('vi-VN')}đ</span>
                                       </div>
-                                      <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-destructive")}>
-                                          <span className={cn(!item.isMatch && "text-destructive/80")}>Trên phiếu:</span>
+                                      <div className={cn("flex justify-between items-center", !item.isMatch && "font-bold text-red-700")}>
+                                          <span className={cn(!item.isMatch && "text-red-700/80")}>Trên phiếu:</span>
                                           <span className="font-mono text-base">{item.receiptValue.toLocaleString('vi-VN')}đ</span>
                                       </div>
                                   </CardContent>
@@ -152,21 +152,21 @@ export default function HandoverComparisonDialog({
                           ))}
                       </div>
                     ) : (
-                      <ScrollArea className="max-h-[300px] w-full rounded-lg border">
+                      <ScrollArea className="max-h-[300px] w-full rounded-lg border shadow-sm">
                           <Table>
-                              <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
+                              <TableHeader className="sticky top-0 bg-white z-10">
                                   <TableRow>
-                                      <TableHead className="font-bold">Hạng mục</TableHead>
-                                      <TableHead className="text-right font-bold">Trên ứng dụng</TableHead>
-                                      <TableHead className="text-right font-bold">Trên phiếu</TableHead>
+                                      <TableHead className="font-bold px-4 py-2">Hạng mục</TableHead>
+                                      <TableHead className="text-right font-bold px-4 py-2">Trên ứng dụng</TableHead>
+                                      <TableHead className="text-right font-bold px-4 py-2">Trên phiếu</TableHead>
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
                               {comparisonResult.map(item => (
                                   <TableRow key={item.field}>
-                                  <TableCell className="font-semibold">{item.label}</TableCell>
-                                  <TableCell className="text-right font-mono text-base">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
-                                  <TableCell className={cn("text-right font-mono text-base", !item.isMatch && "font-bold text-destructive bg-red-50 dark:bg-destructive/20")}>
+                                  <TableCell className="font-semibold px-4 py-2">{item.label}</TableCell>
+                                  <TableCell className="text-right font-mono text-base px-4 py-2">{item.appValue.toLocaleString('vi-VN')}đ</TableCell>
+                                  <TableCell className={cn("text-right font-mono text-base px-4 py-2", !item.isMatch && "font-bold text-red-700 bg-red-100")}>
                                       {item.receiptValue.toLocaleString('vi-VN')}đ
                                   </TableCell>
                                   </TableRow>
@@ -256,6 +256,3 @@ export default function HandoverComparisonDialog({
     </>
   );
 }
-
-
-    
