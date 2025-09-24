@@ -136,25 +136,25 @@ export default function InventoryTools({
         const lines = bulkEditText.trim().split('\n');
         
         // Check if the first line is a header and skip it if so
-        const hasHeader = lines[0].includes("Tên mặt hàng");
+        const hasHeader = lines[0].toLowerCase().includes("id") && lines[0].toLowerCase().includes("tên mặt hàng");
         const dataLines = hasHeader ? lines.slice(1) : lines;
     
         let changesCount = 0;
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
     
         dataLines.forEach(line => {
-            if (!line.trim()) return; // Skip empty lines
+            if (!line.trim()) return;
     
             const parts = line.split('|').map(p => p.trim());
             const [
-                name, shortName, category, supplier, baseUnit, unitsStr, // Adjusted to match new structure
+                id, name, shortName, category, supplier, baseUnit, unitsStr,
                  minStockStr, orderSuggestion,
                 requiresPhotoStr, isImportantStr
             ] = parts;
     
-            if (!name) return;
+            if (!id || !name) return;
     
-            const itemIndex = updatedList.findIndex(item => item.name.trim().toLowerCase() === name.toLowerCase());
+            const itemIndex = updatedList.findIndex(item => item.id === id);
             
             if (itemIndex > -1) {
                 const itemToUpdate = updatedList[itemIndex];
@@ -165,8 +165,27 @@ export default function InventoryTools({
                 itemToUpdate.category = category || itemToUpdate.category;
                 itemToUpdate.supplier = supplier || itemToUpdate.supplier;
                 itemToUpdate.baseUnit = baseUnit || itemToUpdate.baseUnit;
-                // Note: Simplified logic for units from text paste. A more robust implementation would parse `unitsStr`
-                // For now, it keeps the existing units if not provided.
+                
+                if (unitsStr) {
+                    const parsedUnits = unitsStr.split(';').map(uStr => {
+                        const match = uStr.match(/(.+)\((\d*\.?\d+)\)/);
+                        if (match) {
+                            return { name: match[1].trim(), conversionRate: parseFloat(match[2]), isBaseUnit: false };
+                        }
+                        return null;
+                    }).filter(Boolean) as { name: string, conversionRate: number, isBaseUnit: boolean }[];
+                    
+                    if (parsedUnits.length > 0) {
+                        const baseUnitInParsed = parsedUnits.find(u => u.name === itemToUpdate.baseUnit);
+                        if (baseUnitInParsed) {
+                            baseUnitInParsed.isBaseUnit = true;
+                        } else {
+                            parsedUnits.push({ name: itemToUpdate.baseUnit, conversionRate: 1, isBaseUnit: true });
+                        }
+                        itemToUpdate.units = parsedUnits;
+                    }
+                }
+
                 itemToUpdate.minStock = Number(minStockStr) || itemToUpdate.minStock;
                 itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
                 itemToUpdate.requiresPhoto = requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : itemToUpdate.requiresPhoto;

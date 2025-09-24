@@ -224,10 +224,10 @@ export default function InventoryManagementPage() {
   const handleExport = () => {
     if (!inventoryList) return;
     let textToCopy = '';
-    const headers = ['Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'ĐV Cơ sở', 'Các ĐV', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
+    const headers = ['ID', 'Tên mặt hàng', 'Tên viết tắt', 'Nhóm', 'Nhà cung cấp', 'ĐV Cơ sở', 'Các ĐV', 'Tồn tối thiểu', 'Gợi ý đặt hàng', 'Yêu cầu ảnh', 'Bắt buộc nhập'];
     const rows = inventoryList.map(item => 
         [
-            item.name, item.shortName, item.category, item.supplier, item.baseUnit,
+            item.id, item.name, item.shortName, item.category, item.supplier, item.baseUnit,
             item.units.map(u => `${u.name}(${u.conversionRate})`).join(';'),
             item.minStock, item.orderSuggestion,
             item.requiresPhoto ? 'CÓ' : 'KHÔNG',
