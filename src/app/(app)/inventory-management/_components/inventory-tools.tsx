@@ -2,11 +2,11 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UnitDefinition } from '@/lib/types';
+import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UnitDefinition, Suppliers } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, History, Search } from 'lucide-react';
+import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, History, Search, Contact } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -25,19 +25,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import isEqual from 'lodash.isequal';
-
+import SupplierManagementDialog from './supplier-management-dialog';
 
 type InventoryToolsProps = {
     inventoryList: InventoryItem[];
+    suppliers: Suppliers;
     onItemsGenerated: (items: InventoryItem[]) => void;
     onItemsUpdated: (updatedItems: InventoryItem[]) => void;
+    onSuppliersUpdate: (updatedSuppliers: Suppliers) => void;
 };
 
 export default function InventoryTools({
     inventoryList,
+    suppliers,
     onItemsGenerated,
     onItemsUpdated,
+    onSuppliersUpdate,
 }: InventoryToolsProps) {
+    const { user } = useAuth();
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeTab, setActiveTab] = useState('add');
     
@@ -62,6 +67,8 @@ export default function InventoryTools({
     const [showSortPreview, setShowSortPreview] = useState(false);
     const [sortPreviewData, setSortPreviewData] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
     
+    // State for Supplier Management Dialog
+    const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -381,6 +388,16 @@ export default function InventoryTools({
                     <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ Kho</CardTitle>
                 </CardHeader>
                 <CardContent>
+                    {user?.role === 'Chủ nhà hàng' && (
+                        <Button 
+                            variant="outline" 
+                            className="w-full mb-4" 
+                            onClick={() => setIsSupplierDialogOpen(true)}
+                        >
+                            <Contact className="mr-2 h-4 w-4"/>
+                            Quản lý Nhà Cung Cấp
+                        </Button>
+                    )}
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm bằng AI</TabsTrigger>
@@ -432,6 +449,13 @@ export default function InventoryTools({
                     </Tabs>
                 </CardContent>
             </Card>
+            
+            <SupplierManagementDialog
+                isOpen={isSupplierDialogOpen}
+                onClose={() => setIsSupplierDialogOpen(false)}
+                initialSuppliers={suppliers}
+                onSave={onSuppliersUpdate}
+            />
 
             {/* DIALOGS */}
             <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}><AlertDialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle><AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription></AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item, index) => (<TableRow key={index}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.baseUnit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

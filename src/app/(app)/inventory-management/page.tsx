@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UserRole } from '@/lib/types';
+import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UserRole, Suppliers } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,7 @@ export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
-  const [suppliers, setSuppliers] = useState<string[] | null>(null);
+  const [suppliers, setSuppliers] = useState<Suppliers | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [isSorting, setIsSorting] = useState(false);
@@ -174,6 +174,10 @@ export default function InventoryManagementPage() {
    const onItemsUpdated = (updatedItems: InventoryItem[]) => {
         handleUpdateAndSave(updatedItems);
   };
+  
+  const onSuppliersUpdated = (updatedSuppliers: Suppliers) => {
+    dataStore.updateSuppliers(updatedSuppliers);
+  }
 
   const handleDeleteItem = (id: string) => {
     if (!inventoryList) return;
@@ -277,8 +281,10 @@ export default function InventoryManagementPage() {
             <div className="lg:col-span-1 lg:sticky lg:top-4 order-2 lg:order-1">
                 <InventoryTools
                     inventoryList={inventoryList}
+                    suppliers={suppliers}
                     onItemsGenerated={onItemsGenerated}
                     onItemsUpdated={onItemsUpdated}
+                    onSuppliersUpdate={onSuppliersUpdated}
                 />
             </div>
             <div className="lg:col-span-3 order-1 lg:order-2">
