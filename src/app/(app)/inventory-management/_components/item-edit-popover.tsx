@@ -309,7 +309,7 @@ export default function ItemEditPopover({
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {item.units.map(u => (
+                                                {item.units.filter(u => u.name).map(u => (
                                                     <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
