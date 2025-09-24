@@ -122,12 +122,28 @@ export default function ItemEditPopover({
     const [item, setItem] = useState(initialItem);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isConfirmCloseOpen, setIsConfirmCloseOpen] = useState(false);
+    
+    // State for orderSuggestion UI
+    const [orderSuggestionQty, setOrderSuggestionQty] = useState<number | string>('');
+    const [orderSuggestionUnit, setOrderSuggestionUnit] = useState<string>('');
 
 
     useEffect(() => {
         if (isOpen) {
             setItem(initialItem);
             setHasUnsavedChanges(false);
+
+            // Parse orderSuggestion when dialog opens
+            const suggestion = initialItem.orderSuggestion || '';
+            const match = suggestion.match(/^(\d*\.?\d+)\s*(.*)$/);
+            if (match) {
+                setOrderSuggestionQty(parseFloat(match[1]));
+                setOrderSuggestionUnit(match[2] || initialItem.baseUnit);
+            } else {
+                setOrderSuggestionQty(suggestion || '');
+                setOrderSuggestionUnit(initialItem.baseUnit);
+            }
+
         }
     }, [isOpen, initialItem]);
     
@@ -165,6 +181,30 @@ export default function ItemEditPopover({
             return { ...prev, [field]: value }
         });
     };
+
+    // Combine qty and unit back into orderSuggestion string before saving
+    const combineOrderSuggestion = () => {
+        const qty = String(orderSuggestionQty).trim();
+        const unit = orderSuggestionUnit.trim();
+        if (!qty) {
+            handleFieldChange('orderSuggestion', '');
+            return;
+        }
+        const combined = `${qty}${unit ? ` ${unit}` : ''}`;
+        handleFieldChange('orderSuggestion', combined);
+    };
+
+    // Use an effect to update the main item state when the suggestion parts change
+    useEffect(() => {
+        const qty = String(orderSuggestionQty).trim();
+        const unit = orderSuggestionUnit.trim();
+        const combined = `${qty}${unit ? ` ${unit}` : ''}`;
+        if (item.orderSuggestion !== combined) {
+             setItem(prev => ({...prev, orderSuggestion: combined}));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orderSuggestionQty, orderSuggestionUnit]);
+
 
     const handleSave = () => {
         const baseUnitCount = item.units.filter(u => u.isBaseUnit).length;
@@ -255,8 +295,26 @@ export default function ItemEditPopover({
                                     <Input id={`minStock-${item.id}`} type="number" value={item.minStock} onChange={e => handleFieldChange('minStock', Number(e.target.value) || 0)} className="rounded-lg"/>
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor={`orderSuggestion-${item.id}`} className="text-xs text-muted-foreground">Gợi ý đặt hàng</Label>
-                                    <Input id={`orderSuggestion-${item.id}`} value={item.orderSuggestion} onChange={e => handleFieldChange('orderSuggestion', e.target.value)} className="rounded-lg"/>
+                                    <Label className="text-xs text-muted-foreground">Gợi ý đặt hàng</Label>
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            type="number" 
+                                            value={orderSuggestionQty}
+                                            onChange={e => setOrderSuggestionQty(e.target.value)}
+                                            className="rounded-lg w-2/3"
+                                            placeholder="Số lượng"
+                                        />
+                                        <Select value={orderSuggestionUnit} onValueChange={setOrderSuggestionUnit}>
+                                            <SelectTrigger className="w-1/3 rounded-lg">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {item.units.map(u => (
+                                                    <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                             </div>
                             <div className="space-y-1">
