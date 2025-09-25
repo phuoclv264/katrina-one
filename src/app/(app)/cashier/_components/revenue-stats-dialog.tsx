@@ -216,7 +216,7 @@ export default function RevenueStatsDialog({
             netRevenue,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            invoiceImageUrl: newImageDataUri, // Always use the new image
+            invoiceImageUrl: newImageDataUri as string | null, // Always use the new image
             reportTimestamp: reportTimestamp,
             isOutdated: isOutdated,
         };
@@ -597,3 +597,4 @@ export default function RevenueStatsDialog({
     );
 }
 
+    
