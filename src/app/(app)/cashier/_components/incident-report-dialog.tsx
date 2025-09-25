@@ -30,7 +30,7 @@ type IncidentReportDialogProps = {
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
     reporter: AuthUser;
-    violationToEdit: IncidentReport | null; // Renaming to violationToEdit is confusing, should be incidentToEdit
+    violationToEdit: IncidentReport | null; // This should be incidentToEdit
     isSelfConfession?: boolean;
 };
 
@@ -168,7 +168,7 @@ export default function IncidentReportDialog({
         ];
     }, [existingPhotos, localPhotos]);
 
-    const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : 'Tạo Báo cáo Sự cố';
+    const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Tạo Báo cáo Sự cố');
 
     return (
         <>
@@ -207,7 +207,7 @@ export default function IncidentReportDialog({
                             <Label htmlFor="content" className="text-right mt-2">
                             Nội dung
                             </Label>
-                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh Ocean..." />
+                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh" />
                         </div>
                         <div className="grid grid-cols-4 items-start gap-4">
                             <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
