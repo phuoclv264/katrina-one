@@ -234,7 +234,7 @@ export const dataStore = {
                 totalAmount: cost,
                 paymentMethod: 'cash' as PaymentMethod,
                 notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
-                createdBy: finalData.createdBy || user,
+                createdBy: finalData.createdBy, // Pass the createdBy from the incident
                 associatedIncidentId: id,
             };
             if (!existingSlips.empty) {
@@ -363,6 +363,8 @@ export const dataStore = {
             const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, blob);
             finalData.invoiceImageUrl = await getDownloadURL(storageRef);
+        } else if (data.invoiceImageUrl === null) {
+             finalData.invoiceImageUrl = null;
         } else if (data.invoiceImageUrl === undefined) {
              delete finalData.invoiceImageUrl;
         }
@@ -453,8 +455,11 @@ export const dataStore = {
             if (!finalData.date) {
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
             }
-            if (slipData.createdBy) {
-                 finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
+            if (slipData.createdBy && slipData.createdBy.userId && slipData.createdBy.userName) {
+                finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
+            } else {
+                console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
+                throw new Error("Missing createdBy information.");
             }
             delete finalData.lastModifiedBy;
         }
@@ -2293,3 +2298,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
