@@ -113,6 +113,7 @@ export type InventoryItem = {
     category: string;
     supplier: string;
     
+    unit: string; // DEPRECATED, use baseUnit and units instead
     baseUnit: string; // The smallest unit for stock tracking (e.g., "ml", "gram")
     units: UnitDefinition[]; // Array of all possible units for this item
     
@@ -128,7 +129,7 @@ export type InventoryItem = {
 export type Suppliers = string[];
 
 // Type for AI-parsed items before they get a real ID
-export type ParsedInventoryItem = Omit<InventoryItem, 'id'>;
+export type ParsedInventoryItem = Omit<InventoryItem, 'id' | 'unit'>;
 
 
 export type UpdateInventoryItemsOutput = {
@@ -351,11 +352,18 @@ export type HandoverReport = {
   isVerified: boolean;
 };
 
+export type IncidentCategory = {
+  id: string;
+  name: string;
+};
+
 export type IncidentReport = {
   id: string;
   date: string;
   content: string;
   cost: number;
+  photos: string[];
+  category: string;
   
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
