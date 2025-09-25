@@ -202,7 +202,7 @@ export default function CashierReportsPage() {
   
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isOtherCostCategoryDialogOpen, setIsOtherCostCategoryDialogOpen] = useState(false);
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
 
 
@@ -237,7 +237,7 @@ export default function CashierReportsPage() {
     const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => {
         setAllData(prev => ({...prev, otherCostCategories: categories}));
     });
-     const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => {
+    const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => {
         setAllData(prev => ({...prev, incidentCategories: categories}));
     });
 
@@ -444,10 +444,6 @@ export default function CashierReportsPage() {
         }
     }
 
-     const handleIncidentCategoriesChange = async (newCategories: IncidentCategory[]) => {
-        await dataStore.updateIncidentCategories(newCategories);
-    };
-
   if (isLoading || authLoading) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -487,7 +483,7 @@ export default function CashierReportsPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 flex flex-col gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>Quản lý Loại chi phí khác</Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)}>Quản lý Loại chi phí khác</Button>
                     <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)}>Quản lý Loại sự cố</Button>
                 </CardContent>
              </Card>
@@ -678,8 +674,8 @@ export default function CashierReportsPage() {
         />
     }
     <OtherCostCategoryDialog
-        open={isCategoryDialogOpen}
-        onOpenChange={setIsCategoryDialogOpen}
+        open={isOtherCostCategoryDialogOpen}
+        onOpenChange={setIsOtherCostCategoryDialogOpen}
     />
      <IncidentCategoryDialog
         open={isIncidentCategoryDialogOpen}

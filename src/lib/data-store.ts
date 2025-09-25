@@ -26,8 +26,8 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
@@ -166,10 +166,25 @@ export const dataStore = {
         }
     },
 
-    async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>, user: AuthUser): Promise<void> {
+    async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[] }, user: AuthUser): Promise<void> {
+        const { photoIds, ...incidentData } = data;
+
+        const photoUrls = await Promise.all(
+            photoIds.map(async (photoId) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `incidents/${format(new Date(), 'yyyy-MM')}/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            })
+        );
+        const validUrls = photoUrls.filter((url): url is string => !!url);
+        await photoStore.deletePhotos(photoIds);
+        
         const incidentCollection = collection(db, 'incidents');
         const incidentRef = await addDoc(incidentCollection, {
-            ...data,
+            ...incidentData,
+            photos: validUrls,
             date: format(new Date(), 'yyyy-MM-dd'),
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
@@ -182,8 +197,8 @@ export const dataStore = {
                 expenseType: 'other_cost',
                 items: [{
                     itemId: 'other_cost',
-                    name: 'Chi phí sự cố', // A generic category
-                    description: data.content, // Detailed description here
+                    name: `Chi phí sự cố (${data.category})`,
+                    description: data.content,
                     supplier: 'N/A',
                     quantity: 1,
                     unitPrice: data.cost,
@@ -197,6 +212,32 @@ export const dataStore = {
             };
             await this.addOrUpdateExpenseSlip(slipData);
         }
+    },
+
+    subscribeToIncidentCategories(callback: (categories: IncidentCategory[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'incidentCategories');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().list as IncidentCategory[]);
+            } else {
+                try {
+                    await setDoc(docRef, { list: initialIncidentCategories });
+                    callback(initialIncidentCategories);
+                } catch (e) {
+                    console.error("Permission denied to create default incident categories.", e);
+                    callback(initialIncidentCategories);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read incident categories: ${error.code}`);
+            callback(initialIncidentCategories);
+        });
+        return unsubscribe;
+    },
+
+    async updateIncidentCategories(newCategories: IncidentCategory[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'incidentCategories');
+        await setDoc(docRef, { list: newCategories });
     },
     
     subscribeToOtherCostCategories(callback: (categories: OtherCostCategory[]) => void): () => void {
@@ -415,7 +456,7 @@ export const dataStore = {
             const incidents = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
-                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             } as IncidentReport));
             callback(incidents);
         });

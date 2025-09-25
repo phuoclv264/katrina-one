@@ -1,4 +1,4 @@
-import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory, OtherCostCategory } from './types';
+import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory, OtherCostCategory, IncidentCategory } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 export const staff: { pin: string, name: string }[] = [
@@ -238,6 +238,14 @@ export const initialOtherCostCategories: OtherCostCategory[] = [
     { id: uuidv4(), name: "Tiền Internet" },
     { id: uuidv4(), name: "Phí giữ xe" },
     { id: uuidv4(), name: "Chi phí sửa chữa" },
+    { id: uuidv4(), name: "Khác" },
+];
+
+export const initialIncidentCategories: IncidentCategory[] = [
+    { id: uuidv4(), name: "Hư hỏng thiết bị" },
+    { id: uuidv4(), name: "Vấn đề vệ sinh" },
+    { id: uuidv4(), name: "Sự cố với khách hàng" },
+    { id: uuidv4(), name: "Làm vỡ/hỏng tài sản" },
     { id: uuidv4(), name: "Khác" },
 ];
 
