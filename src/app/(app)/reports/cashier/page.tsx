@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -189,6 +187,7 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
 
 function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean, onOpenChange: (open: boolean) => void, incidents: IncidentReport[] }) {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
     
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
@@ -209,6 +208,7 @@ function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean
     
     const openLightbox = (photos: string[]) => {
         const slides = photos.map(p => ({ src: p }));
+        setLightboxSlides(slides);
         setIsLightboxOpen(true);
     };
 
@@ -250,7 +250,11 @@ function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean
                     </div>
                 </DialogContent>
             </Dialog>
-            <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} slides={isLightboxOpen ? incidents.flatMap(i => i.photos?.map(p => ({ src: p }))) : []} />
+            <Lightbox
+                open={isLightboxOpen}
+                close={() => setIsLightboxOpen(false)}
+                slides={lightboxSlides}
+            />
         </>
     );
 }
@@ -556,7 +560,7 @@ export default function CashierReportsPage() {
       if(!incident) return;
       setIsProcessing(true);
       try {
-          await dataStore.deleteIncident(incident);
+          await dataStore.deleteIncident(incident.id);
           toast.success("Đã xóa báo cáo sự cố.");
       } catch(error) {
           toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
@@ -819,12 +823,11 @@ export default function CashierReportsPage() {
           open={isIncidentDialogOpen}
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
-          users={allData.users}
           isProcessing={isProcessing}
           violationToEdit={incidentToEdit}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateViolationCategories}
+          onCategoriesChange={dataStore.updateIncidentCategories}
           canManageCategories={true}
         />
     )}
