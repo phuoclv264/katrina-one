@@ -18,28 +18,29 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import type { IncidentCategory } from "@/lib/types"
 
-type ViolationCategoryComboboxProps = {
-    categories: string[];
+type IncidentCategoryComboboxProps = {
+    categories: IncidentCategory[];
     value: string;
     onChange: (newValue: string) => void;
-    onCategoriesChange: (newCategories: string[]) => void;
+    onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManage: boolean;
     disabled?: boolean;
     placeholder?: string;
     className?: string;
 }
 
-export function ViolationCategoryCombobox({ 
+export function IncidentCategoryCombobox({ 
     categories = [],
     value, 
     onChange, 
     onCategoriesChange,
     canManage,
     disabled,
-    placeholder = "Chọn loại vi phạm...",
+    placeholder = "Chọn loại sự cố...",
     className
-}: ViolationCategoryComboboxProps) {
+}: IncidentCategoryComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState(value || "")
 
@@ -54,8 +55,8 @@ export function ViolationCategoryCombobox({
   }
 
   const handleAddNew = () => {
-    if (inputValue && !categories.find(c => c.toLowerCase() === inputValue.toLowerCase())) {
-        const newCategories = [...categories, inputValue].sort((a, b) => a.localeCompare(b, 'vi'));
+    if (inputValue && !categories.find(c => c.name.toLowerCase() === inputValue.toLowerCase())) {
+        const newCategories = [...categories, { id: `cat-${Date.now()}`, name: inputValue }].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
         onCategoriesChange(newCategories);
         onChange(inputValue);
     }
@@ -64,17 +65,16 @@ export function ViolationCategoryCombobox({
   
   const handleDelete = (e: React.MouseEvent, categoryToDelete: string) => {
       e.stopPropagation(); // Prevent dropdown from closing
-      const newCategories = categories.filter(c => c !== categoryToDelete);
+      const newCategories = categories.filter(c => c.name !== categoryToDelete);
       onCategoriesChange(newCategories);
-      // If the deleted category was the selected one, clear the selection
       if(value === categoryToDelete) {
           onChange('');
       }
   }
 
-  const displayValue = value ? categories.find((cat) => cat === value) || placeholder : placeholder;
+  const displayValue = value ? categories.find((cat) => cat.name === value)?.name || placeholder : placeholder;
   
-  const sortedCategories = React.useMemo(() => [...categories].sort((a,b) => a.localeCompare(b, 'vi')), [categories]);
+  const sortedCategories = React.useMemo(() => [...categories].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [categories]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -105,41 +105,28 @@ export function ViolationCategoryCombobox({
                         Thêm "{inputValue}"
                     </Button>
                 ) : (
-                    <div className="py-6 text-center text-sm">Không tìm thấy loại vi phạm.</div>
+                    <div className="py-6 text-center text-sm">Không tìm thấy loại sự cố.</div>
                 )}
             </CommandEmpty>
             <CommandGroup>
-                <CommandItem
-                    key="all"
-                    value=""
-                    onSelect={() => handleSelect('')}
-                >
-                     <Check
-                        className={cn(
-                        "mr-2 h-4 w-4",
-                        !value ? "opacity-100" : "opacity-0"
-                        )}
-                    />
-                    Tất cả loại vi phạm
-                </CommandItem>
               {sortedCategories.map((category) => (
                 <CommandItem
-                  key={category}
-                  value={category}
-                  onSelect={() => handleSelect(category)}
+                  key={category.id}
+                  value={category.name}
+                  onSelect={() => handleSelect(category.name)}
                   className="flex justify-between"
                 >
                   <div className="flex items-center">
                     <Check
                         className={cn(
                         "mr-2 h-4 w-4",
-                        value === category ? "opacity-100" : "opacity-0"
+                        value === category.name ? "opacity-100" : "opacity-0"
                         )}
                     />
-                    {category}
+                    {category.name}
                   </div>
-                  {canManage && category !== "Khác" && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => handleDelete(e, category)}>
+                  {canManage && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => handleDelete(e, category.name)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}

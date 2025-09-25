@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { IncidentReport, ViolationCategory } from '@/lib/types';
+import type { IncidentReport, IncidentCategory, AuthUser } from '@/lib/types';
 import { Loader2, Camera } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
+import { ViolationCategoryCombobox } from '@/components/violation-category-combobox'; // This will be replaced
+import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,9 +22,10 @@ type IncidentReportDialogProps = {
     onOpenChange: (open: boolean) => void;
     onSave: (data: Omit<IncidentReport, 'id' | 'date' | 'createdAt' | 'createdBy' | 'photos'> & { photoIds: string[] }) => void;
     isProcessing: boolean;
-    categories: ViolationCategory[];
-    onCategoriesChange: (newCategories: ViolationCategory[]) => void;
+    categories: IncidentCategory[];
+    onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
+    reporter: AuthUser;
 };
 
 export default function IncidentReportDialog({
@@ -33,6 +36,7 @@ export default function IncidentReportDialog({
     categories,
     onCategoriesChange,
     canManageCategories,
+    reporter,
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
@@ -74,7 +78,7 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-md bg-white">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-card">
                     <DialogHeader>
                         <DialogTitle>Tạo Báo cáo Sự cố</DialogTitle>
                         <DialogDescription>Ghi nhận sự cố phát sinh trong ca làm việc.</DialogDescription>
@@ -82,11 +86,11 @@ export default function IncidentReportDialog({
                     <div className="grid gap-4 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="category">Loại sự cố</Label>
-                            <ViolationCategoryCombobox 
-                                categories={(categories || []).map(c => c.name)}
+                            <IncidentCategoryCombobox 
+                                categories={categories}
                                 value={selectedCategory}
                                 onChange={setSelectedCategory}
-                                onCategoriesChange={(newCatNames) => onCategoriesChange(newCatNames.map(name => ({ id: uuidv4(), name })))}
+                                onCategoriesChange={onCategoriesChange}
                                 canManage={canManageCategories}
                                 placeholder="Chọn loại sự cố..."
                             />
@@ -99,7 +103,7 @@ export default function IncidentReportDialog({
                             <Label htmlFor="cost">Chi phí phát sinh (nếu có)</Label>
                             <Input id="cost" type="number" value={cost} onChange={e => setCost(Number(e.target.value))} placeholder="0" />
                             <p className="text-xs text-muted-foreground">
-                                Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động.
+                                Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động với nội dung "Chi phí sự cố ([Tên loại sự cố])".
                             </p>
                         </div>
                          <div className="space-y-2">
@@ -127,3 +131,4 @@ export default function IncidentReportDialog({
         </>
     );
 }
+

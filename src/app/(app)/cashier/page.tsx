@@ -8,10 +8,10 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem } from '@/lib/types';
+import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import IncidentCategoryDialog from './_components/incident-category-dialog';
 
 
 function StartOfDayCashDialog({ 
@@ -107,6 +108,7 @@ function StartOfDayCashDialog({
 }
 
 const getSlipContentName = (item: ExpenseItem): string => {
+    if (item.name?.startsWith('Chi phí sự cố')) return item.name;
     if (item.itemId === 'other_cost') {
       if (item.name === 'Khác' && item.description) {
           return item.description;
@@ -133,6 +135,7 @@ export default function CashierDashboardPage() {
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
+  const [incidentCategories, setIncidentCategories] = useState<IncidentCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -140,6 +143,7 @@ export default function CashierDashboardPage() {
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [isHandoverDialogOpen, setIsHandoverDialogOpen] = useState(false);
   
@@ -182,6 +186,7 @@ export default function CashierDashboardPage() {
         const unsubRevenue = dataStore.subscribeToDailyRevenueStats(date, setDailyRevenueStats);
         const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
         const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(setOtherCostCategories);
+        const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(setIncidentCategories);
         const unsubHandover = dataStore.subscribeToHandoverReport(date, setHandoverReport);
 
         Promise.all([
@@ -190,6 +195,7 @@ export default function CashierDashboardPage() {
             dataStore.getDailyRevenueStats(date),
             dataStore.getInventoryList(),
             dataStore.getOtherCostCategories(),
+            dataStore.getIncidentCategories(),
             dataStore.getHandoverReport(date),
         ]).catch(error => {
             console.error("Failed to fetch cashier data:", error);
@@ -204,6 +210,7 @@ export default function CashierDashboardPage() {
             unsubRevenue();
             unsubInventory();
             unsubOtherCostCategories();
+            unsubIncidentCategories();
             unsubHandover();
         };
     }
@@ -286,6 +293,10 @@ export default function CashierDashboardPage() {
           setIsProcessing(false);
       }
   }, [user]);
+  
+  const handleCategoriesChange = async (newCategories: IncidentCategory[]) => {
+    await dataStore.updateIncidentCategories(newCategories);
+  };
   
  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
@@ -422,10 +433,18 @@ export default function CashierDashboardPage() {
     <>
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
         <header className="mb-8">
-            <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
-                <Banknote />
-                Báo cáo Thu ngân
-            </h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
+                    <Banknote />
+                    Báo cáo Thu ngân
+                </h1>
+                {user.role === 'Chủ nhà hàng' && (
+                    <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Quản lý Loại Sự cố
+                    </Button>
+                )}
+            </div>
             <p className="text-muted-foreground mt-2">
                 Quản lý các khoản chi, doanh thu và các báo cáo tài chính trong ngày.
             </p>
@@ -745,6 +764,9 @@ export default function CashierDashboardPage() {
         onOpenChange={setIsIncidentDialogOpen}
         onSave={handleSaveIncident}
         isProcessing={isProcessing}
+        categories={incidentCategories}
+        onCategoriesChange={handleCategoriesChange}
+        canManageCategories={user.role === 'Chủ nhà hàng'}
     />
      <RevenueStatsDialog
         open={isRevenueDialogOpen && !revenueStatsToEdit}
@@ -778,6 +800,11 @@ export default function CashierDashboardPage() {
             onNavigateToRevenue={handleNavigateToRevenue}
         />
     )}
+    <IncidentCategoryDialog
+        open={isCategoryDialogOpen}
+        onOpenChange={setIsCategoryDialogOpen}
+    />
     </>
   );
 }
+

@@ -299,10 +299,7 @@ export interface AuthUser extends User {
 // --- Cashier Types ---
 
 export type ExpenseType = 'goods_import' | 'other_cost';
-export type OtherCostCategory = {
-  id: string;
-  name: string;
-};
+
 export type PaymentMethod = 'cash' | 'bank_transfer';
 
 export type ExpenseItem = {
@@ -335,6 +332,10 @@ export type ExpenseSlip = {
   associatedHandoverReportId?: string; // Link to the handover report
 };
 
+export type OtherCostCategory = {
+  id: string;
+  name: string;
+};
 
 export type HandoverReport = {
   id: string; // cashier-handover-{date}
