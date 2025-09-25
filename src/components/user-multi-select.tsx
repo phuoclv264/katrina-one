@@ -60,7 +60,7 @@ export function UserMultiSelect({
   }
   
   const selectableUsers = React.useMemo(() => {
-      return users
+      return (users || [])
           .filter(u => u.role !== 'Chủ nhà hàng')
           .sort((a, b) => {
               const aIsSelected = selectedUsers.some(su => su.uid === a.uid);
