@@ -8,13 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { IncidentReport, IncidentCategory, AuthUser } from '@/lib/types';
+import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser } from '@/lib/types';
 import { Loader2, Camera, Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
+import { UserMultiSelect } from '@/components/user-multi-select';
+import { photoStore } from '@/lib/photo-store';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
 
 type IncidentReportDialogProps = {
@@ -26,7 +31,8 @@ type IncidentReportDialogProps = {
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
     reporter: AuthUser;
-    violationToEdit: IncidentReport | null; // Changed from 'violationToEdit' to be more specific
+    users: ManagedUser[];
+    violationToEdit: IncidentReport | null;
     isSelfConfession?: boolean;
 };
 
@@ -39,18 +45,43 @@ export default function IncidentReportDialog({
     onCategoriesChange,
     canManageCategories,
     reporter,
-    violationToEdit, // Changed
+    users,
+    violationToEdit,
     isSelfConfession = false,
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
+    const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     
     // Photo state
-    const [newPhotoIds, setNewPhotoIds] = useState<string[]>([]);
     const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+    const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
+
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+
+    // --- Back button handling for Lightbox ---
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+        if (isLightboxOpen) {
+            event.preventDefault();
+            setIsLightboxOpen(false);
+        }
+        };
+
+        if (isLightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+        }
+
+        return () => {
+        window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isLightboxOpen]);
+
 
     useEffect(() => {
         if (open) {
@@ -58,24 +89,34 @@ export default function IncidentReportDialog({
                 setContent(violationToEdit.content);
                 setCost(violationToEdit.cost);
                 setSelectedCategory(violationToEdit.category);
+                const initialUsers = (violationToEdit.users && Array.isArray(violationToEdit.users)) 
+                    ? users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid))
+                    : [];
+                setSelectedUsers(initialUsers);
                 setExistingPhotos(violationToEdit.photos || []);
             } else if (isSelfConfession) {
-                const self = { uid: reporter.uid, displayName: reporter.displayName };
+                const self = users.find(u => u.uid === reporter.uid);
                 setContent('');
                 setCost(0);
+                setSelectedUsers(self ? [self] : []);
                 setSelectedCategory('');
                 setExistingPhotos([]);
             } else {
                 setContent('');
                 setCost(0);
+                setSelectedUsers([]);
                 setSelectedCategory('');
                 setExistingPhotos([]);
             }
              // Always reset local photo state
-            setNewPhotoIds([]);
+            setLocalPhotos([]);
             setPhotosToDelete([]);
+        } else {
+             // Cleanup local photo object URLs when dialog is fully closed
+            localPhotos.forEach(p => URL.revokeObjectURL(p.url));
         }
-    }, [open, violationToEdit, isSelfConfession, reporter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
 
     const handleSave = () => {
@@ -87,26 +128,35 @@ export default function IncidentReportDialog({
             toast.error('Vui lòng chọn loại sự cố.');
             return;
         }
-        if (newPhotoIds.length === 0 && existingPhotos.length === 0) {
+        if (selectedUsers.length === 0) {
+             toast.error('Vui lòng chọn nhân viên liên quan.');
+            return;
+        }
+        if (localPhotos.length === 0 && existingPhotos.length === 0) {
             toast.error('Vui lòng chụp ảnh bằng chứng cho sự cố.');
             return;
         }
-
-        const users = isSelfConfession ? [{ id: reporter.uid, name: reporter.displayName }] : [];
 
         onSave({ 
             content, 
             cost, 
             category: selectedCategory, 
-            photoIds: newPhotoIds,
+            photoIds: localPhotos.map(p => p.id),
             photosToDelete: photosToDelete,
-            users, // Add users for self-confession case
+            users: selectedUsers.map(u => ({ id: u.uid, name: u.displayName })),
         }, violationToEdit?.id);
     };
     
-    const handleCapturePhotos = (capturedPhotoIds: string[]) => {
-        setNewPhotoIds(prev => [...prev, ...capturedPhotoIds]);
+    const handleCapturePhotos = async (capturedPhotoIds: string[]) => {
         setIsCameraOpen(false);
+        const newPhotoObjects: {id: string, url: string}[] = [];
+        for (const photoId of capturedPhotoIds) {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if(photoBlob) {
+                newPhotoObjects.push({ id: photoId, url: URL.createObjectURL(photoBlob) });
+            }
+        }
+        setLocalPhotos(prev => [...prev, ...newPhotoObjects]);
     };
     
     const handleDeleteExistingPhoto = (url: string) => {
@@ -114,12 +164,36 @@ export default function IncidentReportDialog({
         setPhotosToDelete(prev => [...prev, url]);
     };
 
+    const handleDeleteLocalPhoto = async (id: string) => {
+        setLocalPhotos(prev => {
+            const photoToDelete = prev.find(p => p.id === id);
+            if (photoToDelete) {
+                URL.revokeObjectURL(photoToDelete.url);
+            }
+            return prev.filter(p => p.id !== id);
+        });
+        await photoStore.deletePhoto(id);
+    };
+    
+    const openLightbox = (clickedIndex: number) => {
+        setLightboxIndex(clickedIndex);
+        setIsLightboxOpen(true);
+    };
+
+    const allPhotos = useMemo(() => {
+        return [
+            ...existingPhotos.map(url => ({ id: url, url })),
+            ...localPhotos
+        ];
+    }, [existingPhotos, localPhotos]);
+
     const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Tạo Báo cáo Sự cố');
 
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="sm:max-w-md bg-white dark:bg-card">
+                    <div id="incident-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>
@@ -127,9 +201,33 @@ export default function IncidentReportDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="category">Loại sự cố</Label>
-                            <IncidentCategoryCombobox 
+                         {!isSelfConfession ? (
+                            <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="user" className="text-right pt-2">
+                                Nhân viên
+                            </Label>
+                            <UserMultiSelect
+                                users={users}
+                                selectedUsers={selectedUsers}
+                                onChange={setSelectedUsers}
+                                disabled={isSelfConfession}
+                                className="col-span-3"
+                            />
+                            </div>
+                        ) : (
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right">Nhân viên</Label>
+                                    <div className="col-span-3">
+                                        <Badge variant="secondary">{reporter.displayName}</Badge>
+                                    </div>
+                                </div>
+                            )}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="category" className="text-right">
+                            Loại sự cố
+                            </Label>
+                            <div className="col-span-3">
+                            <IncidentCategoryCombobox
                                 categories={categories}
                                 value={selectedCategory}
                                 onChange={setSelectedCategory}
@@ -137,37 +235,56 @@ export default function IncidentReportDialog({
                                 canManage={canManageCategories}
                                 placeholder="Chọn loại sự cố..."
                             />
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="content">Nội dung sự cố</Label>
-                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} placeholder="VD: Làm vỡ ly thuỷ tinh Ocean..." />
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="content" className="text-right mt-2">
+                            Nội dung
+                            </Label>
+                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh Ocean..." />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="cost">Chi phí phát sinh (nếu có)</Label>
-                            <Input id="cost" type="number" value={cost} onChange={e => setCost(Number(e.target.value))} placeholder="0" />
-                            <p className="text-xs text-muted-foreground">
-                                Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động với nội dung "Chi phí sự cố ([Tên loại sự cố])".
-                            </p>
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="cost" className="text-right mt-2">Chi phí</Label>
+                            <div className="col-span-3">
+                                <Input id="cost" type="number" value={cost} onChange={e => setCost(Number(e.target.value))} placeholder="0" />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Nếu có chi phí, phiếu chi tương ứng sẽ được tạo tự động.
+                                </p>
+                            </div>
                         </div>
-                         <div className="space-y-2">
-                            <Label>Ảnh bằng chứng (bắt buộc)</Label>
-                             <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
-                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
-                            </Button>
-                             {(existingPhotos.length > 0 || newPhotoIds.length > 0) && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {existingPhotos.map((url, i) => (
-                                         <div key={`existing-${i}`} className="relative h-20 w-20 rounded-md overflow-hidden">
-                                             <Image src={url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
-                                             <Button variant="destructive" size="icon" className="absolute top-0.5 right-0.5 h-5 w-5" onClick={() => handleDeleteExistingPhoto(url)}>
-                                                 <X className="h-3 w-3" />
-                                             </Button>
-                                         </div>
-                                    ))}
-                                    {/* We can't show previews for new photos as we only have IDs, the parent component will show them after save */}
-                                     {newPhotoIds.length > 0 && <p className="text-sm text-muted-foreground self-center">{newPhotoIds.length} ảnh mới đã được thêm.</p>}
-                                </div>
-                            )}
+                         <div className="grid grid-cols-4 items-start gap-4">
+                            <Label className="text-right mt-2">Bằng chứng</Label>
+                             <div className="col-span-3 space-y-2">
+                                <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
+                                    <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
+                                </Button>
+                                {allPhotos.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {allPhotos.map((photo, i) => (
+                                            <div key={photo.id} className="relative h-20 w-20 rounded-md overflow-hidden group">
+                                                 <button onClick={() => openLightbox(i)} className="w-full h-full">
+                                                    <Image src={photo.url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
+                                                 </button>
+                                                 <Button 
+                                                    variant="destructive" 
+                                                    size="icon" 
+                                                    className="absolute top-0.5 right-0.5 h-5 w-5" 
+                                                    onClick={() => {
+                                                        const isLocal = localPhotos.some(p => p.id === photo.id);
+                                                        if (isLocal) {
+                                                            handleDeleteLocalPhoto(photo.id);
+                                                        } else {
+                                                            handleDeleteExistingPhoto(photo.url);
+                                                        }
+                                                    }}
+                                                >
+                                                     <X className="h-3 w-3" />
+                                                 </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                             </div>
                         </div>
                     </div>
                     <DialogFooter>
@@ -183,6 +300,16 @@ export default function IncidentReportDialog({
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}
                 onSubmit={handleCapturePhotos}
+            />
+             <Lightbox
+                open={isLightboxOpen}
+                close={() => setIsLightboxOpen(false)}
+                index={lightboxIndex}
+                slides={allPhotos.map(p => ({ src: p.url }))}
+                plugins={[Zoom]}
+                portal={{ root: document.getElementById("incident-lightbox-container") ?? undefined }}
+                carousel={{ finite: true }}
+                zoom={{ maxZoomPixelRatio: 5 }}
             />
         </>
     );
