@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -5,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem, IncidentCategory } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem, IncidentCategory, ManagedUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -218,6 +219,24 @@ export default function CashierReportsPage() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+        if (lightboxOpen) {
+            event.preventDefault();
+            setLightboxOpen(false);
+        }
+    };
+
+    if (lightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+    }
+    return () => {
+        window.removeEventListener('popstate', handlePopState);
+    };
+  }, [lightboxOpen]);
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -234,8 +253,12 @@ export default function CashierReportsPage() {
     const unsubIncidents = dataStore.subscribeToAllIncidents(incidents => setAllData(prev => ({...prev, incidents: incidents})));
     const unsubRevenue = dataStore.subscribeToAllRevenueStats(stats => setAllData(prev => ({...prev, revenueStats: stats})));
     const unsubInventory = dataStore.subscribeToInventoryList(items => setAllData(prev => ({...prev, inventoryList: items})));
-    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => setAllData(prev => ({...prev, otherCostCategories: categories})));
-    const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => setAllData(prev => ({...prev, incidentCategories: categories})));
+    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => {
+        setAllData(prev => ({...prev, otherCostCategories: categories}));
+    });
+     const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => {
+        setAllData(prev => ({...prev, incidentCategories: categories}));
+    });
     const unsubUsers = dataStore.subscribeToUsers(users => setAllData(prev => ({...prev, users: users})));
     
     const timer = setTimeout(() => setIsLoading(false), 1500);
@@ -455,7 +478,7 @@ export default function CashierReportsPage() {
       if(!incident) return;
       setIsProcessing(true);
       try {
-          await dataStore.deleteIncident(incident);
+          await dataStore.deleteIncident(incident.id);
           toast.success("Đã xóa báo cáo sự cố.");
       } catch(error) {
           toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
@@ -707,7 +730,7 @@ export default function CashierReportsPage() {
             otherCostCategories={allData.otherCostCategories}
         />
     }
-     {user && incidentToEdit && (
+    {user && incidentToEdit && (
         <IncidentReportDialog
           open={isIncidentDialogOpen}
           onOpenChange={setIsIncidentDialogOpen}
@@ -733,6 +756,7 @@ export default function CashierReportsPage() {
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}
         slides={lightboxSlides}
+        carousel={{ finite: true }}
     />
     </TooltipProvider>
   );
