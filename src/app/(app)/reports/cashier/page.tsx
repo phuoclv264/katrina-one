@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -13,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2, Eye, Edit, Loader2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -26,6 +24,9 @@ import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
+import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 
 type GroupedReports = {
@@ -195,19 +196,26 @@ export default function CashierReportsPage() {
     inventoryList: InventoryItem[],
     otherCostCategories: OtherCostCategory[],
     incidentCategories: IncidentCategory[],
-  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [], incidentCategories: [] });
+    users: ManagedUser[],
+  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [], incidentCategories: [], users: [] });
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // Dialog states
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
+  const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
   const [isOtherCostCategoryDialogOpen, setIsOtherCostCategoryDialogOpen] = useState(false);
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
-
-
+  
+  // States for editing
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
+  const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
+  
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -222,25 +230,14 @@ export default function CashierReportsPage() {
     
     setIsLoading(true);
 
-    const unsubExpense = dataStore.subscribeToAllExpenseSlips(slips => {
-        setAllData(prev => ({...prev, expenseSlips: slips}));
-    });
-    const unsubIncidents = dataStore.subscribeToAllIncidents(incidents => {
-        setAllData(prev => ({...prev, incidents: incidents}));
-    });
-    const unsubRevenue = dataStore.subscribeToAllRevenueStats(stats => {
-        setAllData(prev => ({...prev, revenueStats: stats}));
-    });
-     const unsubInventory = dataStore.subscribeToInventoryList(items => {
-        setAllData(prev => ({...prev, inventoryList: items}));
-    });
-    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => {
-        setAllData(prev => ({...prev, otherCostCategories: categories}));
-    });
-    const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => {
-        setAllData(prev => ({...prev, incidentCategories: categories}));
-    });
-
+    const unsubExpense = dataStore.subscribeToAllExpenseSlips(slips => setAllData(prev => ({...prev, expenseSlips: slips})));
+    const unsubIncidents = dataStore.subscribeToAllIncidents(incidents => setAllData(prev => ({...prev, incidents: incidents})));
+    const unsubRevenue = dataStore.subscribeToAllRevenueStats(stats => setAllData(prev => ({...prev, revenueStats: stats})));
+    const unsubInventory = dataStore.subscribeToInventoryList(items => setAllData(prev => ({...prev, inventoryList: items})));
+    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => setAllData(prev => ({...prev, otherCostCategories: categories})));
+    const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => setAllData(prev => ({...prev, incidentCategories: categories})));
+    const unsubUsers = dataStore.subscribeToUsers(users => setAllData(prev => ({...prev, users: users})));
+    
     const timer = setTimeout(() => setIsLoading(false), 1500);
 
     return () => {
@@ -250,6 +247,7 @@ export default function CashierReportsPage() {
       unsubInventory();
       unsubOtherCostCategories();
       unsubIncidentCategories();
+      unsubUsers();
       clearTimeout(timer);
     };
   }, [user]);
@@ -370,6 +368,11 @@ export default function CashierReportsPage() {
       setIsRevenueDialogOpen(true);
   }
 
+  const handleEditIncident = (incident: IncidentReport) => {
+    setIncidentToEdit(incident);
+    setIsIncidentDialogOpen(true);
+  };
+
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setIsProcessing(true);
@@ -405,44 +408,67 @@ export default function CashierReportsPage() {
     }
   }, [user, revenueStatsToEdit]);
 
-    const handleDeleteExpense = async (id: string) => {
-        const slip = allData.expenseSlips.find(s => s.id === id);
-        if(!slip) return;
-        setIsProcessing(true);
-        try {
-            await dataStore.deleteExpenseSlip(slip);
-            toast.success("Đã xóa phiếu chi.");
-        } catch(error) {
-            toast.error("Lỗi: Không thể xóa phiếu chi.");
-        } finally {
-            setIsProcessing(false);
-        }
+  const handleSaveIncident = useCallback(async (data: any, id?: string) => {
+    if (!user) return;
+    setIsProcessing(true);
+    try {
+      await dataStore.addOrUpdateIncident(data, id, user);
+      toast.success(`Đã ${id ? 'cập nhật' : 'ghi nhận'} sự cố.`);
+      setIsIncidentDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save incident:', error);
+      toast.error('Không thể lưu báo cáo sự cố.');
+    } finally {
+      setIsProcessing(false);
     }
+  }, [user]);
 
-    const handleDeleteRevenue = async (id: string) => {
-        if (!user) return;
-        setIsProcessing(true);
-        try {
-            await dataStore.deleteRevenueStats(id, user);
-            toast.success("Đã xóa phiếu thống kê doanh thu.");
-        } catch(error) {
-            toast.error("Lỗi: Không thể xóa phiếu thống kê.");
-        } finally {
-            setIsProcessing(false);
-        }
-    }
+  const handleDeleteExpense = async (id: string) => {
+      const slip = allData.expenseSlips.find(s => s.id === id);
+      if(!slip) return;
+      setIsProcessing(true);
+      try {
+          await dataStore.deleteExpenseSlip(slip);
+          toast.success("Đã xóa phiếu chi.");
+      } catch(error) {
+          toast.error("Lỗi: Không thể xóa phiếu chi.");
+      } finally {
+          setIsProcessing(false);
+      }
+  }
 
-    const handleDeleteIncident = async (id: string) => {
-        setIsProcessing(true);
-        try {
-            await dataStore.deleteIncident(id);
-            toast.success("Đã xóa báo cáo sự cố.");
-        } catch(error) {
-            toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
-        } finally {
-            setIsProcessing(false);
-        }
-    }
+  const handleDeleteRevenue = async (id: string) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+          await dataStore.deleteRevenueStats(id, user);
+          toast.success("Đã xóa phiếu thống kê doanh thu.");
+      } catch(error) {
+          toast.error("Lỗi: Không thể xóa phiếu thống kê.");
+      } finally {
+          setIsProcessing(false);
+      }
+  }
+
+  const handleDeleteIncident = async (id: string) => {
+      const incident = allData.incidents.find(i => i.id === id);
+      if(!incident) return;
+      setIsProcessing(true);
+      try {
+          await dataStore.deleteIncident(incident);
+          toast.success("Đã xóa báo cáo sự cố.");
+      } catch(error) {
+          toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
+      } finally {
+          setIsProcessing(false);
+      }
+  }
+  
+  const openPhotoLightbox = (photos: string[]) => {
+    setLightboxSlides(photos.map(p => ({ src: p })));
+    setLightboxOpen(true);
+  };
+
 
   if (isLoading || authLoading) {
     return (
@@ -620,31 +646,39 @@ export default function CashierReportsPage() {
                             
                              {dayReports.incidents && dayReports.incidents.length > 0 && (
                                 <Card>
-                                    <CardHeader className="p-4"><CardTitle className="text-base text-amber-600">Sự cố</CardTitle></CardHeader>
-                                    <CardContent className="p-4 space-y-2">
+                                    <CardHeader className="p-4 pb-2"><CardTitle className="text-base text-amber-600">Sự cố</CardTitle></CardHeader>
+                                    <CardContent className="p-4 pt-0 space-y-3">
                                         {dayReports.incidents.map(incident => (
-                                            <div key={incident.id} className="text-sm flex justify-between items-start">
+                                            <div key={incident.id} className="text-sm flex flex-col sm:flex-row justify-between items-start gap-2 pt-3 border-t first:border-t-0 first:pt-0">
                                                 <div>
-                                                    <p className="font-semibold">{incident.content} (Chi phí: {incident.cost.toLocaleString('vi-VN')}đ)</p>
-                                                    <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName}</p>
+                                                    <p className="font-semibold">{incident.content} (<span className="font-normal text-red-600">{incident.cost.toLocaleString('vi-VN')}đ</span>)</p>
+                                                    <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} | {incident.category}</p>
                                                 </div>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 -mr-2 flex-shrink-0" disabled={isProcessing}>
-                                                            <Trash2 className="h-4 w-4" />
+                                                 <div className="flex items-center gap-1 self-end sm:self-start flex-shrink-0">
+                                                    {incident.photos && incident.photos.length > 0 && (
+                                                        <Button variant="secondary" size="sm" onClick={() => openPhotoLightbox(incident.photos)}>
+                                                            <Eye className="mr-2 h-4 w-4"/> Xem ảnh
                                                         </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Xóa báo cáo sự cố?</AlertDialogTitle>
-                                                            <AlertDialogDescription>Hành động này sẽ không ảnh hưởng đến phiếu chi được tạo tự động (nếu có).</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                                    )}
+                                                    <Button variant="outline" size="sm" onClick={() => handleEditIncident(incident)}>
+                                                        <Edit className="mr-2 h-4 w-4"/> Sửa
+                                                    </Button>
+                                                     <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Xóa báo cáo sự cố?</AlertDialogTitle>
+                                                                <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn báo cáo sự cố và phiếu chi liên quan (nếu có).</AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                 </div>
                                             </div>
                                         ))}
                                     </CardContent>
@@ -673,6 +707,20 @@ export default function CashierReportsPage() {
             otherCostCategories={allData.otherCostCategories}
         />
     }
+     {user && incidentToEdit && (
+        <IncidentReportDialog
+          open={isIncidentDialogOpen}
+          onOpenChange={setIsIncidentDialogOpen}
+          onSave={handleSaveIncident}
+          users={allData.users}
+          isProcessing={isProcessing}
+          violationToEdit={incidentToEdit}
+          reporter={user}
+          categories={allData.incidentCategories}
+          onCategoriesChange={dataStore.updateIncidentCategories}
+          canManageCategories={true}
+        />
+    )}
     <OtherCostCategoryDialog
         open={isOtherCostCategoryDialogOpen}
         onOpenChange={setIsOtherCostCategoryDialogOpen}
@@ -681,6 +729,12 @@ export default function CashierReportsPage() {
         open={isIncidentCategoryDialogOpen}
         onOpenChange={setIsIncidentCategoryDialogOpen}
     />
+     <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={lightboxSlides}
+    />
     </TooltipProvider>
   );
 }
+
