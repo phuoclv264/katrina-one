@@ -29,7 +29,8 @@ import IncidentCategoryDialog from '../../cashier/_components/incident-category-
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
-
+import Image from 'next/image';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 type GroupedReports = {
   [date: string]: {
@@ -186,6 +187,75 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
   );
 };
 
+function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean, onOpenChange: (open: boolean) => void, incidents: IncidentReport[] }) {
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (isLightboxOpen) {
+                event.preventDefault();
+                setIsLightboxOpen(false);
+            }
+        };
+
+        if (isLightboxOpen) {
+            window.history.pushState(null, '', window.location.href);
+            window.addEventListener('popstate', handlePopState);
+        }
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isLightboxOpen]);
+    
+    const openLightbox = (photos: string[]) => {
+        const slides = photos.map(p => ({ src: p }));
+        setIsLightboxOpen(true);
+    };
+
+    return (
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Chi tiết các Chi phí vô hình</DialogTitle>
+                        <DialogDescription>
+                            Đây là danh sách các sự cố được ghi nhận là chi phí vô hình (tổn thất không xuất quỹ) trong tháng.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6">
+                        <div className="space-y-4 py-4">
+                            {incidents.length > 0 ? incidents.map(incident => (
+                                <Card key={incident.id}>
+                                    <CardContent className="p-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold">{incident.content}</p>
+                                                <p className="text-sm text-muted-foreground">{format(new Date(incident.createdAt as string), 'HH:mm, dd/MM/yyyy')}</p>
+                                            </div>
+                                            <p className="font-bold text-red-600">{incident.cost.toLocaleString('vi-VN')}đ</p>
+                                        </div>
+                                        {incident.photos && incident.photos.length > 0 && (
+                                            <div className="flex gap-2 mt-2">
+                                                <Button variant="secondary" size="sm" onClick={() => openLightbox(incident.photos)}>
+                                                    <Eye className="mr-2 h-4 w-4"/> Xem ảnh ({incident.photos.length})
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )) : (
+                                <p className="text-center text-muted-foreground py-8">Không có chi phí vô hình nào trong tháng.</p>
+                            )}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} slides={isLightboxOpen ? incidents.flatMap(i => i.photos?.map(p => ({ src: p }))) : []} />
+        </>
+    );
+}
+
+
 
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -210,6 +280,7 @@ export default function CashierReportsPage() {
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
   const [isOtherCostCategoryDialogOpen, setIsOtherCostCategoryDialogOpen] = useState(false);
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
+  const [isIntangibleCostDialogOpen, setIsIntangibleCostDialogOpen] = useState(false);
   
   // States for editing
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
@@ -336,6 +407,7 @@ export default function CashierReportsPage() {
       const reportsInMonth = Object.values(reportsForCurrentMonth).flat();
       const allExpenses = reportsInMonth.flatMap(day => day.expenses || []);
       const allRevenueStats = reportsInMonth.flatMap(day => day.revenue || []);
+      const allIncidents = reportsInMonth.flatMap(day => day.incidents || []);
 
       // Use the latest stat of each day for summary
       const latestDailyStats: { [date: string]: RevenueStats } = {};
@@ -361,6 +433,10 @@ export default function CashierReportsPage() {
           acc[slip.paymentMethod] = (acc[slip.paymentMethod] || 0) + slip.totalAmount;
           return acc;
       }, {} as {[key: string]: number});
+      
+      const intangibleCost = allIncidents
+        .filter(i => i.paymentMethod === 'intangible_cost' && i.cost > 0)
+        .reduce((sum, i) => sum + i.cost, 0);
 
       const expenseByType = allExpenses.reduce((acc, slip) => {
           const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (getSlipContentName(slip.items[0]) || 'Khác');
@@ -368,7 +444,7 @@ export default function CashierReportsPage() {
           return acc;
       }, {} as {[key: string]: number});
       
-      return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod };
+      return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod, intangibleCost };
   }, [reportsForCurrentMonth]);
 
 
@@ -480,7 +556,7 @@ export default function CashierReportsPage() {
       if(!incident) return;
       setIsProcessing(true);
       try {
-          await dataStore.deleteIncident(id);
+          await dataStore.deleteIncident(incident);
           toast.success("Đã xóa báo cáo sự cố.");
       } catch(error) {
           toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
@@ -567,6 +643,12 @@ export default function CashierReportsPage() {
                              <p className="font-medium">Theo Phương thức Thanh toán:</p>
                              <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
                              <p className="pl-4">Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></p>
+                             {monthlySummary.intangibleCost > 0 && (
+                                <p className="pl-4 flex items-center gap-2">
+                                  Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span>
+                                  <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setIsIntangibleCostDialogOpen(true)}>Xem</Button>
+                                </p>
+                             )}
                         </div>
                         <Separator/>
                         <div className="text-sm space-y-1">
@@ -742,7 +824,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateIncidentCategories}
+          onCategoriesChange={dataStore.updateViolationCategories}
           canManageCategories={true}
         />
     )}
@@ -753,6 +835,11 @@ export default function CashierReportsPage() {
      <IncidentCategoryDialog
         open={isIncidentCategoryDialogOpen}
         onOpenChange={setIsIncidentCategoryDialogOpen}
+    />
+    <IntangibleCostDialog
+        open={isIntangibleCostDialogOpen}
+        onOpenChange={setIsIntangibleCostDialogOpen}
+        incidents={allData.incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth) && i.paymentMethod === 'intangible_cost' && i.cost > 0)}
     />
      <Lightbox
         open={lightboxOpen}
