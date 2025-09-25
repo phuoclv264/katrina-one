@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -217,6 +218,7 @@ export default function CashierReportsPage() {
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
@@ -478,7 +480,7 @@ export default function CashierReportsPage() {
       if(!incident) return;
       setIsProcessing(true);
       try {
-          await dataStore.deleteIncident(incident.id);
+          await dataStore.deleteIncident(id);
           toast.success("Đã xóa báo cáo sự cố.");
       } catch(error) {
           toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
@@ -493,7 +495,7 @@ export default function CashierReportsPage() {
   };
 
 
-  if (isLoading || authLoading) {
+  if (isLoading || authLoading || !user) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
         <header className="mb-8"><Skeleton className="h-10 w-1/2" /></header>
@@ -730,7 +732,7 @@ export default function CashierReportsPage() {
             otherCostCategories={allData.otherCostCategories}
         />
     }
-    {user && incidentToEdit && (
+    {user && (
         <IncidentReportDialog
           open={isIncidentDialogOpen}
           onOpenChange={setIsIncidentDialogOpen}
@@ -755,10 +757,10 @@ export default function CashierReportsPage() {
      <Lightbox
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
         slides={lightboxSlides}
         carousel={{ finite: true }}
     />
     </TooltipProvider>
   );
 }
-

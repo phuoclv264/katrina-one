@@ -234,7 +234,7 @@ export const dataStore = {
                 totalAmount: cost,
                 paymentMethod: 'cash' as PaymentMethod,
                 notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
-                createdBy: finalData.createdBy, // Pass the createdBy from the incident
+                createdBy: finalData.createdBy || { userId: user.uid, userName: user.displayName }, // Ensure createdBy is passed
                 associatedIncidentId: id,
             };
             if (!existingSlips.empty) {
@@ -455,6 +455,7 @@ export const dataStore = {
             if (!finalData.date) {
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
             }
+            // Ensure createdBy is valid before creating a new document
             if (slipData.createdBy && slipData.createdBy.userId && slipData.createdBy.userName) {
                 finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
             } else {
@@ -2298,4 +2299,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
