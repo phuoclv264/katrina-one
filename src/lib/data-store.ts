@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -215,10 +215,11 @@ export const dataStore = {
 
         // 4. Handle associated expense slip
         const cost = data.cost || 0;
+        const paymentMethod = data.paymentMethod || 'cash';
         const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", id));
         const existingSlips = await getDocs(associatedSlipQuery);
 
-        if (cost > 0) {
+        if (cost > 0 && paymentMethod !== 'intangible_cost') {
             const slipData = {
                 date: finalData.date || format(new Date(), 'yyyy-MM-dd'),
                 expenseType: 'other_cost' as ExpenseType,
@@ -232,9 +233,9 @@ export const dataStore = {
                     unit: 'lần',
                 }],
                 totalAmount: cost,
-                paymentMethod: 'cash' as PaymentMethod,
+                paymentMethod: paymentMethod,
                 notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
-                createdBy: finalData.createdBy || { userId: user.uid, userName: user.displayName }, // Ensure createdBy is passed
+                createdBy: finalData.createdBy || { userId: user.uid, userName: user.displayName },
                 associatedIncidentId: id,
             };
             if (!existingSlips.empty) {
@@ -246,7 +247,7 @@ export const dataStore = {
                 await this.addOrUpdateExpenseSlip(slipData);
             }
         } else if (!existingSlips.empty) {
-            // If cost is now 0, delete the associated expense slip
+            // If cost is 0 or intangible, delete the associated expense slip
             const slipToDeleteId = existingSlips.docs[0].id;
             await deleteDoc(doc(db, "expense_slips", slipToDeleteId));
         }

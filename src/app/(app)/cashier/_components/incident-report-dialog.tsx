@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser } from '@/lib/types';
+import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser, PaymentMethod } from '@/lib/types';
 import { Loader2, Camera, Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
@@ -19,6 +20,7 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 type IncidentReportDialogProps = {
@@ -30,7 +32,7 @@ type IncidentReportDialogProps = {
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
     reporter: AuthUser;
-    violationToEdit: IncidentReport | null; // This should be incidentToEdit
+    violationToEdit: IncidentReport | null;
     isSelfConfession?: boolean;
 };
 
@@ -48,6 +50,7 @@ export default function IncidentReportDialog({
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     
@@ -86,11 +89,13 @@ export default function IncidentReportDialog({
                 setCost(violationToEdit.cost);
                 setSelectedCategory(violationToEdit.category);
                 setExistingPhotos(violationToEdit.photos || []);
+                setPaymentMethod(violationToEdit.paymentMethod || 'cash');
             } else {
                 setContent('');
                 setCost(0);
                 setSelectedCategory('');
                 setExistingPhotos([]);
+                setPaymentMethod('cash');
             }
              // Always reset local photo state
             setLocalPhotos([]);
@@ -122,6 +127,7 @@ export default function IncidentReportDialog({
         onSave({ 
             content, 
             cost, 
+            paymentMethod: cost > 0 ? paymentMethod : undefined,
             category: selectedCategory, 
             photoIds: localPhotos.map(p => p.id),
             photosToDelete: photosToDelete,
@@ -214,10 +220,31 @@ export default function IncidentReportDialog({
                             <div className="col-span-3">
                                 <Input id="cost" type="number" value={cost} onChange={e => setCost(Number(e.target.value))} placeholder="0" />
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Nếu có chi phí, phiếu chi tương ứng sẽ được tạo tự động.
+                                    Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động.
                                 </p>
                             </div>
                         </div>
+                         {cost > 0 && (
+                             <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right mt-2">Hình thức</Label>
+                                <div className="col-span-3">
+                                    <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-2 sm:gap-4 flex-wrap">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="cash" id="pm-inc-1" />
+                                            <Label htmlFor="pm-inc-1">Tiền mặt</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="bank_transfer" id="pm-inc-2" />
+                                            <Label htmlFor="pm-inc-2">Chuyển khoản</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="intangible_cost" id="pm-inc-3" />
+                                            <Label htmlFor="pm-inc-3">Chi phí vô hình</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+                             </div>
+                        )}
                          <div className="grid grid-cols-4 items-start gap-4">
                             <Label className="text-right mt-2">Bằng chứng (bắt buộc)</Label>
                              <div className="col-span-3 space-y-2">

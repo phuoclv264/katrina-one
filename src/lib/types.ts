@@ -174,7 +174,10 @@ export type InventoryReport = {
 };
 
 // --- Violation Logging Types ---
-export type ViolationCategory = string;
+export type ViolationCategory = {
+  id: string;
+  name: string;
+}
 
 export type ViolationUser = {
   id: string;
@@ -193,7 +196,7 @@ export type ViolationComment = {
 export type Violation = {
   id: string;
   content: string;
-  category: ViolationCategory;
+  category: string;
   users: ViolationUser[]; // User who committed the violation
   reporterId: string; // User who reported the violation
   reporterName: string;
@@ -300,7 +303,7 @@ export interface AuthUser extends User {
 
 export type ExpenseType = 'goods_import' | 'other_cost';
 
-export type PaymentMethod = 'cash' | 'bank_transfer';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'intangible_cost';
 
 export type ExpenseItem = {
     itemId: string; // Product ID for goods, or 'other_cost'
@@ -364,6 +367,7 @@ export type IncidentReport = {
   date: string;
   content: string;
   cost: number;
+  paymentMethod?: PaymentMethod;
   photos: string[];
   category: string;
   
@@ -384,7 +388,7 @@ export type RevenueStats = {
     bankTransfer: number;
   };
   deliveryPartnerPayout: number;
-  invoiceImageUrl: string;
+  invoiceImageUrl: string | null;
   reportTimestamp?: string;
   isOutdated?: boolean;
   isEdited: boolean;
