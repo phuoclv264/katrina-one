@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { IncidentReport, IncidentCategory } from '@/lib/types';
+import type { IncidentReport, ViolationCategory } from '@/lib/types';
 import { Loader2, Camera } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { ViolationCategoryCombobox } from '@/components/violation-category-combobox'; // Reusing this for category selection
+import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,8 +20,8 @@ type IncidentReportDialogProps = {
     onOpenChange: (open: boolean) => void;
     onSave: (data: Omit<IncidentReport, 'id' | 'date' | 'createdAt' | 'createdBy' | 'photos'> & { photoIds: string[] }) => void;
     isProcessing: boolean;
-    categories: IncidentCategory[];
-    onCategoriesChange: (newCategories: IncidentCategory[]) => void;
+    categories: ViolationCategory[];
+    onCategoriesChange: (newCategories: ViolationCategory[]) => void;
     canManageCategories: boolean;
 };
 
@@ -83,7 +83,7 @@ export default function IncidentReportDialog({
                         <div className="space-y-2">
                             <Label htmlFor="category">Loại sự cố</Label>
                             <ViolationCategoryCombobox 
-                                categories={categories.map(c => c.name)}
+                                categories={(categories || []).map(c => c.name)}
                                 value={selectedCategory}
                                 onChange={setSelectedCategory}
                                 onCategoriesChange={(newCatNames) => onCategoriesChange(newCatNames.map(name => ({ id: uuidv4(), name })))}
