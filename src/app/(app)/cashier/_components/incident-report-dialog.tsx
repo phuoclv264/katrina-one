@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -15,11 +14,11 @@ import { IncidentCategoryCombobox } from '@/components/incident-category-combobo
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
-import { UserMultiSelect } from '@/components/user-multi-select';
 import { photoStore } from '@/lib/photo-store';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import { Badge } from '@/components/ui/badge';
 
 
 type IncidentReportDialogProps = {
@@ -31,8 +30,7 @@ type IncidentReportDialogProps = {
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
     reporter: AuthUser;
-    users: ManagedUser[];
-    violationToEdit: IncidentReport | null;
+    violationToEdit: IncidentReport | null; // Renaming to violationToEdit is confusing, should be incidentToEdit
     isSelfConfession?: boolean;
 };
 
@@ -45,13 +43,11 @@ export default function IncidentReportDialog({
     onCategoriesChange,
     canManageCategories,
     reporter,
-    users,
-    violationToEdit,
+    violationToEdit, // This should be incidentToEdit
     isSelfConfession = false,
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
-    const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     
@@ -89,22 +85,10 @@ export default function IncidentReportDialog({
                 setContent(violationToEdit.content);
                 setCost(violationToEdit.cost);
                 setSelectedCategory(violationToEdit.category);
-                const initialUsers = (violationToEdit.users && Array.isArray(violationToEdit.users)) 
-                    ? users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid))
-                    : [];
-                setSelectedUsers(initialUsers);
                 setExistingPhotos(violationToEdit.photos || []);
-            } else if (isSelfConfession) {
-                const self = users.find(u => u.uid === reporter.uid);
-                setContent('');
-                setCost(0);
-                setSelectedUsers(self ? [self] : []);
-                setSelectedCategory('');
-                setExistingPhotos([]);
             } else {
                 setContent('');
                 setCost(0);
-                setSelectedUsers([]);
                 setSelectedCategory('');
                 setExistingPhotos([]);
             }
@@ -116,7 +100,7 @@ export default function IncidentReportDialog({
             localPhotos.forEach(p => URL.revokeObjectURL(p.url));
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, violationToEdit, isSelfConfession, reporter, users]);
+    }, [open, violationToEdit, reporter]);
 
 
     const handleSave = () => {
@@ -128,11 +112,9 @@ export default function IncidentReportDialog({
             toast.error('Vui lòng chọn loại sự cố.');
             return;
         }
-        if (selectedUsers.length === 0) {
-             toast.error('Vui lòng chọn nhân viên liên quan.');
-            return;
-        }
-        if (localPhotos.length === 0 && existingPhotos.length === 0) {
+        
+        const totalPhotos = localPhotos.length + existingPhotos.length;
+        if (totalPhotos === 0) {
             toast.error('Vui lòng chụp ảnh bằng chứng cho sự cố.');
             return;
         }
@@ -143,7 +125,6 @@ export default function IncidentReportDialog({
             category: selectedCategory, 
             photoIds: localPhotos.map(p => p.id),
             photosToDelete: photosToDelete,
-            users: selectedUsers.map(u => ({ id: u.uid, name: u.displayName })),
         }, violationToEdit?.id);
     };
     
@@ -187,7 +168,7 @@ export default function IncidentReportDialog({
         ];
     }, [existingPhotos, localPhotos]);
 
-    const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Tạo Báo cáo Sự cố');
+    const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : 'Tạo Báo cáo Sự cố';
 
     return (
         <>
@@ -197,38 +178,23 @@ export default function IncidentReportDialog({
                     <DialogHeader>
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>
-                            {isSelfConfession ? 'Mô tả lại sai sót của bạn một cách trung thực.' : 'Ghi nhận lại các vấn đề hoặc sai sót của nhân viên.'}
+                            Ghi nhận lại các sự cố như hư hỏng thiết bị, làm vỡ tài sản...
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                         {!isSelfConfession ? (
-                            <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="user" className="text-right pt-2">
-                                Nhân viên
-                            </Label>
-                            <UserMultiSelect
-                                users={users}
-                                selectedUsers={selectedUsers}
-                                onChange={setSelectedUsers}
-                                disabled={isSelfConfession}
-                                className="col-span-3"
-                            />
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Người báo cáo</Label>
+                            <div className="col-span-3">
+                                <Badge variant="secondary">{reporter.displayName}</Badge>
                             </div>
-                        ) : (
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-right">Nhân viên</Label>
-                                    <div className="col-span-3">
-                                        <Badge variant="secondary">{reporter.displayName}</Badge>
-                                    </div>
-                                </div>
-                            )}
+                        </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="category" className="text-right">
                             Loại sự cố
                             </Label>
                             <div className="col-span-3">
                             <IncidentCategoryCombobox
-                                categories={categories}
+                                categories={categories || []}
                                 value={selectedCategory}
                                 onChange={setSelectedCategory}
                                 onCategoriesChange={onCategoriesChange}
@@ -244,7 +210,7 @@ export default function IncidentReportDialog({
                             <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh Ocean..." />
                         </div>
                         <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="cost" className="text-right mt-2">Chi phí</Label>
+                            <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
                             <div className="col-span-3">
                                 <Input id="cost" type="number" value={cost} onChange={e => setCost(Number(e.target.value))} placeholder="0" />
                                 <p className="text-xs text-muted-foreground mt-1">
@@ -253,7 +219,7 @@ export default function IncidentReportDialog({
                             </div>
                         </div>
                          <div className="grid grid-cols-4 items-start gap-4">
-                            <Label className="text-right mt-2">Bằng chứng</Label>
+                            <Label className="text-right mt-2">Bằng chứng (bắt buộc)</Label>
                              <div className="col-span-3 space-y-2">
                                 <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
                                     <Camera className="mr-2 h-4 w-4"/> Chụp ảnh

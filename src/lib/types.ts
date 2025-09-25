@@ -330,6 +330,7 @@ export type ExpenseSlip = {
   lastModified?: string | Timestamp;
   lastModifiedBy?: AssignedUser; // User who last edited the slip
   associatedHandoverReportId?: string; // Link to the handover report
+  associatedIncidentId?: string;
 };
 
 export type OtherCostCategory = {

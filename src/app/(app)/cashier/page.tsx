@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -217,6 +216,7 @@ export default function CashierDashboardPage() {
             dataStore.getDailyRevenueStats(date),
             dataStore.getInventoryList(),
             dataStore.getOtherCostCategories(),
+            dataStore.getIncidentCategories(),
             dataStore.getHandoverReport(date),
         ]).catch(error => {
             console.error("Failed to fetch cashier data:", error);
@@ -318,7 +318,7 @@ export default function CashierDashboardPage() {
    const handleDeleteIncident = async (incident: IncidentReport) => {
         setIsProcessing(true);
         try {
-            await dataStore.deleteIncident(incident.id);
+            await dataStore.deleteIncident(incident);
             toast.success('Đã xóa báo cáo sự cố.');
         } catch (error) {
             console.error("Failed to delete incident:", error);
