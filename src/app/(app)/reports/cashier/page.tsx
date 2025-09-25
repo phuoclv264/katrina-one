@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem, IncidentCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 
 
 type GroupedReports = {
@@ -193,7 +194,8 @@ export default function CashierReportsPage() {
     incidents: IncidentReport[];
     inventoryList: InventoryItem[],
     otherCostCategories: OtherCostCategory[],
-  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [] });
+    incidentCategories: IncidentCategory[],
+  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [], incidentCategories: [] });
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -201,6 +203,8 @@ export default function CashierReportsPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
+
 
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
@@ -233,6 +237,9 @@ export default function CashierReportsPage() {
     const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => {
         setAllData(prev => ({...prev, otherCostCategories: categories}));
     });
+     const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => {
+        setAllData(prev => ({...prev, incidentCategories: categories}));
+    });
 
     const timer = setTimeout(() => setIsLoading(false), 1500);
 
@@ -242,6 +249,7 @@ export default function CashierReportsPage() {
       unsubRevenue();
       unsubInventory();
       unsubOtherCostCategories();
+      unsubIncidentCategories();
       clearTimeout(timer);
     };
   }, [user]);
@@ -436,6 +444,9 @@ export default function CashierReportsPage() {
         }
     }
 
+     const handleIncidentCategoriesChange = async (newCategories: IncidentCategory[]) => {
+        await dataStore.updateIncidentCategories(newCategories);
+    };
 
   if (isLoading || authLoading) {
     return (
@@ -463,7 +474,7 @@ export default function CashierReportsPage() {
                 Tổng hợp báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.
                 </p>
             </div>
-            <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2">
                 <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
                 <span className="text-lg font-medium w-32 text-center">{format(currentMonth, 'MM/yyyy')}</span>
                 <Button variant="outline" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
@@ -475,8 +486,9 @@ export default function CashierReportsPage() {
                         Cài đặt
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 pt-0">
-                    <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>Quản lý Loại chi phí</Button>
+                <CardContent className="p-3 pt-0 flex flex-col gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>Quản lý Loại chi phí khác</Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)}>Quản lý Loại sự cố</Button>
                 </CardContent>
              </Card>
         </div>
@@ -668,6 +680,10 @@ export default function CashierReportsPage() {
     <OtherCostCategoryDialog
         open={isCategoryDialogOpen}
         onOpenChange={setIsCategoryDialogOpen}
+    />
+     <IncidentCategoryDialog
+        open={isIncidentCategoryDialogOpen}
+        onOpenChange={setIsIncidentCategoryDialogOpen}
     />
     </TooltipProvider>
   );

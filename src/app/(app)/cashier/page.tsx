@@ -143,7 +143,6 @@ export default function CashierDashboardPage() {
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [isHandoverDialogOpen, setIsHandoverDialogOpen] = useState(false);
   
@@ -438,12 +437,6 @@ export default function CashierDashboardPage() {
                     <Banknote />
                     Báo cáo Thu ngân
                 </h1>
-                {user.role === 'Chủ nhà hàng' && (
-                    <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Quản lý Loại Sự cố
-                    </Button>
-                )}
             </div>
             <p className="text-muted-foreground mt-2">
                 Quản lý các khoản chi, doanh thu và các báo cáo tài chính trong ngày.
@@ -767,6 +760,7 @@ export default function CashierDashboardPage() {
         categories={incidentCategories}
         onCategoriesChange={handleCategoriesChange}
         canManageCategories={user.role === 'Chủ nhà hàng'}
+        reporter={user}
     />
      <RevenueStatsDialog
         open={isRevenueDialogOpen && !revenueStatsToEdit}
@@ -800,11 +794,6 @@ export default function CashierDashboardPage() {
             onNavigateToRevenue={handleNavigateToRevenue}
         />
     )}
-    <IncidentCategoryDialog
-        open={isCategoryDialogOpen}
-        onOpenChange={setIsCategoryDialogOpen}
-    />
     </>
   );
 }
-
