@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
@@ -30,7 +30,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import IncidentCategoryDialog from './_components/incident-category-dialog';
-
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Image from 'next/image';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -152,6 +155,27 @@ export default function CashierDashboardPage() {
 
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
+  const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
+
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+        if (isLightboxOpen) {
+            event.preventDefault();
+            setIsLightboxOpen(false);
+        }
+    };
+
+    if (isLightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+    }
+    return () => {
+        window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isLightboxOpen]);
 
 
   useEffect(() => {
@@ -190,7 +214,6 @@ export default function CashierDashboardPage() {
 
         Promise.all([
             dataStore.getDailyExpenseSlips(date),
-            dataStore.subscribeToAllIncidents((all) => setDailyIncidents(all.filter(i => i.date === date))),
             dataStore.getDailyRevenueStats(date),
             dataStore.getInventoryList(),
             dataStore.getOtherCostCategories(),
@@ -217,7 +240,6 @@ export default function CashierDashboardPage() {
   const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue } = useMemo(() => {
     const { totalCashExpense, totalBankExpense } = dailySlips.reduce((acc, slip) => {
       if (slip.paymentMethod === 'cash') {
-        // Use actualPaidAmount if available for cash payments, otherwise fall back to totalAmount
         const amount = slip.actualPaidAmount ?? slip.totalAmount;
         acc.totalCashExpense += amount;
       } else if (slip.paymentMethod === 'bank_transfer') {
@@ -274,16 +296,17 @@ export default function CashierDashboardPage() {
     }
   }
 
-  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'>) => {
+  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] }, id?: string) => {
       if (!user) return;
       setIsProcessing(true);
       try {
-          await dataStore.addIncidentReport(data, user);
-          toast.success("Đã ghi nhận sự cố.");
+          await dataStore.addOrUpdateIncident(data, id, user);
+          toast.success(`Đã ${id ? 'cập nhật' : 'ghi nhận'} sự cố.`);
           if(data.cost > 0) {
-              toast("Một phiếu chi tương ứng đã được tạo tự động.", { icon: 'ℹ️' });
+              toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
           }
           setIsIncidentDialogOpen(false);
+          setIncidentToEdit(null);
       } catch (error) {
           console.error("Failed to save incident report", error);
           toast.error("Không thể lưu báo cáo sự cố.");
@@ -291,6 +314,19 @@ export default function CashierDashboardPage() {
           setIsProcessing(false);
       }
   }, [user]);
+
+   const handleDeleteIncident = async (incident: IncidentReport) => {
+        setIsProcessing(true);
+        try {
+            await dataStore.deleteIncident(incident.id);
+            toast.success('Đã xóa báo cáo sự cố.');
+        } catch (error) {
+            console.error("Failed to delete incident:", error);
+            toast.error('Không thể xóa báo cáo sự cố.');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
   
   const handleCategoriesChange = async (newCategories: IncidentCategory[]) => {
     await dataStore.updateIncidentCategories(newCategories);
@@ -330,6 +366,11 @@ export default function CashierDashboardPage() {
       setSlipToEdit(slip);
       setIsExpenseDialogOpen(true);
   }
+
+  const handleEditIncident = (incident: IncidentReport) => {
+      setIncidentToEdit(incident);
+      setIsIncidentDialogOpen(true);
+  };
 
   const handleEditRevenue = (stats: RevenueStats) => {
       setRevenueStatsToEdit(stats);
@@ -406,7 +447,10 @@ export default function CashierDashboardPage() {
         setTimeout(() => revenueStatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
     }
 
-
+   const openPhotoLightbox = (photos: string[], index: number = 0) => {
+        setLightboxSlides(photos.map(p => ({ src: p })));
+        setIsLightboxOpen(true);
+   };
 
 
   if (authLoading || isLoading || !user) {
@@ -478,16 +522,46 @@ export default function CashierDashboardPage() {
                 </CardHeader>
                 <CardContent>
                     {dailyIncidents.length > 0 && (
-                        <div className="mb-4 space-y-2 text-sm">
-                            {dailyIncidents.map(incident => (
-                                <div key={incident.id} className="p-2 bg-muted rounded-md">
-                                    <p className="font-medium">{incident.content}</p>
-                                    <p className="text-xs text-muted-foreground">Chi phí: {incident.cost.toLocaleString('vi-VN')}đ</p>
+                        <Accordion type="single" collapsible className="w-full mb-4">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger>Xem {dailyIncidents.length} sự cố đã ghi nhận</AccordionTrigger>
+                            <AccordionContent>
+                                <div className="space-y-3 mt-2">
+                                {dailyIncidents.map(incident => {
+                                    const canEdit = incident.createdBy.userId === user.uid;
+                                    return (
+                                        <div key={incident.id} className="p-2 bg-muted rounded-md text-sm">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-medium">{incident.content}</p>
+                                                    <p className="text-xs text-muted-foreground">Chi phí: {incident.cost.toLocaleString('vi-VN')}đ</p>
+                                                </div>
+                                                {canEdit && (
+                                                    <div className="flex">
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditIncident(incident)}><Edit className="h-4 w-4"/></Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteIncident(incident)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {incident.photos && incident.photos.length > 0 && (
+                                                <div className="mt-2 flex gap-2">
+                                                    <Button variant="outline" size="sm" onClick={() => openPhotoLightbox(incident.photos)}>
+                                                        <Eye className="h-4 w-4 mr-2"/> Xem {incident.photos.length} ảnh
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
                                 </div>
-                            ))}
-                        </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                        </Accordion>
                     )}
-                    <Button variant="outline" className="w-full" onClick={() => setIsIncidentDialogOpen(true)}>
+                    <Button variant="outline" className="w-full" onClick={() => { setIncidentToEdit(null); setIsIncidentDialogOpen(true); }}>
                         <AlertTriangle className="mr-2 h-4 w-4" />
                         Tạo Báo cáo Sự cố
                     </Button>
@@ -760,6 +834,7 @@ export default function CashierDashboardPage() {
         onCategoriesChange={handleCategoriesChange}
         canManageCategories={user.role === 'Chủ nhà hàng'}
         reporter={user}
+        violationToEdit={incidentToEdit}
     />
      <RevenueStatsDialog
         open={isRevenueDialogOpen && !revenueStatsToEdit}
@@ -793,6 +868,12 @@ export default function CashierDashboardPage() {
             onNavigateToRevenue={handleNavigateToRevenue}
         />
     )}
+     <Lightbox
+        open={isLightboxOpen}
+        close={() => setIsLightboxOpen(false)}
+        slides={lightboxSlides}
+        carousel={{ finite: true }}
+    />
     </>
   );
 }

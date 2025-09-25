@@ -166,11 +166,21 @@ export const dataStore = {
             await this.addOrUpdateExpenseSlip(slipData);
         }
     },
+    
+    async addOrUpdateIncident(
+        data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] },
+        id: string | undefined,
+        user: AuthUser
+    ): Promise<void> {
+        const { photoIds, photosToDelete, ...incidentData } = data;
 
-    async addIncidentReport(data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[] }, user: AuthUser): Promise<void> {
-        const { photoIds, ...incidentData } = data;
+        // 1. Handle photo deletions for existing incidents
+        if (id && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map(url => this.deletePhotoFromStorage(url)));
+        }
 
-        const photoUrls = await Promise.all(
+        // 2. Handle new photo uploads
+        const newPhotoUrls = await Promise.all(
             photoIds.map(async (photoId) => {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
@@ -179,41 +189,69 @@ export const dataStore = {
                 return getDownloadURL(storageRef);
             })
         );
-        const validUrls = photoUrls.filter((url): url is string => !!url);
+        const validNewUrls = newPhotoUrls.filter((url): url is string => !!url);
         await photoStore.deletePhotos(photoIds);
         
-        const incidentCollection = collection(db, 'incidents');
-        const incidentRef = await addDoc(incidentCollection, {
-            ...incidentData,
-            photos: validUrls,
-            date: format(new Date(), 'yyyy-MM-dd'),
-            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-            createdAt: serverTimestamp(),
-        });
+        // 3. Prepare data for Firestore
+        const finalData: Partial<IncidentReport> = { ...incidentData };
 
-        // If there's a cost, create a corresponding expense slip
-        if (data.cost > 0) {
-             const slipData: Omit<ExpenseSlip, 'id'> = {
-                date: format(new Date(), 'yyyy-MM-dd'),
-                expenseType: 'other_cost',
+        if (id) {
+            // Updating existing incident
+            const docRef = doc(db, 'incidents', id);
+            const currentDoc = await getDoc(docRef);
+            const existingPhotos = currentDoc.exists() ? currentDoc.data().photos || [] : [];
+            const remainingPhotos = existingPhotos.filter((p: string) => !photosToDelete.includes(p));
+            finalData.photos = [...remainingPhotos, ...validNewUrls];
+            await updateDoc(docRef, finalData);
+        } else {
+            // Creating new incident
+            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
+            finalData.createdAt = serverTimestamp();
+            finalData.photos = validNewUrls;
+            const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
+            id = incidentRef.id;
+        }
+
+        // 4. Handle associated expense slip
+        const cost = data.cost || 0;
+        const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", id));
+        const existingSlips = await getDocs(associatedSlipQuery);
+
+        if (cost > 0) {
+            const slipData = {
+                date: finalData.date || format(new Date(), 'yyyy-MM-dd'),
+                expenseType: 'other_cost' as ExpenseType,
                 items: [{
                     itemId: 'other_cost',
                     name: `Chi phí sự cố (${data.category})`,
                     description: data.content,
                     supplier: 'N/A',
                     quantity: 1,
-                    unitPrice: data.cost,
+                    unitPrice: cost,
                     unit: 'lần',
                 }],
-                totalAmount: data.cost,
-                paymentMethod: 'cash',
-                notes: `Tự động tạo từ báo cáo sự cố (ID: ${incidentRef.id}).`,
-                createdBy: { userId: user.uid, userName: user.displayName },
-                createdAt: serverTimestamp(),
+                totalAmount: cost,
+                paymentMethod: 'cash' as PaymentMethod,
+                notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
+                createdBy: finalData.createdBy || user,
+                associatedIncidentId: id,
             };
-            await this.addOrUpdateExpenseSlip(slipData);
+            if (!existingSlips.empty) {
+                // Update existing slip
+                const slipToUpdateId = existingSlips.docs[0].id;
+                await this.addOrUpdateExpenseSlip(slipData, slipToUpdateId);
+            } else {
+                // Create new slip
+                await this.addOrUpdateExpenseSlip(slipData);
+            }
+        } else if (!existingSlips.empty) {
+            // If cost is now 0, delete the associated expense slip
+            const slipToDeleteId = existingSlips.docs[0].id;
+            await deleteDoc(doc(db, "expense_slips", slipToDeleteId));
         }
     },
+
 
     subscribeToIncidentCategories(callback: (categories: IncidentCategory[]) => void): () => void {
         const docRef = doc(db, 'app-data', 'incidentCategories');
@@ -473,7 +511,28 @@ export const dataStore = {
     },
 
     async deleteIncident(id: string): Promise<void> {
-        await deleteDoc(doc(db, 'incidents', id));
+        const incidentRef = doc(db, 'incidents', id);
+        const incidentSnap = await getDoc(incidentRef);
+        if (!incidentSnap.exists()) return;
+        const incidentData = incidentSnap.data() as IncidentReport;
+        
+        // Delete associated photos
+        if (incidentData.photos && incidentData.photos.length > 0) {
+            await Promise.all(incidentData.photos.map(url => this.deletePhotoFromStorage(url)));
+        }
+
+        // Delete the incident itself
+        await deleteDoc(incidentRef);
+        
+        // Find and delete the associated expense slip if it exists
+        if(incidentData.cost > 0) {
+            const slipsQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", id));
+            const slipsSnapshot = await getDocs(slipsQuery);
+            if (!slipsSnapshot.empty) {
+                const slipDoc = slipsSnapshot.docs[0];
+                await deleteDoc(doc(db, 'expense_slips', slipDoc.id));
+            }
+        }
     },
 
     subscribeToAllRevenueStats(callback: (stats: RevenueStats[]) => void): () => void {
@@ -1709,17 +1768,17 @@ export const dataStore = {
 
     // Delete associated photos
     if (reportData.completedTasks) {
-      const deletePromises: Promise<void>[] = [];
+      const deletePhotoPromises: Promise<void>[] = [];
       for (const taskId in reportData.completedTasks) {
         for (const completion of reportData.completedTasks[taskId]) {
           if (completion.photos) {
             for (const photoUrl of completion.photos) {
-              deletePromises.push(this.deletePhotoFromStorage(photoUrl));
+              deletePhotoPromises.push(this.deletePhotoFromStorage(photoUrl));
             }
           }
         }
       }
-      await Promise.all(deletePromises);
+      await Promise.all(deletePhotoPromises);
     }
 
     // Delete the report document

@@ -9,23 +9,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { IncidentReport, IncidentCategory, AuthUser } from '@/lib/types';
-import { Loader2, Camera } from 'lucide-react';
+import { Loader2, Camera, Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { ViolationCategoryCombobox } from '@/components/violation-category-combobox'; // This will be replaced
 import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
+import Image from 'next/image';
 
 
 type IncidentReportDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<IncidentReport, 'id' | 'date' | 'createdAt' | 'createdBy' | 'photos'> & { photoIds: string[] }) => void;
+    onSave: (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] }, id?: string) => void;
     isProcessing: boolean;
     categories: IncidentCategory[];
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
     reporter: AuthUser;
+    violationToEdit: IncidentReport | null; // Changed from 'violationToEdit' to be more specific
+    isSelfConfession?: boolean;
 };
 
 export default function IncidentReportDialog({
@@ -37,21 +39,44 @@ export default function IncidentReportDialog({
     onCategoriesChange,
     canManageCategories,
     reporter,
+    violationToEdit, // Changed
+    isSelfConfession = false,
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
     const [selectedCategory, setSelectedCategory] = useState('');
-    const [photoIds, setPhotoIds] = useState<string[]>([]);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+    
+    // Photo state
+    const [newPhotoIds, setNewPhotoIds] = useState<string[]>([]);
+    const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+    const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
 
     useEffect(() => {
         if (open) {
-            setContent('');
-            setCost(0);
-            setSelectedCategory('');
-            setPhotoIds([]);
+            if (violationToEdit) {
+                setContent(violationToEdit.content);
+                setCost(violationToEdit.cost);
+                setSelectedCategory(violationToEdit.category);
+                setExistingPhotos(violationToEdit.photos || []);
+            } else if (isSelfConfession) {
+                const self = { uid: reporter.uid, displayName: reporter.displayName };
+                setContent('');
+                setCost(0);
+                setSelectedCategory('');
+                setExistingPhotos([]);
+            } else {
+                setContent('');
+                setCost(0);
+                setSelectedCategory('');
+                setExistingPhotos([]);
+            }
+             // Always reset local photo state
+            setNewPhotoIds([]);
+            setPhotosToDelete([]);
         }
-    }, [open]);
+    }, [open, violationToEdit, isSelfConfession, reporter]);
+
 
     const handleSave = () => {
         if (!content) {
@@ -62,26 +87,44 @@ export default function IncidentReportDialog({
             toast.error('Vui lòng chọn loại sự cố.');
             return;
         }
-        if (photoIds.length === 0) {
+        if (newPhotoIds.length === 0 && existingPhotos.length === 0) {
             toast.error('Vui lòng chụp ảnh bằng chứng cho sự cố.');
             return;
         }
 
-        onSave({ content, cost, category: selectedCategory, photoIds });
+        const users = isSelfConfession ? [{ id: reporter.uid, name: reporter.displayName }] : [];
+
+        onSave({ 
+            content, 
+            cost, 
+            category: selectedCategory, 
+            photoIds: newPhotoIds,
+            photosToDelete: photosToDelete,
+            users, // Add users for self-confession case
+        }, violationToEdit?.id);
     };
     
     const handleCapturePhotos = (capturedPhotoIds: string[]) => {
-        setPhotoIds(prev => [...prev, ...capturedPhotoIds]);
+        setNewPhotoIds(prev => [...prev, ...capturedPhotoIds]);
         setIsCameraOpen(false);
     };
+    
+    const handleDeleteExistingPhoto = (url: string) => {
+        setExistingPhotos(prev => prev.filter(p => p !== url));
+        setPhotosToDelete(prev => [...prev, url]);
+    };
+
+    const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Tạo Báo cáo Sự cố');
 
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="sm:max-w-md bg-white dark:bg-card">
                     <DialogHeader>
-                        <DialogTitle>Tạo Báo cáo Sự cố</DialogTitle>
-                        <DialogDescription>Ghi nhận sự cố phát sinh trong ca làm việc.</DialogDescription>
+                        <DialogTitle>{dialogTitle}</DialogTitle>
+                        <DialogDescription>
+                            {isSelfConfession ? 'Mô tả lại sai sót của bạn một cách trung thực.' : 'Ghi nhận lại các vấn đề hoặc sai sót của nhân viên.'}
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="space-y-2">
@@ -109,9 +152,22 @@ export default function IncidentReportDialog({
                          <div className="space-y-2">
                             <Label>Ảnh bằng chứng (bắt buộc)</Label>
                              <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
-                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
+                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
                             </Button>
-                            {photoIds.length > 0 && <p className="text-sm text-muted-foreground mt-2">{photoIds.length} ảnh đã được chọn.</p>}
+                             {(existingPhotos.length > 0 || newPhotoIds.length > 0) && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {existingPhotos.map((url, i) => (
+                                         <div key={`existing-${i}`} className="relative h-20 w-20 rounded-md overflow-hidden">
+                                             <Image src={url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
+                                             <Button variant="destructive" size="icon" className="absolute top-0.5 right-0.5 h-5 w-5" onClick={() => handleDeleteExistingPhoto(url)}>
+                                                 <X className="h-3 w-3" />
+                                             </Button>
+                                         </div>
+                                    ))}
+                                    {/* We can't show previews for new photos as we only have IDs, the parent component will show them after save */}
+                                     {newPhotoIds.length > 0 && <p className="text-sm text-muted-foreground self-center">{newPhotoIds.length} ảnh mới đã được thêm.</p>}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
@@ -131,4 +187,3 @@ export default function IncidentReportDialog({
         </>
     );
 }
-
