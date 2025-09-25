@@ -194,7 +194,6 @@ export default function CashierDashboardPage() {
             dataStore.getDailyRevenueStats(date),
             dataStore.getInventoryList(),
             dataStore.getOtherCostCategories(),
-            dataStore.getIncidentCategories(),
             dataStore.getHandoverReport(date),
         ]).catch(error => {
             console.error("Failed to fetch cashier data:", error);

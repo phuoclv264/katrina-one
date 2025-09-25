@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -233,6 +234,15 @@ export const dataStore = {
             callback(initialIncidentCategories);
         });
         return unsubscribe;
+    },
+
+    async getIncidentCategories(): Promise<IncidentCategory[]> {
+        const docRef = doc(db, 'app-data', 'incidentCategories');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data().list as IncidentCategory[];
+        }
+        return initialIncidentCategories;
     },
 
     async updateIncidentCategories(newCategories: IncidentCategory[]): Promise<void> {
