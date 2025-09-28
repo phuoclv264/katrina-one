@@ -589,7 +589,7 @@ export default function CashierReportsPage() {
       if(!incident) return;
       setIsProcessing(true);
       try {
-          await dataStore.deleteIncident(id);
+          await dataStore.deleteIncident(incident);
           toast.success("Đã xóa báo cáo sự cố.");
       } catch(error) {
           toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
@@ -849,7 +849,7 @@ export default function CashierReportsPage() {
                                                 <p className="text-xs text-muted-foreground">{new Date(dayReports.handover.createdAt as string).toLocaleString('vi-VN')}</p>
                                             </div>
                                             <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">
-                                                <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}><Edit className="mr-2 h-4 w-4"/> Chi tiết</Button>
+                                                <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}>Chi tiết</Button>
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
@@ -903,7 +903,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateIncidentCategories}
+          onCategoriesChange={dataStore.updateViolationCategories}
           canManageCategories={true}
         />
     )}

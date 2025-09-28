@@ -54,6 +54,24 @@ export default function OwnerHandoverReportDialog({
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+        if (isLightboxOpen) {
+            event.preventDefault();
+            setIsLightboxOpen(false);
+        }
+    };
+    if (isLightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+    }
+    return () => {
+        window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isLightboxOpen]);
+
 
   useEffect(() => {
     if (open && reportToEdit) {
@@ -114,8 +132,9 @@ export default function OwnerHandoverReportDialog({
         await photoStore.deletePhoto(id);
     };
 
-    const openLightbox = (photos: string[]) => {
+    const openLightbox = (photos: string[], index: number = 0) => {
         setLightboxSlides(photos.map(p => ({ src: p })));
+        setLightboxIndex(index);
         setIsLightboxOpen(true);
     };
 
@@ -173,15 +192,19 @@ export default function OwnerHandoverReportDialog({
                                 </Button>
                                 {allDiscrepancyPhotos.length > 0 ? (
                                     <div className="flex gap-2 flex-wrap">
-                                        {existingPhotos.map(url => (
-                                            <div key={url} className="relative w-20 h-20">
-                                                <Image src={url} alt="Bằng chứng" fill className="object-cover rounded-md" />
+                                        {existingPhotos.map((url, index) => (
+                                            <div key={url} className="relative w-20 h-20 group">
+                                                <button onClick={() => openLightbox(existingPhotos, index)} className="w-full h-full rounded-md overflow-hidden">
+                                                    <Image src={url} alt="Bằng chứng" fill className="object-cover rounded-md" />
+                                                </button>
                                                 <Button variant="destructive" size="icon" className="absolute top-0.5 right-0.5 h-5 w-5" onClick={() => handleDeleteExistingPhoto(url)}><X className="h-3 w-3"/></Button>
                                             </div>
                                         ))}
-                                         {localPhotos.map(photo => (
-                                            <div key={photo.id} className="relative w-20 h-20">
-                                                <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover rounded-md" />
+                                         {localPhotos.map((photo, index) => (
+                                            <div key={photo.id} className="relative w-20 h-20 group">
+                                                 <button onClick={() => openLightbox(localPhotos.map(p => p.url), index)} className="w-full h-full rounded-md overflow-hidden">
+                                                    <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover rounded-md" />
+                                                </button>
                                                 <Button variant="destructive" size="icon" className="absolute top-0.5 right-0.5 h-5 w-5" onClick={() => handleDeleteLocalPhoto(photo.id)}><X className="h-3 w-3"/></Button>
                                             </div>
                                         ))}
@@ -211,6 +234,7 @@ export default function OwnerHandoverReportDialog({
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
         slides={lightboxSlides}
+        index={lightboxIndex}
     />
     </>
   );
