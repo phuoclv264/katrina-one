@@ -692,10 +692,10 @@ export default function CashierReportsPage() {
                              <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
                              <p className="pl-4">Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></p>
                              {monthlySummary.intangibleCost > 0 && (
-                                <p className="pl-4 flex items-center gap-2">
-                                  Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span>
+                                <div className="pl-4 flex items-center gap-2">
+                                  <span>Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span></span>
                                   <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setIsIntangibleCostDialogOpen(true)}>Xem chi tiết</Button>
-                                </p>
+                                </div>
                              )}
                         </div>
                         <Separator/>
@@ -745,13 +745,13 @@ export default function CashierReportsPage() {
                                             <div className="flex items-center gap-2">
                                                 {stat.isEdited && (
                                                 <Tooltip>
-                                                    <TooltipTrigger asChild><Edit2 className="h-4 w-4 text-orange-500" /></TooltipTrigger>
+                                                    <TooltipTrigger asChild><div><Edit2 className="h-4 w-4 text-orange-500" /></div></TooltipTrigger>
                                                     <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
                                                 </Tooltip>
                                                 )}
                                                 {stat.isOutdated && (
                                                 <Tooltip>
-                                                    <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 text-yellow-500" /></TooltipTrigger>
+                                                    <TooltipTrigger asChild><div><AlertTriangle className="h-4 w-4 text-yellow-500" /></div></TooltipTrigger>
                                                     <TooltipContent><p>Phiếu doanh thu có thể đã cũ</p></TooltipContent>
                                                 </Tooltip>
                                                 )}
@@ -845,17 +845,18 @@ export default function CashierReportsPage() {
                                     <CardHeader className="p-4 pb-2"><CardTitle className="text-base">Bàn giao ca</CardTitle></CardHeader>
                                     <CardContent className="p-4 pt-0">
                                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 pt-3">
-                                            <div>
-                                                <p className="font-semibold flex items-center gap-2">
-                                                    Bàn giao bởi {dayReports.handover.createdBy.userName}
-                                                    {dayReports.handover.isEdited && (
-                                                        <Tooltip>
-                                                            <TooltipTrigger><Edit2 className="h-4 w-4 text-orange-500"/></TooltipTrigger>
-                                                            <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
-                                                        </Tooltip>
-                                                    )}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">{new Date(dayReports.handover.createdAt as string).toLocaleString('vi-VN')}</p>
+                                            <div className="font-semibold flex items-center gap-2">
+                                              <span>
+                                                  Bàn giao bởi {dayReports.handover.createdBy.userName}
+                                              </span>
+                                                {dayReports.handover.isEdited && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div><Edit2 className="h-4 w-4 text-orange-500"/></div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
+                                                    </Tooltip>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">
                                                 <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}>Chi tiết</Button>
@@ -949,3 +950,4 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
+
