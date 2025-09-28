@@ -31,6 +31,7 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Separator } from '@/components/ui/separator';
+import isEqual from 'lodash.isequal';
 
 
 const initialHandoverData = {
@@ -263,7 +264,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
             return;
         }
 
-        const isEdited = JSON.stringify(originalData) !== JSON.stringify(handoverData);
+        const isEdited = !isEqual(originalData, handoverData);
 
         const dataToSubmit = {
             handoverData,
@@ -277,7 +278,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => {if (!isLightboxOpen) {e.preventDefault();}}}>
                     <div id="handover-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Phiếu Bàn Giao Ca</DialogTitle>

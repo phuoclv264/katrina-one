@@ -846,7 +846,15 @@ export default function CashierReportsPage() {
                                     <CardContent className="p-4 pt-0">
                                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 pt-3">
                                             <div>
-                                                <p className="font-semibold">Bàn giao bởi {dayReports.handover.createdBy.userName}</p>
+                                                <p className="font-semibold flex items-center gap-2">
+                                                    Bàn giao bởi {dayReports.handover.createdBy.userName}
+                                                    {dayReports.handover.isEdited && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger><Edit2 className="h-4 w-4 text-orange-500"/></TooltipTrigger>
+                                                            <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                </p>
                                                 <p className="text-xs text-muted-foreground">{new Date(dayReports.handover.createdAt as string).toLocaleString('vi-VN')}</p>
                                             </div>
                                             <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">

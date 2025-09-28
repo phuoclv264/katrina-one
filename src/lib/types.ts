@@ -344,8 +344,9 @@ export type OtherCostCategory = {
 export type HandoverReport = {
   id: string; // cashier-handover-{date}
   date: string;
-  handoverImageUrl: string;
+  handoverImageUrl: string | null;
   handoverData: any; // Data extracted by AI from the handover image
+  isEdited?: boolean; // Flag to indicate if cashier edited the AI data
   
   actualCash: number;
   discrepancy: number; // calculated as actualCash - handoverData.expectedCash

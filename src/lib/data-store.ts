@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -601,23 +602,20 @@ export const dataStore = {
         });
     },
 
-    async deleteIncident(id: string): Promise<void> {
-        const incidentRef = doc(db, 'incidents', id);
-        const incidentSnap = await getDoc(incidentRef);
-        if (!incidentSnap.exists()) return;
-        const incidentData = incidentSnap.data() as IncidentReport;
+    async deleteIncident(incident: IncidentReport): Promise<void> {
+        const incidentRef = doc(db, 'incidents', incident.id);
         
         // Delete associated photos
-        if (incidentData.photos && incidentData.photos.length > 0) {
-            await Promise.all(incidentData.photos.map(url => this.deletePhotoFromStorage(url)));
+        if (incident.photos && incident.photos.length > 0) {
+            await Promise.all(incident.photos.map(url => this.deletePhotoFromStorage(url)));
         }
 
         // Delete the incident itself
         await deleteDoc(incidentRef);
         
         // Find and delete the associated expense slip if it exists
-        if(incidentData.cost > 0) {
-            const slipsQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", id));
+        if(incident.cost > 0) {
+            const slipsQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", incident.id));
             const slipsSnapshot = await getDocs(slipsQuery);
             if (!slipsSnapshot.empty) {
                 const slipDoc = slipsSnapshot.docs[0];
