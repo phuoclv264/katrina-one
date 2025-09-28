@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem, IncidentCategory, ManagedUser } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, AssignedUser, ExpenseItem, IncidentCategory, ManagedUser, HandoverReport } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,12 +29,15 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Image from 'next/image';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
+
 
 type GroupedReports = {
   [date: string]: {
     revenue: RevenueStats[];
     expenses?: ExpenseSlip[];
     incidents?: IncidentReport[];
+    handover?: HandoverReport;
   };
 };
 
@@ -273,7 +276,8 @@ export default function CashierReportsPage() {
     otherCostCategories: OtherCostCategory[],
     incidentCategories: IncidentCategory[],
     users: ManagedUser[],
-  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [], incidentCategories: [], users: [] });
+    handoverReports: HandoverReport[],
+  }>({ revenueStats: [], expenseSlips: [], incidents: [], inventoryList: [], otherCostCategories: [], incidentCategories: [], users: [], handoverReports: [] });
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -285,11 +289,13 @@ export default function CashierReportsPage() {
   const [isOtherCostCategoryDialogOpen, setIsOtherCostCategoryDialogOpen] = useState(false);
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
   const [isIntangibleCostDialogOpen, setIsIntangibleCostDialogOpen] = useState(false);
+  const [isHandoverReportDialogOpen, setIsHandoverReportDialogOpen] = useState(false);
   
   // States for editing
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
+  const [handoverToEdit, setHandoverToEdit] = useState<HandoverReport | null>(null);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -330,13 +336,10 @@ export default function CashierReportsPage() {
     const unsubIncidents = dataStore.subscribeToAllIncidents(incidents => setAllData(prev => ({...prev, incidents: incidents})));
     const unsubRevenue = dataStore.subscribeToAllRevenueStats(stats => setAllData(prev => ({...prev, revenueStats: stats})));
     const unsubInventory = dataStore.subscribeToInventoryList(items => setAllData(prev => ({...prev, inventoryList: items})));
-    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => {
-        setAllData(prev => ({...prev, otherCostCategories: categories}));
-    });
-     const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => {
-        setAllData(prev => ({...prev, incidentCategories: categories}));
-    });
+    const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(categories => setAllData(prev => ({...prev, otherCostCategories: categories})));
+    const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(categories => setAllData(prev => ({...prev, incidentCategories: categories})));
     const unsubUsers = dataStore.subscribeToUsers(users => setAllData(prev => ({...prev, users: users})));
+    const unsubHandovers = dataStore.subscribeToAllHandoverReports(reports => setAllData(prev => ({...prev, handoverReports: reports})));
     
     const timer = setTimeout(() => setIsLoading(false), 1500);
 
@@ -348,13 +351,14 @@ export default function CashierReportsPage() {
       unsubOtherCostCategories();
       unsubIncidentCategories();
       unsubUsers();
+      unsubHandovers();
       clearTimeout(timer);
     };
   }, [user]);
 
   const allMonthsWithData = useMemo(() => {
     const monthSet = new Set<string>();
-    const combined = [...allData.revenueStats, ...allData.expenseSlips, ...allData.incidents];
+    const combined = [...allData.revenueStats, ...allData.expenseSlips, ...allData.incidents, ...allData.handoverReports];
     combined.forEach(item => {
         monthSet.add(format(parseISO(item.date), 'yyyy-MM'));
     });
@@ -370,33 +374,35 @@ export default function CashierReportsPage() {
     const reportsForCurrentMonth = useMemo(() => {
     const reports: GroupedReports = {};
 
-    const filterAndGroup = (items: (RevenueStats | ExpenseSlip | IncidentReport)[]) => {
+    const filterAndGroup = (items: (RevenueStats | ExpenseSlip | IncidentReport | HandoverReport)[]) => {
       items.forEach(item => {
         const itemDate = parseISO(item.date);
         if (isSameMonth(itemDate, currentMonth)) {
           if (!reports[item.date]) {
             reports[item.date] = { revenue: [] }; // Initialize revenue as an array
           }
-          if ('netRevenue' in item) {
+           if ('netRevenue' in item) { // RevenueStats
             reports[item.date].revenue.push(item);
-          } else if ('items' in item) {
+          } else if ('expenseType' in item) { // ExpenseSlip
             if (!reports[item.date].expenses) reports[item.date].expenses = [];
             reports[item.date].expenses!.push(item);
-          } else if ('content' in item) {
+          } else if ('content' in item) { // IncidentReport
             if (!reports[item.date].incidents) reports[item.date].incidents = [];
             reports[item.date].incidents!.push(item);
+          } else if ('handoverImageUrl' in item) { // HandoverReport
+            reports[item.date].handover = item;
           }
         }
       });
     };
-
+    
     filterAndGroup(allData.revenueStats);
     filterAndGroup(allData.expenseSlips);
     filterAndGroup(allData.incidents);
+    filterAndGroup(allData.handoverReports);
 
     // Sort entries within each day
     for (const date in reports) {
-      // Sort revenue reports by time (newest first)
       reports[date].revenue?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
@@ -478,6 +484,11 @@ export default function CashierReportsPage() {
     setIsIncidentDialogOpen(true);
   };
 
+  const handleEditHandover = (handover: HandoverReport) => {
+      setHandoverToEdit(handover);
+      setIsHandoverReportDialogOpen(true);
+  };
+
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setIsProcessing(true);
@@ -528,6 +539,21 @@ export default function CashierReportsPage() {
     }
   }, [user]);
 
+   const handleSaveHandover = useCallback(async (data: any, id: string) => {
+    if (!user) return;
+    setIsProcessing(true);
+    try {
+      await dataStore.updateHandoverReport(id, data, user);
+      toast.success('Đã cập nhật báo cáo bàn giao.');
+      setIsHandoverReportDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to update handover report:', error);
+      toast.error('Không thể cập nhật báo cáo bàn giao.');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user]);
+
   const handleDeleteExpense = async (id: string) => {
       const slip = allData.expenseSlips.find(s => s.id === id);
       if(!slip) return;
@@ -569,6 +595,20 @@ export default function CashierReportsPage() {
       }
   }
   
+  const handleDeleteHandover = async (id: string) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+        await dataStore.deleteHandoverReport(id);
+        toast.success("Đã xóa báo cáo bàn giao.");
+      } catch (error) {
+        console.error("Failed to delete handover report:", error);
+        toast.error("Không thể xóa báo cáo bàn giao.");
+      } finally {
+        setIsProcessing(false);
+      }
+  };
+
   const openPhotoLightbox = (photos: string[]) => {
     setLightboxSlides(photos.map(p => ({ src: p })));
     setLightboxOpen(true);
@@ -795,6 +835,39 @@ export default function CashierReportsPage() {
                                     </CardContent>
                                 </Card>
                             )}
+
+                             {dayReports.handover ? (
+                                <Card>
+                                    <CardHeader className="p-4 pb-2"><CardTitle className="text-base">Bàn giao ca</CardTitle></CardHeader>
+                                    <CardContent className="p-4 pt-0">
+                                         <div className="flex flex-col sm:flex-row justify-between items-start gap-2 pt-3">
+                                            <div>
+                                                <p className="font-semibold">Bàn giao bởi {dayReports.handover.createdBy.userName}</p>
+                                                <p className="text-xs text-muted-foreground">{new Date(dayReports.handover.createdAt as string).toLocaleString('vi-VN')}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">
+                                                <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}><Edit className="mr-2 h-4 w-4"/> Sửa</Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                                    </AlertDialogTrigger>
+                                                     <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Xóa báo cáo bàn giao?</AlertDialogTitle>
+                                                            <AlertDialogDescription>Thao tác này sẽ cho phép thu ngân nhập lại báo cáo bàn giao cho ngày này. Không thể hoàn tác.</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteHandover(dayReports.handover!.id)}>Xóa</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : null}
+
                         </AccordionContent>
                     </AccordionItem>
                 );
@@ -829,6 +902,16 @@ export default function CashierReportsPage() {
           categories={allData.incidentCategories}
           onCategoriesChange={dataStore.updateIncidentCategories}
           canManageCategories={true}
+        />
+    )}
+    {handoverToEdit && user && (
+        <OwnerHandoverReportDialog
+            open={isHandoverReportDialogOpen}
+            onOpenChange={setIsHandoverReportDialogOpen}
+            onSave={handleSaveHandover}
+            isProcessing={isProcessing}
+            reportToEdit={handoverToEdit}
+            reporter={user}
         />
     )}
     <OtherCostCategoryDialog

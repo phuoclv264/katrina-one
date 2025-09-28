@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -82,6 +80,21 @@ export const dataStore = {
         });
     },
 
+    subscribeToAllHandoverReports(callback: (reports: HandoverReport[]) => void): () => void {
+        const q = query(collection(db, 'handover_reports'), orderBy('date', 'desc'));
+        return onSnapshot(q, (snapshot) => {
+            const reports = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...doc.data(),
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                } as HandoverReport;
+            });
+            callback(reports);
+        });
+    },
+
      async getHandoverReport(date: string): Promise<HandoverReport | null> {
         const docRef = doc(db, 'handover_reports', date);
         const docSnap = await getDoc(docRef);
@@ -100,7 +113,7 @@ export const dataStore = {
         const date = format(new Date(), 'yyyy-MM-dd');
         const handoverReportRef = doc(db, 'handover_reports', date);
         
-        let handoverImageUrl: string | null = data.handoverData?.imageDataUri || null;
+        let handoverImageUrl: string | null = data.imageDataUri || null;
         if (handoverImageUrl && handoverImageUrl.startsWith('data:')) {
             const blob = await (await fetch(handoverImageUrl)).blob();
             const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
@@ -124,7 +137,7 @@ export const dataStore = {
         const finalHandoverData = {
             ...data,
             date,
-            handoverImageUrl: handoverImageUrl || null,
+            handoverImageUrl: handoverImageUrl,
             discrepancyProofPhotos,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
@@ -134,6 +147,7 @@ export const dataStore = {
         if (finalHandoverData.handoverData) {
             delete finalHandoverData.handoverData.imageDataUri;
         }
+         delete (finalHandoverData as any).imageDataUri;
         await setDoc(handoverReportRef, finalHandoverData);
 
         const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
@@ -169,6 +183,73 @@ export const dataStore = {
         }
     },
     
+    async updateHandoverReport(id: string, data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
+        const handoverReportRef = doc(db, 'handover_reports', id);
+        
+        const { newDiscrepancyPhotos, photosToDelete, ...restData } = data as any;
+
+        const finalUpdateData: any = {
+            ...restData,
+            lastModifiedBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            lastModifiedAt: serverTimestamp(),
+        };
+
+        // Handle photo deletions
+        if (photosToDelete && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
+        }
+        
+        // Handle new photo uploads
+        let newPhotoUrls: string[] = [];
+        if (newDiscrepancyPhotos && newDiscrepancyPhotos.length > 0) {
+            const uploadPromises = newDiscrepancyPhotos.map(async (photoId: string) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `handover-reports/${id}/discrepancy/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(newDiscrepancyPhotos);
+        }
+
+        if (photosToDelete || newPhotoUrls.length > 0) {
+             const currentDoc = await getDoc(handoverReportRef);
+             const existingPhotos = currentDoc.exists() ? (currentDoc.data().discrepancyProofPhotos || []) : [];
+             const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
+             finalUpdateData.discrepancyProofPhotos = [...remainingPhotos, ...newPhotoUrls];
+        }
+
+        await updateDoc(handoverReportRef, finalUpdateData);
+    },
+
+    async deleteHandoverReport(id: string): Promise<void> {
+        const handoverReportRef = doc(db, 'handover_reports', id);
+        const docSnap = await getDoc(handoverReportRef);
+        if (!docSnap.exists()) return;
+
+        const data = docSnap.data() as HandoverReport;
+        
+        const photoDeletionPromises: Promise<void>[] = [];
+        if(data.handoverImageUrl) {
+            photoDeletionPromises.push(this.deletePhotoFromStorage(data.handoverImageUrl));
+        }
+        if(data.discrepancyProofPhotos) {
+            data.discrepancyProofPhotos.forEach(url => photoDeletionPromises.push(this.deletePhotoFromStorage(url)));
+        }
+        
+        await Promise.all(photoDeletionPromises);
+        
+        const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedHandoverReportId", "==", id));
+        const slipsSnapshot = await getDocs(associatedSlipQuery);
+        if(!slipsSnapshot.empty) {
+            const slipDoc = slipsSnapshot.docs[0];
+            await deleteDoc(doc(db, "expense_slips", slipDoc.id));
+        }
+
+        await deleteDoc(handoverReportRef);
+    },
+
     async addOrUpdateIncident(
         data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] },
         id: string | undefined,
@@ -196,6 +277,8 @@ export const dataStore = {
         
         // 3. Prepare data for Firestore
         const finalData: Partial<IncidentReport> = { ...incidentData };
+        const creatorInfo = { userId: user.uid, userName: user.displayName || 'N/A' };
+
 
         if (id) {
             // Updating existing incident
@@ -208,7 +291,7 @@ export const dataStore = {
         } else {
             // Creating new incident
             finalData.date = format(new Date(), 'yyyy-MM-dd');
-            finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
+            finalData.createdBy = creatorInfo;
             finalData.createdAt = serverTimestamp();
             finalData.photos = validNewUrls;
             const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
@@ -237,7 +320,7 @@ export const dataStore = {
                 totalAmount: cost,
                 paymentMethod: paymentMethod,
                 notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
-                createdBy: finalData.createdBy,
+                createdBy: creatorInfo,
                 associatedIncidentId: id,
             };
             if (!existingSlips.empty) {
@@ -458,9 +541,9 @@ export const dataStore = {
             if (!finalData.date) {
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
             }
-            if (!slipData.createdBy || !slipData.createdBy.userId) {
+             if (!slipData.createdBy || !slipData.createdBy.userId) {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
-                throw new Error("Cannot create expense slip: createdBy information is missing or invalid.");
+                throw new Error(`Cannot create expense slip: createdBy information is missing or invalid. ${slipData.createdBy}`);
             }
             finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
             delete finalData.lastModifiedBy;
