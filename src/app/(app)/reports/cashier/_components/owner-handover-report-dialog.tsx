@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -146,7 +147,7 @@ export default function OwnerHandoverReportDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
         <div id="owner-handover-lightbox-container"></div>
         <DialogHeader>
           <DialogTitle>Chi tiết Báo cáo Bàn giao</DialogTitle>

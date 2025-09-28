@@ -179,7 +179,7 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-card">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-card" onInteractOutside={(e) => e.preventDefault()}>
                     <div id="incident-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{dialogTitle}</DialogTitle>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -903,8 +904,8 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateViolationCategories}
-          canManageCategories={true}
+          onCategoriesChange={dataStore.updateIncidentCategories}
+          canManage={user.role === 'Chủ nhà hàng'}
         />
     )}
     {handoverToEdit && user && (
