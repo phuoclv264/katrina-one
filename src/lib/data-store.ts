@@ -100,7 +100,7 @@ export const dataStore = {
         const date = format(new Date(), 'yyyy-MM-dd');
         const handoverReportRef = doc(db, 'handover_reports', date);
         
-        let handoverImageUrl = data.handoverData.imageDataUri;
+        let handoverImageUrl: string | null = data.handoverData?.imageDataUri || null;
         if (handoverImageUrl && handoverImageUrl.startsWith('data:')) {
             const blob = await (await fetch(handoverImageUrl)).blob();
             const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
@@ -124,14 +124,16 @@ export const dataStore = {
         const finalHandoverData = {
             ...data,
             date,
-            handoverImageUrl,
+            handoverImageUrl: handoverImageUrl || null,
             discrepancyProofPhotos,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
             isVerified: false,
         };
         // The imageDataUri from AI flow is large, don't save it to firestore.
-        delete finalHandoverData.handoverData.imageDataUri;
+        if (finalHandoverData.handoverData) {
+            delete finalHandoverData.handoverData.imageDataUri;
+        }
         await setDoc(handoverReportRef, finalHandoverData);
 
         const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
@@ -235,7 +237,7 @@ export const dataStore = {
                 totalAmount: cost,
                 paymentMethod: paymentMethod,
                 notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
-                createdBy: finalData.createdBy || { userId: user.uid, userName: user.displayName },
+                createdBy: finalData.createdBy,
                 associatedIncidentId: id,
             };
             if (!existingSlips.empty) {
@@ -456,13 +458,11 @@ export const dataStore = {
             if (!finalData.date) {
                 finalData.date = format(new Date(), 'yyyy-MM-dd');
             }
-            // Ensure createdBy is valid before creating a new document
-            if (slipData.createdBy && slipData.createdBy.userId && slipData.createdBy.userName) {
-                finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
-            } else {
+            if (!slipData.createdBy || !slipData.createdBy.userId) {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
-                throw new Error("Missing createdBy information.");
+                throw new Error("Cannot create expense slip: createdBy information is missing or invalid.");
             }
+            finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
             delete finalData.lastModifiedBy;
         }
 
