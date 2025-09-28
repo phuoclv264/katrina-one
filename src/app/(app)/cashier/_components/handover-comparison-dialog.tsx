@@ -5,9 +5,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, ArrowRight, CheckCircle, ListChecks, FileText, Loader2, Camera, Wallet } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle, ListChecks, FileText, Loader2, Camera, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { photoStore } from '@/lib/photo-store';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 type ComparisonResult = {
   field: string;
@@ -57,15 +59,35 @@ export default function HandoverComparisonDialog({
   const [discrepancyPhotoUrls, setDiscrepancyPhotoUrls] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+        if (isLightboxOpen) {
+            event.preventDefault();
+            setIsLightboxOpen(false);
+        }
+    };
+    if (isLightboxOpen) {
+        window.history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', handlePopState);
+    }
+    return () => {
+        window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isLightboxOpen]);
+
+
   useEffect(() => {
     if (open) {
       setActualCash(null);
       setDiscrepancyReason('');
-      setDiscrepancyPhotoIds([]);
       
-      // Revoke any existing object URLs to prevent memory leaks
+      // Clean up previous photo state
       discrepancyPhotoUrls.forEach(url => URL.revokeObjectURL(url));
       setDiscrepancyPhotoUrls([]);
+      setDiscrepancyPhotoIds([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -90,7 +112,7 @@ export default function HandoverComparisonDialog({
     onFinalSubmit(finalData);
   };
   
-  const handleCapturePhotos = async (capturedPhotoIds: string[]) => {
+    const handleCapturePhotos = async (capturedPhotoIds: string[]) => {
       const newUrls: string[] = [];
       for(const id of capturedPhotoIds) {
         const blob = await photoStore.getPhoto(id);
@@ -102,6 +124,19 @@ export default function HandoverComparisonDialog({
       setDiscrepancyPhotoUrls(prev => [...prev, ...newUrls]);
       setIsCameraOpen(false);
   };
+  
+    const handleDeletePhoto = async (photoId: string, photoUrl: string) => {
+        setDiscrepancyPhotoIds(prev => prev.filter(id => id !== photoId));
+        setDiscrepancyPhotoUrls(prev => prev.filter(url => url !== photoUrl));
+        URL.revokeObjectURL(photoUrl);
+        await photoStore.deletePhoto(photoId);
+    };
+
+    const openLightbox = (index: number) => {
+        setLightboxIndex(index);
+        setIsLightboxOpen(true);
+    };
+
 
   return (
     <>
@@ -110,6 +145,7 @@ export default function HandoverComparisonDialog({
             className="max-w-md md:max-w-4xl h-full md:h-auto md:max-h-[90vh] flex flex-col p-0 rounded-lg"
             onInteractOutside={(e) => e.preventDefault()}
         >
+          <div id="handover-comparison-lightbox-container"></div>
           <DialogHeader className={cn(
             "p-4 md:p-6 flex flex-row items-center gap-4 space-y-0 shrink-0 rounded-t-lg",
              hasMismatch ? "bg-red-50 dark:bg-destructive/20 text-red-700" : "bg-green-50 dark:bg-green-500/10 text-green-600"
@@ -213,14 +249,21 @@ export default function HandoverComparisonDialog({
                               value={discrepancyReason}
                               onChange={e => setDiscrepancyReason(e.target.value)}
                             />
-                            <div className="flex flex-col gap-2">
+                            <div className="space-y-2">
                                 <Button variant="outline" className="w-full h-12" onClick={() => setIsCameraOpen(true)}>
                                     <Camera className="mr-2 h-5 w-5" /> Chụp ảnh bằng chứng
                                 </Button>
                                 {discrepancyPhotoUrls.length > 0 && (
                                     <div className="flex gap-2 flex-wrap">
                                         {discrepancyPhotoUrls.map((url, i) => (
-                                            <Image key={i} src={url} alt={`proof-${i}`} width={64} height={64} className="rounded-md object-cover"/>
+                                             <div key={i} className="relative h-16 w-16 group">
+                                                 <button onClick={() => openLightbox(i)} className="w-full h-full rounded-md overflow-hidden">
+                                                    <Image src={url} alt={`proof-${i}`} fill className="object-cover"/>
+                                                 </button>
+                                                 <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full" onClick={() => handleDeletePhoto(discrepancyPhotoIds[i], url)}>
+                                                    <X className="h-3 w-3" />
+                                                 </Button>
+                                             </div>
                                         ))}
                                     </div>
                                 )}
@@ -259,6 +302,13 @@ export default function HandoverComparisonDialog({
         </DialogContent>
       </Dialog>
       <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} />
+       <Lightbox
+            open={isLightboxOpen}
+            close={() => setIsLightboxOpen(false)}
+            index={lightboxIndex}
+            slides={discrepancyPhotoUrls.map(url => ({ src: url }))}
+            portal={{ root: document.getElementById("handover-comparison-lightbox-container") ?? undefined }}
+        />
     </>
   );
 }

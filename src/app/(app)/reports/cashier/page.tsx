@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -219,6 +220,7 @@ function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="max-w-2xl">
+                     <div id="intangible-cost-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>Chi tiết các Chi phí vô hình</DialogTitle>
                         <DialogDescription>
@@ -257,6 +259,7 @@ function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean
                 open={isLightboxOpen}
                 close={() => setIsLightboxOpen(false)}
                 slides={lightboxSlides}
+                portal={{ root: document.getElementById("intangible-cost-lightbox-container") ?? undefined }}
             />
         </>
     );
@@ -586,7 +589,7 @@ export default function CashierReportsPage() {
       if(!incident) return;
       setIsProcessing(true);
       try {
-          await dataStore.deleteIncident(incident.id);
+          await dataStore.deleteIncident(id);
           toast.success("Đã xóa báo cáo sự cố.");
       } catch(error) {
           toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
@@ -690,7 +693,7 @@ export default function CashierReportsPage() {
                              {monthlySummary.intangibleCost > 0 && (
                                 <p className="pl-4 flex items-center gap-2">
                                   Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span>
-                                  <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setIsIntangibleCostDialogOpen(true)}>Xem</Button>
+                                  <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setIsIntangibleCostDialogOpen(true)}>Xem chi tiết</Button>
                                 </p>
                              )}
                         </div>
@@ -846,7 +849,7 @@ export default function CashierReportsPage() {
                                                 <p className="text-xs text-muted-foreground">{new Date(dayReports.handover.createdAt as string).toLocaleString('vi-VN')}</p>
                                             </div>
                                             <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">
-                                                <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}><Edit className="mr-2 h-4 w-4"/> Sửa</Button>
+                                                <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}><Edit className="mr-2 h-4 w-4"/> Chi tiết</Button>
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
