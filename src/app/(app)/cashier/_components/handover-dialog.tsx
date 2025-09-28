@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -288,7 +289,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                         <div className="space-y-6 py-4">
                             <Card>
                                 <CardHeader className="pb-4">
-                                    <CardTitle className="text-base">Ảnh phiếu bàn giao</CardTitle>
+                                    <CardTitle className="text-base">Ảnh phiếu bàn giao (bắt buộc)</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                      {imageDataUri ? (
@@ -308,7 +309,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                                 </CardContent>
                             </Card>
                             
-                            {imageDataUri && (
+                            {originalData && (
                                 <div ref={dataSectionRef} className="space-y-4 rounded-md border bg-muted/30 shadow-inner p-4">
                                     {shiftEndTime && (
                                         <Card><CardContent className="p-3 text-center text-sm font-semibold flex items-center justify-center gap-2"><Clock className="h-4 w-4"/>Thời gian trên phiếu: {format(parseISO(shiftEndTime), 'HH:mm:ss, dd/MM/yyyy')}</CardContent></Card>

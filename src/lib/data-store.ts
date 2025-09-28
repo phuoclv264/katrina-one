@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -113,9 +114,9 @@ export const dataStore = {
         const date = format(new Date(), 'yyyy-MM-dd');
         const handoverReportRef = doc(db, 'handover_reports', date);
         
-        let handoverImageUrl: string | null = data.imageDataUri || null;
-        if (handoverImageUrl && handoverImageUrl.startsWith('data:')) {
-            const blob = await (await fetch(handoverImageUrl)).blob();
+        let handoverImageUrl: string | null = null;
+        if (data.imageDataUri && data.imageDataUri.startsWith('data:')) {
+            const blob = await (await fetch(data.imageDataUri)).blob();
             const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, blob);
             handoverImageUrl = await getDownloadURL(storageRef);
@@ -137,7 +138,7 @@ export const dataStore = {
         const finalHandoverData = {
             ...data,
             date,
-            handoverImageUrl: handoverImageUrl,
+            handoverImageUrl: handoverImageUrl, // Use the variable which is guaranteed to be string or null
             discrepancyProofPhotos,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
             createdAt: serverTimestamp(),
