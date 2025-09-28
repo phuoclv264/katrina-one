@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { HandoverReport, AuthUser } from '@/lib/types';
-import { Loader2, Camera, Trash2, X, Eye } from 'lucide-react';
+import { Loader2, Camera, Trash2, X, Eye, RefreshCw, Edit } from 'lucide-react';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from '@/lib/photo-store';
@@ -27,7 +27,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
-
+import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
+import { Separator } from '@/components/ui/separator';
+import isEqual from 'lodash.isequal';
 
 type OwnerHandoverReportDialogProps = {
   open: boolean;
@@ -38,6 +40,49 @@ type OwnerHandoverReportDialogProps = {
   reporter: AuthUser;
 };
 
+
+const handoverFieldLabels: { [key: string]: string } = {
+    expectedCash: 'Tiền mặt dự kiến',
+    startOfDayCash: 'Tiền mặt đầu ca',
+    cashExpense: 'Chi tiền mặt',
+    cashRevenue: 'Doanh thu tiền mặt',
+    deliveryPartnerPayout: 'Trả ĐTGH (khác)',
+};
+
+const cardRevenueLabels: { [key: string]: string } = {
+    techcombankVietQrPro: 'TCB VietQR Pro',
+    shopeeFood: 'ShopeeFood',
+    grabFood: 'Grab Food',
+    bankTransfer: 'Chuyển Khoản',
+};
+
+const InputField = React.memo(({ id, label, value, onChange, originalValue }: {
+    id: string;
+    label: string;
+    value: number;
+    onChange: (val: string) => void;
+    originalValue?: number;
+}) => {
+    const [localValue, setLocalValue] = useState(String(value));
+    
+    useEffect(() => { setLocalValue(String(value)); }, [value]);
+
+    const handleBlur = () => { if (String(value) !== localValue) { onChange(localValue); } };
+    
+    const isEdited = originalValue !== undefined && value !== originalValue;
+
+    return (
+        <div key={id} className="grid grid-cols-2 items-center gap-2">
+            <Label htmlFor={id} className="text-right flex items-center gap-2 justify-end">
+                 {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
+                {label}
+            </Label>
+            <Input id={id} type="number" value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleBlur} onFocus={(e) => e.target.select()} placeholder="0" className="text-right h-9" />
+        </div>
+    );
+});
+InputField.displayName = 'InputField';
+
 export default function OwnerHandoverReportDialog({
   open,
   onOpenChange,
@@ -46,6 +91,8 @@ export default function OwnerHandoverReportDialog({
   reportToEdit,
   reporter,
 }: OwnerHandoverReportDialogProps) {
+  const [handoverData, setHandoverData] = useState<any>(null);
+  const [aiOriginalData, setAiOriginalData] = useState<any>(null); // For AI rescan comparison
   const [actualCash, setActualCash] = useState(0);
   const [discrepancyReason, setDiscrepancyReason] = useState('');
 
@@ -57,6 +104,8 @@ export default function OwnerHandoverReportDialog({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
@@ -77,6 +126,8 @@ export default function OwnerHandoverReportDialog({
 
   useEffect(() => {
     if (open && reportToEdit) {
+      setHandoverData(reportToEdit.handoverData);
+      setAiOriginalData(null); // Reset AI original data on open
       setActualCash(reportToEdit.actualCash);
       setDiscrepancyReason(reportToEdit.discrepancyReason || '');
       setExistingPhotos(reportToEdit.discrepancyProofPhotos || []);
@@ -88,7 +139,7 @@ export default function OwnerHandoverReportDialog({
   const handleSave = () => {
     if (!reportToEdit) return;
 
-    const discrepancy = actualCash - reportToEdit.handoverData.expectedCash;
+    const discrepancy = actualCash - (handoverData?.expectedCash || 0);
 
     if (discrepancy !== 0 && !discrepancyReason.trim()) {
       toast.error('Vui lòng nhập lý do chênh lệch.');
@@ -96,11 +147,13 @@ export default function OwnerHandoverReportDialog({
     }
     
     const dataToSave = {
+        handoverData: handoverData,
         actualCash,
         discrepancy,
         discrepancyReason: discrepancyReason.trim() || null,
         newDiscrepancyPhotos: localPhotos.map(p => p.id),
         photosToDelete: photosToDelete,
+        isEdited: reportToEdit.isEdited || !isEqual(reportToEdit.handoverData, handoverData),
     };
 
     onSave(dataToSave, reportToEdit.id);
@@ -139,6 +192,74 @@ export default function OwnerHandoverReportDialog({
         setLightboxIndex(index);
         setIsLightboxOpen(true);
     };
+    
+    const handleHandoverDataChange = (key: keyof typeof handoverData, value: string) => {
+        if (key === 'revenueByCard') return;
+        setHandoverData((prev: any) => ({ ...prev, [key]: Number(value) }));
+    };
+
+    const handleCardRevenueChange = (key: keyof any, value: string) => {
+        setHandoverData((prev: any) => ({
+            ...prev,
+            revenueByCard: {
+                ...prev.revenueByCard,
+                [key]: Number(value)
+            }
+        }));
+    }
+    
+    const handleRescan = async () => {
+        if (!reportToEdit?.handoverImageUrl) {
+            toast.error("Không tìm thấy ảnh phiếu bàn giao để quét lại.");
+            return;
+        }
+
+        setIsAiLoading(true);
+        const toastId = toast.loading("AI đang quét lại ảnh...");
+
+        try {
+            const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(reportToEdit.handoverImageUrl)}`);
+             if (!response.ok) {
+                throw new Error(`Proxy request failed: ${response.statusText}`);
+            }
+            const { dataUri } = await response.json();
+
+            if (!dataUri) {
+                throw new Error("Không thể tải ảnh từ proxy.");
+            }
+
+            const result = await extractHandoverData({ imageDataUri: dataUri });
+
+            if (!result.isReceipt) {
+                toast.error(result.rejectionReason || 'AI không nhận diện được phiếu hợp lệ.');
+                return;
+            }
+
+            const aiData = {
+                expectedCash: result.expectedCash ?? 0,
+                startOfDayCash: result.startOfDayCash ?? 0,
+                cashExpense: result.cashExpense ?? 0,
+                cashRevenue: result.cashRevenue ?? 0,
+                deliveryPartnerPayout: result.deliveryPartnerPayout ?? 0,
+                revenueByCard: {
+                    ...(handoverData.revenueByCard || {}),
+                    ...(result.revenueByCard || {}),
+                }
+            };
+            
+            setHandoverData(aiData);
+            setAiOriginalData(aiData); // Set this to show "edited" badges correctly
+            toast.success("Đã cập nhật dữ liệu từ kết quả quét lại của AI.");
+
+        } catch (error) {
+            console.error("AI Rescan failed:", error);
+            toast.error("Lỗi khi quét lại ảnh bằng AI.");
+        } finally {
+            toast.dismiss(toastId);
+            setIsAiLoading(false);
+        }
+    };
+
 
   const allDiscrepancyPhotos = useMemo(() => [...existingPhotos, ...localPhotos.map(p => p.url)], [existingPhotos, localPhotos]);
   
@@ -147,7 +268,7 @@ export default function OwnerHandoverReportDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-4xl" onInteractOutside={(e) => {if (!isLightboxOpen) e.preventDefault();}}>
         <div id="owner-handover-lightbox-container"></div>
         <DialogHeader>
           <DialogTitle>Chi tiết Báo cáo Bàn giao</DialogTitle>
@@ -156,28 +277,61 @@ export default function OwnerHandoverReportDialog({
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] -mx-6 px-6">
-            <div className="space-y-4 py-4">
-                <Card>
-                    <CardHeader><CardTitle className="text-base">Tổng quan</CardTitle></CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                        <div className="flex justify-between"><span>Tiền mặt dự kiến:</span><span className="font-semibold">{reportToEdit.handoverData.expectedCash.toLocaleString('vi-VN')}đ</span></div>
-                        <div className="flex justify-between"><span>Chênh lệch đã ghi nhận:</span><span className="font-semibold">{reportToEdit.discrepancy.toLocaleString('vi-VN')}đ</span></div>
-                    </CardContent>
-                </Card>
+            <div className="space-y-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Ảnh phiếu bàn giao</CardTitle></CardHeader>
+                        <CardContent>
+                            {reportToEdit.handoverImageUrl ? (
+                                <button onClick={() => openLightbox([reportToEdit.handoverImageUrl!])} className="relative w-full aspect-[3/4] rounded-md overflow-hidden">
+                                    <Image src={reportToEdit.handoverImageUrl} alt="Handover receipt" fill className="object-contain" />
+                                </button>
+                            ) : <p className="text-sm text-muted-foreground">Không có ảnh.</p>}
+                        </CardContent>
+                    </Card>
 
-                 <Card>
-                    <CardHeader><CardTitle className="text-base">Ảnh phiếu bàn giao</CardTitle></CardHeader>
-                    <CardContent>
-                        {reportToEdit.handoverImageUrl ? (
-                             <button onClick={() => openLightbox([reportToEdit.handoverImageUrl!])} className="relative w-full aspect-[3/4] rounded-md overflow-hidden">
-                                <Image src={reportToEdit.handoverImageUrl} alt="Handover receipt" fill className="object-contain" />
-                            </button>
-                        ) : <p className="text-sm text-muted-foreground">Không có ảnh.</p>}
-                    </CardContent>
-                </Card>
+                    <div className="space-y-4">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-base">Dữ liệu từ Phiếu</CardTitle>
+                                <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isAiLoading}>
+                                    {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
+                                    Quét lại
+                                </Button>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {Object.entries(handoverData || {}).map(([key, value]) => {
+                                    if (key === 'revenueByCard' || !handoverFieldLabels[key]) return null;
+                                    return (
+                                        <InputField
+                                            key={`ho-${key}`}
+                                            id={`ho-${key}`}
+                                            label={handoverFieldLabels[key]}
+                                            value={value as number}
+                                            onChange={(val) => handleHandoverDataChange(key as any, val)}
+                                            originalValue={aiOriginalData?.[key as keyof typeof aiOriginalData]}
+                                        />
+                                    )
+                                })}
+                                <Separator />
+                                <h4 className="font-medium text-center text-sm text-muted-foreground">Doanh thu khác</h4>
+                                {Object.entries(handoverData?.revenueByCard || {}).map(([cardKey, cardValue]) => (
+                                    <InputField
+                                        key={`ho-card-${cardKey}`}
+                                        id={`ho-card-${cardKey}`}
+                                        label={cardRevenueLabels[cardKey as keyof typeof cardRevenueLabels]}
+                                        value={cardValue as number}
+                                        onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
+                                        originalValue={aiOriginalData?.revenueByCard?.[cardKey as keyof any]}
+                                    />
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
 
                 <Card className="border-primary">
-                    <CardHeader><CardTitle className="text-base">Chỉnh sửa thông tin</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-base">Thông tin kiểm đếm</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="actualCash">Số tiền mặt thực tế</Label>
@@ -221,8 +375,8 @@ export default function OwnerHandoverReportDialog({
         </ScrollArea>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-          <Button onClick={handleSave} disabled={isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+          <Button onClick={handleSave} disabled={isProcessing || isAiLoading}>
+            {(isProcessing || isAiLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             Lưu thay đổi
           </Button>
         </DialogFooter>
