@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -753,7 +754,7 @@ export default function ExpenseSlipDialog({
                                      )}
                                       <div className="space-y-2">
                                         <Label htmlFor="other-cost-amount">Tổng số tiền</Label>
-                                        <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" />
+                                        <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" onFocus={(e) => e.target.select()} />
                                      </div>
                                 </div>
                             )}

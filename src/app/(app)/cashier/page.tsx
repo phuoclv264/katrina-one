@@ -34,6 +34,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import Link from 'next/link';
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -495,7 +496,7 @@ export default function CashierDashboardPage() {
                  <CardContent className="space-y-2 text-base">
                      <div className="flex justify-between items-center">
                         <p className="text-muted-foreground flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-green-500"/> Doanh thu tiền mặt</p>
-                        <p className="font-bold text-green-700 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+                        <p className="font-bold text-green-600 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
                     </div>
                     <div className="flex justify-between items-center">
                         <p className="text-muted-foreground flex items-center gap-2"><ArrowDownCircle className="h-5 w-5 text-red-500"/> Tổng chi tiền mặt</p>
@@ -516,7 +517,7 @@ export default function CashierDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-            <Card className="border-yellow-500/50 bg-white dark:bg-card">
+            <Card className="border-yellow-500/50">
                 <CardHeader>
                     <CardTitle className="text-yellow-800 dark:text-yellow-300">Báo cáo Sự cố</CardTitle>
                     <CardDescription className="text-yellow-700 dark:text-yellow-400">Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
@@ -562,8 +563,8 @@ export default function CashierDashboardPage() {
                         </AccordionItem>
                         </Accordion>
                     )}
-                    <Button variant="outline" className="w-full border-yellow-500/50 hover:bg-yellow-500/20" onClick={() => { setIncidentToEdit(null); setIsIncidentDialogOpen(true); }}>
-                        <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
+                    <Button variant="outline" className="w-full border-yellow-500/50 hover:bg-yellow-500/20 text-yellow-600" onClick={() => { setIncidentToEdit(null); setIsIncidentDialogOpen(true); }}>
+                        <AlertTriangle className="mr-2 h-4 w-4" />
                         Tạo Báo cáo Sự cố
                     </Button>
                 </CardContent>
@@ -571,7 +572,7 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef} className="border-green-600/50">
+             <Card ref={revenueStatsRef} className="border-green-500/50">
                 <CardHeader>
                     <CardTitle className="text-green-800 dark:text-green-300">Thống kê Doanh thu</CardTitle>
                     <CardDescription className="text-green-700 dark:text-green-400">
