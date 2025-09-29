@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -40,15 +41,19 @@ type OwnerHandoverReportDialogProps = {
 };
 
 
+const handoverFieldOrder: (keyof HandoverReport['handoverData'])[] = [
+    'expectedCash', 'startOfDayCash', 'cashExpense', 'cashRevenue', 'deliveryPartnerPayout'
+];
+const cardRevenueFieldOrder: (keyof HandoverReport['handoverData']['revenueByCard'])[] = [
+    'techcombankVietQrPro', 'shopeeFood', 'grabFood', 'bankTransfer'
+];
+
 const handoverFieldLabels: { [key: string]: string } = {
     expectedCash: 'Tiền mặt dự kiến',
     startOfDayCash: 'Tiền mặt đầu ca',
     cashExpense: 'Chi tiền mặt',
     cashRevenue: 'Doanh thu tiền mặt',
     deliveryPartnerPayout: 'Trả ĐTGH (khác)',
-};
-
-const cardRevenueLabels: { [key: string]: string } = {
     techcombankVietQrPro: 'TCB VietQR Pro',
     shopeeFood: 'ShopeeFood',
     grabFood: 'Grab Food',
@@ -299,14 +304,14 @@ export default function OwnerHandoverReportDialog({
                                 </Button>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {Object.entries(handoverData || {}).map(([key, value]) => {
-                                    if (key === 'revenueByCard' || !handoverFieldLabels[key]) return null;
+                                {handoverFieldOrder.map((key) => {
+                                    if (!(key in (handoverData || {}))) return null;
                                     return (
                                         <InputField
                                             key={`ho-${key}`}
                                             id={`ho-${key}`}
                                             label={handoverFieldLabels[key]}
-                                            value={value as number}
+                                            value={handoverData[key] as number}
                                             onChange={(val) => handleHandoverDataChange(key as any, val)}
                                             originalValue={aiOriginalData?.[key as keyof typeof aiOriginalData]}
                                         />
@@ -314,16 +319,19 @@ export default function OwnerHandoverReportDialog({
                                 })}
                                 <Separator />
                                 <h4 className="font-medium text-center text-sm text-muted-foreground">Doanh thu khác</h4>
-                                {Object.entries(handoverData?.revenueByCard || {}).map(([cardKey, cardValue]) => (
-                                    <InputField
-                                        key={`ho-card-${cardKey}`}
-                                        id={`ho-card-${cardKey}`}
-                                        label={cardRevenueLabels[cardKey as keyof typeof cardRevenueLabels]}
-                                        value={cardValue as number}
-                                        onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
-                                        originalValue={aiOriginalData?.revenueByCard?.[cardKey as keyof any]}
-                                    />
-                                ))}
+                                {cardRevenueFieldOrder.map((cardKey) => {
+                                    if (!(cardKey in (handoverData?.revenueByCard || {}))) return null;
+                                    return (
+                                        <InputField
+                                            key={`ho-card-${cardKey}`}
+                                            id={`ho-card-${cardKey}`}
+                                            label={handoverFieldLabels[cardKey]}
+                                            value={handoverData.revenueByCard[cardKey] as number}
+                                            onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
+                                            originalValue={aiOriginalData?.revenueByCard?.[cardKey as keyof any]}
+                                        />
+                                    );
+                                })}
                             </CardContent>
                         </Card>
                     </div>

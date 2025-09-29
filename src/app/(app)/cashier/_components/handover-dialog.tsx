@@ -48,16 +48,19 @@ const initialHandoverData = {
     }
 };
 
-const handoverFieldLabels: { [key in keyof typeof initialHandoverData]: string } = {
+const handoverFieldOrder: (keyof Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime' | 'revenueByCard'>)[] = [
+    'expectedCash', 'startOfDayCash', 'cashExpense', 'cashRevenue', 'deliveryPartnerPayout'
+];
+const cardRevenueFieldOrder: (keyof typeof initialHandoverData.revenueByCard)[] = [
+    'techcombankVietQrPro', 'shopeeFood', 'grabFood', 'bankTransfer'
+];
+
+const handoverFieldLabels: { [key: string]: string } = {
     expectedCash: 'Tiền mặt dự kiến',
     startOfDayCash: 'Tiền mặt đầu ca',
     cashExpense: 'Chi tiền mặt',
     cashRevenue: 'Doanh thu tiền mặt',
     deliveryPartnerPayout: 'Trả ĐTGH (khác)',
-    revenueByCard: 'Doanh thu thẻ/CK',
-};
-
-const cardRevenueLabels: { [key in keyof typeof initialHandoverData.revenueByCard]: string } = {
     techcombankVietQrPro: 'TCB VietQR Pro',
     shopeeFood: 'ShopeeFood',
     grabFood: 'Grab Food',
@@ -278,7 +281,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => {if (!isLightboxOpen) {e.preventDefault();}}}>
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => {if (!isLightboxOpen) e.preventDefault();}}>
                     <div id="handover-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>Nhập Phiếu Bàn Giao Ca</DialogTitle>
@@ -318,29 +321,28 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                                     )}
                                      <Card>
                                         <CardContent className="p-4 space-y-3">
-                                            {Object.entries(handoverData).map(([key, value]) => {
-                                                if (key === 'revenueByCard') return null;
+                                            {handoverFieldOrder.map((key) => {
                                                 return (
                                                     <InputField
                                                         key={`ho-${key}`}
                                                         id={`ho-${key}`}
-                                                        label={handoverFieldLabels[key as keyof typeof handoverFieldLabels]}
-                                                        value={value as number}
-                                                        onChange={(val) => handleHandoverDataChange(key as any, val)}
-                                                        originalValue={originalData?.[key as keyof typeof originalData]}
+                                                        label={handoverFieldLabels[key]}
+                                                        value={handoverData[key] as number}
+                                                        onChange={(val) => handleHandoverDataChange(key, val)}
+                                                        originalValue={originalData?.[key]}
                                                     />
                                                 )
                                             })}
                                             <Separator />
                                             <h4 className="font-medium text-center">Doanh thu khác</h4>
-                                            {Object.entries(handoverData.revenueByCard).map(([cardKey, cardValue]) => (
+                                            {cardRevenueFieldOrder.map((cardKey) => (
                                                 <InputField
                                                     key={`ho-card-${cardKey}`}
                                                     id={`ho-card-${cardKey}`}
-                                                    label={cardRevenueLabels[cardKey as keyof typeof cardRevenueLabels]}
-                                                    value={cardValue as number}
-                                                    onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
-                                                    originalValue={originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard]}
+                                                    label={handoverFieldLabels[cardKey]}
+                                                    value={handoverData.revenueByCard[cardKey] as number}
+                                                    onChange={(val) => handleCardRevenueChange(cardKey, val)}
+                                                    originalValue={originalData?.revenueByCard?.[cardKey]}
                                                 />
                                             ))}
                                         </CardContent>
