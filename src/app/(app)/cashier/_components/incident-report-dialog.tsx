@@ -178,7 +178,7 @@ export default function IncidentReportDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
                 <DialogContent className="sm:max-w-md bg-white dark:bg-card" onInteractOutside={(e) => e.preventDefault()}>
                     <div id="incident-lightbox-container"></div>
                     <DialogHeader>
@@ -218,7 +218,14 @@ export default function IncidentReportDialog({
                         <div className="grid grid-cols-4 items-start gap-4">
                             <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
                             <div className="col-span-3">
-                                <Input id="cost" type="number" value={cost} onChange={e => setCost(Number(e.target.value))} placeholder="0" />
+                                <Input 
+                                  id="cost" 
+                                  type="number" 
+                                  value={cost} 
+                                  onChange={e => setCost(Number(e.target.value))} 
+                                  placeholder="0"
+                                  onFocus={(e) => e.target.select()}
+                                />
                                 <p className="text-xs text-muted-foreground mt-1">
                                     Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động.
                                 </p>
