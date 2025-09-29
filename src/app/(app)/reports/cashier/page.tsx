@@ -778,7 +778,7 @@ export default function CashierReportsPage() {
                                             </div>
                                             </div>
                                             <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</span>
+                                            <div className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</div>
                                             {prevStat && (
                                                 <Badge className={cn(netRevenueDiff > 0 ? "bg-green-600" : (netRevenueDiff < 0 ? "bg-red-600" : "bg-gray-500"), "text-white")}>
                                                     {netRevenueDisplay}
@@ -812,7 +812,7 @@ export default function CashierReportsPage() {
                                                         <Badge variant="destructive">{incident.cost.toLocaleString('vi-VN')}đ</Badge>
                                                         {incident.paymentMethod && <Badge variant="secondary">{incident.paymentMethod === 'cash' ? 'Tiền mặt' : incident.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' : 'Vô hình'}</Badge>}
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">bởi {incident.createdBy.userName}</p>
+                                                    <p className="text-xs text-muted-foreground mt-1">bởi {incident.createdBy.userName} lúc {format(new Date(incident.createdAt as string), 'HH:mm')}</p>
                                                 </div>
                                                  <div className="flex items-center gap-1 self-end sm:self-start flex-shrink-0">
                                                     {incident.photos && incident.photos.length > 0 && (
@@ -851,7 +851,7 @@ export default function CashierReportsPage() {
                                     <CardContent className="p-4 pt-0">
                                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 pt-3">
                                             <div className="font-semibold flex items-center gap-2">
-                                              <div>Bàn giao bởi {dayReports.handover.createdBy.userName}</div>
+                                              <p>Bàn giao bởi {dayReports.handover.createdBy.userName}</p>
                                                 {dayReports.handover.isEdited && (
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -916,7 +916,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateViolationCategories}
+          onCategoriesChange={dataStore.updateIncidentCategories}
           canManage={user.role === 'Chủ nhà hàng'}
         />
     )}
