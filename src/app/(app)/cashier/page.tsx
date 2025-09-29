@@ -341,7 +341,7 @@ export default function CashierDashboardPage() {
         setIsRevenueDialogOpen(false);
         setRevenueStatsToEdit(null);
     } catch(error) {
-        console.error("Failed to save revenue stats:", error);
+        console.error("Failed to save revenue stats", error);
         toast.error("Không thể lưu thống kê doanh thu.");
     } finally {
         setIsProcessing(false);
@@ -515,10 +515,10 @@ export default function CashierDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-            <Card>
+            <Card className="border-yellow-500/50 bg-yellow-500/10">
                 <CardHeader>
-                    <CardTitle>Báo cáo Sự cố</CardTitle>
-                    <CardDescription>Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
+                    <CardTitle className="text-yellow-800 dark:text-yellow-300">Báo cáo Sự cố</CardTitle>
+                    <CardDescription className="text-yellow-700 dark:text-yellow-400">Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {dailyIncidents.length > 0 && (
@@ -530,7 +530,7 @@ export default function CashierDashboardPage() {
                                 {dailyIncidents.map(incident => {
                                     const canEdit = incident.createdBy.userId === user.uid;
                                     return (
-                                        <div key={incident.id} className="p-2 bg-muted rounded-md text-sm">
+                                        <div key={incident.id} className="p-2 bg-card rounded-md text-sm">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-medium">{incident.content}</p>
@@ -561,8 +561,8 @@ export default function CashierDashboardPage() {
                         </AccordionItem>
                         </Accordion>
                     )}
-                    <Button variant="outline" className="w-full" onClick={() => { setIncidentToEdit(null); setIsIncidentDialogOpen(true); }}>
-                        <AlertTriangle className="mr-2 h-4 w-4" />
+                    <Button variant="outline" className="w-full border-yellow-500/50 hover:bg-yellow-500/20" onClick={() => { setIncidentToEdit(null); setIsIncidentDialogOpen(true); }}>
+                        <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
                         Tạo Báo cáo Sự cố
                     </Button>
                 </CardContent>
@@ -570,10 +570,10 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef}>
+             <Card ref={revenueStatsRef} className="border-green-500/50 bg-green-500/10">
                 <CardHeader>
-                    <CardTitle>Thống kê Doanh thu</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-green-800 dark:text-green-300">Thống kê Doanh thu</CardTitle>
+                    <CardDescription className="text-green-700 dark:text-green-400">
                         Nhập số liệu từ bill tổng kết trên máy POS. Phiếu mới nhất sẽ được dùng để tính toán tổng quan.
                     </CardDescription>
                 </CardHeader>
@@ -585,7 +585,7 @@ export default function CashierDashboardPage() {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     const isLatest = index === 0;
                                     return (
-                                        <Card key={stat.id} className={cn(isLatest && "border-primary")}>
+                                        <Card key={stat.id} className={cn(isLatest && "border-primary bg-card")}>
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1">
@@ -625,7 +625,7 @@ export default function CashierDashboardPage() {
                                         <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                             <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
-                                            <TableCell>{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
+                                            <TableCell className="font-bold text-lg text-primary">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
                                             <TableCell className="text-right">
                                                 {canEdit && (
                                                     <>
@@ -644,17 +644,17 @@ export default function CashierDashboardPage() {
                         </Table>
                         )
                     )}
-                    <Button className="w-full" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
+                    <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Nhập Thống kê Doanh thu
                     </Button>
                 </CardContent>
             </Card>
 
-            <Card ref={expenseSlipsRef}>
+            <Card ref={expenseSlipsRef} className="border-red-500/50 bg-red-500/10">
                 <CardHeader>
-                    <CardTitle>Quản lý Phiếu chi</CardTitle>
-                    <CardDescription>Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
+                    <CardTitle className="text-red-800 dark:text-red-300">Quản lý Phiếu chi</CardTitle>
+                    <CardDescription className="text-red-700 dark:text-red-400">Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {dailySlips.length > 0 ? (
@@ -664,7 +664,7 @@ export default function CashierDashboardPage() {
                                     const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
                                     const actualAmount = slip.paymentMethod === 'cash' ? slip.actualPaidAmount ?? slip.totalAmount : slip.totalAmount;
                                     return (
-                                        <Card key={slip.id}>
+                                        <Card key={slip.id} className="bg-card">
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1 pr-2">
@@ -788,7 +788,7 @@ export default function CashierDashboardPage() {
                     )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
                      <div className="mt-4">
-                        <Button className="w-full" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
+                        <Button className="w-full bg-red-600 hover:bg-red-700" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Tạo phiếu chi
                         </Button>
@@ -796,17 +796,17 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-blue-500/50 bg-blue-500/10">
                 <CardHeader>
-                    <CardTitle>Bàn giao cuối ca</CardTitle>
+                    <CardTitle className="text-blue-800 dark:text-blue-300">Bàn giao cuối ca</CardTitle>
                     {handoverReport ? (
-                        <CardDescription>Ca hôm nay đã được bàn giao bởi <span className="font-semibold">{handoverReport.createdBy.userName}</span>.</CardDescription>
+                        <CardDescription className="text-blue-700 dark:text-blue-400">Ca hôm nay đã được bàn giao bởi <span className="font-semibold">{handoverReport.createdBy.userName}</span>.</CardDescription>
                     ) : (
-                        <CardDescription>Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
+                        <CardDescription className="text-blue-700 dark:text-blue-400">Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
                     )}
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
                        {handoverReport ? <Lock className="mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
                        {handoverReport ? 'Đã Bàn Giao' : 'Thực hiện bàn giao'}
                     </Button>
@@ -877,3 +877,4 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
