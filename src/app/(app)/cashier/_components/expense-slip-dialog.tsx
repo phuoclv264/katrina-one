@@ -411,16 +411,19 @@ export default function ExpenseSlipDialog({
     
     // Effect to check for manual edits and update isAiGenerated flag
     useEffect(() => {
-        if (isAiGenerated && originalAiData) {
+        if (originalAiData) {
             const currentItemsSorted = [...items].sort((a,b) => a.itemId.localeCompare(b.itemId));
             const originalItemsSorted = [...originalAiData.items].sort((a,b) => a.itemId.localeCompare(b.itemId));
             
-            if (!isEqual(currentItemsSorted, originalItemsSorted) || discount !== originalAiData.discount) {
+            const isDataEqual = isEqual(currentItemsSorted, originalItemsSorted) && discount === originalAiData.discount;
+
+            if (isDataEqual) {
+                setIsAiGenerated(true);
+            } else {
                 setIsAiGenerated(false);
-                setOriginalAiData(null); // Once edited, it's no longer considered AI-pure
             }
         }
-    }, [items, discount, isAiGenerated, originalAiData]);
+    }, [items, discount, originalAiData]);
 
 
     const subTotal = useMemo(() => {
@@ -605,8 +608,9 @@ export default function ExpenseSlipDialog({
          setDiscount(prev => prev + totalDiscount); // Add to existing discount
 
          // Set AI generated flag
+         const finalDiscount = (discount || 0) + totalDiscount;
+         setOriginalAiData({ items: finalItems, discount: finalDiscount });
          setIsAiGenerated(true);
-         setOriginalAiData({ items: finalItems, discount: (discount || 0) + totalDiscount });
     }
 
     // --- Attachment Management Logic ---
