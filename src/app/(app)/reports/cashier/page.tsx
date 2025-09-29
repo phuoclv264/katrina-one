@@ -806,8 +806,13 @@ export default function CashierReportsPage() {
                                         {dayReports.incidents.map(incident => (
                                             <div key={incident.id} className="text-sm flex flex-col sm:flex-row justify-between items-start gap-2 pt-3 border-t first:border-t-0 first:pt-0">
                                                 <div>
-                                                    <p className="font-semibold">{incident.content} (<span className="font-normal text-red-600">{incident.cost.toLocaleString('vi-VN')}đ</span>)</p>
-                                                    <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} | {incident.category}</p>
+                                                    <p className="font-semibold">{incident.content}</p>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                        <Badge variant="outline">{incident.category}</Badge>
+                                                        <Badge variant="destructive">{incident.cost.toLocaleString('vi-VN')}đ</Badge>
+                                                        {incident.paymentMethod && <Badge variant="secondary">{incident.paymentMethod === 'cash' ? 'Tiền mặt' : incident.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' : 'Vô hình'}</Badge>}
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">bởi {incident.createdBy.userName}</p>
                                                 </div>
                                                  <div className="flex items-center gap-1 self-end sm:self-start flex-shrink-0">
                                                     {incident.photos && incident.photos.length > 0 && (
@@ -846,13 +851,11 @@ export default function CashierReportsPage() {
                                     <CardContent className="p-4 pt-0">
                                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 pt-3">
                                             <div className="font-semibold flex items-center gap-2">
-                                              <span>
-                                                  Bàn giao bởi {dayReports.handover.createdBy.userName}
-                                              </span>
+                                              <div>Bàn giao bởi {dayReports.handover.createdBy.userName}</div>
                                                 {dayReports.handover.isEdited && (
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <div><Edit2 className="h-4 w-4 text-orange-500"/></div>
+                                                            <div className="cursor-help"><Edit2 className="h-4 w-4 text-orange-500"/></div>
                                                         </TooltipTrigger>
                                                         <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
                                                     </Tooltip>
@@ -913,7 +916,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateIncidentCategories}
+          onCategoriesChange={dataStore.updateViolationCategories}
           canManage={user.role === 'Chủ nhà hàng'}
         />
     )}
