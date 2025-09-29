@@ -32,6 +32,7 @@ import "yet-another-react-lightbox/styles.css";
 import Image from 'next/image';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
+import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 
 
 type GroupedReports = {
@@ -54,7 +55,7 @@ const getSlipContentName = (item: ExpenseItem): string => {
 }
 
 
-const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean }) => {
+const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing, inventoryList }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean, inventoryList: InventoryItem[] }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile(containerRef);
 
@@ -297,6 +298,7 @@ export default function CashierReportsPage() {
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
   const [isIntangibleCostDialogOpen, setIsIntangibleCostDialogOpen] = useState(false);
   const [isHandoverReportDialogOpen, setIsHandoverReportDialogOpen] = useState(false);
+  const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   
   // States for editing
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
@@ -419,6 +421,14 @@ export default function CashierReportsPage() {
   }, [currentMonth, allData]);
 
   const sortedDatesInMonth = useMemo(() => Object.keys(reportsForCurrentMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [reportsForCurrentMonth]);
+  
+  const monthlyUnpaidSlips = useMemo(() => {
+    return allData.expenseSlips.filter(slip => 
+        isSameMonth(parseISO(slip.date), currentMonth) &&
+        slip.paymentMethod === 'bank_transfer' &&
+        slip.paymentStatus === 'unpaid'
+    );
+  }, [allData.expenseSlips, currentMonth]);
 
   const monthlySummary = useMemo(() => {
       const reportsInMonth = Object.values(reportsForCurrentMonth).flat();
@@ -451,6 +461,8 @@ export default function CashierReportsPage() {
           return acc;
       }, {} as {[key: string]: number});
       
+      const unpaidBankTransfer = monthlyUnpaidSlips.reduce((sum, slip) => sum + slip.totalAmount, 0);
+
       const intangibleCost = allIncidents
         .filter(i => i.paymentMethod === 'intangible_cost' && i.cost > 0)
         .reduce((sum, i) => sum + i.cost, 0);
@@ -461,8 +473,8 @@ export default function CashierReportsPage() {
           return acc;
       }, {} as {[key: string]: number});
       
-      return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod, intangibleCost };
-  }, [reportsForCurrentMonth]);
+      return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod, intangibleCost, unpaidBankTransfer };
+  }, [reportsForCurrentMonth, monthlyUnpaidSlips]);
 
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
@@ -693,7 +705,15 @@ export default function CashierReportsPage() {
                         <div className="text-sm space-y-1">
                              <p className="font-medium">Theo Phương thức Thanh toán:</p>
                              <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
-                             <p className="pl-4">Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></p>
+                             <div className="pl-4 flex items-center gap-2">
+                                <span>Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></span>
+                                {monthlySummary.unpaidBankTransfer > 0 && (
+                                    <div className='flex items-center gap-1'>
+                                        <Badge variant="destructive">Nợ: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge>
+                                        <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsUnpaidSlipsDialogOpen(true)}>Xem</Button>
+                                    </div>
+                                )}
+                             </div>
                              {monthlySummary.intangibleCost > 0 && (
                                 <div className="pl-4 flex items-center gap-2">
                                   <span>Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span></span>
@@ -798,7 +818,7 @@ export default function CashierReportsPage() {
                             {dayReports.expenses && dayReports.expenses.length > 0 ? (
                                 <Card>
                                     <CardHeader className="p-4"><CardTitle className="text-base">Phiếu chi</CardTitle></CardHeader>
-                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} isProcessing={isProcessing} /></CardContent>
+                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} isProcessing={isProcessing} inventoryList={allData.inventoryList} /></CardContent>
                                 </Card>
                             ) : <p className="text-sm text-muted-foreground text-center py-2">Không có phiếu chi.</p>}
                             
@@ -933,6 +953,12 @@ export default function CashierReportsPage() {
             reporter={user}
         />
     )}
+     <UnpaidSlipsDialog
+        isOpen={isUnpaidSlipsDialogOpen}
+        onClose={() => setIsUnpaidSlipsDialogOpen(false)}
+        unpaidSlips={monthlyUnpaidSlips}
+        inventoryList={allData.inventoryList}
+    />
     <OtherCostCategoryDialog
         open={isOtherCostCategoryDialogOpen}
         onOpenChange={setIsOtherCostCategoryDialogOpen}

@@ -258,7 +258,7 @@ function AiPreviewDialog({
                 </ScrollArea>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                    <Button onClick={handleConfirm} disabled={totalMatchedItems === 0}>Xác nhận & Thêm {totalMatchedItems} mặt hàng</Button>
+                    <Button onClick={handleConfirm} disabled={totalMatchedItems === 0}>Xác nhận</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

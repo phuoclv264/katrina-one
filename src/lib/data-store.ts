@@ -180,6 +180,7 @@ export const dataStore = {
                 createdBy: { userId: user.uid, userName: user.displayName },
                 createdAt: serverTimestamp(),
                 associatedHandoverReportId: handoverReportRef.id,
+                paymentStatus: 'unpaid'
             };
             await this.addOrUpdateExpenseSlip(slipData);
         }
@@ -547,6 +548,10 @@ export const dataStore = {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
                 throw new Error(`Cannot create expense slip: createdBy information is missing or invalid. ${slipData.createdBy}`);
             }
+            if (slipData.paymentMethod === 'bank_transfer') {
+                finalData.paymentStatus = 'unpaid';
+            }
+
             finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
             delete finalData.lastModifiedBy;
         }
@@ -576,7 +581,7 @@ export const dataStore = {
                            quantityInBaseUnit *= unitDef.conversionRate;
                         }
                     }
-                    return { ...item, quantityInBaseUnit };
+                    return { ...item, quantityInBaseUnit, supplier: inventoryItem?.supplier || item.supplier };
                 });
                 return {
                     id: doc.id,
@@ -588,6 +593,15 @@ export const dataStore = {
             });
             callback(slips);
         });
+    },
+
+    async updateMultipleSlipsStatus(slipIds: string[], status: 'paid' | 'unpaid'): Promise<void> {
+        const batch = writeBatch(db);
+        slipIds.forEach(id => {
+            const docRef = doc(db, 'expense_slips', id);
+            batch.update(docRef, { paymentStatus: status });
+        });
+        await batch.commit();
     },
 
     subscribeToAllIncidents(callback: (incidents: IncidentReport[]) => void): () => void {
