@@ -515,7 +515,7 @@ export default function CashierDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-            <Card className="border-yellow-500/50 bg-yellow-500/10">
+            <Card className="border-yellow-500/50">
                 <CardHeader>
                     <CardTitle className="text-yellow-800 dark:text-yellow-300">Báo cáo Sự cố</CardTitle>
                     <CardDescription className="text-yellow-700 dark:text-yellow-400">Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
@@ -570,7 +570,7 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef} className="border-green-500/50 bg-green-500/10">
+             <Card ref={revenueStatsRef} className="border-green-500/50">
                 <CardHeader>
                     <CardTitle className="text-green-800 dark:text-green-300">Thống kê Doanh thu</CardTitle>
                     <CardDescription className="text-green-700 dark:text-green-400">
@@ -651,7 +651,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card ref={expenseSlipsRef} className="border-red-500/50 bg-red-500/10">
+            <Card ref={expenseSlipsRef} className="border-red-500/50">
                 <CardHeader>
                     <CardTitle className="text-red-800 dark:text-red-300">Quản lý Phiếu chi</CardTitle>
                     <CardDescription className="text-red-700 dark:text-red-400">Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
@@ -796,7 +796,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card className="border-blue-500/50 bg-blue-500/10">
+            <Card className="border-blue-500/50">
                 <CardHeader>
                     <CardTitle className="text-blue-800 dark:text-blue-300">Bàn giao cuối ca</CardTitle>
                     {handoverReport ? (
@@ -832,7 +832,7 @@ export default function CashierDashboardPage() {
         isProcessing={isProcessing}
         categories={incidentCategories}
         onCategoriesChange={handleCategoriesChange}
-        canManageCategories={user.role === 'Chủ nhà hàng'}
+        canManage={user.role === 'Chủ nhà hàng'}
         reporter={user}
         violationToEdit={incidentToEdit}
     />
@@ -877,4 +877,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
