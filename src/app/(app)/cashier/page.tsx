@@ -515,7 +515,7 @@ export default function CashierDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-            <Card className="border-yellow-500/50">
+            <Card className="border-yellow-500/50 bg-white dark:bg-card">
                 <CardHeader>
                     <CardTitle className="text-yellow-800 dark:text-yellow-300">Báo cáo Sự cố</CardTitle>
                     <CardDescription className="text-yellow-700 dark:text-yellow-400">Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
@@ -592,7 +592,7 @@ export default function CashierDashboardPage() {
                                                         <div className="font-semibold flex items-center gap-2">
                                                             {isLatest && <Badge>Mới nhất</Badge>}
                                                             <p>Phiếu của {stat.createdBy.userName}</p>
-                                                        </div>
+                                                         </div>
                                                          <div className="text-xs text-muted-foreground flex items-center gap-2">
                                                             <span>{format(new Date(stat.createdAt as string), 'HH:mm')}</span>
                                                             {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
@@ -625,7 +625,7 @@ export default function CashierDashboardPage() {
                                         <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                             <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
-                                            <TableCell className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
+                                            <TableCell className="font-bold text-lg text-primary">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
                                             <TableCell className="text-right">
                                                 {canEdit && (
                                                     <>
@@ -737,19 +737,19 @@ export default function CashierDashboardPage() {
                                                 format(new Date(slip.createdAt as string), 'HH:mm')
                                              )}
                                             </TableCell>
-                                           <TableCell>
+                                           <TableCell className="font-bold text-lg text-red-600">
                                                 <div className='flex flex-col items-start'>
                                                     <span>{slip.totalAmount.toLocaleString('vi-VN')}đ</span>
                                                     {(slip.paymentMethod === 'cash' && typeof slip.actualPaidAmount === 'number' && slip.actualPaidAmount !== slip.totalAmount) && (
-                                                         <span className='text-xs text-red-600'>({(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
+                                                         <span className='text-xs font-normal text-red-600'>({(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
                                                     )}
                                                 </div>
                                            </TableCell>
                                            <TableCell>
-                                             <div className="flex items-center gap-2 text-sm">
-                                                {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}
+                                             <Badge variant={slip.paymentMethod === 'cash' ? 'secondary' : 'outline'}>
+                                                {slip.paymentMethod === 'cash' ? <Wallet className="mr-1 h-3 w-3"/> : <LandPlot className="mr-1 h-3 w-3"/>}
                                                 {slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
-                                            </div>
+                                            </Badge>
                                            </TableCell>
                                            <TableCell>{slip.createdBy.userName}</TableCell>
                                            <TableCell className="text-right">
@@ -789,7 +789,7 @@ export default function CashierDashboardPage() {
                          <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
                     )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
-                     <div className="mt-4">
+                    <div className="mt-4">
                         <Button className="w-full bg-red-500 hover:bg-red-600" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Tạo phiếu chi
@@ -879,4 +879,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
