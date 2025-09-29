@@ -405,16 +405,21 @@ export default function OwnerExpenseSlipDialog({
     
      // Effect to check for manual edits and update isAiGenerated flag
     useEffect(() => {
-        if (isAiGenerated && originalAiData) {
+        if (originalAiData) {
+            // Sort arrays for consistent comparison
             const currentItemsSorted = [...items].sort((a,b) => a.itemId.localeCompare(b.itemId));
             const originalItemsSorted = [...originalAiData.items].sort((a,b) => a.itemId.localeCompare(b.itemId));
             
-            if (!isEqual(currentItemsSorted, originalItemsSorted) || discount !== originalAiData.discount) {
+            const isDataEqual = isEqual(currentItemsSorted, originalItemsSorted) && discount === originalAiData.discount;
+
+            // Only update the flag if it needs to change
+            if (isDataEqual && !isAiGenerated) {
+                setIsAiGenerated(true);
+            } else if (!isDataEqual && isAiGenerated) {
                 setIsAiGenerated(false);
-                setOriginalAiData(null); // Once edited, it's no longer considered AI-pure
             }
         }
-    }, [items, discount, isAiGenerated, originalAiData]);
+    }, [items, discount, originalAiData, isAiGenerated]);
 
     const subTotal = useMemo(() => {
          if (expenseType === 'other_cost') {
