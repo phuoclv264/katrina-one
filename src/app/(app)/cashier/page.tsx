@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -570,7 +571,7 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef} className="border-green-500/50 bg-white dark:bg-card">
+             <Card ref={revenueStatsRef} className="border-green-600/50">
                 <CardHeader>
                     <CardTitle className="text-green-800 dark:text-green-300">Thống kê Doanh thu</CardTitle>
                     <CardDescription className="text-green-700 dark:text-green-400">
@@ -585,7 +586,7 @@ export default function CashierDashboardPage() {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     const isLatest = index === 0;
                                     return (
-                                        <Card key={stat.id} className={cn(isLatest && "border-primary bg-card")}>
+                                        <Card key={stat.id} className={cn(isLatest && "border-green-600 bg-card")}>
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1">
@@ -598,7 +599,7 @@ export default function CashierDashboardPage() {
                                                             {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                                                          </div>
                                                     </div>
-                                                    <p className="font-bold text-lg text-primary">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
+                                                    <p className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
                                                 </div>
                                                  {canEdit && (
                                                     <div className="flex justify-end gap-2 mt-2 border-t pt-2">
@@ -622,10 +623,10 @@ export default function CashierDashboardPage() {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     const isLatest = index === 0;
                                     return (
-                                        <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
+                                        <TableRow key={stat.id} className={cn(isLatest && "bg-green-600/5")}>
                                             <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
-                                            <TableCell className="font-bold text-lg text-primary">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
+                                            <TableCell className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
                                             <TableCell className="text-right">
                                                 {canEdit && (
                                                     <>
@@ -653,7 +654,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card ref={expenseSlipsRef} className="border-red-500/50 bg-white dark:bg-card">
+            <Card ref={expenseSlipsRef} className="border-red-500/50">
                 <CardHeader>
                     <CardTitle className="text-red-800 dark:text-red-300">Quản lý Phiếu chi</CardTitle>
                     <CardDescription className="text-red-700 dark:text-red-400">Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
@@ -798,7 +799,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card className="border-blue-500/50 bg-white dark:bg-card">
+            <Card className="border-blue-500/50">
                 <CardHeader>
                     <CardTitle className="text-blue-800 dark:text-blue-300">Bàn giao cuối ca</CardTitle>
                     {handoverReport ? (
