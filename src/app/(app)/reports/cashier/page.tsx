@@ -709,7 +709,7 @@ export default function CashierReportsPage() {
                                 <span>Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></span>
                                 {monthlySummary.unpaidBankTransfer > 0 && (
                                     <div className='flex items-center gap-1'>
-                                        <Badge variant="destructive">Nợ: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge>
+                                        <Badge variant="destructive">Chưa TT: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge>
                                         <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsUnpaidSlipsDialogOpen(true)}>Xem chi tiết</Button>
                                     </div>
                                 )}
