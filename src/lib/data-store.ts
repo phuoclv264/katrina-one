@@ -524,7 +524,18 @@ export const dataStore = {
         }
         const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
 
-        slipData.totalAmount = slipData.items.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
+        const inventoryList = await this.getInventoryList();
+        const itemsWithSupplier = slipData.items.map((item: ExpenseItem) => {
+            if (item.itemId === 'other_cost') return item;
+            const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+            return {
+                ...item,
+                supplier: inventoryItem?.supplier || 'Không rõ',
+            };
+        });
+
+        slipData.items = itemsWithSupplier;
+        slipData.totalAmount = itemsWithSupplier.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
        
         const finalData: Partial<ExpenseSlip> = { ...slipData, attachmentPhotos: finalPhotos };
         
@@ -2394,5 +2405,6 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
 
 
