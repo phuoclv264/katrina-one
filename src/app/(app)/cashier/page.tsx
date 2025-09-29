@@ -653,13 +653,7 @@ export default function CashierDashboardPage() {
 
             <Card ref={expenseSlipsRef}>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle>Quản lý Phiếu chi</CardTitle>
-                        <Button size="sm" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Tạo phiếu chi
-                        </Button>
-                    </div>
+                    <CardTitle>Quản lý Phiếu chi</CardTitle>
                     <CardDescription>Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -793,6 +787,12 @@ export default function CashierDashboardPage() {
                          <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
                     )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
+                     <div className="mt-4">
+                        <Button className="w-full" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Tạo phiếu chi
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
