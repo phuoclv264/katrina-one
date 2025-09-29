@@ -530,7 +530,7 @@ export default function CashierDashboardPage() {
                                 {dailyIncidents.map(incident => {
                                     const canEdit = incident.createdBy.userId === user.uid;
                                     return (
-                                        <div key={incident.id} className="p-2 bg-card rounded-md text-sm">
+                                        <div key={incident.id} className="p-2 bg-background rounded-md text-sm">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-medium">{incident.content}</p>
@@ -570,7 +570,7 @@ export default function CashierDashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef} className="border-green-500/50">
+             <Card ref={revenueStatsRef} className="border-green-500/50 bg-white dark:bg-card">
                 <CardHeader>
                     <CardTitle className="text-green-800 dark:text-green-300">Thống kê Doanh thu</CardTitle>
                     <CardDescription className="text-green-700 dark:text-green-400">
@@ -625,7 +625,7 @@ export default function CashierDashboardPage() {
                                         <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                             <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
-                                            <TableCell className="font-bold text-lg text-primary">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
+                                            <TableCell className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
                                             <TableCell className="text-right">
                                                 {canEdit && (
                                                     <>
@@ -644,14 +644,16 @@ export default function CashierDashboardPage() {
                         </Table>
                         )
                     )}
-                    <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Nhập Thống kê Doanh thu
-                    </Button>
+                     <div className="mt-4">
+                        <Button className="w-full bg-green-500 hover:bg-green-600" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Nhập Thống kê Doanh thu
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
-            <Card ref={expenseSlipsRef} className="border-red-500/50">
+            <Card ref={expenseSlipsRef} className="border-red-500/50 bg-white dark:bg-card">
                 <CardHeader>
                     <CardTitle className="text-red-800 dark:text-red-300">Quản lý Phiếu chi</CardTitle>
                     <CardDescription className="text-red-700 dark:text-red-400">Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
@@ -664,7 +666,7 @@ export default function CashierDashboardPage() {
                                     const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
                                     const actualAmount = slip.paymentMethod === 'cash' ? slip.actualPaidAmount ?? slip.totalAmount : slip.totalAmount;
                                     return (
-                                        <Card key={slip.id} className="bg-card">
+                                        <Card key={slip.id} className="bg-background">
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1 pr-2">
@@ -788,7 +790,7 @@ export default function CashierDashboardPage() {
                     )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
                      <div className="mt-4">
-                        <Button className="w-full bg-red-600 hover:bg-red-700" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
+                        <Button className="w-full bg-red-500 hover:bg-red-600" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Tạo phiếu chi
                         </Button>
@@ -796,7 +798,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card className="border-blue-500/50">
+            <Card className="border-blue-500/50 bg-white dark:bg-card">
                 <CardHeader>
                     <CardTitle className="text-blue-800 dark:text-blue-300">Bàn giao cuối ca</CardTitle>
                     {handoverReport ? (
@@ -806,7 +808,7 @@ export default function CashierDashboardPage() {
                     )}
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
+                    <Button className="w-full bg-blue-500 hover:bg-blue-600" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
                        {handoverReport ? <Lock className="mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
                        {handoverReport ? 'Đã Bàn Giao' : 'Thực hiện bàn giao'}
                     </Button>
@@ -877,3 +879,4 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
