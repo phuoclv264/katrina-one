@@ -710,7 +710,7 @@ export default function CashierReportsPage() {
                                 {monthlySummary.unpaidBankTransfer > 0 && (
                                     <div className='flex items-center gap-1'>
                                         <Badge variant="destructive">Nợ: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge>
-                                        <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsUnpaidSlipsDialogOpen(true)}>Xem</Button>
+                                        <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsUnpaidSlipsDialogOpen(true)}>Xem chi tiết</Button>
                                     </div>
                                 )}
                              </div>
@@ -982,3 +982,4 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
+
