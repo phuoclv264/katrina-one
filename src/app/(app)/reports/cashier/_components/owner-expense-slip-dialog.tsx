@@ -411,15 +411,9 @@ export default function OwnerExpenseSlipDialog({
             const originalItemsSorted = [...originalAiData.items].sort((a,b) => a.itemId.localeCompare(b.itemId));
             
             const isDataEqual = isEqual(currentItemsSorted, originalItemsSorted) && discount === originalAiData.discount;
-
-            // Only update the flag if it needs to change
-            if (isDataEqual && !isAiGenerated) {
-                setIsAiGenerated(true);
-            } else if (!isDataEqual && isAiGenerated) {
-                setIsAiGenerated(false);
-            }
+            setIsAiGenerated(isDataEqual);
         }
-    }, [items, discount, originalAiData, isAiGenerated]);
+    }, [items, discount, originalAiData]);
 
     const subTotal = useMemo(() => {
          if (expenseType === 'other_cost') {
@@ -603,17 +597,13 @@ export default function OwnerExpenseSlipDialog({
 
 
     const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
-         const newItemsMap = new Map(items.map(item => [item.itemId, item]));
-         confirmedItems.forEach(newItem => {
-             newItemsMap.set(newItem.itemId, newItem);
-         });
-         const finalItems = Array.from(newItemsMap.values());
-         setItems(finalItems);
-         setDiscount(prev => prev + totalDiscount); // Add to existing discount
+        // Overwrite the current items and discount with the data from AI
+        setItems(confirmedItems);
+        setDiscount(totalDiscount);
 
-          // Set AI generated flag
-         setIsAiGenerated(true);
-         setOriginalAiData({ items: finalItems, discount: (discount || 0) + totalDiscount });
+        // Set AI generated flag and store the original AI data
+        setIsAiGenerated(true);
+        setOriginalAiData({ items: confirmedItems, discount: totalDiscount });
     }
 
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -790,7 +780,7 @@ export default function OwnerExpenseSlipDialog({
                                      {otherCostCategories.find(c => c.id === otherCostCategoryId)?.name === 'Khác' && (
                                          <div className="space-y-2">
                                             <Label htmlFor="other-cost-description">Mô tả chi phí</Label>
-                                            <Input id="other-cost-description" value={otherCostDescription} onChange={(e) => setOtherCostDescription(e.target.value)} placeholder="Nhập mô tả chi tiết..." />
+                                            <Input id="other-cost-description" value={otherCostDescription} onChange={(e) => setOtherCostDescription(e.target.value)} placeholder="Nhập mô tả chi tiết..." onFocus={(e) => e.target.select()}/>
                                          </div>
                                      )}
                                       <div className="space-y-2">
