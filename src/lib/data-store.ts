@@ -169,7 +169,6 @@ export const dataStore = {
                     itemId: 'other_cost',
                     name: payoutCategory.name,
                     otherCostCategoryId: payoutCategory.id,
-                    supplier: 'Đối tác',
                     quantity: 1,
                     unitPrice: deliveryPayout,
                     unit: 'lần',
@@ -315,7 +314,6 @@ export const dataStore = {
                     itemId: 'other_cost',
                     name: `Chi phí sự cố (${data.category})`,
                     description: data.content,
-                    supplier: 'N/A',
                     quantity: 1,
                     unitPrice: cost,
                     unit: 'lần',
@@ -581,7 +579,7 @@ export const dataStore = {
                            quantityInBaseUnit *= unitDef.conversionRate;
                         }
                     }
-                    return { ...item, quantityInBaseUnit, supplier: inventoryItem?.supplier || item.supplier };
+                    return { ...item, quantityInBaseUnit, supplier: inventoryItem?.supplier || 'Không rõ' };
                 });
                 return {
                     id: doc.id,
@@ -2396,3 +2394,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+
