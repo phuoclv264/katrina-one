@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -33,6 +34,8 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import isEqual from 'lodash.isequal';
+import { Badge } from '@/components/ui/badge';
 
 // ... (Các sub-component giữ nguyên)
 
@@ -302,6 +305,10 @@ export default function OwnerExpenseSlipDialog({
     const [notes, setNotes] = useState('');
     const [discount, setDiscount] = useState(0);
     const [actualPaidAmount, setActualPaidAmount] = useState(0);
+
+    // --- State for AI data detection ---
+    const [isAiGenerated, setIsAiGenerated] = useState(false);
+    const [originalAiData, setOriginalAiData] = useState<{items: ExpenseItem[], discount: number} | null>(null);
     
     // --- New state for attachments ---
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
@@ -368,6 +375,12 @@ export default function OwnerExpenseSlipDialog({
                 setDiscount(slipToEdit.discount || 0);
                 setActualPaidAmount(slipToEdit.actualPaidAmount ?? slipToEdit.totalAmount);
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
+                setIsAiGenerated(slipToEdit.isAiGenerated || false);
+                if (slipToEdit.isAiGenerated) {
+                    setOriginalAiData({ items: slipToEdit.items, discount: slipToEdit.discount || 0 });
+                } else {
+                    setOriginalAiData(null);
+                }
             } else {
                 setExpenseType('goods_import');
                 setDate(format(new Date(), 'yyyy-MM-dd'));
@@ -380,6 +393,8 @@ export default function OwnerExpenseSlipDialog({
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
+                setIsAiGenerated(false);
+                setOriginalAiData(null);
             }
             setLocalPhotos([]);
             setPhotosToDelete([]);
@@ -388,6 +403,19 @@ export default function OwnerExpenseSlipDialog({
         }
     }, [open, slipToEdit]);
     
+     // Effect to check for manual edits and update isAiGenerated flag
+    useEffect(() => {
+        if (isAiGenerated && originalAiData) {
+            const currentItemsSorted = [...items].sort((a,b) => a.itemId.localeCompare(b.itemId));
+            const originalItemsSorted = [...originalAiData.items].sort((a,b) => a.itemId.localeCompare(b.itemId));
+            
+            if (!isEqual(currentItemsSorted, originalItemsSorted) || discount !== originalAiData.discount) {
+                setIsAiGenerated(false);
+                setOriginalAiData(null); // Once edited, it's no longer considered AI-pure
+            }
+        }
+    }, [items, discount, isAiGenerated, originalAiData]);
+
     const subTotal = useMemo(() => {
          if (expenseType === 'other_cost') {
             return otherCostAmount;
@@ -485,6 +513,7 @@ export default function OwnerExpenseSlipDialog({
             existingPhotos: existingPhotos.map(p => p.url),
             photosToDelete,
             newPhotoIds: localPhotos.map(p => p.id),
+            isAiGenerated: isAiGenerated,
         };
         
         onSave(data, slipToEdit?.id);
@@ -573,8 +602,13 @@ export default function OwnerExpenseSlipDialog({
          confirmedItems.forEach(newItem => {
              newItemsMap.set(newItem.itemId, newItem);
          });
-         setItems(Array.from(newItemsMap.values()));
+         const finalItems = Array.from(newItemsMap.values());
+         setItems(finalItems);
          setDiscount(prev => prev + totalDiscount); // Add to existing discount
+
+          // Set AI generated flag
+         setIsAiGenerated(true);
+         setOriginalAiData({ items: finalItems, discount: (discount || 0) + totalDiscount });
     }
 
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -637,6 +671,7 @@ export default function OwnerExpenseSlipDialog({
                         <DialogTitle>{slipToEdit ? `Chi tiết Phiếu chi` : 'Tạo Phiếu chi'}</DialogTitle>
                          <DialogDescription className="flex items-center gap-4">
                             <span>ID: {slipToEdit?.id.slice(0, 8) || 'Mới'}</span>
+                            {isAiGenerated && <Badge className="ml-2 bg-blue-100 text-blue-800">Tạo bởi AI</Badge>}
                             {slipToEdit?.lastModifiedBy && (
                                 <span className="flex items-center gap-1.5 text-xs italic text-yellow-600 dark:text-yellow-400">
                                     <Edit2 className="h-3 w-3" />
@@ -755,7 +790,7 @@ export default function OwnerExpenseSlipDialog({
                                      )}
                                       <div className="space-y-2">
                                         <Label htmlFor="other-cost-amount">Tổng số tiền</Label>
-                                        <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" />
+                                        <Input id="other-cost-amount" type="number" value={otherCostAmount} onChange={(e) => setOtherCostAmount(Number(e.target.value))} placeholder="0" onFocus={(e) => e.target.select()}/>
                                      </div>
                                 </div>
                             )}

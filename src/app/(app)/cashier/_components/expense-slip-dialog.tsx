@@ -34,6 +34,8 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import isEqual from 'lodash.isequal';
+import { Badge } from '@/components/ui/badge';
 
 
 function EditItemPopover({ item, onSave, children, inventoryItem }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode, inventoryItem: InventoryItem | undefined }) {
@@ -304,6 +306,10 @@ export default function ExpenseSlipDialog({
     const [notes, setNotes] = useState('');
     const [discount, setDiscount] = useState(0);
     const [actualPaidAmount, setActualPaidAmount] = useState(0);
+
+    // --- State for AI data detection ---
+    const [isAiGenerated, setIsAiGenerated] = useState(false);
+    const [originalAiData, setOriginalAiData] = useState<{items: ExpenseItem[], discount: number} | null>(null);
     
     // --- New state for attachments ---
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
@@ -372,6 +378,12 @@ export default function ExpenseSlipDialog({
                 setDiscount(slipToEdit.discount || 0);
                 setActualPaidAmount(slipToEdit.actualPaidAmount ?? slipToEdit.totalAmount);
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
+                setIsAiGenerated(slipToEdit.isAiGenerated || false);
+                if (slipToEdit.isAiGenerated) {
+                    setOriginalAiData({ items: slipToEdit.items, discount: slipToEdit.discount || 0 });
+                } else {
+                    setOriginalAiData(null);
+                }
 
             } else {
                 // Reset for new slip
@@ -386,6 +398,8 @@ export default function ExpenseSlipDialog({
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
+                setIsAiGenerated(false);
+                setOriginalAiData(null);
             }
             // Always reset local photo state
             setLocalPhotos([]);
@@ -395,6 +409,20 @@ export default function ExpenseSlipDialog({
         }
     }, [open, slipToEdit]);
     
+    // Effect to check for manual edits and update isAiGenerated flag
+    useEffect(() => {
+        if (isAiGenerated && originalAiData) {
+            const currentItemsSorted = [...items].sort((a,b) => a.itemId.localeCompare(b.itemId));
+            const originalItemsSorted = [...originalAiData.items].sort((a,b) => a.itemId.localeCompare(b.itemId));
+            
+            if (!isEqual(currentItemsSorted, originalItemsSorted) || discount !== originalAiData.discount) {
+                setIsAiGenerated(false);
+                setOriginalAiData(null); // Once edited, it's no longer considered AI-pure
+            }
+        }
+    }, [items, discount, isAiGenerated, originalAiData]);
+
+
     const subTotal = useMemo(() => {
         if (expenseType === 'other_cost') {
             return otherCostAmount;
@@ -492,6 +520,7 @@ export default function ExpenseSlipDialog({
             existingPhotos: existingPhotos.map(p => p.url),
             photosToDelete,
             newPhotoIds: localPhotos.map(p => p.id),
+            isAiGenerated: isAiGenerated,
         };
         
         onSave(data, slipToEdit?.id);
@@ -571,8 +600,13 @@ export default function ExpenseSlipDialog({
          confirmedItems.forEach(newItem => {
              newItemsMap.set(newItem.itemId, newItem);
          });
-         setItems(Array.from(newItemsMap.values()));
+         const finalItems = Array.from(newItemsMap.values());
+         setItems(finalItems);
          setDiscount(prev => prev + totalDiscount); // Add to existing discount
+
+         // Set AI generated flag
+         setIsAiGenerated(true);
+         setOriginalAiData({ items: finalItems, discount: (discount || 0) + totalDiscount });
     }
 
     // --- Attachment Management Logic ---
@@ -638,7 +672,10 @@ export default function ExpenseSlipDialog({
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
-                        <DialogDescription>Nhập thông tin chi tiết cho các khoản chi.</DialogDescription>
+                        <DialogDescription>
+                            Nhập thông tin chi tiết cho các khoản chi.
+                             {isAiGenerated && <Badge className="ml-2 bg-blue-100 text-blue-800">Tạo bởi AI</Badge>}
+                        </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
                         <div className="grid gap-6 py-4 px-1">
