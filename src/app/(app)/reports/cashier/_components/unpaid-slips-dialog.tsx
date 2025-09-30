@@ -247,7 +247,6 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                                                     id={slipId}
                                                     checked={selectedSlips.has(slipId)}
                                                     onCheckedChange={(checked) => {
-                                                        // This stops the parent div's click event
                                                         const event = window.event as MouseEvent;
                                                         event?.stopPropagation();
                                                         handleSelectSlip(slipId, !!checked);
