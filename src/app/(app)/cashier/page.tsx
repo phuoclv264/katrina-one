@@ -269,7 +269,6 @@ export default function CashierDashboardPage() {
             ...data, 
             createdBy: slipToEdit?.createdBy || { userId: user.uid, userName: user.displayName },
             lastModifiedBy: id ? { userId: user.uid, userName: user.displayName } : undefined,
-            isAiGenerated: id ? false : data.isAiGenerated, // Set isAiGenerated to false if editing
         };
         await dataStore.addOrUpdateExpenseSlip(slipData, id);
         toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
@@ -729,7 +728,7 @@ export default function CashierDashboardPage() {
                                            <TableCell className="font-medium">
                                                 {getSlipContentName(slip.items[0])}
                                                 {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
-                                                {slip.isAiGenerated && <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>}
+                                                {slip.isAiGenerated && !slip.lastModifiedBy && <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>}
                                                 {slip.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
                                                 {slip.associatedHandoverReportId && <Badge variant="outline" className="ml-2 font-normal">Tự động</Badge>}
                                                 <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>

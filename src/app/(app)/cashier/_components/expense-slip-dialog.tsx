@@ -308,8 +308,7 @@ export default function ExpenseSlipDialog({
     const [actualPaidAmount, setActualPaidAmount] = useState(0);
 
     // --- State for AI data detection ---
-    const [isAiGenerated, setIsAiGenerated] = useState(false);
-    const [originalAiData, setOriginalAiData] = useState<{items: ExpenseItem[], discount: number} | null>(null);
+    const [originalSlip, setOriginalSlip] = useState<ExpenseSlip | null>(null);
     
     // --- New state for attachments ---
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
@@ -358,6 +357,7 @@ export default function ExpenseSlipDialog({
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
+                setOriginalSlip(JSON.parse(JSON.stringify(slipToEdit))); // Deep copy
                 setExpenseType(slipToEdit.expenseType);
                 if(slipToEdit.expenseType === 'other_cost' && slipToEdit.items.length > 0) {
                     const otherItem = slipToEdit.items[0];
@@ -378,15 +378,10 @@ export default function ExpenseSlipDialog({
                 setDiscount(slipToEdit.discount || 0);
                 setActualPaidAmount(slipToEdit.actualPaidAmount ?? slipToEdit.totalAmount);
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
-                setIsAiGenerated(slipToEdit.isAiGenerated || false);
-                if (slipToEdit.isAiGenerated) {
-                    setOriginalAiData({ items: slipToEdit.items, discount: slipToEdit.discount || 0 });
-                } else {
-                    setOriginalAiData(null);
-                }
 
             } else {
                 // Reset for new slip
+                setOriginalSlip(null);
                 setExpenseType('goods_import');
                 setDate(format(new Date(), 'yyyy-MM-dd'));
                 setItems([]);
@@ -398,8 +393,6 @@ export default function ExpenseSlipDialog({
                 setOtherCostDescription('');
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
-                setIsAiGenerated(false);
-                setOriginalAiData(null);
             }
             // Always reset local photo state
             setLocalPhotos([]);
@@ -408,17 +401,6 @@ export default function ExpenseSlipDialog({
 
         }
     }, [open, slipToEdit]);
-    
-    // Effect to check for manual edits and update isAiGenerated flag
-    useEffect(() => {
-        if (originalAiData) {
-            const currentItemsSorted = [...items].sort((a,b) => a.itemId.localeCompare(b.itemId));
-            const originalItemsSorted = [...originalAiData.items].sort((a,b) => a.itemId.localeCompare(b.itemId));
-            
-            const isDataEqual = isEqual(currentItemsSorted, originalItemsSorted) && discount === originalAiData.discount;
-            setIsAiGenerated(isDataEqual);
-        }
-    }, [items, discount, originalAiData]);
 
 
     const subTotal = useMemo(() => {
@@ -506,6 +488,18 @@ export default function ExpenseSlipDialog({
             }];
         }
 
+        let isAiFlagPreserved = slipToEdit?.isAiGenerated || false;
+        if(originalSlip?.isAiGenerated) {
+            const originalItemsSorted = [...(originalSlip.items || [])].sort((a,b) => a.itemId.localeCompare(b.itemId));
+            const currentItemsSorted = [...finalItems].sort((a,b) => a.itemId.localeCompare(b.itemId));
+            
+            const coreDataChanged = !isEqual(originalItemsSorted, currentItemsSorted) || (originalSlip.discount || 0) !== discount;
+
+            if (coreDataChanged) {
+                isAiFlagPreserved = false;
+            }
+        }
+        
         const data = {
             expenseType,
             date,
@@ -518,7 +512,7 @@ export default function ExpenseSlipDialog({
             existingPhotos: existingPhotos.map(p => p.url),
             photosToDelete,
             newPhotoIds: localPhotos.map(p => p.id),
-            isAiGenerated: isAiGenerated,
+            isAiGenerated: slipToEdit ? isAiFlagPreserved : (originalSlip?.isAiGenerated || false),
         };
         
         onSave(data, slipToEdit?.id);
@@ -594,13 +588,11 @@ export default function ExpenseSlipDialog({
     };
 
     const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
-        // Overwrite the current items and discount with the data from AI
         setItems(confirmedItems);
         setDiscount(totalDiscount);
-
-        // Set AI generated flag and store the original AI data
-        setOriginalAiData({ items: confirmedItems, discount: totalDiscount });
-        setIsAiGenerated(true);
+        
+        const aiData = { items: confirmedItems, discount: totalDiscount, isAiGenerated: true } as unknown as ExpenseSlip;
+        setOriginalSlip(aiData);
     }
 
     // --- Attachment Management Logic ---
@@ -654,6 +646,9 @@ export default function ExpenseSlipDialog({
             setIsLightboxOpen(true);
         }
     };
+    
+    const isActuallyAiGenerated = slipToEdit ? originalSlip?.isAiGenerated : false;
+
 
     return (
         <>
@@ -666,9 +661,9 @@ export default function ExpenseSlipDialog({
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
-                        <DialogDescription>
+                         <DialogDescription>
                             Nhập thông tin chi tiết cho các khoản chi.
-                             {isAiGenerated && <Badge className="ml-2 bg-blue-100 text-blue-800">Tạo bởi AI</Badge>}
+                            {isActuallyAiGenerated && <Badge className="ml-2 bg-blue-100 text-blue-800">Tạo bởi AI</Badge>}
                         </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
