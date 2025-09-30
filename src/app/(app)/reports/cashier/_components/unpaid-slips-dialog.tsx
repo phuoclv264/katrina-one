@@ -65,7 +65,14 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
     }
   }, [isOpen]);
   
-  const { unpaidGroupedBySupplier, paidGroupedBySupplier, unpaidOtherCostSlips, paidOtherCostSlips } = useMemo(() => {
+  const { 
+    unpaidGroupedBySupplier, 
+    paidGroupedBySupplier, 
+    unpaidOtherCostSlips, 
+    paidOtherCostSlips,
+    sortedUnpaidSuppliers,
+    sortedPaidSuppliers
+  } = useMemo(() => {
     const unpaidSupplierData: GroupedBySupplier = {};
     const paidSupplierData: GroupedBySupplier = {};
     const unpaidOthers: ExpenseSlip[] = [];
@@ -115,16 +122,18 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
         }
     });
 
+    const sortedUnpaid = Object.keys(unpaidSupplierData).sort();
+    const sortedPaid = Object.keys(paidSupplierData).sort();
+
     return { 
-        unpaidGroupedBySupplier, 
-        paidGroupedBySupplier,
+        unpaidGroupedBySupplier: unpaidSupplierData, 
+        paidGroupedBySupplier: paidSupplierData,
         unpaidOtherCostSlips: unpaidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
-        paidOtherCostSlips: paidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
+        paidOtherCostSlips: paidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
+        sortedUnpaidSuppliers: sortedUnpaid,
+        sortedPaidSuppliers: sortedPaid,
     };
   }, [bankTransferSlips]);
-  
-  const sortedUnpaidSuppliers = useMemo(() => Object.keys(unpaidGroupedBySupplier).sort(), [unpaidGroupedBySupplier]);
-  const sortedPaidSuppliers = useMemo(() => Object.keys(paidGroupedBySupplier).sort(), [paidGroupedBySupplier]);
 
 
   const getCompositeKey = (slipId: string, supplier: string) => `${slipId}__${supplier}`;
@@ -204,7 +213,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                   <TabsTrigger value="history" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-blue-900/50 dark:data-[state=active]:text-blue-200">Lịch sử thanh toán</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="unpaid" className="flex-grow overflow-hidden -mx-4 px-4 pt-4">
+              <TabsContent value="unpaid" className="flex-grow overflow-hidden pt-4">
                   {sortedUnpaidSuppliers.length === 0 && unpaidOtherCostSlips.length === 0 ? (
                       <div className="h-full flex items-center justify-center">
                           <div className="text-center">
@@ -311,7 +320,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                     </ScrollArea>
                   )}
               </TabsContent>
-              <TabsContent value="history" className="flex-grow overflow-hidden -mx-4 px-4 pt-4">
+              <TabsContent value="history" className="flex-grow overflow-hidden pt-4">
                    {sortedPaidSuppliers.length === 0 && paidOtherCostSlips.length === 0 ? (
                       <div className="h-full flex items-center justify-center">
                           <div className="text-center">
@@ -399,5 +408,3 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
     </Dialog>
   );
 }
-
-    
