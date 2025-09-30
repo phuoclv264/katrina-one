@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -13,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { ExpenseSlip, InventoryItem } from '@/lib/types';
+import type { ExpenseSlip, InventoryItem, ExpenseItem } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Loader2, Check, ExternalLink } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
@@ -32,7 +33,9 @@ type GroupedBySupplier = {
   [supplier: string]: {
     total: number;
     slips: {
-      slip: ExpenseSlip;
+      slipId: string;
+      date: string;
+      createdBy: string;
       items: {
         id: string; // ItemId
         name: string;
@@ -44,6 +47,16 @@ type GroupedBySupplier = {
   };
 };
 
+const getSlipContentName = (item: ExpenseItem): string => {
+    if (item.itemId === 'other_cost') {
+      if (item.name === 'Khác' && item.description) {
+          return item.description;
+      }
+      return item.name;
+  }
+  return item.name;
+}
+
 export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, inventoryList }: UnpaidSlipsDialogProps) {
   const [selectedSlips, setSelectedSlips] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
@@ -54,11 +67,17 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
     }
   }, [isOpen]);
 
-  const groupedData = useMemo(() => {
-    const data: GroupedBySupplier = {};
+  const { groupedBySupplier, otherCostSlips } = useMemo(() => {
+    const supplierData: GroupedBySupplier = {};
+    const otherSlips: ExpenseSlip[] = [];
     const itemMap = new Map(inventoryList.map(item => [item.id, item]));
 
     unpaidSlips.forEach(slip => {
+      if (slip.expenseType === 'other_cost') {
+        otherSlips.push(slip);
+        return;
+      }
+
       const slipItemsBySupplier: { [supplier: string]: typeof slip.items } = {};
 
       slip.items.forEach(item => {
@@ -70,33 +89,51 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
       });
 
       for (const supplier in slipItemsBySupplier) {
-        if (!data[supplier]) {
-          data[supplier] = { total: 0, slips: [] };
+        if (!supplierData[supplier]) {
+          supplierData[supplier] = { total: 0, slips: [] };
         }
         
         const itemsForThisSupplier = slipItemsBySupplier[supplier];
         const supplierTotalForThisSlip = itemsForThisSupplier.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-        data[supplier].total += supplierTotalForThisSlip;
+        
+        supplierData[supplier].total += supplierTotalForThisSlip;
 
-        data[supplier].slips.push({
-          slip: slip,
-          items: itemsForThisSupplier.map(item => ({
+        // Check if this slip is already in the list for this supplier
+        let slipEntry = supplierData[supplier].slips.find(s => s.slipId === slip.id);
+        if (!slipEntry) {
+            slipEntry = {
+                slipId: slip.id,
+                date: slip.date,
+                createdBy: slip.createdBy.userName,
+                items: []
+            };
+            supplierData[supplier].slips.push(slipEntry);
+        }
+
+        slipEntry.items.push(...itemsForThisSupplier.map(item => ({
             id: item.itemId,
             name: item.name,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             unit: item.unit,
-          })),
-        });
+        })));
       }
     });
-    return data;
+
+    // Sort slips within each supplier by date
+    for(const supplier in supplierData) {
+        supplierData[supplier].slips.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+    }
+    
+    otherSlips.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+
+    return { groupedBySupplier: supplierData, otherCostSlips };
   }, [unpaidSlips, inventoryList]);
 
-  const sortedSuppliers = useMemo(() => Object.keys(groupedData).sort(), [groupedData]);
+  const sortedSuppliers = useMemo(() => Object.keys(groupedBySupplier).sort(), [groupedBySupplier]);
 
   const handleSelectAllForSupplier = (supplier: string, isChecked: boolean) => {
-    const slipIdsForSupplier = groupedData[supplier].slips.map(s => s.slip.id);
+    const slipIdsForSupplier = groupedBySupplier[supplier].slips.map(s => s.slipId);
     setSelectedSlips(prev => {
       const newSet = new Set(prev);
       if (isChecked) {
@@ -145,15 +182,14 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] -mx-6 px-6">
-          {sortedSuppliers.length === 0 ? (
+          {sortedSuppliers.length === 0 && otherCostSlips.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">Không có công nợ nào.</p>
           ) : (
-            <Accordion type="multiple" defaultValue={sortedSuppliers} className="space-y-4 py-2">
+            <Accordion type="multiple" defaultValue={[...sortedSuppliers, 'other-costs']} className="space-y-4 py-2">
               {sortedSuppliers.map(supplier => {
-                const supplierData = groupedData[supplier];
-                const isAllSelected = supplierData.slips.every(s => selectedSlips.has(s.slip.id));
-                const isSomeSelected = supplierData.slips.some(s => selectedSlips.has(s.slip.id));
-
+                const supplierData = groupedBySupplier[supplier];
+                const isAllSelected = supplierData.slips.every(s => selectedSlips.has(s.slipId));
+                
                 return (
                   <AccordionItem value={supplier} key={supplier} className="border rounded-lg">
                     <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
@@ -172,22 +208,22 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
                         <label htmlFor={`select-all-${supplier}`}>Chọn tất cả cho {supplier}</label>
                       </div>
                       <div className="space-y-3">
-                        {supplierData.slips.map(({ slip, items }) => (
-                          <Card key={slip.id} className="bg-muted/50">
+                        {supplierData.slips.map(({ slipId, date, createdBy, items }) => (
+                          <Card key={slipId} className="bg-muted/50">
                             <CardContent className="p-3">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <Checkbox
-                                    id={slip.id}
-                                    checked={selectedSlips.has(slip.id)}
-                                    onCheckedChange={(checked) => handleSelectSlip(slip.id, !!checked)}
+                                    id={slipId}
+                                    checked={selectedSlips.has(slipId)}
+                                    onCheckedChange={(checked) => handleSelectSlip(slipId, !!checked)}
                                   />
-                                  <label htmlFor={slip.id} className="font-semibold text-sm">
-                                    Phiếu chi ngày {format(parseISO(slip.date), 'dd/MM/yyyy')}
+                                  <label htmlFor={slipId} className="font-semibold text-sm">
+                                    Phiếu chi ngày {format(parseISO(date), 'dd/MM/yyyy')}
                                   </label>
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                  Lập bởi: {slip.createdBy.userName}
+                                  Lập bởi: {createdBy}
                                 </div>
                               </div>
                               <Table>
@@ -211,6 +247,35 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
                   </AccordionItem>
                 );
               })}
+              {otherCostSlips.length > 0 && (
+                 <AccordionItem value="other-costs" className="border rounded-lg">
+                    <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
+                        Chi phí khác
+                    </AccordionTrigger>
+                     <AccordionContent className="p-4 border-t space-y-3">
+                        {otherCostSlips.map(slip => (
+                            <Card key={slip.id} className="bg-muted/50">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Checkbox
+                                            id={slip.id}
+                                            checked={selectedSlips.has(slip.id)}
+                                            onCheckedChange={(checked) => handleSelectSlip(slip.id, !!checked)}
+                                        />
+                                        <div>
+                                            <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - Lập bởi {slip.createdBy.userName}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="font-bold text-red-600">{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                     </AccordionContent>
+                 </AccordionItem>
+              )}
             </Accordion>
           )}
         </ScrollArea>
