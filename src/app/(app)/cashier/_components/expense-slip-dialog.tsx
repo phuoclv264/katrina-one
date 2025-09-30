@@ -307,33 +307,28 @@ export default function ExpenseSlipDialog({
     const [discount, setDiscount] = useState(0);
     const [actualPaidAmount, setActualPaidAmount] = useState(0);
 
-    // --- State for AI data detection ---
     const [originalSlip, setOriginalSlip] = useState<ExpenseSlip | null>(null);
     
-    // --- New state for attachments ---
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
     const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     const [showMissingAttachmentAlert, setShowMissingAttachmentAlert] = useState(false);
     const [isAttachmentCameraOpen, setIsAttachmentCameraOpen] = useState(false);
 
-    // --- State for AI scanning ---
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [extractionResult, setExtractionResult] = useState<InvoiceExtractionResult | null>(null);
     const [showAiPreview, setShowAiPreview] = useState(false);
+    const [isAiRescanned, setIsAiRescanned] = useState(false);
     
-    // --- Lightbox state ---
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     
-    // --- New State for Expense Type ---
     const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
     const [otherCostCategoryId, setOtherCostCategoryId] = useState('');
     const [otherCostDescription, setOtherCostDescription] = useState('');
     const [otherCostAmount, setOtherCostAmount] = useState(0);
 
 
-    // --- Back button handling for Lightbox ---
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
         if (isLightboxOpen) {
@@ -353,11 +348,10 @@ export default function ExpenseSlipDialog({
     }, [isLightboxOpen]);
 
 
-    // Reset form state when dialog opens
     useEffect(() => {
         if (open) {
             if (slipToEdit) {
-                setOriginalSlip(JSON.parse(JSON.stringify(slipToEdit))); // Deep copy
+                setOriginalSlip(JSON.parse(JSON.stringify(slipToEdit))); 
                 setExpenseType(slipToEdit.expenseType);
                 if(slipToEdit.expenseType === 'other_cost' && slipToEdit.items.length > 0) {
                     const otherItem = slipToEdit.items[0];
@@ -380,7 +374,6 @@ export default function ExpenseSlipDialog({
                 setExistingPhotos((slipToEdit.attachmentPhotos || []).map(url => ({ id: url, url })));
 
             } else {
-                // Reset for new slip
                 setOriginalSlip(null);
                 setExpenseType('goods_import');
                 setDate(format(new Date(), 'yyyy-MM-dd'));
@@ -394,10 +387,10 @@ export default function ExpenseSlipDialog({
                 setOtherCostAmount(0);
                 setExistingPhotos([]);
             }
-            // Always reset local photo state
             setLocalPhotos([]);
             setPhotosToDelete([]);
             setShowMissingAttachmentAlert(false);
+            setIsAiRescanned(false);
 
         }
     }, [open, slipToEdit]);
@@ -488,15 +481,13 @@ export default function ExpenseSlipDialog({
             }];
         }
 
-        let isAiFlagPreserved = slipToEdit?.isAiGenerated || false;
-        if(originalSlip?.isAiGenerated) {
-            const originalItemsSorted = [...(originalSlip.items || [])].sort((a,b) => a.itemId.localeCompare(b.itemId));
-            const currentItemsSorted = [...finalItems].sort((a,b) => a.itemId.localeCompare(b.itemId));
-            
-            const coreDataChanged = !isEqual(originalItemsSorted, currentItemsSorted) || (originalSlip.discount || 0) !== discount;
-
-            if (coreDataChanged) {
-                isAiFlagPreserved = false;
+        let isAiFlag = isAiRescanned;
+        if (originalSlip?.isAiGenerated && !isAiRescanned) {
+            const originalItemsSorted = [...(originalSlip.items || [])].sort((a, b) => a.itemId.localeCompare(b.itemId));
+            const currentItemsSorted = [...finalItems].sort((a, b) => a.itemId.localeCompare(b.itemId));
+            const coreDataUnchanged = isEqual(originalItemsSorted, currentItemsSorted) && (originalSlip.discount || 0) === discount;
+            if (coreDataUnchanged) {
+                isAiFlag = true;
             }
         }
         
@@ -512,7 +503,7 @@ export default function ExpenseSlipDialog({
             existingPhotos: existingPhotos.map(p => p.url),
             photosToDelete,
             newPhotoIds: localPhotos.map(p => p.id),
-            isAiGenerated: slipToEdit ? isAiFlagPreserved : (originalSlip?.isAiGenerated || false),
+            isAiGenerated: isAiFlag,
         };
         
         onSave(data, slipToEdit?.id);
@@ -522,7 +513,6 @@ export default function ExpenseSlipDialog({
         return [...existingPhotos, ...localPhotos];
     }, [existingPhotos, localPhotos]);
 
-    // --- AI Scanning Logic ---
     const handleAiScan = async () => {
         setShowMissingAttachmentAlert(false);
         if(allAttachmentPhotos.length === 0) {
@@ -603,12 +593,9 @@ export default function ExpenseSlipDialog({
     const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
         setItems(confirmedItems);
         setDiscount(totalDiscount);
-        
-        const aiData = { items: confirmedItems, discount: totalDiscount, isAiGenerated: true } as unknown as ExpenseSlip;
-        setOriginalSlip(aiData);
+        setIsAiRescanned(true);
     }
 
-    // --- Attachment Management Logic ---
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         setShowMissingAttachmentAlert(false);
         const files = event.target.files;
