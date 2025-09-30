@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -68,25 +67,28 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
       setSelectedSlips(new Set());
     }
   }, [isOpen]);
-
+  
   const { unpaidGroupedBySupplier, paidGroupedBySupplier, unpaidOtherCostSlips, paidOtherCostSlips } = useMemo(() => {
     const unpaidSupplierData: GroupedBySupplier = {};
     const paidSupplierData: GroupedBySupplier = {};
     const unpaidOthers: ExpenseSlip[] = [];
     const paidOthers: ExpenseSlip[] = [];
-    
+
     const itemMap = new Map(inventoryList.map(item => [item.id, item]));
 
     bankTransferSlips.forEach(slip => {
       const isPaid = slip.paymentStatus === 'paid';
-      const targetSupplierData = isPaid ? paidSupplierData : unpaidSupplierData;
-      const targetOtherSlips = isPaid ? paidOthers : unpaidOthers;
-
+      
       if (slip.expenseType === 'other_cost') {
-        targetOtherSlips.push(slip);
+        if (isPaid) {
+          paidOthers.push(slip);
+        } else {
+          unpaidOthers.push(slip);
+        }
         return;
       }
 
+      // Logic for goods_import
       const slipItemsBySupplier: { [supplier: string]: typeof slip.items } = {};
 
       slip.items.forEach(item => {
@@ -98,6 +100,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
       });
 
       for (const supplier in slipItemsBySupplier) {
+        const targetSupplierData = isPaid ? paidSupplierData : unpaidSupplierData;
         if (!targetSupplierData[supplier]) {
           targetSupplierData[supplier] = { total: 0, slips: [] };
         }
@@ -139,6 +142,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
   const sortedUnpaidSuppliers = useMemo(() => Object.keys(unpaidGroupedBySupplier).sort(), [unpaidGroupedBySupplier]);
   const sortedPaidSuppliers = useMemo(() => Object.keys(paidGroupedBySupplier).sort(), [paidGroupedBySupplier]);
 
+
   const handleSelectAllForSupplier = (supplier: string, isChecked: boolean) => {
     const slipIdsForSupplier = unpaidGroupedBySupplier[supplier].slips.map(s => s.slipId);
     setSelectedSlips(prev => {
@@ -178,8 +182,8 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
       setIsProcessing(false);
     }
   };
-
-  const handleUndoPayment = async (slipId: string) => {
+  
+   const handleUndoPayment = async (slipId: string) => {
     setIsProcessing(true);
     try {
         await dataStore.undoExpenseSlipPayment(slipId);
@@ -207,115 +211,117 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                 <TabsTrigger value="history">Lịch sử thanh toán</TabsTrigger>
             </TabsList>
             <TabsContent value="unpaid">
-                <ScrollArea className="max-h-[60vh] -mx-6 px-6">
-                    {sortedUnpaidSuppliers.length === 0 && unpaidOtherCostSlips.length === 0 ? (
-                        <p className="py-8 text-center text-muted-foreground">Không có công nợ nào chưa thanh toán.</p>
-                    ) : (
-                        <Accordion type="multiple" defaultValue={[...sortedUnpaidSuppliers, 'other-costs']} className="space-y-4 py-2">
-                        {sortedUnpaidSuppliers.map(supplier => {
-                            const supplierData = unpaidGroupedBySupplier[supplier];
-                            const isAllSelected = supplierData.slips.every(s => selectedSlips.has(s.slipId));
-                            
-                            return (
-                            <AccordionItem value={supplier} key={supplier} className="border rounded-lg">
-                                <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                                <div className="flex items-center justify-between w-full pr-4">
-                                    <span>{supplier}</span>
-                                    <span className="text-red-600 font-bold">{supplierData.total.toLocaleString('vi-VN')}đ</span>
-                                </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="p-4 border-t">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Checkbox
-                                    id={`select-all-${supplier}`}
-                                    checked={isAllSelected}
-                                    onCheckedChange={(checked) => handleSelectAllForSupplier(supplier, !!checked)}
-                                    />
-                                    <label htmlFor={`select-all-${supplier}`}>Chọn tất cả cho {supplier}</label>
-                                </div>
-                                <div className="space-y-3">
-                                    {supplierData.slips.map(({ slipId, date, createdBy, items }) => (
-                                    <div key={slipId} className="cursor-pointer" onClick={() => handleSelectSlip(slipId, !selectedSlips.has(slipId))}>
-                                        <Card className="bg-muted/50">
-                                            <CardContent className="p-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                <Checkbox
-                                                    id={slipId}
-                                                    checked={selectedSlips.has(slipId)}
-                                                    onCheckedChange={(checked) => handleSelectSlip(slipId, !!checked)}
-                                                />
-                                                <label htmlFor={slipId} className="font-semibold text-sm cursor-pointer">
-                                                    Phiếu chi ngày {format(parseISO(date), 'dd/MM/yyyy')}
-                                                </label>
-                                                </div>
-                                                <div className="text-sm text-muted-foreground">
-                                                Lập bởi: {createdBy}
-                                                </div>
-                                            </div>
-                                            <Table>
-                                                <TableHeader>
-                                                <TableRow><TableHead>Mặt hàng</TableHead><TableHead className="text-right">Thành tiền</TableHead></TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                {items.map(item => (
-                                                    <TableRow key={item.id}>
-                                                    <TableCell>{item.name}</TableCell>
-                                                    <TableCell className="text-right font-medium">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                                </TableBody>
-                                            </Table>
-                                            </CardContent>
-                                        </Card>
+                <div className="space-y-4">
+                    <ScrollArea className="max-h-[60vh] -mx-6 px-6">
+                        {sortedUnpaidSuppliers.length === 0 && unpaidOtherCostSlips.length === 0 ? (
+                            <p className="py-8 text-center text-muted-foreground">Không có công nợ nào chưa thanh toán.</p>
+                        ) : (
+                            <Accordion type="multiple" defaultValue={[...sortedUnpaidSuppliers, 'other-costs']} className="space-y-4 py-2">
+                            {sortedUnpaidSuppliers.map(supplier => {
+                                const supplierData = unpaidGroupedBySupplier[supplier];
+                                const isAllSelected = supplierData.slips.every(s => selectedSlips.has(s.slipId));
+                                
+                                return (
+                                <AccordionItem value={supplier} key={supplier} className="border rounded-lg">
+                                    <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
+                                    <div className="flex items-center justify-between w-full pr-4">
+                                        <span>{supplier}</span>
+                                        <span className="text-red-600 font-bold">{supplierData.total.toLocaleString('vi-VN')}đ</span>
                                     </div>
-                                    ))}
-                                </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                            );
-                        })}
-                        {unpaidOtherCostSlips.length > 0 && (
-                            <AccordionItem value="other-costs" className="border rounded-lg">
-                                <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                                    Chi phí khác
-                                </AccordionTrigger>
-                                <AccordionContent className="p-4 border-t space-y-3">
-                                    {unpaidOtherCostSlips.map(slip => (
-                                        <div key={slip.id} className="cursor-pointer" onClick={() => handleSelectSlip(slip.id, !selectedSlips.has(slip.id))}>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 border-t">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Checkbox
+                                        id={`select-all-${supplier}`}
+                                        checked={isAllSelected}
+                                        onCheckedChange={(checked) => handleSelectAllForSupplier(supplier, !!checked)}
+                                        />
+                                        <label htmlFor={`select-all-${supplier}`}>Chọn tất cả cho {supplier}</label>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {supplierData.slips.map(({ slipId, date, createdBy, items }) => (
+                                        <div key={slipId} className="cursor-pointer" onClick={() => handleSelectSlip(slipId, !selectedSlips.has(slipId))}>
                                             <Card className="bg-muted/50">
-                                                <CardContent className="p-3 flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <Checkbox
-                                                            id={slip.id}
-                                                            checked={selectedSlips.has(slip.id)}
-                                                            onCheckedChange={(checked) => handleSelectSlip(slip.id, !!checked)}
-                                                        />
-                                                        <div>
-                                                            <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - Lập bởi {slip.createdBy.userName}
-                                                            </p>
-                                                        </div>
+                                                <CardContent className="p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        id={slipId}
+                                                        checked={selectedSlips.has(slipId)}
+                                                        onCheckedChange={(checked) => handleSelectSlip(slipId, !!checked)}
+                                                    />
+                                                    <label htmlFor={slipId} className="font-semibold text-sm cursor-pointer">
+                                                        Phiếu chi ngày {format(parseISO(date), 'dd/MM/yyyy')}
+                                                    </label>
                                                     </div>
-                                                    <p className="font-bold text-red-600">{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
+                                                    <div className="text-sm text-muted-foreground">
+                                                    Lập bởi: {createdBy}
+                                                    </div>
+                                                </div>
+                                                <Table>
+                                                    <TableHeader>
+                                                    <TableRow><TableHead>Mặt hàng</TableHead><TableHead className="text-right">Thành tiền</TableHead></TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                    {items.map(item => (
+                                                        <TableRow key={item.id}>
+                                                        <TableCell>{item.name}</TableCell>
+                                                        <TableCell className="text-right font-medium">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                    </TableBody>
+                                                </Table>
                                                 </CardContent>
                                             </Card>
                                         </div>
-                                    ))}
-                                </AccordionContent>
-                            </AccordionItem>
+                                        ))}
+                                    </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                                );
+                            })}
+                            {unpaidOtherCostSlips.length > 0 && (
+                                <AccordionItem value="other-costs" className="border rounded-lg">
+                                    <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
+                                        Chi phí khác
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 border-t space-y-3">
+                                        {unpaidOtherCostSlips.map(slip => (
+                                            <div key={slip.id} className="cursor-pointer" onClick={() => handleSelectSlip(slip.id, !selectedSlips.has(slip.id))}>
+                                                <Card className="bg-muted/50">
+                                                    <CardContent className="p-3 flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <Checkbox
+                                                                id={slip.id}
+                                                                checked={selectedSlips.has(slip.id)}
+                                                                onCheckedChange={(checked) => handleSelectSlip(slip.id, !!checked)}
+                                                            />
+                                                            <div>
+                                                                <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - Lập bởi {slip.createdBy.userName}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="font-bold text-red-600">{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        ))}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )}
+                            </Accordion>
                         )}
-                        </Accordion>
-                    )}
-                </ScrollArea>
-                <DialogFooter className="mt-4">
-                    <Button variant="outline" onClick={onClose}>Đóng</Button>
-                    <Button onClick={handleMarkAsPaid} disabled={isProcessing || selectedSlips.size === 0}>
-                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4"/>}
-                        Đánh dấu đã thanh toán ({selectedSlips.size})
-                    </Button>
-                </DialogFooter>
+                    </ScrollArea>
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={onClose}>Đóng</Button>
+                        <Button onClick={handleMarkAsPaid} disabled={isProcessing || selectedSlips.size === 0}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4"/>}
+                            Đánh dấu đã thanh toán ({selectedSlips.size})
+                        </Button>
+                    </DialogFooter>
+                </div>
             </TabsContent>
             <TabsContent value="history">
                  <ScrollArea className="max-h-[60vh] -mx-6 px-6">
@@ -389,4 +395,3 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
     </Dialog>
   );
 }
-
