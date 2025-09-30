@@ -120,17 +120,12 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
       }
     });
 
-    // Sort slips within each supplier by date
-    for(const supplier in supplierData) {
-        supplierData[supplier].slips.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-    }
-    
-    otherSlips.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-
     return { groupedBySupplier: supplierData, otherCostSlips: otherSlips };
   }, [unpaidSlips, inventoryList]);
 
   const sortedSuppliers = useMemo(() => Object.keys(groupedBySupplier).sort(), [groupedBySupplier]);
+  const sortedOtherCostSlips = useMemo(() => otherCostSlips.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()), [otherCostSlips]);
+
 
   const handleSelectAllForSupplier = (supplier: string, isChecked: boolean) => {
     const slipIdsForSupplier = groupedBySupplier[supplier].slips.map(s => s.slipId);
@@ -209,69 +204,73 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
                       </div>
                       <div className="space-y-3">
                         {supplierData.slips.map(({ slipId, date, createdBy, items }) => (
-                          <Card key={slipId} className="bg-muted/50">
-                            <CardContent className="p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id={slipId}
-                                    checked={selectedSlips.has(slipId)}
-                                    onCheckedChange={(checked) => handleSelectSlip(slipId, !!checked)}
-                                  />
-                                  <label htmlFor={slipId} className="font-semibold text-sm">
-                                    Phiếu chi ngày {format(parseISO(date), 'dd/MM/yyyy')}
-                                  </label>
+                          <div key={slipId} className="cursor-pointer" onClick={() => handleSelectSlip(slipId, !selectedSlips.has(slipId))}>
+                            <Card className="bg-muted/50">
+                                <CardContent className="p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id={slipId}
+                                        checked={selectedSlips.has(slipId)}
+                                        onCheckedChange={(checked) => handleSelectSlip(slipId, !!checked)}
+                                    />
+                                    <label htmlFor={slipId} className="font-semibold text-sm cursor-pointer">
+                                        Phiếu chi ngày {format(parseISO(date), 'dd/MM/yyyy')}
+                                    </label>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                    Lập bởi: {createdBy}
+                                    </div>
                                 </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Lập bởi: {createdBy}
-                                </div>
-                              </div>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow><TableHead>Mặt hàng</TableHead><TableHead className="text-right">Thành tiền</TableHead></TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {items.map(item => (
-                                    <TableRow key={item.id}>
-                                      <TableCell>{item.name}</TableCell>
-                                      <TableCell className="text-right font-medium">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </CardContent>
-                          </Card>
+                                <Table>
+                                    <TableHeader>
+                                    <TableRow><TableHead>Mặt hàng</TableHead><TableHead className="text-right">Thành tiền</TableHead></TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                    {items.map(item => (
+                                        <TableRow key={item.id}>
+                                        <TableCell>{item.name}</TableCell>
+                                        <TableCell className="text-right font-medium">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    </TableBody>
+                                </Table>
+                                </CardContent>
+                            </Card>
+                          </div>
                         ))}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
                 );
               })}
-              {otherCostSlips.length > 0 && (
+              {sortedOtherCostSlips.length > 0 && (
                  <AccordionItem value="other-costs" className="border rounded-lg">
                     <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
                         Chi phí khác
                     </AccordionTrigger>
                      <AccordionContent className="p-4 border-t space-y-3">
-                        {otherCostSlips.map(slip => (
-                            <Card key={slip.id} className="bg-muted/50">
-                                <CardContent className="p-3 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Checkbox
-                                            id={slip.id}
-                                            checked={selectedSlips.has(slip.id)}
-                                            onCheckedChange={(checked) => handleSelectSlip(slip.id, !!checked)}
-                                        />
-                                        <div>
-                                            <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - Lập bởi {slip.createdBy.userName}
-                                            </p>
+                        {sortedOtherCostSlips.map(slip => (
+                            <div key={slip.id} className="cursor-pointer" onClick={() => handleSelectSlip(slip.id, !selectedSlips.has(slip.id))}>
+                                <Card className="bg-muted/50">
+                                    <CardContent className="p-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Checkbox
+                                                id={slip.id}
+                                                checked={selectedSlips.has(slip.id)}
+                                                onCheckedChange={(checked) => handleSelectSlip(slip.id, !!checked)}
+                                            />
+                                            <div>
+                                                <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - Lập bởi {slip.createdBy.userName}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <p className="font-bold text-red-600">{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
-                                </CardContent>
-                            </Card>
+                                        <p className="font-bold text-red-600">{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
+                                    </CardContent>
+                                </Card>
+                            </div>
                         ))}
                      </AccordionContent>
                  </AccordionItem>
