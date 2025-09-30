@@ -541,34 +541,47 @@ export default function ExpenseSlipDialog({
 
         try {
             const imagePromises = allAttachmentPhotos.map(async (photo) => {
-                let uri: string;
-                // Only process new local photos (which have blob URLs)
+                let uri: string | null = null;
                 if (photo.url.startsWith('blob:')) {
                     const blob = await photoStore.getPhoto(photo.id);
-                    if (!blob) return null;
-                    uri = await new Promise<string>((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result as string);
-                        reader.readAsDataURL(blob);
-                    });
-                     return { id: photo.id, uri };
+                    if (blob) {
+                        uri = await new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                } else if (photo.url.includes('firebasestorage.googleapis.com')) {
+                    try {
+                        const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
+                        if (!response.ok) {
+                            console.error(`Proxy request failed for ${photo.url} with status: ${response.status}. Error: ${response.statusText}`);
+                            toast.error(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}.`);
+                            return null;
+                        }
+                        const data = await response.json();
+                        uri = data.dataUri;
+                    } catch (proxyError) {
+                        console.error(`Proxy request failed for ${photo.url}`, proxyError);
+                        toast.error(`Lỗi khi tải ảnh qua proxy.`);
+                        return null;
+                    }
                 }
-                return null;
+                return uri ? { id: photo.id, uri } : null;
             });
-            
-            const localImages = (await Promise.all(imagePromises))
+
+            const processableImages = (await Promise.all(imagePromises))
                 .filter((img): img is { id: string; uri: string } => !!img);
 
-
-            if (localImages.length === 0) {
-                 toast.error("Tính năng AI hiện chỉ xử lý được các ảnh mới tải lên trong phiên này.");
+            if (processableImages.length === 0) {
+                 toast.error("Không thể xử lý bất kỳ ảnh nào. Vui lòng thử lại hoặc kiểm tra console để biết chi tiết.");
                  setIsAiLoading(false);
                  toast.dismiss(toastId);
                  return;
             }
 
             const result = await extractInvoiceItems({
-                images: localImages,
+                images: processableImages,
                 inventoryItems: inventoryList,
             });
 
