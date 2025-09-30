@@ -127,7 +127,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, unpaidSlips, invent
     
     otherSlips.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 
-    return { groupedBySupplier: supplierData, otherCostSlips };
+    return { groupedBySupplier: supplierData, otherCostSlips: otherSlips };
   }, [unpaidSlips, inventoryList]);
 
   const sortedSuppliers = useMemo(() => Object.keys(groupedBySupplier).sort(), [groupedBySupplier]);
