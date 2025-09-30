@@ -296,7 +296,7 @@ export default function RevenueStatsDialog({
             proceedWithImageData(imageUri, result);
             
         } catch (error: any) {
-             if (error.message && error.message.includes('503 Service Unavailable')) {
+             if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
                 setServerErrorDialog({ open: true, imageUri });
              } else {
                 console.error('OCR Error:', error);

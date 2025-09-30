@@ -578,7 +578,7 @@ export default function ExpenseSlipDialog({
             });
 
             if (!result.isInvoiceFound || result.results.length === 0) {
-                toast.error('AI không nhận diện được mặt hàng nào từ các ảnh hóa đơn đã cung cấp.');
+                toast.error(result.rejectionReason || 'AI không nhận diện được mặt hàng nào từ các ảnh hóa đơn đã cung cấp.');
             } else {
                 setExtractionResult(result);
                 setShowAiPreview(true);
@@ -603,12 +603,14 @@ export default function ExpenseSlipDialog({
         const files = event.target.files;
         if (!files) return;
 
-        for (const file of Array.from(files)) {
+        const newPhotos = await Promise.all(Array.from(files).map(async (file) => {
             const photoId = uuidv4();
             await photoStore.addPhoto(photoId, file);
             const objectUrl = URL.createObjectURL(file);
-            setLocalPhotos(prev => [...prev, { id: photoId, file: file, url: objectUrl }]);
-        }
+            return { id: photoId, file: file, url: objectUrl };
+        }));
+
+        setLocalPhotos(prev => [...prev, ...newPhotos]);
 
         if(attachmentFileInputRef.current) attachmentFileInputRef.current.value = '';
     };

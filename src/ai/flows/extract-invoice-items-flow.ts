@@ -41,6 +41,7 @@ export type ExtractInvoiceItemsInput = z.infer<typeof ExtractInvoiceItemsInputSc
 
 const ExtractInvoiceItemsOutputSchema = z.object({
     isInvoiceFound: z.boolean().describe("Whether at least one valid invoice was found in the provided images."),
+    rejectionReason: z.string().optional().describe("The reason why no invoices were found. Provided only if isInvoiceFound is false."),
     results: z.array(InvoiceResultSchema).describe("An array where each element represents a unique invoice found in the images. This should be empty if no invoices are found."),
 });
 export type ExtractInvoiceItemsOutput = z.infer<typeof ExtractInvoiceItemsOutputSchema>;
@@ -88,6 +89,7 @@ You MUST process the data with the following strict rules:
 
 6.  **Final Output Format:**
     *   \`isInvoiceFound\`: set to \`true\` if at least one valid, readable invoice was detected and processed, \`false\` otherwise.
+    *   **If \`isInvoiceFound\` is \`false\`**, you MUST provide a \`rejectionReason\`. Example: "Không tìm thấy hóa đơn nào hợp lệ hoặc các ảnh quá mờ."
     *   \`results\`: one object per unique invoice group. This array must be empty if no valid invoices were found.
         *   \`invoiceTitle\`: unique name like "Hóa đơn 1", "Hóa đơn 2"...
         *   \`imageIds\`: IDs of all valid images in that group.

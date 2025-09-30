@@ -84,7 +84,7 @@ const extractRevenueFlow = ai.defineFlow(
         const { output } = await prompt(input);
         return output!;
     } catch (error: any) {
-         if (error.message && error.message.includes('503 Service Unavailable')) {
+         if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
             console.warn('AI model is overloaded. Retrying in 2 seconds...');
             await new Promise(resolve => setTimeout(resolve, 2000));
             const { output } = await prompt(input);
