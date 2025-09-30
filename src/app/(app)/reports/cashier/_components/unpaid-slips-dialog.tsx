@@ -250,6 +250,14 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                                 <div className="space-y-3">
                                   {Object.entries(supplierData.slips).map(([slipId, slipData]) => {
                                       const key = getCompositeKey(slipId, supplier);
+                                      const itemsSummary = slipData.items
+                                        .map(item => {
+                                          const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+                                          const shortName = inventoryItem?.shortName || item.name;
+                                          const totalItemPrice = (item.quantity * item.unitPrice).toLocaleString('vi-VN') + 'đ';
+                                          return `${shortName} x ${item.quantity} (${totalItemPrice})`;
+                                        }).join(', ');
+
                                       return (
                                           <Card key={key} className={cn("bg-muted/50 cursor-pointer hover:bg-muted", selectedItems.has(key) && "ring-2 ring-primary")} onClick={() => handleSelectSlip(key, !selectedItems.has(key))}>
                                               <CardContent className="p-4">
@@ -272,6 +280,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                                                       </div>
                                                       <p className="font-bold text-lg text-red-600">{slipData.slipTotal.toLocaleString('vi-VN')}đ</p>
                                                   </div>
+                                                  <p className="text-xs text-muted-foreground pl-8">{itemsSummary}</p>
                                               </CardContent>
                                           </Card>
                                       );
