@@ -613,6 +613,11 @@ export const dataStore = {
         await batch.commit();
     },
 
+    async undoExpenseSlipPayment(slipId: string): Promise<void> {
+        const docRef = doc(db, 'expense_slips', slipId);
+        await updateDoc(docRef, { paymentStatus: 'unpaid' });
+    },
+
     subscribeToAllIncidents(callback: (incidents: IncidentReport[]) => void): () => void {
         const q = query(collection(db, 'incidents'), orderBy('createdAt', 'desc'));
         return onSnapshot(q, snapshot => {
@@ -2405,6 +2410,7 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
 
 
 

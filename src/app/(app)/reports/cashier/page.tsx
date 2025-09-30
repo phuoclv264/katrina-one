@@ -422,11 +422,10 @@ export default function CashierReportsPage() {
 
   const sortedDatesInMonth = useMemo(() => Object.keys(reportsForCurrentMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [reportsForCurrentMonth]);
   
-  const monthlyUnpaidSlips = useMemo(() => {
+  const monthlyBankTransferSlips = useMemo(() => {
     return allData.expenseSlips.filter(slip => 
         isSameMonth(parseISO(slip.date), currentMonth) &&
-        slip.paymentMethod === 'bank_transfer' &&
-        slip.paymentStatus === 'unpaid'
+        slip.paymentMethod === 'bank_transfer'
     );
   }, [allData.expenseSlips, currentMonth]);
 
@@ -461,7 +460,9 @@ export default function CashierReportsPage() {
           return acc;
       }, {} as {[key: string]: number});
       
-      const unpaidBankTransfer = monthlyUnpaidSlips.reduce((sum, slip) => sum + slip.totalAmount, 0);
+      const unpaidBankTransfer = monthlyBankTransferSlips
+        .filter(s => s.paymentStatus === 'unpaid')
+        .reduce((sum, slip) => sum + slip.totalAmount, 0);
 
       const intangibleCost = allIncidents
         .filter(i => i.paymentMethod === 'intangible_cost' && i.cost > 0)
@@ -474,7 +475,7 @@ export default function CashierReportsPage() {
       }, {} as {[key: string]: number});
       
       return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod, intangibleCost, unpaidBankTransfer };
-  }, [reportsForCurrentMonth, monthlyUnpaidSlips]);
+  }, [reportsForCurrentMonth, monthlyBankTransferSlips]);
 
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
@@ -956,7 +957,7 @@ export default function CashierReportsPage() {
      <UnpaidSlipsDialog
         isOpen={isUnpaidSlipsDialogOpen}
         onClose={() => setIsUnpaidSlipsDialogOpen(false)}
-        unpaidSlips={monthlyUnpaidSlips}
+        bankTransferSlips={monthlyBankTransferSlips}
         inventoryList={allData.inventoryList}
     />
     <OtherCostCategoryDialog
