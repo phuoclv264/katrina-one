@@ -78,16 +78,12 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing, inve
                 <TableRow key={expense.id}>
                 <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
                 <TableCell>
-                    {getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}
-                    {expense.isAiGenerated && !expense.lastModifiedBy && <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>}
-                    {expense.isAiGenerated && expense.lastModifiedBy && (
-                        <>
-                         <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>
-                         <Badge variant="outline" className="ml-1 text-xs">Đã sửa</Badge>
-                        </>
-                    )}
-                    {!expense.isAiGenerated && expense.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
-                    {expense.associatedHandoverReportId && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span>{getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}</span>
+                    {expense.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
+                    {expense.lastModifiedBy && <Badge variant="outline" className="text-xs">Đã sửa</Badge>}
+                    {expense.associatedHandoverReportId && <Badge variant="secondary" className="font-normal text-xs">Tự động</Badge>}
+                  </div>
                 </TableCell>
                 <TableCell>
                     <div className='flex flex-col items-start'>
@@ -143,18 +139,12 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing, inve
           <div className="p-3">
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="font-medium text-sm pr-2">
-                        {getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}
-                         {expense.isAiGenerated && !expense.lastModifiedBy && <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>}
-                        {expense.isAiGenerated && expense.lastModifiedBy && (
-                            <>
-                                <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>
-                                <Badge variant="outline" className="ml-1 text-xs">Đã sửa</Badge>
-                            </>
-                        )}
-                        {!expense.isAiGenerated && expense.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
-                        {expense.associatedHandoverReportId && <Badge variant="secondary" className="ml-2 text-xs">Tự động</Badge>}
-                    </p>
+                    <div className="font-medium text-sm pr-2 flex items-center gap-2 flex-wrap">
+                      <span>{getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}</span>
+                      {expense.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
+                      {expense.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
+                      {expense.associatedHandoverReportId && <Badge variant="secondary" className="font-normal">Tự động</Badge>}
+                    </div>
                     <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
                 </div>
                 <div className="text-right">

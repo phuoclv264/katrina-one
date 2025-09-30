@@ -675,9 +675,9 @@ export default function CashierDashboardPage() {
                                                     <div className="space-y-1 pr-2">
                                                         <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
                                                           <p>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
-                                                          {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
-                                                          {slip.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
-                                                          {slip.associatedHandoverReportId && <Badge variant="outline">Tự động</Badge>}
+                                                           {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
+                                                           {slip.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
+                                                           {slip.associatedHandoverReportId && <Badge variant="outline">Tự động</Badge>}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
                                                             <span>{slip.createdBy.userName}</span>
@@ -726,11 +726,12 @@ export default function CashierDashboardPage() {
                                       return (
                                        <TableRow key={slip.id}>
                                            <TableCell className="font-medium">
-                                                {getSlipContentName(slip.items[0])}
-                                                {slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}
-                                                {slip.isAiGenerated && !slip.lastModifiedBy && <Badge className="ml-2 bg-blue-100 text-blue-800">AI</Badge>}
-                                                {slip.lastModifiedBy && <Badge variant="outline" className="ml-2 text-xs">Đã sửa</Badge>}
-                                                {slip.associatedHandoverReportId && <Badge variant="outline" className="ml-2 font-normal">Tự động</Badge>}
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</span>
+                                                    {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
+                                                    {slip.lastModifiedBy && <Badge variant="outline" className="text-xs">Đã sửa</Badge>}
+                                                    {slip.associatedHandoverReportId && <Badge variant="outline" className="font-normal">Tự động</Badge>}
+                                                </div>
                                                 <p className="text-xs text-muted-foreground font-normal">{slip.notes || 'Không có ghi chú'}</p>
                                            </TableCell>
                                            <TableCell className="text-sm text-muted-foreground">
@@ -878,7 +879,7 @@ export default function CashierDashboardPage() {
     )}
      <Lightbox
         open={isLightboxOpen}
-        close={() => setLightboxOpen(false)}
+        close={() => setIsLightboxOpen(false)}
         slides={lightboxSlides}
         carousel={{ finite: true }}
     />
