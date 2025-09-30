@@ -33,7 +33,6 @@ type UnpaidSlipsDialogProps = {
 
 type GroupedBySupplier = {
   [supplier: string]: {
-    total: number;
     slips: {
       [slipId: string]: {
         slipDate: string;
@@ -103,7 +102,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                 const targetGroup = areAllPaid ? paidSupplierData : unpaidSupplierData;
 
                 if (!targetGroup[supplier]) {
-                    targetGroup[supplier] = { total: 0, slips: {} };
+                    targetGroup[supplier] = { slips: {} };
                 }
                 if (!targetGroup[supplier].slips[slip.id]) {
                     targetGroup[supplier].slips[slip.id] = {
@@ -115,19 +114,26 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                 }
                 
                 const slipTotalForSupplier = supplierItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-                targetGroup[supplier].total += slipTotalForSupplier;
                 targetGroup[supplier].slips[slip.id].slipTotal += slipTotalForSupplier;
                 targetGroup[supplier].slips[slip.id].items.push(...supplierItems);
             }
         }
     });
 
-    const sortedUnpaid = Object.keys(unpaidSupplierData).sort();
-    const sortedPaid = Object.keys(paidSupplierData).sort();
+    const sortedUnpaid = Object.keys(unpaidSupplierData).sort((a,b) => a.localeCompare(b, 'vi'));
+    const sortedPaid = Object.keys(paidSupplierData).sort((a,b) => a.localeCompare(b, 'vi'));
+    
+    // Add total to each supplier group after all slips are processed.
+    Object.keys(unpaidSupplierData).forEach(supplier => {
+        unpaidSupplierData[supplier].total = Object.values(unpaidSupplierData[supplier].slips).reduce((sum, slipData) => sum + slipData.slipTotal, 0);
+    });
+     Object.keys(paidSupplierData).forEach(supplier => {
+        paidSupplierData[supplier].total = Object.values(paidSupplierData[supplier].slips).reduce((sum, slipData) => sum + slipData.slipTotal, 0);
+    });
 
     return { 
-        unpaidGroupedBySupplier: unpaidSupplierData, 
-        paidGroupedBySupplier: paidSupplierData,
+        unpaidGroupedBySupplier: unpaidSupplierData as (GroupedBySupplier & { [key: string]: { total: number } }), 
+        paidGroupedBySupplier: paidSupplierData as (GroupedBySupplier & { [key: string]: { total: number } }),
         unpaidOtherCostSlips: unpaidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
         paidOtherCostSlips: paidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
         sortedUnpaidSuppliers: sortedUnpaid,
@@ -163,6 +169,26 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
       return newSet;
     });
   };
+
+  const totalSelectedAmount = useMemo(() => {
+    let total = 0;
+    for (const key of selectedItems) {
+        const [slipId, supplier] = key.split('__');
+        if (supplier === 'other_cost') {
+            const slip = unpaidOtherCostSlips.find(s => s.id === slipId);
+            if (slip) {
+                total += slip.totalAmount;
+            }
+        } else {
+            const supplierData = unpaidGroupedBySupplier[supplier];
+            const slipData = supplierData?.slips[slipId];
+            if (slipData) {
+                total += slipData.slipTotal;
+            }
+        }
+    }
+    return total;
+  }, [selectedItems, unpaidGroupedBySupplier, unpaidOtherCostSlips]);
 
   const handleMarkAsPaid = async () => {
     if (selectedItems.size === 0) return;
@@ -410,7 +436,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
             <Button variant="outline" onClick={onClose} className="h-11 text-base w-full sm:w-auto">Đóng</Button>
             <Button onClick={handleMarkAsPaid} disabled={isProcessing || selectedItems.size === 0} className="h-11 text-base w-full sm:w-auto">
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4"/>}
-                Đánh dấu đã thanh toán ({selectedItems.size})
+                Đánh dấu đã TT ({totalSelectedAmount > 0 ? totalSelectedAmount.toLocaleString('vi-VN') + 'đ' : selectedItems.size})
             </Button>
         </DialogFooter>
       </DialogContent>
