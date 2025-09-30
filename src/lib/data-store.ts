@@ -604,18 +604,51 @@ export const dataStore = {
         });
     },
 
-    async updateMultipleSlipsStatus(slipIds: string[], status: 'paid' | 'unpaid'): Promise<void> {
+    async markSupplierDebtsAsPaid(debts: { slipId: string, supplier: string }[]): Promise<void> {
         const batch = writeBatch(db);
-        slipIds.forEach(id => {
-            const docRef = doc(db, 'expense_slips', id);
-            batch.update(docRef, { paymentStatus: status });
-        });
-        await batch.commit();
+        const slipUpdatePromises = debts.map(({ slipId, supplier }) => 
+            runTransaction(db, async (transaction) => {
+                const slipRef = doc(db, 'expense_slips', slipId);
+                const slipDoc = await transaction.get(slipRef);
+                if (!slipDoc.exists()) return;
+
+                const slip = slipDoc.data() as ExpenseSlip;
+                const updatedItems = slip.items.map(item => {
+                    if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
+                        return { ...item, isPaid: true };
+                    }
+                    return item;
+                });
+
+                const allItemsPaid = updatedItems.every(item => item.isPaid);
+                transaction.update(slipRef, { 
+                    items: updatedItems,
+                    paymentStatus: allItemsPaid ? 'paid' : 'unpaid'
+                });
+            })
+        );
+        await Promise.all(slipUpdatePromises);
     },
 
-    async undoExpenseSlipPayment(slipId: string): Promise<void> {
-        const docRef = doc(db, 'expense_slips', slipId);
-        await updateDoc(docRef, { paymentStatus: 'unpaid' });
+    async undoSupplierDebtPayment(slipId: string, supplier: string): Promise<void> {
+        await runTransaction(db, async (transaction) => {
+            const slipRef = doc(db, 'expense_slips', slipId);
+            const slipDoc = await transaction.get(slipRef);
+            if (!slipDoc.exists()) throw new Error("Không tìm thấy phiếu chi.");
+
+            const slip = slipDoc.data() as ExpenseSlip;
+            const updatedItems = slip.items.map(item => {
+                if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
+                    return { ...item, isPaid: false };
+                }
+                return item;
+            });
+
+            transaction.update(slipRef, { 
+                items: updatedItems,
+                paymentStatus: 'unpaid' // Always becomes unpaid when one part is undone
+            });
+        });
     },
 
     subscribeToAllIncidents(callback: (incidents: IncidentReport[]) => void): () => void {
@@ -2410,7 +2443,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-
-
-

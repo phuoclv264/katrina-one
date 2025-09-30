@@ -314,6 +314,7 @@ export type ExpenseItem = {
     quantity: number;
     unitPrice: number;
     unit: string; // The name of the UnitDefinition used for this transaction.
+    isPaid?: boolean; // Track payment status for each item
 }
 
 export type ExpenseSlip = {
