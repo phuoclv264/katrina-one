@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -639,7 +637,9 @@ export const dataStore = {
             const slip = slipDoc.data() as ExpenseSlip;
             const updatedItems = slip.items.map(item => {
                 if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
-                    return { ...item, isPaid: false };
+                    // Create a new object without the isPaid property
+                    const { isPaid, ...rest } = item;
+                    return rest;
                 }
                 return item;
             });

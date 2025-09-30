@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -34,16 +33,14 @@ type UnpaidSlipsDialogProps = {
 type GroupedBySupplier = {
   [supplier: string]: {
     total: number;
-    items: {
-      slipId: string;
-      date: string;
-      createdBy: string;
-      itemId: string;
-      name: string;
-      quantity: number;
-      unitPrice: number;
-      unit: string;
-    }[];
+    slips: {
+      [slipId: string]: {
+        slipDate: string;
+        slipCreatedBy: string;
+        slipTotal: number;
+        items: ExpenseItem[];
+      };
+    };
   };
 };
 
@@ -72,74 +69,81 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
     const paidSupplierData: GroupedBySupplier = {};
     const unpaidOthers: ExpenseSlip[] = [];
     const paidOthers: ExpenseSlip[] = [];
-
-    const itemMap = new Map(inventoryList.map(item => [item.id, item]));
-
+    
     bankTransferSlips.forEach(slip => {
-      slip.items.forEach((item, itemIndex) => {
-        const isPaid = item.isPaid === true;
-        const targetSupplierData = isPaid ? paidSupplierData : unpaidSupplierData;
-        
-        if (slip.expenseType === 'other_cost') {
-          const targetOtherArray = isPaid ? paidOthers : unpaidOthers;
-          if (!targetOtherArray.some(s => s.id === slip.id)) {
-            targetOtherArray.push(slip);
-          }
-          return;
-        }
+        const isOtherCostSlip = slip.expenseType === 'other_cost';
+        const otherCostItem = isOtherCostSlip ? slip.items[0] : null;
 
-        const supplier = itemMap.get(item.itemId)?.supplier || 'Không rõ';
-        if (!targetSupplierData[supplier]) {
-          targetSupplierData[supplier] = { total: 0, items: [] };
-        }
+        if (isOtherCostSlip && otherCostItem) {
+            if (otherCostItem.isPaid) {
+                if(!paidOthers.some(s => s.id === slip.id)) paidOthers.push(slip);
+            } else {
+                if(!unpaidOthers.some(s => s.id === slip.id)) unpaidOthers.push(slip);
+            }
+        } else {
+            const itemsBySupplier: { [supplier: string]: ExpenseItem[] } = {};
+            slip.items.forEach(item => {
+                if (!itemsBySupplier[item.supplier || 'Không rõ']) {
+                    itemsBySupplier[item.supplier || 'Không rõ'] = [];
+                }
+                itemsBySupplier[item.supplier || 'Không rõ'].push(item);
+            });
 
-        targetSupplierData[supplier].total += item.quantity * item.unitPrice;
-        targetSupplierData[supplier].items.push({
-          slipId: slip.id,
-          date: slip.date,
-          createdBy: slip.createdBy.userName,
-          itemId: item.itemId,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          unit: item.unit
-        });
-      });
+            for (const supplier in itemsBySupplier) {
+                const supplierItems = itemsBySupplier[supplier];
+                const areAllPaid = supplierItems.every(item => item.isPaid);
+                const targetGroup = areAllPaid ? paidSupplierData : unpaidSupplierData;
+
+                if (!targetGroup[supplier]) {
+                    targetGroup[supplier] = { total: 0, slips: {} };
+                }
+                if (!targetGroup[supplier].slips[slip.id]) {
+                    targetGroup[supplier].slips[slip.id] = {
+                        slipDate: slip.date,
+                        slipCreatedBy: slip.createdBy.userName,
+                        slipTotal: 0,
+                        items: [],
+                    };
+                }
+                
+                const slipTotalForSupplier = supplierItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+                targetGroup[supplier].total += slipTotalForSupplier;
+                targetGroup[supplier].slips[slip.id].slipTotal += slipTotalForSupplier;
+                targetGroup[supplier].slips[slip.id].items.push(...supplierItems);
+            }
+        }
     });
 
     return { 
-        unpaidGroupedBySupplier: unpaidSupplierData, 
-        paidGroupedBySupplier: paidSupplierData,
+        unpaidGroupedBySupplier, 
+        paidGroupedBySupplier,
         unpaidOtherCostSlips: unpaidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
         paidOtherCostSlips: paidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
     };
-  }, [bankTransferSlips, inventoryList]);
+  }, [bankTransferSlips]);
 
   const sortedUnpaidSuppliers = useMemo(() => Object.keys(unpaidGroupedBySupplier).sort(), [unpaidGroupedBySupplier]);
   const sortedPaidSuppliers = useMemo(() => Object.keys(paidGroupedBySupplier).sort(), [paidGroupedBySupplier]);
 
-  const getCombinedKey = (slipId: string, supplier: string) => `${slipId}__${supplier}`;
+  const getCompositeKey = (slipId: string, supplier: string) => `${slipId}__${supplier}`;
 
   const handleSelectAllForSupplier = (supplier: string, isChecked: boolean) => {
-    const itemKeysForSupplier = unpaidGroupedBySupplier[supplier].items.map(item => getCombinedKey(item.slipId, supplier));
+    const slipKeysForSupplier = Object.keys(unpaidGroupedBySupplier[supplier].slips).map(slipId => getCompositeKey(slipId, supplier));
+    
     setSelectedItems(prev => {
       const newSet = new Set(prev);
       if (isChecked) {
-        itemKeysForSupplier.forEach(key => newSet.add(key));
+        slipKeysForSupplier.forEach(key => newSet.add(key));
       } else {
-        itemKeysForSupplier.forEach(key => newSet.delete(key));
+        slipKeysForSupplier.forEach(key => newSet.delete(key));
       }
       return newSet;
     });
   };
 
-  const handleSelectSlip = (slipId: string, isChecked: boolean) => {
-    // This now selects all items from that slip regardless of supplier
-    const allItemsInSlip = Object.values(unpaidGroupedBySupplier).flatMap(data => data.items).filter(item => item.slipId === slipId);
+  const handleSelectSlip = (key: string, isChecked: boolean) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev);
-      const supplier = allItemsInSlip[0]?.supplier || 'unknown'; // This assumption is flawed
-      const key = getCombinedKey(slipId, supplier);
       if (isChecked) {
         newSet.add(key);
       } else {
@@ -159,7 +163,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
       });
       await dataStore.markSupplierDebtsAsPaid(itemsToUpdate);
       toast.success(`Đã đánh dấu ${selectedItems.size} khoản nợ là đã thanh toán.`);
-      setSelectedItems(new Set()); // Clear selection after successful operation
+      setSelectedItems(new Set());
     } catch (error) {
       console.error("Failed to mark items as paid:", error);
       toast.error('Lỗi: Không thể cập nhật trạng thái thanh toán.');
@@ -195,10 +199,10 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
           <Tabs defaultValue="unpaid" className="w-full flex-grow flex flex-col overflow-hidden px-4 sm:px-6">
               <TabsList className="grid w-full grid-cols-2 bg-muted dark:bg-background rounded-lg border">
                   <TabsTrigger value="unpaid" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-green-900/50 dark:data-[state=active]:text-green-200">Chưa thanh toán</TabsTrigger>
-                  <TabsTrigger value="history" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-green-900/50 dark:data-[state=active]:text-green-200">Lịch sử thanh toán</TabsTrigger>
+                  <TabsTrigger value="history" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-blue-900/50 dark:data-[state=active]:text-blue-200">Lịch sử thanh toán</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="unpaid" className="flex-grow overflow-y-auto -mx-4 px-4 pt-4">
+              <TabsContent value="unpaid" className="flex-grow overflow-hidden -mx-4 px-4 pt-4">
                   {sortedUnpaidSuppliers.length === 0 && unpaidOtherCostSlips.length === 0 ? (
                       <div className="h-full flex items-center justify-center">
                           <div className="text-center">
@@ -211,58 +215,57 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                       <Accordion type="multiple" defaultValue={[...sortedUnpaidSuppliers, 'other-costs']} className="space-y-4">
                       {sortedUnpaidSuppliers.map(supplier => {
                           const supplierData = unpaidGroupedBySupplier[supplier];
-                          const isAllSelectedForSupplier = supplierData.items.every(item => selectedItems.has(getCombinedKey(item.slipId, supplier)));
+                          const slipCount = Object.keys(supplierData.slips).length;
+                          const allSlipsForSupplier = Object.keys(supplierData.slips).map(slipId => getCompositeKey(slipId, supplier));
+                          const areAllSelected = allSlipsForSupplier.every(key => selectedItems.has(key));
                           
                           return (
                           <AccordionItem value={supplier} key={supplier} className="border rounded-lg shadow-sm">
                               <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                              <div className="flex items-center justify-between w-full pr-4">
+                                <div className="flex items-center justify-between w-full pr-4">
                                   <span>{supplier}</span>
                                   <span className="text-red-600 font-bold">{supplierData.total.toLocaleString('vi-VN')}đ</span>
-                              </div>
+                                </div>
                               </AccordionTrigger>
                               <AccordionContent className="p-4 border-t space-y-3">
-                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2">
                                   <Checkbox
-                                  id={`select-all-${supplier}`}
-                                  checked={isAllSelectedForSupplier}
-                                  onCheckedChange={(checked) => handleSelectAllForSupplier(supplier, !!checked)}
+                                    id={`select-all-${supplier}`}
+                                    checked={areAllSelected}
+                                    onCheckedChange={(checked) => handleSelectAllForSupplier(supplier, !!checked)}
                                   />
-                                  <label htmlFor={`select-all-${supplier}`}>Chọn tất cả ({supplierData.items.length} mục)</label>
-                              </div>
-                              <div className="space-y-3">
-                                  {supplierData.items.map((item, index) => {
-                                      const key = getCombinedKey(item.slipId, supplier);
+                                  <label htmlFor={`select-all-${supplier}`} className="text-sm font-medium">Chọn tất cả ({slipCount} phiếu)</label>
+                                </div>
+                                <div className="space-y-3">
+                                  {Object.entries(supplierData.slips).map(([slipId, slipData]) => {
+                                      const key = getCompositeKey(slipId, supplier);
                                       return (
-                                          <Card key={key + index} className="bg-muted/50 cursor-pointer hover:bg-muted" onClick={() => setSelectedItems(prev => { const newSet = new Set(prev); newSet.has(key) ? newSet.delete(key) : newSet.add(key); return newSet; })}>
+                                          <Card key={key} className={cn("bg-muted/50 cursor-pointer hover:bg-muted", selectedItems.has(key) && "ring-2 ring-primary")} onClick={() => handleSelectSlip(key, !selectedItems.has(key))}>
                                               <CardContent className="p-4">
                                                   <div className="flex items-start justify-between mb-2">
                                                       <div className="flex items-center gap-3">
-                                                      <Checkbox
+                                                        <Checkbox
                                                           checked={selectedItems.has(key)}
                                                           onCheckedChange={(checked) => {
                                                               const event = window.event as MouseEvent;
                                                               event?.stopPropagation();
-                                                              setSelectedItems(prev => { const newSet = new Set(prev); checked ? newSet.add(key) : newSet.delete(key); return newSet; });
+                                                              handleSelectSlip(key, !!checked);
                                                           }}
-                                                      />
-                                                      <div>
-                                                        <label htmlFor={key} className="font-semibold text-sm cursor-pointer">
-                                                          {item.name}
-                                                        </label>
-                                                        <p className="text-xs text-muted-foreground">Từ phiếu chi ngày {format(parseISO(item.date), 'dd/MM/yyyy')}</p>
+                                                        />
+                                                        <div>
+                                                            <label htmlFor={key} className="font-semibold text-base cursor-pointer">
+                                                              Phiếu chi ngày {format(parseISO(slipData.slipDate), 'dd/MM/yyyy')}
+                                                            </label>
+                                                            <p className="text-sm text-muted-foreground">Lập bởi: {slipData.slipCreatedBy}</p>
+                                                        </div>
                                                       </div>
-                                                      </div>
-                                                      <div className="text-sm text-muted-foreground">
-                                                      Lập bởi: {item.createdBy}
-                                                      </div>
+                                                      <p className="font-bold text-lg text-red-600">{slipData.slipTotal.toLocaleString('vi-VN')}đ</p>
                                                   </div>
-                                                   <p className="pl-8 font-medium text-red-600">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</p>
                                               </CardContent>
                                           </Card>
                                       );
                                   })}
-                              </div>
+                                </div>
                               </AccordionContent>
                           </AccordionItem>
                           );
@@ -274,9 +277,9 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                               </AccordionTrigger>
                               <AccordionContent className="p-4 border-t space-y-3">
                                   {unpaidOtherCostSlips.map(slip => {
-                                      const key = getCombinedKey(slip.id, 'other_cost');
+                                      const key = getCompositeKey(slip.id, 'other_cost');
                                       return (
-                                          <Card key={slip.id} className="bg-muted/50 cursor-pointer hover:bg-muted" onClick={() => setSelectedItems(prev => { const newSet = new Set(prev); newSet.has(key) ? newSet.delete(key) : newSet.add(key); return newSet; })}>
+                                          <Card key={slip.id} className={cn("bg-muted/50 cursor-pointer hover:bg-muted", selectedItems.has(key) && "ring-2 ring-primary")} onClick={() => handleSelectSlip(key, !selectedItems.has(key))}>
                                               <CardContent className="p-4 flex items-center justify-between">
                                                   <div className="flex items-center gap-3">
                                                       <Checkbox
@@ -284,7 +287,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                                                           onCheckedChange={(checked) => {
                                                               const event = window.event as MouseEvent;
                                                               event?.stopPropagation();
-                                                              setSelectedItems(prev => { const newSet = new Set(prev); checked ? newSet.add(key) : newSet.delete(key); return newSet; });
+                                                              handleSelectSlip(key, !!checked);
                                                           }}
                                                       />
                                                       <div>
@@ -306,7 +309,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                     </ScrollArea>
                   )}
               </TabsContent>
-              <TabsContent value="history" className="flex-grow overflow-y-auto -mx-4 px-4 pt-4">
+              <TabsContent value="history" className="flex-grow overflow-hidden -mx-4 px-4 pt-4">
                    {sortedPaidSuppliers.length === 0 && paidOtherCostSlips.length === 0 ? (
                       <div className="h-full flex items-center justify-center">
                           <div className="text-center">
@@ -328,16 +331,18 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
                                       </div>
                                   </AccordionTrigger>
                                   <AccordionContent className="p-4 border-t space-y-3">
-                                      {supplierData.items.map((item, index) => (
-                                          <Card key={`${item.slipId}-${index}`} className="bg-muted/50">
+                                      {Object.entries(supplierData.slips).map(([slipId, slipData]) => (
+                                          <Card key={`${slipId}-${supplier}`} className="bg-muted/50">
                                               <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                                   <div>
-                                                      <p className="font-semibold text-sm">{item.name}</p>
-                                                      <p className="text-xs text-muted-foreground">Từ phiếu chi ngày {format(parseISO(item.date), 'dd/MM/yyyy')}</p>
+                                                      <p className="font-semibold text-base">Phiếu chi ngày {format(parseISO(slipData.slipDate), 'dd/MM/yyyy')}</p>
+                                                      <p className="text-sm text-muted-foreground">
+                                                          Lập bởi: {slipData.slipCreatedBy}
+                                                      </p>
                                                   </div>
                                                   <div className="flex items-center gap-2 self-end sm:self-center">
-                                                    <span className="text-green-600 font-medium text-sm">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</span>
-                                                    <Button size="sm" variant="outline" onClick={() => handleUndoPayment(item.slipId, supplier)} disabled={isProcessing}>
+                                                    <span className="text-green-600 font-medium text-lg">{slipData.slipTotal.toLocaleString('vi-VN')}đ</span>
+                                                    <Button size="sm" variant="outline" onClick={() => handleUndoPayment(slipId, supplier)} disabled={isProcessing}>
                                                          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
                                                         Hoàn tác
                                                     </Button>
