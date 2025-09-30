@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -121,9 +122,10 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
         paidOtherCostSlips: paidOthers.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
     };
   }, [bankTransferSlips]);
-
+  
   const sortedUnpaidSuppliers = useMemo(() => Object.keys(unpaidGroupedBySupplier).sort(), [unpaidGroupedBySupplier]);
   const sortedPaidSuppliers = useMemo(() => Object.keys(paidGroupedBySupplier).sort(), [paidGroupedBySupplier]);
+
 
   const getCompositeKey = (slipId: string, supplier: string) => `${slipId}__${supplier}`;
 
@@ -397,3 +399,5 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
     </Dialog>
   );
 }
+
+    
