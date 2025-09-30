@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to extract structured item data from one or more invoice images.
@@ -17,7 +18,7 @@ const ExtractedItemSchema = z.object({
     quantity: z.number().describe("The quantity of the item."),
     unitPrice: z.number().describe("The price for a single unit of the item. It is CRITICAL that you parse numbers correctly, ignoring thousand separators (like '.' or ',') and correctly identifying the decimal separator. For example: '100.000,00' and '100,000.00' must both be interpreted as the number 100000. A value of '100.000' should be interpreted as 100000."),
     totalAmount: z.number().describe("The final line item total price ('thành tiền'). This is the most important value to check for discounts. Parse this number with the same rules as unitPrice."),
-    lineItemDiscount: z.number().describe("The calculated discount for this specific line item. You MUST calculate this as `(quantity * unitPrice) - totalAmount`. If the result is negative or zero, this value MUST be 0."),
+    lineItemDiscount: z.number().describe("The calculated discount for this specific line item. You MUST calculate this as `(quantity * unitPrice) - totalAmount`. If the result is negative, this value MUST be 0. If no discount is found, this value MUST be 0."),
     matchedItemId: z.string().nullable().describe("The ID of the inventory item that this invoice item most closely matches. Null if no confident match is found."),
     status: z.enum(['matched', 'unmatched']).describe("The status of the match. 'matched' if a confident match was found, 'unmatched' otherwise."),
 });

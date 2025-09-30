@@ -309,7 +309,7 @@ export default function OwnerExpenseSlipDialog({
     const [originalSlip, setOriginalSlip] = useState<ExpenseSlip | null>(null);
     
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
-    const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
+    const [localPhotos, setLocalPhotos] = useState<{ id: string, file: File, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     const [showMissingAttachmentAlert, setShowMissingAttachmentAlert] = useState(false);
     const [isAttachmentCameraOpen, setIsAttachmentCameraOpen] = useState(false);
@@ -504,7 +504,7 @@ export default function OwnerExpenseSlipDialog({
     };
     
     const allAttachmentPhotos = useMemo(() => {
-        return [...existingPhotos, ...localPhotos];
+        return [...existingPhotos, ...localPhotos.map(p => ({id: p.id, url: p.url}))];
     }, [existingPhotos, localPhotos]);
 
     const handleAiScan = async () => {
@@ -522,8 +522,10 @@ export default function OwnerExpenseSlipDialog({
         try {
             const imagePromises = allAttachmentPhotos.map(async (photo) => {
                 let uri: string | null = null;
+                // Newly uploaded photos are blob URLs, existing are firebase URLs
                 if (photo.url.startsWith('blob:')) {
-                    const blob = await photoStore.getPhoto(photo.id);
+                    const localPhotoData = localPhotos.find(p => p.id === photo.id);
+                    const blob = localPhotoData ? await photoStore.getPhoto(localPhotoData.id) : null;
                     if (blob) {
                         uri = await new Promise<string>((resolve) => {
                             const reader = new FileReader();
@@ -596,7 +598,7 @@ export default function OwnerExpenseSlipDialog({
             const photoId = uuidv4();
             await photoStore.addPhoto(photoId, file);
             const objectUrl = URL.createObjectURL(file);
-            setLocalPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+            setLocalPhotos(prev => [...prev, { id: photoId, file: file, url: objectUrl }]);
         }
 
         if(attachmentFileInputRef.current) attachmentFileInputRef.current.value = '';
@@ -609,7 +611,7 @@ export default function OwnerExpenseSlipDialog({
             const photoBlob = await photoStore.getPhoto(photoId);
             if (photoBlob) {
                 const objectUrl = URL.createObjectURL(photoBlob);
-                setLocalPhotos(prev => [...prev, { id: photoId, url: objectUrl }]);
+                 setLocalPhotos(prev => [...prev, { id: photoId, file: new File([photoBlob], `${photoId}.jpg`, { type: photoBlob.type }), url: objectUrl }]);
             }
         }
     };
