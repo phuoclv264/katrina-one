@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2, ArrowRight } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2, ArrowRight, TrendingUp } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, eachDayOfInterval, subWeeks, subMonths, getDay, subYears } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -68,7 +68,7 @@ const calculateChange = (current: number, previous: number) => {
 };
 
 const ChangeIndicator = ({ value }: { value: number }) => {
-    if (isNaN(value) || !isFinite(value)) return null;
+    if (isNaN(value) || !isFinite(value) || value === 0) return null;
 
     const isPositive = value > 0;
     const isNegative = value < 0;
@@ -83,6 +83,17 @@ const ChangeIndicator = ({ value }: { value: number }) => {
         </span>
     );
 };
+
+const getSlipContentName = (item: ExpenseItem): string => {
+    if (item.name?.includes("Chi phí sự cố")) return item.name;
+    if (item.itemId === 'other_cost') {
+      if (item.name === 'Khác' && item.description) {
+          return item.description;
+      }
+      return item.name;
+    }
+    return item.name;
+}
 
 
 export default function FinancialReportPage() {
@@ -180,8 +191,18 @@ export default function FinancialReportPage() {
   const comparisonPeriodData = useMemo(() => filterDataByRange(comparisonPeriod), [comparisonPeriod, filterDataByRange]);
   
   const calculateSummary = (data: { revenue: RevenueStats[], expenses: ExpenseSlip[] }) => {
-    const totalRevenue = data.revenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
-    const revenueBreakdown = data.revenue.reduce((acc, stat) => {
+    // Only use the latest revenue stat for each day to avoid duplication
+    const latestDailyStats: { [date: string]: RevenueStats } = {};
+    data.revenue.forEach(stat => {
+        if (!latestDailyStats[stat.date] || new Date(stat.createdAt as string) > new Date(latestDailyStats[stat.date].createdAt as string)) {
+            latestDailyStats[stat.date] = stat;
+        }
+    });
+
+    const dailyRevenueArray = Object.values(latestDailyStats);
+
+    const totalRevenue = dailyRevenueArray.reduce((sum, stat) => sum + stat.netRevenue, 0);
+    const revenueBreakdown = dailyRevenueArray.reduce((acc, stat) => {
         acc.cash += stat.revenueByPaymentMethod.cash || 0;
         acc.techcombankVietQrPro += stat.revenueByPaymentMethod.techcombankVietQrPro || 0;
         acc.shopeeFood += stat.revenueByPaymentMethod.shopeeFood || 0;
@@ -193,8 +214,8 @@ export default function FinancialReportPage() {
     const totalExpense = data.expenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
     
     const expenseByCategory = data.expenses.flatMap(e => e.items).reduce((acc, item) => {
-        const category = item.name.includes("Chi phí sự cố") ? 'Sự cố' : 'Nguyên liệu';
-        acc[category] = (acc[category] || 0) + (item.quantity * item.unitPrice);
+        const categoryName = item.itemId === 'other_cost' ? item.name : 'Nguyên vật liệu';
+        acc[categoryName] = (acc[categoryName] || 0) + (item.quantity * item.unitPrice);
         return acc;
     }, {} as {[key: string]: number});
     
@@ -256,7 +277,6 @@ export default function FinancialReportPage() {
               if(compareMode === 'previous') {
                   dateOffset = dateRange.from!.getTime() - comparisonPeriod.from!.getTime();
               }
-              // For monthly/yearly, we align by day of month/week, so no generic offset needed.
             }
         
             periodData.revenue.forEach(stat => {
@@ -429,7 +449,7 @@ export default function FinancialReportPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid gap-6 md:grid-cols-2 mb-8">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
         {/* Revenue Card */}
         <Card className="shadow-lg border-green-200 dark:border-green-800 bg-white dark:bg-card overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -437,30 +457,22 @@ export default function FinancialReportPage() {
             <ArrowUpCircle className="h-6 w-6 text-green-500" />
           </CardHeader>
           <CardContent>
-             <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 p-2">
-                 <div className="flex-1">
-                    {compareMode !== 'none' && <p className="text-xs text-muted-foreground">Kỳ này</p>}
-                    <div className="text-2xl font-extrabold text-green-700 dark:text-green-300">{mainSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
+            <div className="text-2xl font-extrabold text-green-700 dark:text-green-300">{mainSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
+            {compareMode !== 'none' && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>So với {comparisonSummary.totalRevenue.toLocaleString('vi-VN')}đ</span>
+                    <ChangeIndicator value={calculateChange(mainSummary.totalRevenue, comparisonSummary.totalRevenue)} />
                 </div>
-                {compareMode !== 'none' && (
-                    <div className="flex-1 md:text-right">
-                         <p className="text-xs text-muted-foreground">Kỳ trước</p>
-                        <div className="text-2xl font-extrabold text-green-700/70 dark:text-green-300/70">{comparisonSummary.totalRevenue.toLocaleString('vi-VN')}đ</div>
-                         <div className="flex items-center justify-start md:justify-end">
-                            <ChangeIndicator value={calculateChange(mainSummary.totalRevenue, comparisonSummary.totalRevenue)} />
-                        </div>
-                    </div>
-                )}
-             </div>
+            )}
             <Separator className="my-4"/>
             <div className="space-y-2 text-sm">
                 {Object.entries(mainSummary.revenueBreakdown).map(([key, value]) => {
+                  if (value === 0) return null;
                   const comparisonValue = compareMode !== 'none' ? comparisonSummary.revenueBreakdown[key as keyof typeof comparisonSummary.revenueBreakdown] : undefined;
                   return (
                     <div key={key} className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1">
                         <span className="font-medium">{PAYMENT_METHOD_NAMES[key]}:</span>
                         <div className="flex items-baseline gap-2">
-                            {compareMode !== 'none' && <span className="font-normal text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
                             <span className="font-semibold">{value.toLocaleString('vi-VN')}đ</span>
                         </div>
                     </div>
@@ -476,30 +488,21 @@ export default function FinancialReportPage() {
             <ArrowDownCircle className="h-6 w-6 text-red-500" />
           </CardHeader>
           <CardContent>
-             <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 p-2">
-                 <div className="flex-1">
-                    {compareMode !== 'none' && <p className="text-xs text-muted-foreground">Kỳ này</p>}
-                    <div className="text-2xl font-extrabold text-red-700 dark:text-red-300">{mainSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
+            <div className="text-2xl font-extrabold text-red-700 dark:text-red-300">{mainSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
+            {compareMode !== 'none' && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>So với {comparisonSummary.totalExpense.toLocaleString('vi-VN')}đ</span>
+                    <ChangeIndicator value={calculateChange(mainSummary.totalExpense, comparisonSummary.totalExpense)} />
                 </div>
-                 {compareMode !== 'none' && (
-                    <div className="flex-1 md:text-right">
-                         <p className="text-xs text-muted-foreground">Kỳ trước</p>
-                        <div className="text-2xl font-extrabold text-red-700/70 dark:text-red-300/70">{comparisonSummary.totalExpense.toLocaleString('vi-VN')}đ</div>
-                         <div className="flex items-center justify-start md:justify-end">
-                            <ChangeIndicator value={calculateChange(mainSummary.totalExpense, comparisonSummary.totalExpense)} />
-                        </div>
-                    </div>
-                )}
-            </div>
+            )}
              <Separator className="my-4"/>
              <div className="space-y-2 text-sm">
                 {Object.entries(mainSummary.expenseByCategory).map(([key, value]) => {
-                  const comparisonValue = compareMode !== 'none' ? (comparisonSummary.expenseByCategory[key] || 0) : undefined;
+                  if (value === 0) return null;
                   return(
                     <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1" key={key}>
                       <span className="font-medium flex items-center gap-2">{key}:</span> 
                       <div className="flex items-baseline gap-2">
-                         {compareMode !== 'none' && <span className="font-normal text-muted-foreground text-xs">({(comparisonValue || 0).toLocaleString('vi-VN')}đ)</span>}
                          <span className="font-semibold">{value.toLocaleString('vi-VN')}đ</span>
                       </div>
                     </div>
@@ -508,13 +511,29 @@ export default function FinancialReportPage() {
             </div>
           </CardContent>
         </Card>
+        {/* Profit Card */}
+        <Card className="shadow-lg border-blue-200 dark:border-blue-800 bg-white dark:bg-card overflow-hidden md:col-span-2 lg:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-bold text-blue-600 dark:text-blue-400">LỢI NHUẬN</CardTitle>
+            <TrendingUp className="h-6 w-6 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-extrabold text-blue-700 dark:text-blue-300">{mainSummary.totalProfit.toLocaleString('vi-VN')}đ</div>
+             {compareMode !== 'none' && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>So với {comparisonSummary.totalProfit.toLocaleString('vi-VN')}đ</span>
+                    <ChangeIndicator value={calculateChange(mainSummary.totalProfit, comparisonSummary.totalProfit)} />
+                </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Chart & Details Tabs */}
       <Tabs defaultValue="chart">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="chart"><BarChart className="mr-2" />Biểu đồ</TabsTrigger>
-          <TabsTrigger value="details"><List className="mr-2" />Chi tiết</TabsTrigger>
+          <TabsTrigger value="details"><List className="mr-2" />Chi tiết theo ngày</TabsTrigger>
         </TabsList>
         <TabsContent value="chart" className="mt-4">
             <div className="grid gap-6 lg:grid-cols-2">
@@ -581,17 +600,20 @@ export default function FinancialReportPage() {
         <TabsContent value="details" className="mt-4">
           <Accordion type="multiple" defaultValue={detailedData.map(d => d.date)} className="space-y-2">
             {detailedData.map((dayData, index) => {
-              const totalDailyRevenue = dayData.revenue.reduce((sum, r) => sum + r.netRevenue, 0);
+              const latestRevenueStat = dayData.revenue.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
+              const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
               const totalDailyExpense = dayData.expenses.reduce((sum, e) => sum + e.totalAmount, 0);
+              const totalDailyProfit = totalDailyRevenue - totalDailyExpense;
 
               return (
               <AccordionItem value={dayData.date} key={index} className="bg-white dark:bg-card border rounded-lg">
-                <AccordionTrigger className="p-4 text-base font-semibold">
-                  <div className="w-full flex justify-between items-center">
+                <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
+                  <div className="w-full flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                     <span>Ngày {format(new Date(dayData.date), "dd/MM/yyyy")}</span>
-                    <div className="flex gap-4 text-sm">
+                    <div className="flex gap-2 sm:gap-4 text-sm font-normal flex-wrap">
                       <span className="text-green-600">Thu: {totalDailyRevenue.toLocaleString('vi-VN')}đ</span>
                       <span className="text-red-600">Chi: {totalDailyExpense.toLocaleString('vi-VN')}đ</span>
+                      <span className={cn("font-bold", totalDailyProfit >= 0 ? 'text-blue-600' : 'text-destructive')}>Lợi nhuận: {totalDailyProfit.toLocaleString('vi-VN')}đ</span>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -599,32 +621,40 @@ export default function FinancialReportPage() {
                   <div className="grid gap-6 md:grid-cols-2">
                     <div>
                         <h4 className="font-semibold mb-2 text-green-600">Doanh thu</h4>
-                        <Table>
-                            <TableBody>
-                                {dayData.revenue.length > 0 ? dayData.revenue.map((item, idx) => (
-                                    <TableRow key={`rev-${idx}`}>
-                                        <TableCell>Doanh thu từ POS</TableCell>
-                                        <TableCell className="text-right font-medium text-green-600">{item.netRevenue.toLocaleString('vi-VN')}đ</TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground">Không có</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
+                        {latestRevenueStat ? (
+                             <Table>
+                                <TableBody>
+                                    <TableRow><TableCell className="text-muted-foreground">Doanh thu Net</TableCell><TableCell className="text-right font-bold">{latestRevenueStat.netRevenue.toLocaleString('vi-VN')}đ</TableCell></TableRow>
+                                    {Object.entries(latestRevenueStat.revenueByPaymentMethod).map(([key, value]) => {
+                                        if (value === 0) return null;
+                                        return (
+                                            <TableRow key={key}>
+                                                <TableCell className="pl-6">{PAYMENT_METHOD_NAMES[key]}</TableCell>
+                                                <TableCell className="text-right">{value.toLocaleString('vi-VN')}đ</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        ) : <p className="text-center text-sm text-muted-foreground py-2">Không có</p>}
                     </div>
                     <div>
                         <h4 className="font-semibold mb-2 text-red-600">Chi phí</h4>
-                        <Table>
-                            <TableBody>
-                                {dayData.expenses.length > 0 ? dayData.expenses.map((item, idx) => (
-                                    <TableRow key={`exp-${idx}`}>
-                                        <TableCell>
-                                            {item.items.map(i => i.shortName).join(', ')}
-                                            <Badge variant={item.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="ml-2">{item.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-red-600">{item.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground">Không có</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
+                        {dayData.expenses.length > 0 ? (
+                            <Table>
+                                <TableBody>
+                                    {dayData.expenses.map((item, idx) => (
+                                        <TableRow key={`exp-${idx}`}>
+                                            <TableCell>
+                                                <p>{getSlipContentName(item.items[0])}{item.items.length > 1 ? ` và ${item.items.length - 1} mục khác` : ''}</p>
+                                                <Badge variant={item.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="text-xs">{item.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-red-600">{item.totalAmount.toLocaleString('vi-VN')}đ</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : <p className="text-center text-sm text-muted-foreground py-2">Không có</p>}
                     </div>
                   </div>
                 </AccordionContent>
@@ -636,3 +666,4 @@ export default function FinancialReportPage() {
     </div>
   );
 }
+
