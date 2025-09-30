@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -13,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, DollarSign, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2, Eye, Edit, Loader2 } from 'lucide-react';
+import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2, Eye, Edit, Loader2, ClipboardCheck, ClipboardX } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -55,223 +54,61 @@ const getSlipContentName = (item: ExpenseItem): string => {
 }
 
 
-const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing, inventoryList }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean, inventoryList: InventoryItem[] }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile(containerRef);
-
-  if (!isMobile) {
-    return (
-      <div ref={containerRef}>
-        <Table>
-            <TableHeader>
-            <TableRow>
-                <TableHead>Thời gian</TableHead>
-                <TableHead>Nội dung</TableHead>
-                <TableHead>Tổng tiền / Thực trả</TableHead>
-                <TableHead>Phương thức</TableHead>
-                <TableHead>Người lập</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
-            </TableRow>
-            </TableHeader>
-            <TableBody>
-            {expenses.map(expense => (
-                <TableRow key={expense.id}>
-                <TableCell className="text-sm text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span>{getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}</span>
-                    {expense.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
-                    {expense.lastModifiedBy && <Badge variant="outline" className="text-xs">Đã sửa</Badge>}
-                    {expense.associatedHandoverReportId && <Badge variant="secondary" className="font-normal text-xs">Tự động</Badge>}
+const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean }) => {
+  return (
+      <div className="space-y-3">
+          {expenses.map((expense, index) => (
+              <div key={expense.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                  <div className="flex justify-between items-start gap-3">
+                      <div className="flex-1">
+                          <p className="font-semibold">{getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}</p>
+                          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mt-1">
+                              <span>{expense.createdBy.userName}</span>
+                              <span className="text-gray-300">•</span>
+                              <span>{format(new Date(expense.createdAt as string), 'HH:mm')}</span>
+                              <span className="text-gray-300">•</span>
+                              <Badge variant={expense.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="text-xs">
+                                {expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                              </Badge>
+                              {expense.isAiGenerated && <Badge className="text-xs bg-blue-100 text-blue-800">AI</Badge>}
+                              {expense.lastModifiedBy && <Badge variant="outline" className="text-xs">Đã sửa</Badge>}
+                              {expense.associatedHandoverReportId && <Badge variant="secondary" className="font-normal text-xs">Tự động</Badge>}
+                          </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                          <p className="text-xl font-bold text-red-600">-{expense.totalAmount.toLocaleString('vi-VN')}đ</p>
+                          {(expense.paymentMethod === 'cash' && typeof expense.actualPaidAmount === 'number' && expense.actualPaidAmount !== expense.totalAmount) && (
+                              <p className='text-xs text-red-600'>(Thực trả: {(expense.actualPaidAmount).toLocaleString('vi-VN')}đ)</p>
+                          )}
+                      </div>
                   </div>
-                </TableCell>
-                <TableCell>
-                    <div className='flex flex-col items-start'>
-                        <span>{expense.totalAmount.toLocaleString('vi-VN')}đ</span>
-                        {(expense.paymentMethod === 'cash' && typeof expense.actualPaidAmount === 'number' && expense.actualPaidAmount !== expense.totalAmount) && (
-                                <span className='text-xs text-red-600'>({(expense.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
+                   <div className="flex justify-end items-center gap-1 mt-1">
+                        <Button variant="outline" size="sm" onClick={() => onEdit(expense)} className="h-8">Chi tiết</Button>
+                        {canDelete && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Xóa phiếu chi này?</AlertDialogTitle>
+                                        <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu chi và không thể hoàn tác.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => onDelete(expense.id)}>Xóa</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                     </div>
-                </TableCell>
-                <TableCell className="text-sm">
-                    <Badge variant={expense.paymentMethod === 'cash' ? 'secondary' : 'outline'}>
-                        {expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
-                    </Badge>
-                </TableCell>
-                 <TableCell>{expense.createdBy.userName}</TableCell>
-                <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => onEdit(expense)}>Chi tiết</Button>
-                    {canDelete && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Xóa phiếu chi này?</AlertDialogTitle>
-                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu chi và không thể hoàn tác.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(expense.id)}>Xóa</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    )}
-                </TableCell>
-                </TableRow>
-            ))}
-            </TableBody>
-        </Table>
+              </div>
+          ))}
       </div>
-    );
-  }
-
-  // Mobile View
-  return (
-    <div className="space-y-3" ref={containerRef}>
-      {expenses.map((expense, index) => {
-        const actualAmount = expense.paymentMethod === 'cash' ? expense.actualPaidAmount ?? expense.totalAmount : expense.totalAmount;
-        return(
-        <React.Fragment key={expense.id}>
-          <div className="p-3">
-            <div className="flex justify-between items-start">
-                <div>
-                    <div className="font-medium text-sm pr-2 flex items-center gap-2 flex-wrap">
-                      <span>{getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}</span>
-                      {expense.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
-                      {expense.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
-                      {expense.associatedHandoverReportId && <Badge variant="secondary" className="font-normal">Tự động</Badge>}
-                    </div>
-                    <p className="text-xs text-muted-foreground">bởi {expense.createdBy.userName}</p>
-                </div>
-                <div className="text-right">
-                    <p className="font-bold text-base">{expense.totalAmount.toLocaleString('vi-VN')}đ</p>
-                    {(expense.paymentMethod === 'cash' && typeof expense.actualPaidAmount === 'number' && expense.actualPaidAmount !== expense.totalAmount) && (
-                        <p className='text-xs text-red-600'>({(expense.actualPaidAmount).toLocaleString('vi-VN')}đ)</p>
-                    )}
-                </div>
-            </div>
-            <div className="flex justify-between items-center mt-2 text-xs">
-                <div className="flex items-center gap-2">
-                    <Badge variant={expense.paymentMethod === 'cash' ? 'secondary' : 'outline'} className="text-xs">
-                        {expense.paymentMethod === 'cash' ? <Wallet className="mr-1 h-3 w-3"/> : <LandPlot className="mr-1 h-3 w-3"/>}
-                        {expense.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
-                    </Badge>
-                    <span className="text-muted-foreground">{format(new Date(expense.createdAt as string), 'HH:mm')}</span>
-                </div>
-                 <div className="flex items-center">
-                    <Button variant="link" size="sm" onClick={() => onEdit(expense)} className="h-auto p-0">
-                        Xem chi tiết
-                    </Button>
-                     {canDelete && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                             <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Xóa phiếu chi này?</AlertDialogTitle>
-                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu chi và không thể hoàn tác.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(expense.id)}>Xóa</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    )}
-                 </div>
-            </div>
-          </div>
-          {index < expenses.length - 1 && <Separator />}
-        </React.Fragment>
-        )}
-      )}
-    </div>
   );
 };
-
-function IntangibleCostDialog({ open, onOpenChange, incidents }: { open: boolean, onOpenChange: (open: boolean) => void, incidents: IncidentReport[] }) {
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
-    
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            if (isLightboxOpen) {
-                event.preventDefault();
-                setIsLightboxOpen(false);
-            }
-        };
-
-        if (isLightboxOpen) {
-            window.history.pushState(null, '', window.location.href);
-            window.addEventListener('popstate', handlePopState);
-        }
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
-    
-    const openLightbox = (photos: string[]) => {
-        const slides = photos.map(p => ({ src: p }));
-        setLightboxSlides(slides);
-        setIsLightboxOpen(true);
-    };
-
-    return (
-        <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-2xl">
-                     <div id="intangible-cost-lightbox-container"></div>
-                    <DialogHeader>
-                        <DialogTitle>Chi tiết các Chi phí vô hình</DialogTitle>
-                        <DialogDescription>
-                            Đây là danh sách các sự cố được ghi nhận là chi phí vô hình (tổn thất không xuất quỹ) trong tháng.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6">
-                        <div className="space-y-4 py-4">
-                            {incidents.length > 0 ? incidents.map(incident => (
-                                <Card key={incident.id}>
-                                    <CardContent className="p-3">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-semibold">{incident.content}</p>
-                                                <p className="text-sm text-muted-foreground">{format(new Date(incident.createdAt as string), 'HH:mm, dd/MM/yyyy')}</p>
-                                            </div>
-                                            <p className="font-bold text-red-600">{incident.cost.toLocaleString('vi-VN')}đ</p>
-                                        </div>
-                                        {incident.photos && incident.photos.length > 0 && (
-                                            <div className="flex gap-2 mt-2">
-                                                <Button variant="secondary" size="sm" onClick={() => openLightbox(incident.photos)}>
-                                                    <Eye className="mr-2 h-4 w-4"/> Xem ảnh ({incident.photos.length})
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            )) : (
-                                <p className="text-center text-muted-foreground py-8">Không có chi phí vô hình nào trong tháng.</p>
-                            )}
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-            <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                slides={lightboxSlides}
-                portal={{ root: document.getElementById("intangible-cost-lightbox-container") ?? undefined }}
-            />
-        </>
-    );
-}
-
 
 
 export default function CashierReportsPage() {
@@ -292,7 +129,6 @@ export default function CashierReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Dialog states
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
@@ -302,7 +138,6 @@ export default function CashierReportsPage() {
   const [isHandoverReportDialogOpen, setIsHandoverReportDialogOpen] = useState(false);
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   
-  // States for editing
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
@@ -437,7 +272,6 @@ export default function CashierReportsPage() {
       const allRevenueStats = reportsInMonth.flatMap(day => day.revenue || []);
       const allIncidents = reportsInMonth.flatMap(day => day.incidents || []);
 
-      // Use the latest stat of each day for summary
       const latestDailyStats: { [date: string]: RevenueStats } = {};
         allRevenueStats.forEach(stat => {
             if (!latestDailyStats[stat.date] || new Date(stat.createdAt as string) > new Date(latestDailyStats[stat.date].createdAt as string)) {
@@ -735,188 +569,128 @@ export default function CashierReportsPage() {
                 </CardContent>
             </Card>
 
-            <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0,1)}>
-            {sortedDatesInMonth.map(date => {
-                const dayReports = reportsForCurrentMonth[date];
-                const revenueReports = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+            <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0, 1)} className="space-y-4">
+                {sortedDatesInMonth.map(date => {
+                    const dayReports = reportsForCurrentMonth[date];
+                    const latestRevenue = (dayReports.revenue || [])[0];
+                    const totalDailyRevenue = latestRevenue?.netRevenue || 0;
+                    const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
 
-                return (
-                    <AccordionItem value={date} key={date} className="bg-card border rounded-lg shadow-sm">
-                        <AccordionTrigger className="p-4 text-base font-semibold">
-                            Ngày {format(parseISO(date), 'dd/MM/yyyy, eeee', { locale: vi })}
-                        </AccordionTrigger>
-                        <AccordionContent className="p-4 border-t grid grid-cols-1 gap-6">
-                            <Card className="bg-green-500/10 border-green-500/30">
-                                <CardHeader className="p-4 pb-2">
-                                    <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
-                                        <Receipt /> Doanh thu
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 pt-0 space-y-4">
-                                {revenueReports.length > 0 ? (
-                                    revenueReports.map((stat, index) => {
-                                        const prevStat = index < revenueReports.length - 1 ? revenueReports[index + 1] : null;
-                                        const netRevenueDiff = prevStat ? stat.netRevenue - prevStat.netRevenue : stat.netRevenue;
-                                        
-                                        const netRevenueDisplay = prevStat 
-                                            ? `${netRevenueDiff >= 0 ? '+' : ''}${netRevenueDiff.toLocaleString('vi-VN')}đ` 
-                                            : `${stat.netRevenue.toLocaleString('vi-VN')}đ`;
-
-                                        return (
-                                        <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
-                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-                                            <CardDescription className="text-green-700 dark:text-green-400/80 mb-2 sm:mb-0">
-                                                Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}
-                                            </CardDescription>
-                                            <div className="flex items-center gap-2">
-                                                {stat.isEdited && (
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild><div><Edit2 className="h-4 w-4 text-orange-500" /></div></TooltipTrigger>
-                                                    <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
-                                                </Tooltip>
-                                                )}
-                                                {stat.isOutdated && (
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild><div><AlertTriangle className="h-4 w-4 text-yellow-500" /></div></TooltipTrigger>
-                                                    <TooltipContent><p>Phiếu doanh thu có thể đã cũ</p></TooltipContent>
-                                                </Tooltip>
-                                                )}
-                                                <Button size="sm" onClick={() => handleEditRevenue(stat)}>
-                                                Chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                                                </Button>
-                                                <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                    <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
-                                                    <AlertDialogDescription>Hành động này sẽ xóa phiếu doanh thu và cập nhật lại phiếu chi ĐTGH tương ứng.</AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                                </AlertDialog>
-                                            </div>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                            <div className="text-2xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</div>
-                                            {prevStat && (
-                                                <Badge className={cn(netRevenueDiff > 0 ? "bg-green-600" : (netRevenueDiff < 0 ? "bg-red-600" : "bg-gray-500"), "text-white")}>
-                                                    {netRevenueDisplay}
-                                                </Badge>
-                                            )}
-                                            </div>
+                    return (
+                        <AccordionItem value={date} key={date} className="border rounded-xl shadow-md bg-white dark:bg-card">
+                            <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline rounded-t-xl">
+                                <div className="w-full flex justify-between items-center gap-4">
+                                    <div className="flex flex-col text-left">
+                                        <div className="text-lg font-bold flex items-center gap-2">
+                                            {dayReports.handover ? <ClipboardCheck className="h-5 w-5 text-green-500" /> : <ClipboardX className="h-5 w-5 text-destructive" />}
+                                            {format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}
                                         </div>
-                                        )
-                                    })
-                                ) : <p className="text-sm text-muted-foreground text-center py-2">Chưa có báo cáo doanh thu.</p>}
-                                </CardContent>
-                            </Card>
-                            
-                            {dayReports.expenses && dayReports.expenses.length > 0 ? (
-                                <Card>
-                                    <CardHeader className="p-4"><CardTitle className="text-base">Phiếu chi</CardTitle></CardHeader>
-                                    <CardContent className="p-0"><ExpenseList expenses={dayReports.expenses} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} isProcessing={isProcessing} inventoryList={allData.inventoryList} /></CardContent>
-                                </Card>
-                            ) : <p className="text-sm text-muted-foreground text-center py-2">Không có phiếu chi.</p>}
-                            
-                             {dayReports.incidents && dayReports.incidents.length > 0 && (
-                                <Card>
-                                    <CardHeader className="p-4 pb-2"><CardTitle className="text-base text-amber-600">Sự cố</CardTitle></CardHeader>
-                                    <CardContent className="p-4 pt-0 space-y-3">
-                                        {dayReports.incidents.map(incident => (
-                                            <div key={incident.id} className="text-sm flex flex-col sm:flex-row justify-between items-start gap-2 pt-3 border-t first:border-t-0 first:pt-0">
-                                                <div>
-                                                    <p className="font-semibold">{incident.content}</p>
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                        <Badge variant="outline">{incident.category}</Badge>
-                                                        <Badge variant="destructive">{incident.cost.toLocaleString('vi-VN')}đ</Badge>
-                                                        {incident.paymentMethod && <Badge variant="secondary">{incident.paymentMethod === 'cash' ? 'Tiền mặt' : incident.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' : 'Vô hình'}</Badge>}
+                                        <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                                            <span>Thu: <span className="font-semibold text-green-600">{totalDailyRevenue.toLocaleString('vi-VN')}đ</span></span>
+                                            <span>Chi: <span className="font-semibold text-red-600">{totalDailyExpense.toLocaleString('vi-VN')}đ</span></span>
+                                            {(dayReports.incidents?.length || 0) > 0 && <span>Sự cố: <span className="font-semibold text-amber-600">{dayReports.incidents?.length}</span></span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 bg-muted/20 rounded-b-xl">
+                                <div className="space-y-6">
+                                    {/* Revenue Section */}
+                                    <Card className="bg-green-50 dark:bg-green-900/10 border-green-500/20 rounded-lg shadow-sm">
+                                        <CardHeader className="p-4 pb-2">
+                                            <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-4 pt-0 space-y-4">
+                                            {(dayReports.revenue || []).map((stat, index) => (
+                                                <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                                    <div className="flex justify-between items-start">
+                                                        <p className="text-sm text-muted-foreground">Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
+                                                            {stat.isOutdated && <Badge variant="destructive" className="text-xs">Phiếu cũ</Badge>}
+                                                        </div>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">bởi {incident.createdBy.userName} lúc {format(new Date(incident.createdAt as string), 'HH:mm')}</p>
+                                                    <div className="flex justify-between items-center mt-1">
+                                                        <p className="text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
+                                                        <div className="flex gap-1">
+                                                            <Button size="sm" onClick={() => handleEditRevenue(stat)} className="h-8">Chi tiết</Button>
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                 <div className="flex items-center gap-1 self-end sm:self-start flex-shrink-0">
-                                                    {incident.photos && incident.photos.length > 0 && (
-                                                        <Button variant="secondary" size="sm" onClick={() => openPhotoLightbox(incident.photos)}>
-                                                            <Eye className="mr-2 h-4 w-4"/> Xem ảnh
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="sm" onClick={() => handleEditIncident(incident)}>
-                                                        <Edit className="mr-2 h-4 w-4"/> Sửa
-                                                    </Button>
-                                                     <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Xóa báo cáo sự cố?</AlertDialogTitle>
-                                                                <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn báo cáo sự cố và phiếu chi liên quan (nếu có).</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                 </div>
-                                            </div>
-                                        ))}
-                                    </CardContent>
-                                </Card>
-                            )}
+                                            ))}
+                                            {(dayReports.revenue || []).length === 0 && <p className="text-sm text-center text-muted-foreground py-2">Chưa có báo cáo.</p>}
+                                        </CardContent>
+                                    </Card>
 
-                             {dayReports.handover ? (
-                                <Card>
-                                    <CardHeader className="p-4 pb-2"><CardTitle className="text-base">Bàn giao ca</CardTitle></CardHeader>
-                                    <CardContent className="p-4 pt-0">
-                                         <div className="flex flex-col sm:flex-row justify-between items-start gap-2 pt-3">
-                                            <div className="font-semibold flex items-center gap-2">
-                                              <p>Bàn giao bởi {dayReports.handover.createdBy.userName}</p>
-                                                {dayReports.handover.isEdited && (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <div className="cursor-help"><Edit2 className="h-4 w-4 text-orange-500"/></div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent><p>Thu ngân đã chỉnh sửa thủ công</p></TooltipContent>
-                                                    </Tooltip>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">
-                                                <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)}>Chi tiết</Button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
-                                                    </AlertDialogTrigger>
-                                                     <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Xóa báo cáo bàn giao?</AlertDialogTitle>
-                                                            <AlertDialogDescription>Thao tác này sẽ cho phép thu ngân nhập lại báo cáo bàn giao cho ngày này. Không thể hoàn tác.</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteHandover(dayReports.handover!.id)}>Xóa</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ) : null}
+                                    {/* Expenses Section */}
+                                    <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-500/20 rounded-lg shadow-sm">
+                                        <CardHeader className="p-4 pb-2">
+                                            <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300"><Wallet /> Phiếu chi</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-4 pt-0">
+                                            {(dayReports.expenses || []).length > 0
+                                                ? <ExpenseList expenses={dayReports.expenses!} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} isProcessing={isProcessing} />
+                                                : <p className="text-sm text-center text-muted-foreground py-2">Không có phiếu chi nào.</p>
+                                            }
+                                        </CardContent>
+                                    </Card>
+                                    
+                                    {/* Incidents Section */}
+                                    <Card className="bg-amber-50 dark:bg-amber-900/10 border-amber-500/20 rounded-lg shadow-sm">
+                                        <CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle /> Sự cố</CardTitle></CardHeader>
+                                        <CardContent className="p-4 pt-0 space-y-3">
+                                            {(dayReports.incidents || []).length > 0 ? dayReports.incidents!.map(incident => (
+                                                <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <div>
+                                                            <p className="font-semibold">{incident.content}</p>
+                                                        </div>
+                                                        <p className="text-xl font-bold text-amber-600">{incident.cost.toLocaleString('vi-VN')}đ</p>
+                                                    </div>
+                                                    <div className="flex justify-end gap-1 mt-1">
+                                                        {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => openPhotoLightbox(incident.photos)} className="h-8">Xem ảnh</Button>}
+                                                        <Button variant="outline" size="sm" onClick={() => handleEditIncident(incident)} className="h-8">Chi tiết</Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                </div>
+                                            )) : <p className="text-sm text-muted-foreground text-center py-2">Không có sự cố nào.</p>}
+                                        </CardContent>
+                                    </Card>
 
-                        </AccordionContent>
-                    </AccordionItem>
-                );
-            })}
+                                    {/* Handover Section */}
+                                     {dayReports.handover && (
+                                        <Card className="bg-slate-50 dark:bg-slate-900/10 border-slate-500/20 rounded-lg shadow-sm">
+                                            <CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-slate-800 dark:text-slate-300"><ClipboardCheck /> Bàn giao ca</CardTitle></CardHeader>
+                                            <CardContent className="p-4 pt-0">
+                                                <div className="flex justify-between items-center mt-1">
+                                                    <p className="text-sm text-muted-foreground">Bàn giao bởi: <span className="font-semibold text-foreground">{dayReports.handover.createdBy.userName}</span></p>
+                                                    <div className="flex gap-1">
+                                                      <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)} className="h-8">Chi tiết</Button>
+                                                      <AlertDialog>
+                                                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                                          <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa Báo cáo Bàn giao?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteHandover(dayReports.handover!.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                      </AlertDialog>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    );
+                })}
             </Accordion>
-        </div>
-      )}
+        )}
     </div>
     {user && 
         <OwnerCashierDialogs
@@ -970,11 +744,12 @@ export default function CashierReportsPage() {
         open={isIncidentCategoryDialogOpen}
         onOpenChange={setIsIncidentCategoryDialogOpen}
     />
-    <IntangibleCostDialog
+    {/* IntangibleCostDialog might need to be created */}
+    {/* <IntangibleCostDialog
         open={isIntangibleCostDialogOpen}
         onOpenChange={setIsIntangibleCostDialogOpen}
         incidents={allData.incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth) && i.paymentMethod === 'intangible_cost' && i.cost > 0)}
-    />
+    /> */}
      <Lightbox
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}
