@@ -118,20 +118,23 @@ export default function IncidentReportDialog({
             return;
         }
         
-        const totalPhotos = localPhotos.length + existingPhotos.length;
+        const totalPhotos = localPhotos.length + existingPhotos.length - photosToDelete.length;
         if (totalPhotos === 0) {
             toast.error('Vui lòng chụp ảnh bằng chứng cho sự cố.');
             return;
         }
 
-        onSave({ 
+        const data = { 
             content, 
             cost, 
             paymentMethod: cost > 0 ? paymentMethod : undefined,
             category: selectedCategory, 
+            photos: existingPhotos,
             photoIds: localPhotos.map(p => p.id),
             photosToDelete: photosToDelete,
-        }, violationToEdit?.id);
+        };
+        
+        onSave(data, violationToEdit?.id);
     };
     
     const handleCapturePhotos = async (capturedPhotoIds: string[]) => {

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -22,7 +23,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
@@ -711,9 +712,8 @@ export default function CashierReportsPage() {
                     );
                 })}
             </Accordion>
+            </div>
           )}
-        </div>
-      )}
     </div>
     {user && 
         <OwnerCashierDialogs
@@ -740,7 +740,7 @@ export default function CashierReportsPage() {
           reporter={user}
           categories={allData.incidentCategories}
           onCategoriesChange={dataStore.updateIncidentCategories}
-          canManage={user.role === 'Chủ nhà hàng'}
+          canManageCategories={user.role === 'Chủ nhà hàng'}
         />
     )}
     {handoverToEdit && user && (
@@ -778,4 +778,3 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
-
