@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -489,50 +488,50 @@ export default function CashierDashboardPage() {
         </header>
 
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-2 shadow-xl rounded-2xl border-primary/20 bg-gradient-to-br from-white to-blue-50 dark:from-card dark:to-primary/10">
                 <CardHeader>
-                    <CardTitle>Tổng quan trong ngày</CardTitle>
+                    <CardTitle className="text-primary">Tổng quan trong ngày</CardTitle>
                 </CardHeader>
-                 <CardContent className="space-y-2 text-base">
-                     <div className="flex justify-between items-center">
-                        <p className="text-muted-foreground flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-green-500"/> Doanh thu tiền mặt</p>
-                        <p className="font-bold text-green-600 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
+                 <CardContent className="space-y-4 text-base">
+                     <div className="flex justify-between items-center p-3 rounded-lg bg-green-500/10">
+                        <p className="font-medium text-green-700 dark:text-green-300 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5"/> Doanh thu tiền mặt</p>
+                        <p className="font-bold text-xl text-green-600 dark:text-green-300">{cashRevenue.toLocaleString('vi-VN')}đ</p>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <p className="text-muted-foreground flex items-center gap-2"><ArrowDownCircle className="h-5 w-5 text-red-500"/> Tổng chi tiền mặt</p>
-                        <p className="font-bold text-red-700 dark:text-red-300">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-red-500/10">
+                        <p className="font-medium text-red-700 dark:text-red-300 flex items-center gap-2"><ArrowDownCircle className="h-5 w-5"/> Tổng chi tiền mặt</p>
+                        <p className="font-bold text-xl text-red-700 dark:text-red-300">{totalCashExpense.toLocaleString('vi-VN')}đ</p>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center py-2 px-3">
                         <p className="text-muted-foreground">Tổng chi chuyển khoản</p>
                         <p className="font-semibold">{totalBankExpense.toLocaleString('vi-VN')}đ</p>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center py-2 px-3">
                         <div className="text-muted-foreground flex items-center gap-2">Tiền mặt đầu ca <StartOfDayCashDialog currentValue={startOfDayCash} onSave={handleSaveStartOfDayCash} /></div>
                         <p className="font-semibold">{startOfDayCash.toLocaleString('vi-VN')}đ</p>
                     </div>
                     <Separator className="my-2"/>
-                    <div className="flex justify-between items-center pt-2">
-                       <p className="font-semibold flex items-center gap-2"><Wallet className="h-5 w-5 text-blue-500"/>Tiền mặt dự kiến cuối ca</p>
-                       <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
+                    <div className="flex justify-between items-center pt-2 p-3 rounded-lg bg-blue-500/10">
+                       <p className="font-semibold text-lg text-blue-700 dark:text-blue-300 flex items-center gap-2"><Wallet className="h-6 w-6"/>Tiền mặt dự kiến cuối ca</p>
+                       <p className="text-3xl font-bold text-blue-800 dark:text-blue-200">{expectedCashOnHand.toLocaleString('vi-VN')}đ</p>
                     </div>
                 </CardContent>
             </Card>
-            <Card>
+            <Card className="shadow-xl rounded-2xl">
                 <CardHeader>
                     <CardTitle>Chức năng</CardTitle>
                     <CardDescription>Thực hiện các báo cáo và nghiệp vụ trong ca.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
-                     <Button className="h-16 text-base" variant="secondary" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
+                     <Button className="h-16 text-base rounded-xl" variant="secondary" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
                         <Receipt className="mr-2 h-5 w-5"/> Nhập Doanh thu
                      </Button>
-                     <Button className="h-16 text-base" variant="secondary" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
+                     <Button className="h-16 text-base rounded-xl" variant="secondary" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
                         <PlusCircle className="mr-2 h-5 w-5"/> Tạo Phiếu chi
                      </Button>
-                      <Button className="h-16 text-base" variant="secondary" onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }}>
+                      <Button className="h-16 text-base rounded-xl" variant="secondary" onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }}>
                         <FileWarning className="mr-2 h-5 w-5"/> Ghi nhận Sự cố
                      </Button>
-                      <Button className="h-16 text-base" variant="default" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
+                      <Button className="h-16 text-base rounded-xl" variant="default" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
                          {handoverReport ? <Lock className="mr-2 h-5 w-5" /> : <ArrowRight className="mr-2 h-5 w-5" />}
                          {handoverReport ? 'Đã Bàn Giao' : 'Bàn giao cuối ca'}
                      </Button>
@@ -540,13 +539,13 @@ export default function CashierDashboardPage() {
             </Card>
         </div>
         
-        <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef}>
+        <div className="grid grid-cols-1 gap-6 mt-6">
+             <Card ref={revenueStatsRef} className="shadow-lg rounded-2xl">
                 <CardHeader>
                     <CardTitle>Thống kê Doanh thu trong ngày</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {dailyRevenueStats.length > 0 && (
+                    {dailyRevenueStats.length > 0 ? (
                         isMobile ? (
                             <div className="space-y-3">
                                 {dailyRevenueStats.map((stat, index) => {
@@ -611,11 +610,15 @@ export default function CashierDashboardPage() {
                             </TableBody>
                         </Table>
                         )
+                    ) : (
+                        <div className="text-center py-8">
+                             <p className="text-sm text-muted-foreground mb-4">Chưa có phiếu thống kê doanh thu nào trong hôm nay.</p>
+                        </div>
                     )}
                 </CardContent>
             </Card>
 
-            <Card ref={expenseSlipsRef}>
+            <Card ref={expenseSlipsRef} className="shadow-lg rounded-2xl">
                 <CardHeader>
                     <CardTitle>Phiếu chi trong ngày</CardTitle>
                 </CardHeader>
@@ -757,7 +760,7 @@ export default function CashierDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="shadow-lg rounded-2xl">
                 <CardHeader>
                     <CardTitle>Sự cố trong ngày</CardTitle>
                 </CardHeader>
@@ -821,22 +824,12 @@ export default function CashierDashboardPage() {
         violationToEdit={incidentToEdit}
     />
      <RevenueStatsDialog
-        open={isRevenueDialogOpen && !revenueStatsToEdit}
+        open={isRevenueDialogOpen}
         onOpenChange={setIsRevenueDialogOpen}
         onSave={handleSaveRevenue}
         isProcessing={isProcessing}
-        existingStats={null}
+        existingStats={revenueStatsToEdit}
     />
-    {revenueStatsToEdit && 
-        <RevenueStatsDialog
-            open={isRevenueDialogOpen && !!revenueStatsToEdit}
-            onOpenChange={setIsRevenueDialogOpen}
-            onSave={(data, isEdited) => handleSaveRevenue(data, isEdited)}
-            isProcessing={isProcessing}
-            existingStats={revenueStatsToEdit}
-            isOwnerView
-        />
-    }
     <HandoverDialog
         open={isHandoverDialogOpen}
         onOpenChange={setIsHandoverDialogOpen}
@@ -865,5 +858,4 @@ export default function CashierDashboardPage() {
   );
 }
 
-
-
+    
