@@ -597,7 +597,7 @@ export default function CashierReportsPage() {
                             <AccordionContent className="p-4 bg-muted/20 rounded-b-xl">
                                 <div className="space-y-6">
                                     {/* Revenue Section */}
-                                    <Card className="bg-green-50 dark:bg-green-900/10 border-green-500/20 rounded-lg shadow-sm">
+                                    <Card className="border-green-500/50 rounded-lg shadow-sm">
                                         <CardHeader className="p-4 pb-2">
                                             <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle>
                                         </CardHeader>
@@ -614,7 +614,7 @@ export default function CashierReportsPage() {
                                                     <div className="flex justify-between items-center mt-1">
                                                         <p className="text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
                                                         <div className="flex gap-1">
-                                                            <Button size="sm" onClick={() => handleEditRevenue(stat)} className="h-8">Chi tiết</Button>
+                                                            <Button variant="outline" size="sm" onClick={() => handleEditRevenue(stat)} className="h-8">Chi tiết</Button>
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
@@ -639,7 +639,7 @@ export default function CashierReportsPage() {
                                     </Card>
 
                                     {/* Expenses Section */}
-                                    <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-500/20 rounded-lg shadow-sm">
+                                    <Card className="border-blue-500/50 rounded-lg shadow-sm">
                                         <CardHeader className="p-4 pb-2">
                                             <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300"><Wallet /> Phiếu chi</CardTitle>
                                         </CardHeader>
@@ -652,7 +652,7 @@ export default function CashierReportsPage() {
                                     </Card>
                                     
                                     {/* Incidents Section */}
-                                    <Card className="bg-amber-50 dark:bg-amber-900/10 border-amber-500/20 rounded-lg shadow-sm">
+                                    <Card className="border-amber-500/50 rounded-lg shadow-sm">
                                         <CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle /> Sự cố</CardTitle></CardHeader>
                                         <CardContent className="p-4 pt-0 space-y-3">
                                             {(dayReports.incidents || []).length > 0 ? dayReports.incidents!.map(incident => (
@@ -684,7 +684,7 @@ export default function CashierReportsPage() {
 
                                     {/* Handover Section */}
                                      {dayReports.handover && (
-                                        <Card className="bg-slate-50 dark:bg-slate-900/10 border-slate-500/20 rounded-lg shadow-sm">
+                                        <Card className="border-slate-500/50 rounded-lg shadow-sm">
                                             <CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-slate-800 dark:text-slate-300"><ClipboardCheck /> Bàn giao ca</CardTitle></CardHeader>
                                             <CardContent className="p-4 pt-0">
                                                 <div className="flex justify-between items-center mt-1">

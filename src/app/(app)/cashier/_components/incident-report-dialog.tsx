@@ -21,6 +21,7 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type IncidentReportDialogProps = {
@@ -29,10 +30,9 @@ type IncidentReportDialogProps = {
     onSave: (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] }, id?: string) => void;
     isProcessing: boolean;
     categories: IncidentCategory[];
-    onCategoriesChange: (newCategories: IncidentCategory[]) => void;
     canManageCategories: boolean;
     reporter: AuthUser;
-    violationToEdit: IncidentReport | null;
+    violationToEdit: IncidentReport | null; // This should be incidentToEdit
     isSelfConfession?: boolean;
 };
 
@@ -42,7 +42,6 @@ export default function IncidentReportDialog({
     onSave,
     isProcessing,
     categories,
-    onCategoriesChange,
     canManageCategories,
     reporter,
     violationToEdit, // This should be incidentToEdit
@@ -182,115 +181,117 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-card" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="sm:max-w-md bg-white dark:bg-card flex flex-col h-[90vh]" onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}>
                     <div id="incident-lightbox-container"></div>
-                    <DialogHeader>
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>
                             Ghi nhận lại các sự cố như hư hỏng thiết bị, làm vỡ tài sản...
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Người báo cáo</Label>
-                            <div className="col-span-3">
-                                <Badge variant="secondary">{reporter.displayName}</Badge>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="category" className="text-right">
-                            Loại sự cố
-                            </Label>
-                            <div className="col-span-3">
-                            <IncidentCategoryCombobox
-                                categories={categories || []}
-                                value={selectedCategory}
-                                onChange={setSelectedCategory}
-                                onCategoriesChange={onCategoriesChange}
-                                canManage={canManageCategories}
-                                placeholder="Chọn loại sự cố..."
-                            />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="content" className="text-right mt-2">
-                            Nội dung
-                            </Label>
-                            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh" />
-                        </div>
-                        <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
-                            <div className="col-span-3">
-                                <Input 
-                                  id="cost" 
-                                  type="number" 
-                                  value={cost} 
-                                  onChange={e => setCost(Number(e.target.value))} 
-                                  placeholder="0"
-                                  onFocus={(e) => e.target.select()}
-                                />
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động.
-                                </p>
-                            </div>
-                        </div>
-                         {cost > 0 && (
-                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right mt-2">Hình thức</Label>
+                    <ScrollArea className="flex-grow -mx-6 px-6">
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Người báo cáo</Label>
                                 <div className="col-span-3">
-                                    <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-2 sm:gap-4 flex-wrap">
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="cash" id="pm-inc-1" />
-                                            <Label htmlFor="pm-inc-1">Tiền mặt</Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="bank_transfer" id="pm-inc-2" />
-                                            <Label htmlFor="pm-inc-2">Chuyển khoản</Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="intangible_cost" id="pm-inc-3" />
-                                            <Label htmlFor="pm-inc-3">Chi phí vô hình</Label>
-                                        </div>
-                                    </RadioGroup>
+                                    <Badge variant="secondary">{reporter.displayName}</Badge>
                                 </div>
-                             </div>
-                        )}
-                         <div className="grid grid-cols-4 items-start gap-4">
-                            <Label className="text-right mt-2">Bằng chứng (bắt buộc)</Label>
-                             <div className="col-span-3 space-y-2">
-                                <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
-                                    <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
-                                </Button>
-                                {allPhotos.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {allPhotos.map((photo, i) => (
-                                            <div key={photo.id} className="relative h-20 w-20 rounded-md overflow-hidden group">
-                                                 <button onClick={() => openLightbox(i)} className="w-full h-full">
-                                                    <Image src={photo.url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
-                                                 </button>
-                                                 <Button 
-                                                    variant="destructive" 
-                                                    size="icon" 
-                                                    className="absolute top-0.5 right-0.5 h-5 w-5" 
-                                                    onClick={() => {
-                                                        const isLocal = localPhotos.some(p => p.id === photo.id);
-                                                        if (isLocal) {
-                                                            handleDeleteLocalPhoto(photo.id);
-                                                        } else {
-                                                            handleDeleteExistingPhoto(photo.url);
-                                                        }
-                                                    }}
-                                                >
-                                                     <X className="h-3 w-3" />
-                                                 </Button>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="category" className="text-right">
+                                Loại sự cố
+                                </Label>
+                                <div className="col-span-3">
+                                <IncidentCategoryCombobox
+                                    categories={categories || []}
+                                    value={selectedCategory}
+                                    onChange={setSelectedCategory}
+                                    onCategoriesChange={onCategoriesChange}
+                                    canManage={canManageCategories}
+                                    placeholder="Chọn loại sự cố..."
+                                />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="content" className="text-right mt-2">
+                                Nội dung
+                                </Label>
+                                <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh" />
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
+                                <div className="col-span-3">
+                                    <Input 
+                                    id="cost" 
+                                    type="number" 
+                                    value={cost} 
+                                    onChange={e => setCost(Number(e.target.value))} 
+                                    placeholder="0"
+                                    onFocus={(e) => e.target.select()}
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động.
+                                    </p>
+                                </div>
+                            </div>
+                            {cost > 0 && (
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label className="text-right mt-2">Hình thức</Label>
+                                    <div className="col-span-3">
+                                        <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-2 sm:gap-4 flex-wrap">
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="cash" id="pm-inc-1" />
+                                                <Label htmlFor="pm-inc-1">Tiền mặt</Label>
                                             </div>
-                                        ))}
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="bank_transfer" id="pm-inc-2" />
+                                                <Label htmlFor="pm-inc-2">Chuyển khoản</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="intangible_cost" id="pm-inc-3" />
+                                                <Label htmlFor="pm-inc-3">Chi phí vô hình</Label>
+                                            </div>
+                                        </RadioGroup>
                                     </div>
-                                )}
-                             </div>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right mt-2">Bằng chứng (bắt buộc)</Label>
+                                <div className="col-span-3 space-y-2">
+                                    <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
+                                        <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
+                                    </Button>
+                                    {allPhotos.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {allPhotos.map((photo, i) => (
+                                                <div key={photo.id} className="relative h-20 w-20 rounded-md overflow-hidden group">
+                                                    <button onClick={() => openLightbox(i)} className="w-full h-full">
+                                                        <Image src={photo.url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
+                                                    </button>
+                                                    <Button 
+                                                        variant="destructive" 
+                                                        size="icon" 
+                                                        className="absolute top-0.5 right-0.5 h-5 w-5" 
+                                                        onClick={() => {
+                                                            const isLocal = localPhotos.some(p => p.id === photo.id);
+                                                            if (isLocal) {
+                                                                handleDeleteLocalPhoto(photo.id);
+                                                            } else {
+                                                                handleDeleteExistingPhoto(photo.url);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <DialogFooter>
+                    </ScrollArea>
+                    <DialogFooter className="shrink-0">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing}>
                             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
