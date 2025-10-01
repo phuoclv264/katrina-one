@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory } from '@/lib/types';
 import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, Edit2 } from 'lucide-react';
-import { ItemMultiSelect } from '@/components/item-multi-select';
+import { ItemMultiSelect } from './item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -598,10 +598,10 @@ export default function ExpenseSlipDialog({
     };
 
     const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
-        setItems(prevItems => [...prevItems, ...confirmedItems]);
-        setDiscount(prevDiscount => prevDiscount + totalDiscount);
+        setItems(confirmedItems);
+        setDiscount(totalDiscount);
         setIsAiRescanned(true);
-    }
+    };
 
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         setShowMissingAttachmentAlert(false);
