@@ -6,9 +6,9 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
@@ -19,7 +19,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
-import OwnerRevenueStatsDialog from '../reports/cashier/_components/owner-revenue-stats-dialog';
 import HandoverDialog from './_components/handover-dialog';
 import HandoverComparisonDialog from './_components/handover-comparison-dialog';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -518,67 +517,33 @@ export default function CashierDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-            <Card className="border-yellow-500/50">
+            <Card>
                 <CardHeader>
-                    <CardTitle className="text-yellow-800 dark:text-yellow-300">Báo cáo Sự cố</CardTitle>
-                    <CardDescription className="text-yellow-700 dark:text-yellow-400">Ghi nhận các sự cố làm hư hỏng, thất thoát tài sản.</CardDescription>
+                    <CardTitle>Chức năng</CardTitle>
+                    <CardDescription>Thực hiện các báo cáo và nghiệp vụ trong ca.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    {dailyIncidents.length > 0 && (
-                        <Accordion type="single" collapsible className="w-full mb-4">
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger>Xem {dailyIncidents.length} sự cố đã ghi nhận</AccordionTrigger>
-                            <AccordionContent>
-                                <div className="space-y-3 mt-2">
-                                {dailyIncidents.map(incident => {
-                                    const canEdit = incident.createdBy.userId === user.uid;
-                                    return (
-                                        <div key={incident.id} className="p-2 bg-background rounded-md text-sm">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="font-medium">{incident.content}</p>
-                                                    <p className="text-xs text-muted-foreground">Chi phí: {incident.cost.toLocaleString('vi-VN')}đ</p>
-                                                </div>
-                                                {canEdit && (
-                                                    <div className="flex">
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditIncident(incident)}><Edit className="h-4 w-4"/></Button>
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
-                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteIncident(incident)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {incident.photos && incident.photos.length > 0 && (
-                                                <div className="mt-2 flex gap-2">
-                                                    <Button variant="outline" size="sm" onClick={() => openPhotoLightbox(incident.photos)}>
-                                                        <Eye className="h-4 w-4 mr-2"/> Xem {incident.photos.length} ảnh
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                        </Accordion>
-                    )}
-                    <Button variant="outline" className="w-full border-yellow-500/50 hover:bg-yellow-500/20 text-yellow-600" onClick={() => { setIncidentToEdit(null); setIsIncidentDialogOpen(true); }}>
-                        <AlertTriangle className="mr-2 h-4 w-4" />
-                        Tạo Báo cáo Sự cố
-                    </Button>
+                <CardContent className="flex flex-col gap-3">
+                     <Button className="h-16 text-base" variant="secondary" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
+                        <Receipt className="mr-2 h-5 w-5"/> Nhập Doanh thu
+                     </Button>
+                     <Button className="h-16 text-base" variant="secondary" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
+                        <PlusCircle className="mr-2 h-5 w-5"/> Tạo Phiếu chi
+                     </Button>
+                      <Button className="h-16 text-base" variant="secondary" onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }}>
+                        <FileWarning className="mr-2 h-5 w-5"/> Ghi nhận Sự cố
+                     </Button>
+                      <Button className="h-16 text-base" variant="default" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
+                         {handoverReport ? <Lock className="mr-2 h-5 w-5" /> : <ArrowRight className="mr-2 h-5 w-5" />}
+                         {handoverReport ? 'Đã Bàn Giao' : 'Bàn giao cuối ca'}
+                     </Button>
                 </CardContent>
             </Card>
         </div>
         
         <div className="grid grid-cols-1 gap-6">
-             <Card ref={revenueStatsRef} className="border-green-500/50">
+             <Card ref={revenueStatsRef}>
                 <CardHeader>
-                    <CardTitle className="text-green-800 dark:text-green-300">Thống kê Doanh thu</CardTitle>
-                    <CardDescription className="text-green-700 dark:text-green-400">
-                        Nhập số liệu từ bill tổng kết trên máy POS. Phiếu mới nhất sẽ được dùng để tính toán tổng quan.
-                    </CardDescription>
+                    <CardTitle>Thống kê Doanh thu trong ngày</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {dailyRevenueStats.length > 0 && (
@@ -588,7 +553,7 @@ export default function CashierDashboardPage() {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     const isLatest = index === 0;
                                     return (
-                                        <Card key={stat.id} className={cn(isLatest && "border-green-600 bg-card")}>
+                                        <Card key={stat.id} className={cn(isLatest && "border-primary bg-card")}>
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1">
@@ -625,7 +590,7 @@ export default function CashierDashboardPage() {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     const isLatest = index === 0;
                                     return (
-                                        <TableRow key={stat.id} className={cn(isLatest && "bg-green-600/5")}>
+                                        <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                             <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
                                             <TableCell className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
@@ -647,19 +612,12 @@ export default function CashierDashboardPage() {
                         </Table>
                         )
                     )}
-                     <div className="mt-4">
-                        <Button className="w-full bg-green-500 hover:bg-green-600" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Nhập Thống kê Doanh thu
-                        </Button>
-                    </div>
                 </CardContent>
             </Card>
 
-            <Card ref={expenseSlipsRef} className="border-red-500/50">
+            <Card ref={expenseSlipsRef}>
                 <CardHeader>
-                    <CardTitle className="text-red-800 dark:text-red-300">Quản lý Phiếu chi</CardTitle>
-                    <CardDescription className="text-red-700 dark:text-red-400">Lịch sử các khoản chi trong ngày. Dữ liệu sẽ được làm mới vào ngày hôm sau.</CardDescription>
+                    <CardTitle>Phiếu chi trong ngày</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {dailySlips.length > 0 ? (
@@ -748,7 +706,7 @@ export default function CashierDashboardPage() {
                                                 <div className='flex flex-col items-start'>
                                                     <span>{slip.totalAmount.toLocaleString('vi-VN')}đ</span>
                                                     {(slip.paymentMethod === 'cash' && typeof slip.actualPaidAmount === 'number' && slip.actualPaidAmount !== slip.totalAmount) && (
-                                                         <span className='text-xs font-normal text-red-600'>({(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
+                                                         <span className='text-xs font-normal text-red-600'>(Thực trả: {(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
                                                     )}
                                                 </div>
                                            </TableCell>
@@ -796,29 +754,46 @@ export default function CashierDashboardPage() {
                          <p className="text-center text-sm text-muted-foreground py-8">Chưa có phiếu chi nào trong hôm nay.</p>
                     )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
-                    <div className="mt-4">
-                        <Button className="w-full bg-red-500 hover:bg-red-600" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Tạo phiếu chi
-                        </Button>
-                    </div>
                 </CardContent>
             </Card>
 
-            <Card className="border-blue-500/50">
+            <Card>
                 <CardHeader>
-                    <CardTitle className="text-blue-800 dark:text-blue-300">Bàn giao cuối ca</CardTitle>
-                    {handoverReport ? (
-                        <CardDescription className="text-blue-700 dark:text-blue-400">Ca hôm nay đã được bàn giao bởi <span className="font-semibold">{handoverReport.createdBy.userName}</span>.</CardDescription>
-                    ) : (
-                        <CardDescription className="text-blue-700 dark:text-blue-400">Thực hiện kiểm đếm và bàn giao tiền mặt cho ca sau hoặc quản lý.</CardDescription>
-                    )}
+                    <CardTitle>Sự cố trong ngày</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full bg-blue-500 hover:bg-blue-600" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
-                       {handoverReport ? <Lock className="mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                       {handoverReport ? 'Đã Bàn Giao' : 'Thực hiện bàn giao'}
-                    </Button>
+                    {dailyIncidents.length > 0 ? (
+                        <div className="space-y-3">
+                            {dailyIncidents.map(incident => {
+                                const canEdit = incident.createdBy.userId === user.uid;
+                                return (
+                                    <Card key={incident.id}>
+                                        <CardContent className="p-3">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <div>
+                                                    <p className="font-semibold">{incident.content}</p>
+                                                    <p className="text-xs text-muted-foreground">{incident.createdBy.userName} • {format(new Date(incident.createdAt as string), 'HH:mm')}</p>
+                                                </div>
+                                                <p className="font-bold text-amber-600">{incident.cost > 0 && `${incident.cost.toLocaleString('vi-VN')}đ`}</p>
+                                            </div>
+                                             {canEdit && (
+                                                <div className="flex justify-end gap-2 mt-2 border-t pt-2">
+                                                    {incident.photos && incident.photos.length > 0 && <Button variant="outline" size="sm" onClick={() => openPhotoLightbox(incident.photos)}>Xem {incident.photos.length} ảnh</Button>}
+                                                    <Button variant="ghost" size="sm" onClick={() => handleEditIncident(incident)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
+                                                        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa ghi nhận này?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteIncident(incident)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
+                                             )}
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                    ) : (
+                        <p className="text-center text-sm text-muted-foreground py-8">Không có sự cố nào được ghi nhận hôm nay.</p>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -852,13 +827,16 @@ export default function CashierDashboardPage() {
         isProcessing={isProcessing}
         existingStats={null}
     />
-    <OwnerRevenueStatsDialog
-        open={isRevenueDialogOpen && !!revenueStatsToEdit}
-        onOpenChange={setIsRevenueDialogOpen}
-        onSave={(data, isEdited) => handleSaveRevenue(data, isEdited)}
-        isProcessing={isProcessing}
-        existingStats={revenueStatsToEdit}
-    />
+    {revenueStatsToEdit && 
+        <RevenueStatsDialog
+            open={isRevenueDialogOpen && !!revenueStatsToEdit}
+            onOpenChange={setIsRevenueDialogOpen}
+            onSave={(data, isEdited) => handleSaveRevenue(data, isEdited)}
+            isProcessing={isProcessing}
+            existingStats={revenueStatsToEdit}
+            isOwnerView
+        />
+    }
     <HandoverDialog
         open={isHandoverDialogOpen}
         onOpenChange={setIsHandoverDialogOpen}
@@ -886,4 +864,6 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
+
 
