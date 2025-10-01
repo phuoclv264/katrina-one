@@ -264,10 +264,9 @@ export default function InventoryPage() {
                 if (!ordersBySupplier[item.supplier]) {
                     ordersBySupplier[item.supplier] = [];
                 }
-                const orderUnitName = item.units.find(u => !u.isBaseUnit)?.name || item.baseUnit;
                 ordersBySupplier[item.supplier].push({
                     itemId: item.id,
-                    quantityToOrder: `${item.orderSuggestion} ${orderUnitName}`,
+                    quantityToOrder: item.orderSuggestion,
                 });
             }
         });

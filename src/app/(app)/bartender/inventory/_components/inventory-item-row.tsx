@@ -95,7 +95,7 @@ export function InventoryItemRow({
                 <p className="font-semibold flex items-center gap-2">
                     {item.name}
                 </p>
-                <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
+                <p className="text-sm text-muted-foreground">Đơn vị: {item.baseUnit}</p>
                 {item.requiresPhoto && (
                     <div className="flex gap-2 items-center flex-wrap mt-2">
                         <Button
