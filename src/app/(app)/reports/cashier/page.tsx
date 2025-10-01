@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -413,59 +411,94 @@ export default function CashierReportsPage() {
   }, [user]);
 
   const handleDeleteExpense = async (id: string) => {
-      const slip = allData.expenseSlips.find(s => s.id === id);
-      if(!slip) return;
-      setIsProcessing(true);
-      try {
-          await dataStore.deleteExpenseSlip(slip);
-          toast.success("Đã xóa phiếu chi.");
-      } catch(error) {
-          toast.error("Lỗi: Không thể xóa phiếu chi.");
-      } finally {
-          setIsProcessing(false);
-      }
-  }
+    const slipToDelete = allData.expenseSlips.find(s => s.id === id);
+    if (!slipToDelete) return;
+
+    // Optimistic UI update
+    setAllData(prev => ({
+        ...prev,
+        expenseSlips: prev.expenseSlips.filter(s => s.id !== id),
+    }));
+
+    try {
+        await dataStore.deleteExpenseSlip(slipToDelete);
+        toast.success("Đã xóa phiếu chi.");
+    } catch(error) {
+        toast.error("Lỗi: Không thể xóa phiếu chi. Đang hoàn tác.");
+        // Revert UI on failure
+        setAllData(prev => ({
+            ...prev,
+            expenseSlips: [...prev.expenseSlips, slipToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
+        }));
+    }
+  };
 
   const handleDeleteRevenue = async (id: string) => {
-      if (!user) return;
-      setIsProcessing(true);
-      try {
-          await dataStore.deleteRevenueStats(id, user);
-          toast.success("Đã xóa phiếu thống kê doanh thu.");
-      } catch(error) {
-          toast.error("Lỗi: Không thể xóa phiếu thống kê.");
-      } finally {
-          setIsProcessing(false);
-      }
-  }
+    if (!user) return;
+    const statToDelete = allData.revenueStats.find(s => s.id === id);
+    if(!statToDelete) return;
+
+    setAllData(prev => ({
+        ...prev,
+        revenueStats: prev.revenueStats.filter(s => s.id !== id),
+    }));
+
+    try {
+        await dataStore.deleteRevenueStats(id, user);
+        toast.success("Đã xóa phiếu thống kê doanh thu.");
+    } catch(error) {
+        toast.error("Lỗi: Không thể xóa phiếu thống kê. Đang hoàn tác.");
+        setAllData(prev => ({
+            ...prev,
+            revenueStats: [...prev.revenueStats, statToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
+        }));
+    }
+  };
 
   const handleDeleteIncident = async (id: string) => {
-      const incident = allData.incidents.find(i => i.id === id);
-      if(!incident) return;
-      setIsProcessing(true);
-      try {
-          await dataStore.deleteIncident(incident);
-          toast.success("Đã xóa báo cáo sự cố.");
-      } catch(error) {
-          toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
-      } finally {
-          setIsProcessing(false);
-      }
-  }
+    const incidentToDelete = allData.incidents.find(i => i.id === id);
+    if(!incidentToDelete) return;
+
+    setAllData(prev => ({
+        ...prev,
+        incidents: prev.incidents.filter(i => i.id !== id),
+    }));
+
+    try {
+        await dataStore.deleteIncident(incidentToDelete);
+        toast.success("Đã xóa báo cáo sự cố.");
+    } catch(error) {
+        toast.error("Lỗi: Không thể xóa báo cáo sự cố. Đang hoàn tác.");
+        setAllData(prev => ({
+            ...prev,
+            incidents: [...prev.incidents, incidentToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
+        }));
+    }
+  };
   
   const handleDeleteHandover = async (id: string) => {
-      if (!user) return;
-      setIsProcessing(true);
-      try {
-        await dataStore.deleteHandoverReport(id);
-        toast.success("Đã xóa báo cáo bàn giao.");
-      } catch (error) {
-        console.error("Failed to delete handover report:", error);
-        toast.error("Không thể xóa báo cáo bàn giao.");
-      } finally {
-        setIsProcessing(false);
-      }
+    if (!user) return;
+    const handoverToDelete = allData.handoverReports.find(h => h.id === id);
+    if (!handoverToDelete) return;
+
+    setAllData(prev => ({
+        ...prev,
+        handoverReports: prev.handoverReports.filter(h => h.id !== id),
+    }));
+
+    try {
+      await dataStore.deleteHandoverReport(id);
+      toast.success("Đã xóa báo cáo bàn giao.");
+    } catch (error) {
+      console.error("Failed to delete handover report:", error);
+      toast.error("Không thể xóa báo cáo bàn giao. Đang hoàn tác.");
+      setAllData(prev => ({
+            ...prev,
+            handoverReports: [...prev.handoverReports, handoverToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
+        }));
+    }
   };
+
 
   const openPhotoLightbox = (photos: string[]) => {
     setLightboxSlides(photos.map(p => ({ src: p })));
@@ -774,7 +807,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit as any}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateViolationCategories}
+          onCategoriesChange={dataStore.updateIncidentCategories}
           canManageCategories={user.role === 'Chủ nhà hàng'}
         />
     )}
