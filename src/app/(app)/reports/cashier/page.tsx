@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -736,7 +736,6 @@ export default function CashierReportsPage() {
             onSave={handleSaveRevenue}
             isProcessing={isProcessing}
             existingStats={revenueStatsToEdit}
-            reporter={user}
             isOwnerView={true}
         />
     }
@@ -788,3 +787,4 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
+
