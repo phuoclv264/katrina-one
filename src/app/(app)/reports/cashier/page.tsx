@@ -618,7 +618,16 @@ export default function CashierReportsPage() {
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                                                 </AlertDialogTrigger>
-                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
                                                             </AlertDialog>
                                                         </div>
                                                     </div>
@@ -658,7 +667,13 @@ export default function CashierReportsPage() {
                                                         <Button variant="outline" size="sm" onClick={() => handleEditIncident(incident)} className="h-8">Chi tiết</Button>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
-                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteIncident(incident.id)}>Xóa</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
                                                         </AlertDialog>
                                                     </div>
                                                 </div>
@@ -677,7 +692,13 @@ export default function CashierReportsPage() {
                                                       <Button variant="outline" size="sm" onClick={() => handleEditHandover(dayReports.handover!)} className="h-8">Chi tiết</Button>
                                                       <AlertDialog>
                                                           <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
-                                                          <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa Báo cáo Bàn giao?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteHandover(dayReports.handover!.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                          <AlertDialogContent>
+                                                              <AlertDialogHeader><AlertDialogTitle>Xóa Báo cáo Bàn giao?</AlertDialogTitle></AlertDialogHeader>
+                                                              <AlertDialogFooter>
+                                                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                  <AlertDialogAction onClick={() => handleDeleteHandover(dayReports.handover!.id)}>Xóa</AlertDialogAction>
+                                                              </AlertDialogFooter>
+                                                          </AlertDialogContent>
                                                       </AlertDialog>
                                                     </div>
                                                 </div>
@@ -690,7 +711,9 @@ export default function CashierReportsPage() {
                     );
                 })}
             </Accordion>
-        )}
+          )}
+        </div>
+      )}
     </div>
     {user && 
         <OwnerCashierDialogs
@@ -713,7 +736,7 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={isProcessing}
-          violationToEdit={incidentToEdit}
+          violationToEdit={incidentToEdit as any}
           reporter={user}
           categories={allData.incidentCategories}
           onCategoriesChange={dataStore.updateIncidentCategories}
@@ -744,13 +767,8 @@ export default function CashierReportsPage() {
         open={isIncidentCategoryDialogOpen}
         onOpenChange={setIsIncidentCategoryDialogOpen}
     />
-    {/* IntangibleCostDialog might need to be created */}
-    {/* <IntangibleCostDialog
-        open={isIntangibleCostDialogOpen}
-        onOpenChange={setIsIntangibleCostDialogOpen}
-        incidents={allData.incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth) && i.paymentMethod === 'intangible_cost' && i.cost > 0)}
-    /> */}
-     <Lightbox
+    
+    <Lightbox
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}
         index={lightboxIndex}
@@ -760,3 +778,4 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
+
