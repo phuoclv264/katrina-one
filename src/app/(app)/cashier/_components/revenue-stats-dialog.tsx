@@ -127,7 +127,7 @@ export default function RevenueStatsDialog({
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
-    const displayImageDataUri = isOwnerView ? (newImageDataUri || existingStats?.invoiceImageUrl) : newImageDataUri;
+    const displayImageDataUri = newImageDataUri || (isOwnerView ? existingStats?.invoiceImageUrl : null);
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -149,28 +149,33 @@ export default function RevenueStatsDialog({
     }, [isLightboxOpen]);
 
 
-    const resetFormState = useCallback(() => {
-        if(existingStats){
-            setNetRevenue(existingStats.netRevenue || 0);
-            setDeliveryPartnerPayout(existingStats.deliveryPartnerPayout || 0);
-            setRevenueByPaymentMethod(existingStats.revenueByPaymentMethod || initialPaymentMethods);
-            setReportTimestamp(existingStats.reportTimestamp || null);
+    const resetFormState = useCallback((statsToLoad: RevenueStats | null) => {
+        if(statsToLoad){
+            setNetRevenue(statsToLoad.netRevenue || 0);
+            setDeliveryPartnerPayout(statsToLoad.deliveryPartnerPayout || 0);
+            setRevenueByPaymentMethod(statsToLoad.revenueByPaymentMethod || initialPaymentMethods);
+            setReportTimestamp(statsToLoad.reportTimestamp || null);
+            setNewImageDataUri(statsToLoad.invoiceImageUrl || null);
+            // If it's the owner view, we can treat the existing data as the "original" for edit tracking
+            if (isOwnerView) {
+                setAiOriginalData(statsToLoad);
+            }
         } else {
             setNetRevenue(0);
             setDeliveryPartnerPayout(0);
             setRevenueByPaymentMethod(initialPaymentMethods);
             setReportTimestamp(null);
+            setNewImageDataUri(null);
+            setAiOriginalData(null); 
         }
-        setAiOriginalData(null); 
-        setNewImageDataUri(null); 
         setServerErrorDialog({ open: false, imageUri: null });
-    }, [existingStats]);
+    }, [isOwnerView]);
 
     useEffect(() => {
         if (open) {
-            resetFormState();
+            resetFormState(existingStats);
         }
-    }, [open, resetFormState]);
+    }, [open, existingStats, resetFormState]);
 
     // Auto-scroll to data section when original data is populated
     useEffect(() => {
@@ -426,7 +431,7 @@ export default function RevenueStatsDialog({
                                 </CardContent>
                             </Card>
 
-                            {(displayImageDataUri || aiOriginalData) && (
+                            {(aiOriginalData || existingStats) && (
                                 <div ref={dataSectionRef} className="space-y-4 rounded-md border bg-muted/30 shadow-inner p-4">
                                     {reportTimestamp && (
                                         <Card>

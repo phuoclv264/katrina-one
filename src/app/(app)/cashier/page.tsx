@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
@@ -120,6 +120,23 @@ const getSlipContentName = (item: ExpenseItem): string => {
   }
   return item.name;
 }
+
+const ChangeIndicator = ({ value }: { value: number }) => {
+    if (isNaN(value) || !isFinite(value) || value === 0) return null;
+
+    const isPositive = value > 0;
+    const isNegative = value < 0;
+
+    return (
+        <span className={cn(
+            "text-xs font-semibold flex items-center gap-0.5",
+            isPositive ? 'text-green-600' : 'text-red-600'
+        )}>
+            {isPositive ? <TrendingUp className="h-3 w-3"/> : <TrendingDown className="h-3 w-3"/>}
+            {Math.abs(value).toLocaleString('vi-VN')}đ
+        </span>
+    );
+};
 
 
 export default function CashierDashboardPage() {
@@ -562,6 +579,8 @@ export default function CashierDashboardPage() {
                                 {dailyRevenueStats.map((stat, index) => {
                                     const canEdit = stat.createdBy.userId === user.uid;
                                     const isLatest = index === 0;
+                                    const prevStat = dailyRevenueStats[index + 1];
+                                    const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                                     return (
                                         <Card key={stat.id} className={cn("bg-background", isLatest && "border-primary")}>
                                             <CardContent className="p-3">
@@ -576,11 +595,14 @@ export default function CashierDashboardPage() {
                                                             {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                                                          </div>
                                                     </div>
-                                                    <p className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
+                                                        {difference !== 0 && <ChangeIndicator value={difference} />}
+                                                    </div>
                                                 </div>
                                                  {canEdit && (
                                                     <div className="flex justify-end gap-2 mt-2 border-t pt-2">
-                                                        <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
+                                                        <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Chi tiết</Button>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
                                                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
@@ -607,11 +629,19 @@ export default function CashierDashboardPage() {
                                     {dailyRevenueStats.map((stat, index) => {
                                         const canEdit = stat.createdBy.userId === user.uid;
                                         const isLatest = index === 0;
+                                        const prevStat = dailyRevenueStats[index + 1];
+                                        const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                                         return (
                                             <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                                 <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
-                                                <TableCell className="text-right font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}</TableCell>
+                                                <TableCell className="text-right font-bold text-lg text-green-600">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {(stat.netRevenue || 0).toLocaleString('vi-VN')}đ 
+                                                        {difference !== 0 && <ChangeIndicator value={difference} />}
+                                                        {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="text-right">
                                                     {canEdit && (
                                                         <>
@@ -849,6 +879,7 @@ export default function CashierDashboardPage() {
         onSave={handleSaveRevenue}
         isProcessing={isProcessing}
         existingStats={revenueStatsToEdit}
+        reporter={user}
     />
     <HandoverDialog
         open={isHandoverDialogOpen}
@@ -877,4 +908,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
