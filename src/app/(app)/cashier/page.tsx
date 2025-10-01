@@ -409,7 +409,7 @@ export default function CashierDashboardPage() {
         { field: 'deliveryPartnerPayout', label: 'Trả ĐTGH', appValue: appData.deliveryPartnerPayout, receiptValue: Math.abs(receiptData.deliveryPartnerPayout) },
         { field: 'techcombankVietQrPro', label: 'DT: TCB VietQR', appValue: appData.revenueByCard.techcombankVietQrPro, receiptValue: receiptData.revenueByCard.techcombankVietQrPro },
         { field: 'shopeeFood', label: 'DT: ShopeeFood', appValue: appData.revenueByCard.shopeeFood, receiptValue: receiptData.revenueByCard.shopeeFood },
-        { field: 'grabFood', label: 'DT: GrabFood', appValue: appData.revenueByCard.grabFood, receiptValue: receiptData.revenueByCard.grabFood },
+        { field: 'grabFood', label: 'DT: GrabFood', appValue: appData.revenueByCard.grabFood, receiptValue: receiptData.revenueByCard.bankTransfer },
         { field: 'bankTransfer', label: 'DT: Chuyển Khoản', appValue: appData.revenueByCard.bankTransfer, receiptValue: receiptData.revenueByCard.bankTransfer },
     ].map(item => ({ ...item, isMatch: Math.abs(item.appValue - item.receiptValue) < 1 })); // Allow for rounding errors
 
@@ -518,23 +518,34 @@ export default function CashierDashboardPage() {
             </Card>
             <Card className="shadow-xl rounded-2xl">
                 <CardHeader>
-                    <CardTitle>Chức năng</CardTitle>
+                    <CardTitle className="flex items-center gap-3"><Settings className="h-5 w-5"/>Chức năng</CardTitle>
                     <CardDescription>Thực hiện các báo cáo và nghiệp vụ trong ca.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                     <Button className="h-16 text-base rounded-xl" variant="secondary" onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }}>
-                        <Receipt className="mr-2 h-5 w-5"/> Nhập Doanh thu
-                     </Button>
-                     <Button className="h-16 text-base rounded-xl" variant="secondary" onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }}>
-                        <PlusCircle className="mr-2 h-5 w-5"/> Tạo Phiếu chi
-                     </Button>
-                      <Button className="h-16 text-base rounded-xl" variant="secondary" onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }}>
-                        <FileWarning className="mr-2 h-5 w-5"/> Ghi nhận Sự cố
-                     </Button>
-                      <Button className="h-16 text-base rounded-xl" variant="default" onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport}>
-                         {handoverReport ? <Lock className="mr-2 h-5 w-5" /> : <ArrowRight className="mr-2 h-5 w-5" />}
-                         {handoverReport ? 'Đã Bàn Giao' : 'Bàn giao cuối ca'}
-                     </Button>
+                <CardContent className="space-y-3">
+                    <Button onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }} className="w-full h-14 justify-start p-4 text-base bg-green-50 hover:bg-green-100 text-green-800 dark:bg-green-900/50 dark:hover:bg-green-900 dark:text-green-200">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-800/50 mr-3">
+                            <Receipt className="h-5 w-5"/>
+                        </div>
+                        Nhập Doanh thu
+                    </Button>
+                    <Button onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }} className="w-full h-14 justify-start p-4 text-base bg-blue-50 hover:bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:hover:bg-blue-900 dark:text-blue-200">
+                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-800/50 mr-3">
+                            <PlusCircle className="h-5 w-5"/>
+                        </div>
+                        Tạo Phiếu chi
+                    </Button>
+                    <Button onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }} className="w-full h-14 justify-start p-4 text-base bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:hover:bg-amber-900 dark:text-amber-200">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-800/50 mr-3">
+                            <FileWarning className="h-5 w-5"/>
+                        </div>
+                        Ghi nhận Sự cố
+                    </Button>
+                    <Button onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport} className="w-full h-14 justify-start p-4 text-base" variant={handoverReport ? 'secondary' : 'default'}>
+                         <div className={cn("flex items-center justify-center h-8 w-8 rounded-full mr-3", handoverReport ? "bg-muted" : "bg-primary/20")}>
+                            {handoverReport ? <Lock className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
+                        </div>
+                        {handoverReport ? 'Đã Bàn Giao' : 'Bàn giao cuối ca'}
+                    </Button>
                 </CardContent>
             </Card>
         </div>
@@ -857,5 +868,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
-    
