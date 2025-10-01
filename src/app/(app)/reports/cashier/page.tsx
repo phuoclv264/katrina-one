@@ -16,7 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2, Eye, Edit, Loader2, ClipboardCheck, ClipboardX } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
+import ExpenseSlipDialog from '../../cashier/_components/expense-slip-dialog';
+import RevenueStatsDialog from '../../cashier/_components/revenue-stats-dialog';
 import { toast } from 'react-hot-toast';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -716,18 +717,27 @@ export default function CashierReportsPage() {
           )}
     </div>
     {user && 
-        <OwnerCashierDialogs
-            inventoryList={allData.inventoryList}
-            isExpenseDialogOpen={isExpenseDialogOpen}
-            setIsExpenseDialogOpen={setIsExpenseDialogOpen}
-            handleSaveSlip={handleSaveSlip}
+        <ExpenseSlipDialog
+            open={isExpenseDialogOpen}
+            onOpenChange={setIsExpenseDialogOpen}
+            onSave={handleSaveSlip}
             isProcessing={isProcessing}
             slipToEdit={slipToEdit}
-            isRevenueDialogOpen={isRevenueDialogOpen}
-            setIsRevenueDialogOpen={setIsRevenueDialogOpen}
-            handleSaveRevenue={handleSaveRevenue}
-            revenueStatsToEdit={revenueStatsToEdit}
+            inventoryList={allData.inventoryList}
+            reporter={user}
             otherCostCategories={allData.otherCostCategories}
+            isOwnerView={true}
+        />
+    }
+    {user && 
+        <RevenueStatsDialog
+            open={isRevenueDialogOpen}
+            onOpenChange={setIsRevenueDialogOpen}
+            onSave={handleSaveRevenue}
+            isProcessing={isProcessing}
+            existingStats={revenueStatsToEdit}
+            reporter={user}
+            isOwnerView={true}
         />
     }
     {user && (
@@ -739,7 +749,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit as any}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateIncidentCategories}
+          onCategoriesChange={dataStore.updateViolationCategories}
           canManageCategories={user.role === 'Chủ nhà hàng'}
         />
     )}

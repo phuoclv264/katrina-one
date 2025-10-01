@@ -1,4 +1,4 @@
-
+// Merged from owner-expense-slip-dialog.tsx and expense-slip-dialog.tsx on 2024-07-30 — refactor only
 
 'use client';
 
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, CornerDownLeft } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, Edit2 } from 'lucide-react';
 import { ItemMultiSelect } from '@/components/item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -282,8 +282,9 @@ type ExpenseSlipDialogProps = {
     isProcessing: boolean;
     slipToEdit: ExpenseSlip | null;
     inventoryList: InventoryItem[];
-    reporter: AuthUser;
+    reporter: AuthUser; // Required for Cashier
     otherCostCategories: OtherCostCategory[];
+    isOwnerView?: boolean; // Optional prop to control view
 };
 
 export default function ExpenseSlipDialog({
@@ -295,6 +296,7 @@ export default function ExpenseSlipDialog({
     inventoryList,
     reporter,
     otherCostCategories,
+    isOwnerView = false,
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const attachmentCardRef = useRef<HTMLDivElement>(null);
@@ -651,23 +653,29 @@ export default function ExpenseSlipDialog({
         }
     };
     
-    const isActuallyAiGenerated = slipToEdit ? originalSlip?.isAiGenerated : false;
+    const isActuallyAiGenerated = slipToEdit?.isAiGenerated || false;
 
 
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => {
-          if (!isLightboxOpen) {
-            e.preventDefault();
-          }
-        }}>
+                <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => { if (isLightboxOpen) { e.preventDefault(); }}}>
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
-                        <DialogTitle>{slipToEdit ? 'Chỉnh sửa' : 'Tạo'} Phiếu chi</DialogTitle>
+                        <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>
                          <DialogDescription>
-                            Nhập thông tin chi tiết cho các khoản chi.
-                            {isActuallyAiGenerated && <Badge className="ml-2 bg-blue-100 text-blue-800">Tạo bởi AI</Badge>}
+                            {isOwnerView && slipToEdit ? (
+                                <span className="flex items-center gap-4 flex-wrap">
+                                    <span>ID: {slipToEdit.id.slice(0, 8)}</span>
+                                    {isActuallyAiGenerated && <Badge className="bg-blue-100 text-blue-800">Tạo bởi AI</Badge>}
+                                    {slipToEdit.lastModifiedBy && (
+                                        <span className="flex items-center gap-1.5 text-xs italic text-yellow-600 dark:text-yellow-400">
+                                            <Edit2 className="h-3 w-3" />
+                                            Sửa lần cuối bởi {slipToEdit.lastModifiedBy.userName}
+                                        </span>
+                                    )}
+                                </span>
+                            ) : 'Nhập thông tin chi tiết cho các khoản chi.'}
                         </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
@@ -689,11 +697,11 @@ export default function ExpenseSlipDialog({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} disabled className="bg-muted"/>
+                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" disabled={!isOwnerView} className={cn(!isOwnerView && "bg-muted")}/>
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
-                                    <Input value={reporter.displayName || ''} disabled className="bg-muted"/>
+                                    <Input value={slipToEdit?.createdBy.userName || reporter?.displayName || ''} disabled className="bg-muted"/>
                                 </div>
                             </div>
 
