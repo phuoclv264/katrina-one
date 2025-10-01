@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import OwnerExpenseSlipDialog from './owner-expense-slip-dialog';
-import OwnerRevenueStatsDialog from './owner-revenue-stats-dialog';
+import ExpenseSlipDialog from '../../cashier/_components/expense-slip-dialog';
+import RevenueStatsDialog from '../../cashier/_components/revenue-stats-dialog';
 import type { InventoryItem, OtherCostCategory } from '@/lib/types';
 
 
@@ -33,21 +33,24 @@ const OwnerCashierDialogs = React.memo(({
 }) => {
     return (
         <>
-            <OwnerExpenseSlipDialog
+            <ExpenseSlipDialog
                 open={isExpenseDialogOpen}
                 onOpenChange={setIsExpenseDialogOpen}
                 onSave={handleSaveSlip}
                 isProcessing={isProcessing}
                 slipToEdit={slipToEdit}
                 inventoryList={inventoryList}
+                reporter={slipToEdit?.createdBy} 
                 otherCostCategories={otherCostCategories}
+                isOwnerView={true}
             />
-            <OwnerRevenueStatsDialog
+            <RevenueStatsDialog
                 open={isRevenueDialogOpen}
                 onOpenChange={setIsRevenueDialogOpen}
                 onSave={handleSaveRevenue}
                 isProcessing={isProcessing}
                 existingStats={revenueStatsToEdit}
+                isOwnerView={true}
             />
         </>
     );
