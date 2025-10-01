@@ -50,21 +50,16 @@ export function ItemMultiSelect({
   }, [open, selectedItems])
 
   const handleSelect = (inventoryItem: InventoryItem) => {
-    const isSelected = tempSelected.some((selected) => selected.itemId === inventoryItem.id)
-    if (isSelected) {
-      setTempSelected(tempSelected.filter((selected) => selected.itemId !== inventoryItem.id))
-    } else {
-      const newExpenseItem: ExpenseItem = {
-        itemId: inventoryItem.id,
-        name: inventoryItem.name,
-        supplier: inventoryItem.supplier,
-        unit: inventoryItem.baseUnit, // Default to base unit
-        quantity: 1,
-        unitPrice: 0,
-      }
-      setTempSelected([...tempSelected, newExpenseItem])
-    }
-  }
+    const newExpenseItem: ExpenseItem = {
+      itemId: inventoryItem.id,
+      name: inventoryItem.name,
+      supplier: inventoryItem.supplier,
+      unit: inventoryItem.units.find(u => !u.isBaseUnit)?.name || inventoryItem.baseUnit, // Default to order unit or base unit
+      quantity: 1,
+      unitPrice: 0,
+    };
+    setTempSelected(prev => [...prev, newExpenseItem]);
+  };
   
   const handleSave = () => {
     const newSelectedInventory = tempSelected.map(item => inventoryItems.find(inv => inv.id === item.itemId)!).filter(Boolean);
@@ -73,13 +68,8 @@ export function ItemMultiSelect({
   }
 
   const selectableItems = React.useMemo(() => {
-      const selectedIds = new Set(tempSelected.map(item => item.itemId));
-      
-      const selected = inventoryItems.filter(item => selectedIds.has(item.id));
-      const unselected = inventoryItems.filter(item => !selectedIds.has(item.id));
-
-      return [...selected, ...unselected];
-  }, [inventoryItems, tempSelected]);
+      return (inventoryItems || []).sort((a,b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  }, [inventoryItems]);
 
 
   return (
@@ -95,9 +85,9 @@ export function ItemMultiSelect({
           >
             <div className="flex gap-1 flex-wrap">
               {selectedItems.length > 0 ? (
-                selectedItems.map((item) => (
+                selectedItems.map((item, index) => (
                   <Badge
-                    key={item.itemId}
+                    key={`${item.itemId}-${index}`}
                     variant="secondary"
                     className="mr-1 mb-1 whitespace-normal h-auto bg-card text-card-foreground"
                   >
@@ -122,20 +112,11 @@ export function ItemMultiSelect({
             <CommandEmpty>Không tìm thấy mặt hàng.</CommandEmpty>
             <CommandGroup>
               {selectableItems.map((item) => {
-                const isSelected = tempSelected.some(
-                  (selected) => selected.itemId === item.id
-                )
                 return (
                   <CommandItem
                     key={item.id}
                     onSelect={() => handleSelect(item)}
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isSelected ? "opacity-100" : "opacity-0"
-                      )}
-                    />
                     <span>{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></span>
                   </CommandItem>
                 )

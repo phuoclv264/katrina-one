@@ -417,9 +417,8 @@ export default function ExpenseSlipDialog({
 
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
-            const existing = items.find(exItem => exItem.itemId === invItem.id);
             const orderUnit = invItem.units.find(u => !u.isBaseUnit) || invItem.units[0];
-            return existing || {
+            return {
                 itemId: invItem.id,
                 name: invItem.name,
                 supplier: invItem.supplier,
@@ -435,8 +434,8 @@ export default function ExpenseSlipDialog({
         setItems(prevItems => prevItems.map(item => item.itemId === updatedItem.itemId ? updatedItem : item));
     };
     
-    const handleRemoveItem = (itemId: string) => {
-        setItems(prevItems => prevItems.filter(item => item.itemId !== itemId));
+    const handleRemoveItem = (itemIndex: number) => {
+        setItems(prevItems => prevItems.filter((_, index) => index !== itemIndex));
     }
 
     const handleSave = () => {
@@ -595,8 +594,8 @@ export default function ExpenseSlipDialog({
     };
 
     const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
-        setItems(confirmedItems);
-        setDiscount(totalDiscount);
+        setItems(prevItems => [...prevItems, ...confirmedItems]);
+        setDiscount(prevDiscount => prevDiscount + totalDiscount);
         setIsAiRescanned(true);
     }
 
@@ -809,10 +808,10 @@ export default function ExpenseSlipDialog({
                                     <>
                                         {/* Mobile view */}
                                         <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
-                                            {items.map(item => {
+                                            {items.map((item, index) => {
                                                 const inventoryItem = inventoryList.find(i => i.id === item.itemId);
                                                 return (
-                                                    <EditItemPopover key={`mobile-${item.itemId}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
+                                                    <EditItemPopover key={`mobile-${item.itemId}-${index}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
                                                         <Card className="cursor-pointer bg-muted/50">
                                                             <CardContent className="p-4">
                                                                 <div className="flex justify-between items-start">
@@ -820,7 +819,7 @@ export default function ExpenseSlipDialog({
                                                                         <p className="font-semibold text-sm">{item.name}</p>
                                                                         <p className="text-xs text-muted-foreground">{item.supplier}</p>
                                                                     </div>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveItem(index)}}>
                                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                                     </Button>
                                                                 </div>
@@ -854,10 +853,10 @@ export default function ExpenseSlipDialog({
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {items.map(item => {
+                                                    {items.map((item, index) => {
                                                          const inventoryItem = inventoryList.find(i => i.id === item.itemId);
                                                         return (
-                                                        <EditItemPopover key={`desktop-${item.itemId}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
+                                                        <EditItemPopover key={`desktop-${item.itemId}-${index}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
                                                             <TableRow className="cursor-pointer">
                                                                 <TableCell>
                                                                     <p className="font-medium">{item.name}</p>
@@ -868,7 +867,7 @@ export default function ExpenseSlipDialog({
                                                                 <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
                                                                 <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
                                                                 <TableCell className="text-right">
-                                                                    <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.itemId)}}>
+                                                                    <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveItem(index)}}>
                                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                                     </Button>
                                                                 </TableCell>
