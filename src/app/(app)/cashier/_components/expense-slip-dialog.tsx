@@ -659,7 +659,12 @@ export default function ExpenseSlipDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => { if (isLightboxOpen) { e.preventDefault(); }}}>
+                <DialogContent 
+                    className="max-w-4xl" 
+                    onInteractOutside={(e) => {
+                        e.preventDefault();
+                    }}
+                >
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>
