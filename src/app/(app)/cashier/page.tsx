@@ -358,7 +358,7 @@ export default function CashierDashboardPage() {
         await dataStore.deleteRevenueStats(id, user);
         toast.success("Đã xóa phiếu thống kê doanh thu.");
     } catch(error) {
-        console.error("Failed to delete revenue stats:", error);
+        console.error("Failed to delete revenue stats", error);
         toast.error("Không thể xóa phiếu thống kê.");
     } finally {
         setIsProcessing(false);
@@ -841,7 +841,7 @@ export default function CashierDashboardPage() {
         isProcessing={isProcessing}
         categories={incidentCategories}
         onCategoriesChange={handleCategoriesChange}
-        canManage={user.role === 'Chủ nhà hàng'}
+        canManageCategories={user.role === 'Chủ nhà hàng'}
         reporter={user}
         violationToEdit={incidentToEdit}
     />
@@ -886,3 +886,4 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+

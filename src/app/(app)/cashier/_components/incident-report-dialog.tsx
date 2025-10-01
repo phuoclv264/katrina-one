@@ -34,6 +34,7 @@ type IncidentReportDialogProps = {
     reporter: AuthUser;
     violationToEdit: IncidentReport | null; // This should be incidentToEdit
     isSelfConfession?: boolean;
+    onCategoriesChange: (newCategories: IncidentCategory[]) => void;
 };
 
 export default function IncidentReportDialog({
@@ -46,6 +47,7 @@ export default function IncidentReportDialog({
     reporter,
     violationToEdit, // This should be incidentToEdit
     isSelfConfession = false,
+    onCategoriesChange,
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
@@ -318,3 +320,4 @@ export default function IncidentReportDialog({
         </>
     );
 }
+
