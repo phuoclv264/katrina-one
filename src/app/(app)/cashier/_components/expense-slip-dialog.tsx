@@ -320,7 +320,9 @@ export default function ExpenseSlipDialog({
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [extractionResult, setExtractionResult] = useState<InvoiceExtractionResult | null>(null);
     const [showAiPreview, setShowAiPreview] = useState(false);
-    const [isAiRescanned, setIsAiRescanned] = useState(false);
+    
+    // State to hold the data as scanned by AI, before any user edits.
+    const [aiOriginalData, setAiOriginalData] = useState<{ items: ExpenseItem[], discount: number } | null>(null);
     
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -392,7 +394,7 @@ export default function ExpenseSlipDialog({
             setLocalPhotos([]);
             setPhotosToDelete([]);
             setShowMissingAttachmentAlert(false);
-            setIsAiRescanned(false);
+            setAiOriginalData(null); // Reset AI data on dialog open
 
         }
     }, [open, slipToEdit]);
@@ -486,14 +488,20 @@ export default function ExpenseSlipDialog({
             }];
         }
 
-        let isAiFlag = isAiRescanned;
-        if (originalSlip?.isAiGenerated && !isAiRescanned) {
-            const originalItemsSorted = [...(originalSlip.items || [])].sort((a, b) => a.itemId.localeCompare(b.itemId));
+        // Logic to determine if the data is AI-generated without edits
+        let isAiFlag = false;
+        if (aiOriginalData) {
+            // Data has been scanned by AI in this session. Check if it's been modified.
             const currentItemsSorted = [...finalItems].sort((a, b) => a.itemId.localeCompare(b.itemId));
-            const coreDataUnchanged = isEqual(originalItemsSorted, currentItemsSorted) && (originalSlip.discount || 0) === discount;
-            if (coreDataUnchanged) {
-                isAiFlag = true;
-            }
+            const aiItemsSorted = [...aiOriginalData.items].sort((a, b) => a.itemId.localeCompare(b.itemId));
+            const isDataUnchanged = isEqual(currentItemsSorted, aiItemsSorted) && discount === aiOriginalData.discount;
+            isAiFlag = isDataUnchanged;
+        } else if (slipToEdit?.isAiGenerated) {
+            // Editing a previously saved AI slip. Check for modifications against the original slip data.
+            const originalItemsSorted = [...(slipToEdit.items || [])].sort((a, b) => a.itemId.localeCompare(b.itemId));
+            const currentItemsSorted = [...finalItems].sort((a, b) => a.itemId.localeCompare(b.itemId));
+            const isDataUnchanged = isEqual(originalItemsSorted, currentItemsSorted) && discount === (slipToEdit.discount || 0);
+            isAiFlag = isDataUnchanged;
         }
         
         const data = {
@@ -600,7 +608,8 @@ export default function ExpenseSlipDialog({
     const handleAiConfirm = (confirmedItems: ExpenseItem[], totalDiscount: number) => {
         setItems(confirmedItems);
         setDiscount(totalDiscount);
-        setIsAiRescanned(true);
+        // Store the original AI data to track edits
+        setAiOriginalData({ items: confirmedItems, discount: totalDiscount });
     };
 
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -656,7 +665,7 @@ export default function ExpenseSlipDialog({
         }
     };
     
-    const isActuallyAiGenerated = slipToEdit?.isAiGenerated || false;
+    const isActuallyAiGenerated = (aiOriginalData && isEqual({items, discount}, aiOriginalData)) || (!aiOriginalData && slipToEdit?.isAiGenerated);
 
 
     return (
