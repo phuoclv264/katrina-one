@@ -41,30 +41,30 @@ export function ItemMultiSelect({
   className,
 }: ItemMultiSelectProps) {
   const [open, setOpen] = React.useState(false)
-  const [tempSelected, setTempSelected] = React.useState<ExpenseItem[]>(selectedItems)
+  const [tempSelected, setTempSelected] = React.useState<InventoryItem[]>([])
 
   React.useEffect(() => {
     if (open) {
-      setTempSelected(selectedItems)
+      // When dialog opens, initialize tempSelected with items that match the selectedItems
+      const initialSelectedInventory = selectedItems
+        .map(item => inventoryItems.find(inv => inv.id === item.itemId)!)
+        .filter(Boolean); // Filter out any undefined if an item is not found
+      setTempSelected(initialSelectedInventory);
     }
-  }, [open, selectedItems])
+  }, [open, selectedItems, inventoryItems])
 
   const handleSelect = (inventoryItem: InventoryItem) => {
-    const newExpenseItem: ExpenseItem = {
-      itemId: inventoryItem.id,
-      name: inventoryItem.name,
-      supplier: inventoryItem.supplier,
-      unit: inventoryItem.units.find(u => !u.isBaseUnit)?.name || inventoryItem.baseUnit, // Default to order unit or base unit
-      quantity: 1,
-      unitPrice: 0,
-    };
-    setTempSelected(prev => [...prev, newExpenseItem]);
+    // Allows adding the same item multiple times
+    setTempSelected(prev => [...prev, inventoryItem]);
   };
   
   const handleSave = () => {
-    const newSelectedInventory = tempSelected.map(item => inventoryItems.find(inv => inv.id === item.itemId)!).filter(Boolean);
-    onChange(newSelectedInventory);
+    onChange(tempSelected);
     setOpen(false);
+  }
+
+  const handleRemoveTempItem = (indexToRemove: number) => {
+    setTempSelected(prev => prev.filter((_, index) => index !== indexToRemove));
   }
 
   const selectableItems = React.useMemo(() => {
@@ -104,33 +104,54 @@ export function ItemMultiSelect({
       </DialogTrigger>
       <DialogContent className="p-0">
         <DialogHeader className="p-4 border-b">
-          <DialogTitle>Chọn mặt hàng</DialogTitle>
+          <DialogTitle>Thêm mặt hàng vào phiếu chi</DialogTitle>
         </DialogHeader>
-        <Command>
-          <CommandInput placeholder="Tìm mặt hàng..." />
-          <CommandList>
-            <CommandEmpty>Không tìm thấy mặt hàng.</CommandEmpty>
-            <CommandGroup>
-              {selectableItems.map((item) => {
-                return (
-                  <CommandItem
-                    key={item.id}
-                    onSelect={() => handleSelect(item)}
-                  >
-                    <span>{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        <div className="grid grid-cols-2 gap-4 p-4">
+            <div className="col-span-1">
+                <Command>
+                    <CommandInput placeholder="Tìm mặt hàng..." />
+                    <CommandList className="max-h-[40vh]">
+                        <CommandEmpty>Không tìm thấy mặt hàng.</CommandEmpty>
+                        <CommandGroup>
+                        {selectableItems.map((item) => {
+                            return (
+                            <CommandItem
+                                key={item.id}
+                                onSelect={() => handleSelect(item)}
+                            >
+                                <span>{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></span>
+                            </CommandItem>
+                            )
+                        })}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </div>
+            <div className="col-span-1 border rounded-md p-2">
+                <h4 className="font-semibold text-sm mb-2">Đã chọn ({tempSelected.length})</h4>
+                <div className="space-y-1 max-h-[40vh] overflow-y-auto">
+                    {tempSelected.length > 0 ? tempSelected.map((item, index) => (
+                        <Badge
+                            key={`${item.id}-${index}`}
+                            variant="secondary"
+                            className="mr-1 mb-1 whitespace-normal h-auto justify-between w-full"
+                          >
+                            <span>{item.name}</span>
+                            <button onClick={() => handleRemoveTempItem(index)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
+                                <X className="h-3 w-3"/>
+                            </button>
+                        </Badge>
+                    )) : <p className="text-xs text-muted-foreground text-center py-4">Chưa chọn mặt hàng nào.</p>}
+                </div>
+            </div>
+        </div>
         <DialogFooter className="p-4 border-t">
           <DialogClose asChild>
             <Button variant="outline">Hủy</Button>
           </DialogClose>
           <Button onClick={handleSave}>
             <Save className="mr-2 h-4 w-4" />
-            Lưu lựa chọn ({tempSelected.length})
+            Thêm {tempSelected.length} mặt hàng
           </Button>
         </DialogFooter>
       </DialogContent>

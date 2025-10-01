@@ -427,11 +427,15 @@ export default function ExpenseSlipDialog({
                 unitPrice: 0 // default
             };
         });
-        setItems(newExpenseItems);
+        setItems(prevItems => [...prevItems, ...newExpenseItems]);
     };
 
-    const handleUpdateItem = (updatedItem: ExpenseItem) => {
-        setItems(prevItems => prevItems.map(item => item.itemId === updatedItem.itemId ? updatedItem : item));
+    const handleUpdateItem = (index: number, updatedItem: ExpenseItem) => {
+        setItems(prevItems => {
+            const newItems = [...prevItems];
+            newItems[index] = updatedItem;
+            return newItems;
+        });
     };
     
     const handleRemoveItem = (itemIndex: number) => {
@@ -660,9 +664,7 @@ export default function ExpenseSlipDialog({
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent 
                     className="max-w-4xl" 
-                    onInteractOutside={(e) => {
-                        e.preventDefault();
-                    }}
+                    onInteractOutside={(e) => e.preventDefault()}
                 >
                     <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader>
@@ -811,7 +813,7 @@ export default function ExpenseSlipDialog({
                                             {items.map((item, index) => {
                                                 const inventoryItem = inventoryList.find(i => i.id === item.itemId);
                                                 return (
-                                                    <EditItemPopover key={`mobile-${item.itemId}-${index}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
+                                                    <EditItemPopover key={`mobile-${item.itemId}-${index}`} item={item} onSave={(updated) => handleUpdateItem(index, updated)} inventoryItem={inventoryItem}>
                                                         <Card className="cursor-pointer bg-muted/50">
                                                             <CardContent className="p-4">
                                                                 <div className="flex justify-between items-start">
@@ -856,7 +858,7 @@ export default function ExpenseSlipDialog({
                                                     {items.map((item, index) => {
                                                          const inventoryItem = inventoryList.find(i => i.id === item.itemId);
                                                         return (
-                                                        <EditItemPopover key={`desktop-${item.itemId}-${index}`} item={item} onSave={handleUpdateItem} inventoryItem={inventoryItem}>
+                                                        <EditItemPopover key={`desktop-${item.itemId}-${index}`} item={item} onSave={(updated) => handleUpdateItem(index, updated)} inventoryItem={inventoryItem}>
                                                             <TableRow className="cursor-pointer">
                                                                 <TableCell>
                                                                     <p className="font-medium">{item.name}</p>
