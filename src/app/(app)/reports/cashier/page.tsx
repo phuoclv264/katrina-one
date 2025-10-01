@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2, Eye, Edit, Loader2, ClipboardCheck, ClipboardX } from 'lucide-react';
+import { ArrowLeft, Banknote, Receipt, AlertTriangle, ArrowRight, Wallet, FileWarning, Calendar, LandPlot, Settings, Edit2, ChevronLeft, ChevronRight, Trash2, Eye, Edit, Loader2, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import ExpenseSlipDialog from '../../cashier/_components/expense-slip-dialog';
@@ -472,6 +472,25 @@ export default function CashierReportsPage() {
     setLightboxOpen(true);
   };
 
+  const ChangeIndicator = ({ value, isRevenue = true }: { value: number, isRevenue?: boolean }) => {
+    if (isNaN(value) || !isFinite(value) || value === 0) return null;
+
+    const isPositive = value > 0;
+    const isNegative = value < 0;
+
+    const colorClass = isPositive ? (isRevenue ? 'text-green-600' : 'text-red-600') : (isRevenue ? 'text-red-600' : 'text-green-600');
+
+    return (
+        <span className={cn(
+            "text-xs font-semibold flex items-center gap-0.5",
+            colorClass
+        )}>
+            {isPositive ? <TrendingUp className="h-3 w-3"/> : <TrendingDown className="h-3 w-3"/>}
+            {Math.abs(value).toLocaleString('vi-VN')}đ
+        </span>
+    );
+  };
+
 
   if (isLoading || authLoading || !user) {
     return (
@@ -603,38 +622,45 @@ export default function CashierReportsPage() {
                                             <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0 space-y-4">
-                                            {(dayReports.revenue || []).map((stat, index) => (
-                                                <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
-                                                    <div className="flex justify-between items-start">
-                                                        <p className="text-sm text-muted-foreground">Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
-                                                            {stat.isOutdated && <Badge variant="destructive" className="text-xs">Phiếu cũ</Badge>}
+                                            {(dayReports.revenue || []).map((stat, index) => {
+                                                const prevStat = (dayReports.revenue || [])[index + 1];
+                                                const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
+                                                return (
+                                                    <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                                        <div className="flex justify-between items-start">
+                                                            <p className="text-sm text-muted-foreground">Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
+                                                                {stat.isOutdated && <Badge variant="destructive" className="text-xs">Phiếu cũ</Badge>}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex justify-between items-center mt-1">
+                                                            <div className="flex items-baseline gap-2">
+                                                                <p className="text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
+                                                                {difference !== 0 && <ChangeIndicator value={difference} />}
+                                                            </div>
+                                                            <div className="flex gap-1">
+                                                                <Button variant="outline" size="sm" onClick={() => handleEditRevenue(stat)} className="h-8">Chi tiết</Button>
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex justify-between items-center mt-1">
-                                                        <p className="text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
-                                                        <div className="flex gap-1">
-                                                            <Button variant="outline" size="sm" onClick={() => handleEditRevenue(stat)} className="h-8">Chi tiết</Button>
-                                                            <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
-                                                                        <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                             {(dayReports.revenue || []).length === 0 && <p className="text-sm text-center text-muted-foreground py-2">Chưa có báo cáo.</p>}
                                         </CardContent>
                                     </Card>
@@ -787,4 +813,3 @@ export default function CashierReportsPage() {
     </TooltipProvider>
   );
 }
-
