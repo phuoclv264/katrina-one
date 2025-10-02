@@ -143,7 +143,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()}>
       <DialogContent className="max-w-3xl flex flex-col h-[90vh] p-0 bg-white dark:bg-card">
-        <DialogHeader className="p-6 pb-4">
+        <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
           <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>
           <DialogDescription>
             Quản lý công thức và thông tin chi tiết của sản phẩm.
@@ -317,7 +317,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
           </div>
         </div>
         </ScrollArea>
-        <DialogFooter className="p-6 pt-2 border-t">
+        <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
           <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
