@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import ExpenseSlipDialog from '../../cashier/_components/expense-slip-dialog';
-import RevenueStatsDialog from '../../cashier/_components/revenue-stats-dialog';
+import ExpenseSlipDialog from '../../../cashier/_components/expense-slip-dialog';
+import RevenueStatsDialog from '../../../cashier/_components/revenue-stats-dialog';
 import type { InventoryItem, OtherCostCategory } from '@/lib/types';
 
 
