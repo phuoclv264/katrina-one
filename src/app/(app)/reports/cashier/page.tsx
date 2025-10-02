@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -21,7 +22,6 @@ import "yet-another-react-lightbox/styles.css";
 import Image from 'next/image';
 
 import OtherCostCategoryDialog from './_components/other-cost-category-dialog';
-import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
 import RevenueStatsList from './_components/RevenueStatsList';
@@ -254,7 +254,7 @@ export default function CashierReportsPage() {
 
   const handleDeleteExpense = useCallback((id: string) => handleDelete(id, dataStore.deleteExpenseSlip as any, 'phiếu chi'), [handleDelete]);
   const handleDeleteRevenue = useCallback((id: string) => handleDelete(id, dataStore.deleteRevenueStats, 'phiếu thống kê'), [handleDelete]);
-  const handleDeleteIncident = useCallback((id: string) => handleDelete(id, dataStore.deleteIncident as any, 'báo cáo sự cố'), [handleDelete]);
+  const handleDeleteIncident = useCallback((id: string) => handleDelete(id, dataStore.deleteIncident, 'báo cáo sự cố'), [handleDelete]);
   const handleDeleteHandover = useCallback((id: string) => handleDelete(id, dataStore.deleteHandoverReport as any, 'báo cáo bàn giao'), [handleDelete]);
 
   const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
@@ -395,7 +395,7 @@ export default function CashierReportsPage() {
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
           categories={incidentCategories}
-          onCategoriesChange={dataStore.updateViolationCategories}
+          onCategoriesChange={handleCategoriesChange}
           canManage={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy || user}
           violationToEdit={incidentToEdit}
@@ -425,3 +425,4 @@ export default function CashierReportsPage() {
     </>
   );
 }
+
