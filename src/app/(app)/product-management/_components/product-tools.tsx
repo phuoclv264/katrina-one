@@ -55,31 +55,64 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
     };
 
     const handleGenerate = async (source: 'text' | 'image') => {
+        if (source === 'image') {
+            toast.error("Tính năng nhập từ ảnh hiện chưa hỗ trợ xử lý song song. Vui lòng sử dụng tính năng dán văn bản.");
+            return;
+        }
+
+        if (!textInput.trim()) {
+            toast.error("Vui lòng cung cấp danh sách công thức.");
+            return;
+        }
+
         setIsGenerating(true);
+        toast.loading("AI đang phân tích công thức...");
+
         try {
-            const input = {
-                inputText: source === 'text' ? textInput : undefined,
-                imageDataUri: source === 'image' ? imageInput! : undefined,
-                inventoryItems: inventoryList,
-            };
+            // Divide and Conquer: Split the text input into chunks of ~10 items
+            const productChunks = textInput.split(/\n(?=\d+\.\s)/).reduce((acc: string[][], line) => {
+                if (!acc.length || acc[acc.length - 1].length === 10) {
+                    acc.push([]);
+                }
+                acc[acc.length - 1].push(line);
+                return acc;
+            }, []);
 
-            if ((source === 'text' && !input.inputText) || (source === 'image' && !input.imageDataUri)) {
-                toast.error("Vui lòng cung cấp đầu vào.");
-                return;
-            }
+            const processingPromises = productChunks.map(chunk => 
+                generateProductRecipes({
+                    inputText: chunk.join('\n'),
+                    inventoryItems: inventoryList,
+                })
+            );
+            
+            const results = await Promise.allSettled(processingPromises);
 
-            toast.loading("AI đang phân tích công thức...");
-            const result = await generateProductRecipes(input);
+            let allProducts: ParsedProduct[] = [];
+            let failedChunks = 0;
 
-            if (!result || !result.products || result.products.length === 0) {
-                throw new Error("AI không thể nhận diện được công thức nào.");
+            results.forEach((result, index) => {
+                if (result.status === 'fulfilled' && result.value?.products) {
+                    allProducts.push(...result.value.products);
+                } else {
+                    failedChunks++;
+                    console.error(`Chunk ${index + 1} failed to process:`, result.status === 'rejected' ? result.reason : 'No products returned');
+                }
+            });
+
+            if (allProducts.length === 0) {
+                throw new Error("AI không thể nhận diện được công thức nào từ văn bản đã cung cấp.");
             }
             
+            if (failedChunks > 0) {
+                toast.error(`AI không thể xử lý ${failedChunks} phần của danh sách. Vui lòng kiểm tra lại định dạng của các phần đó.`);
+            }
+
+
             const existingNames = new Set(existingProducts.map(p => p.name.toLowerCase()));
             const newProducts: ParsedProduct[] = [];
             const existingProductsFound: { product: ParsedProduct, action: 'skip' | 'overwrite' }[] = [];
 
-            result.products.forEach(p => {
+            allProducts.forEach(p => {
                 if(existingNames.has(p.name.toLowerCase())) {
                     existingProductsFound.push({ product: p, action: 'skip' });
                 } else {
