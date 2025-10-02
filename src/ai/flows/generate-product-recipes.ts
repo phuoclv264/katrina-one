@@ -9,15 +9,16 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { InventoryItem } from '@/lib/types';
+import type { InventoryItem, Product } from '@/lib/types';
 
 // Define Zod schema for a single ingredient
 const ProductIngredientSchema = z.object({
-  inventoryItemId: z.string().nullable().describe("The ID of the matched inventory item. Null if no match is found."),
+  inventoryItemId: z.string().nullable().describe("The ID of the matched inventory item. Null if not an inventory item."),
+  productId: z.string().nullable().describe("The ID of the matched sub-product. Null if not a sub-product."),
   name: z.string().describe("The original name of the ingredient as it appeared in the source text."),
   quantity: z.number().describe("The numeric quantity of the ingredient."),
   unit: z.string().describe("The unit of measurement for the quantity (e.g., 'ml', 'g', 'viên')."),
-  isMatched: z.boolean().describe("True if a confident match was found in the inventory, otherwise false."),
+  isMatched: z.boolean().describe("True if a confident match was found in the inventory or product list, otherwise false."),
 });
 
 // Define Zod schema for a single product (recipe)
@@ -26,6 +27,10 @@ const ParsedProductSchema = z.object({
   category: z.string().describe("The category of the product, e.g., 'ESPRESSO', 'TRÀ SỮA'."),
   ingredients: z.array(ProductIngredientSchema).describe("An array of all ingredients for this product."),
   isIngredient: z.boolean().describe("Whether this product can be used as an ingredient in other recipes. Always default to false.").optional(),
+  yield: z.object({
+    quantity: z.number().describe("The total quantity of the final product yielded by this recipe."),
+    unit: z.string().describe("The unit for the yield quantity, e.g., 'ml', 'g'."),
+  }).optional().describe("The total amount of finished product this recipe makes."),
   note: z.string().optional().describe("Any preparation notes or instructions associated with the product."),
 });
 export type ParsedProduct = z.infer<typeof ParsedProductSchema>;
@@ -70,6 +75,7 @@ You will be given a list of available inventory items to match against the ingre
     *   'note': Any text in parentheses '()' that contains instructions or "Décor" notes should be extracted as the 'note'.
     *   'ingredients': A list of all ingredients.
     *   'isIngredient': Always set this to 'false'. This is a boolean flag.
+    *   'yield': This field is optional. Only extract if the notes explicitly state the total output volume, e.g., "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
 3.  **Parse Ingredients:** For each ingredient line (starting with '-'):
     *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g', 'rúp đơn').
     *   The 'name' is the original text of the ingredient, e.g., "Coffee hạt V1 Vincent".
@@ -79,9 +85,11 @@ You will be given a list of available inventory items to match against the ingre
     *   **If a confident match is found:**
         *   Set 'isMatched' to 'true'.
         *   Set 'inventoryItemId' to the 'id' of the matched item from the 'inventoryItems' list.
+        *   Set 'productId' to 'null'.
     *   **If no confident match is found:**
         *   Set 'isMatched' to 'false'.
         *   Set 'inventoryItemId' to 'null'.
+        *   Set 'productId' to 'null'.
 
 **Input Data:**
 

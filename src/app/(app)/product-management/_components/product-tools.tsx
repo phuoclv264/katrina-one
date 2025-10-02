@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { InventoryItem, ParsedProduct, ProductIngredient, Product } from '@/lib/types';
@@ -55,31 +56,31 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
     };
 
     const handleGenerate = async (source: 'text' | 'image') => {
-        if (source === 'image') {
-            toast.error("Tính năng nhập từ ảnh hiện chưa hỗ trợ xử lý song song. Vui lòng sử dụng tính năng dán văn bản.");
-            return;
-        }
-
-        if (!textInput.trim()) {
+        const inputToProcess = source === 'text' ? textInput : imageInput;
+        if (!inputToProcess || (typeof inputToProcess === 'string' && !inputToProcess.trim())) {
             toast.error("Vui lòng cung cấp danh sách công thức.");
             return;
         }
 
         setIsGenerating(true);
-        toast.loading("AI đang phân tích công thức...");
+        toast.loading("AI đang phân tích công thức... (có thể mất vài phút)");
 
         try {
-            const productChunks = textInput.split(/\n(?=\d+\.\s)/).reduce((acc: string[][], line) => {
-                if (!acc.length || acc[acc.length - 1].length === 10) {
-                    acc.push([]);
-                }
-                acc[acc.length - 1].push(line);
-                return acc;
-            }, []);
+            // Split the text into chunks of 10 products
+             const productChunks = typeof inputToProcess === 'string' 
+                ? inputToProcess.split(/\n(?=\d+\.\s)/).reduce((acc: string[][], line) => {
+                    if (!acc.length || acc[acc.length - 1].length === 10) {
+                        acc.push([]);
+                    }
+                    acc[acc.length - 1].push(line);
+                    return acc;
+                }, [])
+                : [[inputToProcess]]; // For image, process as a single chunk
 
             const processingPromises = productChunks.map(chunk => 
                 generateProductRecipes({
-                    inputText: chunk.join('\n'),
+                    inputText: source === 'text' ? chunk.join('\n') : undefined,
+                    imageDataUri: source === 'image' ? chunk[0] : undefined,
                     inventoryItems: inventoryList,
                 })
             );
