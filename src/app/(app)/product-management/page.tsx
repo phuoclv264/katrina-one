@@ -1,10 +1,11 @@
+
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -35,6 +36,9 @@ export default function ProductManagementPage() {
 
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
+  
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const hasInitializedOpenState = useRef(false);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -209,6 +213,20 @@ export default function ProductManagementPage() {
 
   }, [products]);
 
+    useEffect(() => {
+      if (categorizedProducts.length > 0 && !hasInitializedOpenState.current) {
+          setOpenCategories(categorizedProducts.map(c => c.category));
+          hasInitializedOpenState.current = true;
+      }
+  }, [categorizedProducts]);
+
+  const handleToggleAllCategories = () => {
+    if (openCategories.length === categorizedProducts.length) {
+      setOpenCategories([]);
+    } else {
+      setOpenCategories(categorizedProducts.map(c => c.category));
+    }
+  };
 
   if (isLoading || authLoading || !products || !inventoryList) {
     return (
@@ -218,6 +236,8 @@ export default function ProductManagementPage() {
       </div>
     );
   }
+  
+  const areAllCategoriesOpen = categorizedProducts.length > 0 && openCategories.length === categorizedProducts.length;
 
   return (
     <>
@@ -240,6 +260,10 @@ export default function ProductManagementPage() {
                     Hiện có {products.length} mặt hàng. {isEditMode && `Đã chọn ${selectedProductIds.size} mặt hàng.`}
                 </CardDescription>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleToggleAllCategories}>
+                      <ChevronsDownUp className="mr-2 h-4 w-4" />
+                      {areAllCategoriesOpen ? 'Thu gọn' : 'Mở rộng'}
+                    </Button>
                     <Button onClick={handleToggleEditMode} variant={isEditMode ? 'default' : 'outline'}>
                         {isEditMode ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
                         {isEditMode ? 'Xong' : 'Chỉnh sửa'}
@@ -273,7 +297,7 @@ export default function ProductManagementPage() {
             <Button onClick={() => handleOpenDialog()} className="mb-6 w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" /> Thêm mặt hàng mới
             </Button>
-            <Accordion type="multiple" defaultValue={categorizedProducts.map(c => c.category)} className="w-full space-y-4">
+            <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="w-full space-y-4">
               {categorizedProducts.map(({ category, products: productList }, categoryIndex) => {
                 const productIdsInCategory = productList.map(p => p.id);
                 const areAllSelected = productIdsInCategory.every(id => selectedProductIds.has(id));
@@ -361,7 +385,7 @@ export default function ProductManagementPage() {
                                     <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
                                         {(product.ingredients || []).map((ing, index) => {
                                             const inventoryItem = inventoryList.find(i => i.id === ing.inventoryItemId);
-                                            return <li key={index}>{inventoryItem?.name || ing.name}: {ing.quantity}{ing.unit}</li>
+                                            return <li key={index}>{(inventoryItem?.name || ing.name) ?? 'N/A'}: {ing.quantity}{ing.unit}</li>
                                         })}
                                     </ul>
                                 </CardContent>
