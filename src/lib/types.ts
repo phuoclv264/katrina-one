@@ -173,6 +173,22 @@ export type InventoryReport = {
     submittedAt?: string | Timestamp;
 };
 
+// --- Product & Recipe Types ---
+export type ProductIngredient = {
+  inventoryItemId: string; // Links to an item in the InventoryItem[] list
+  quantity: number;
+  unit: string; // e.g., 'gram', 'ml', 'viên'
+};
+
+export type Product = {
+  id: string;
+  name: string;
+  category: string;
+  ingredients: ProductIngredient[];
+  note?: string; // Optional notes, e.g., for preparation steps
+};
+
+
 // --- Violation Logging Types ---
 export type ViolationCategory = string;
 
