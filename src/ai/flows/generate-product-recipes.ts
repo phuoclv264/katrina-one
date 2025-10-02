@@ -109,17 +109,42 @@ const generateProductRecipesFlow = ai.defineFlow(
     outputSchema: GenerateProductRecipesOutputSchema,
   },
   async (input) => {
-    try {
-        const { output } = await prompt(input);
-        return output!;
-    } catch (error: any) {
-         if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
-            console.warn('AI model is overloaded or rate-limited. Retrying in 2 seconds...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
+    let attempt = 0;
+    const maxAttempts = 2;
+    
+    while (attempt < maxAttempts) {
+        try {
             const { output } = await prompt(input);
-            return output!;
+            if (!output || !Array.isArray(output.products)) {
+                throw new Error('AI did not return a valid product list.');
+            }
+            return output;
+        } catch (error: any) {
+            attempt++;
+            console.error(`Attempt ${attempt} failed:`, error);
+
+            if (attempt >= maxAttempts) {
+                let userFriendlyMessage = 'AI đã gặp lỗi không xác định sau nhiều lần thử. Vui lòng thử lại sau.';
+                if (error.message) {
+                    if (error.message.includes('503') || error.message.includes('429')) {
+                        userFriendlyMessage = 'Máy chủ AI đang quá tải. Vui lòng thử lại sau vài phút.';
+                    } else if (error.message.includes('valid product list')) {
+                         userFriendlyMessage = 'AI không trả về được dữ liệu hợp lệ. Vui lòng kiểm tra lại định dạng văn bản đầu vào và thử lại.';
+                    }
+                }
+                throw new Error(userFriendlyMessage);
+            }
+
+            if (error.message && (error.message.includes('503') || error.message.includes('429'))) {
+                console.warn(`AI model is overloaded. Retrying in ${attempt * 2} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+            } else {
+                // For other errors, retry immediately without a long delay
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
-        throw error;
     }
+    // This line should not be reachable, but is a fallback.
+    throw new Error('Không thể phân tích công thức sau nhiều lần thử.');
   }
 );
