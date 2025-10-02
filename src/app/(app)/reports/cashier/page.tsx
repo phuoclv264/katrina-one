@@ -31,74 +31,7 @@ import HandoverReportCard from './_components/HandoverReportCard';
 import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-function IntangibleCostDetailsDialog({
-  isOpen,
-  onClose,
-  incidents,
-  onOpenLightbox,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  incidents: IncidentReport[];
-  onOpenLightbox: (photos: string[], index?: number) => void;
-}) {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Chi tiết Chi phí Vô hình</DialogTitle>
-          <DialogDescription>
-            Danh sách các sự cố được ghi nhận là chi phí vô hình trong tháng.
-          </DialogDescription>
-        </DialogHeader>
-        <ScrollArea className="max-h-[60vh] -mx-6 px-6">
-          {incidents.length > 0 ? (
-            <div className="space-y-4 py-4">
-              {incidents.map((incident) => (
-                <Card key={incident.id}>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="font-semibold">{incident.content}</p>
-                            <p className="text-sm text-muted-foreground">
-                                bởi {incident.createdBy.userName} lúc {new Date(incident.createdAt as string).toLocaleString('vi-VN')}
-                            </p>
-                        </div>
-                        <p className="font-bold text-lg text-amber-600">
-                            {incident.cost.toLocaleString('vi-VN')}đ
-                        </p>
-                    </div>
-                    {incident.photos && incident.photos.length > 0 && (
-                      <div className="mt-2 flex gap-2 flex-wrap">
-                        {incident.photos.map((photo, index) => (
-                          <button
-                            key={index}
-                            onClick={() => onOpenLightbox(incident.photos, index)}
-                            className="relative w-16 h-16 rounded-md overflow-hidden"
-                          >
-                            <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              Không có chi phí vô hình nào được ghi nhận trong tháng này.
-            </p>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
+import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -123,7 +56,7 @@ export default function CashierReportsPage() {
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
   const [isHandoverReportDialogOpen, setIsHandoverReportDialogOpen] = useState(false);
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
-  const [isIntangibleCostDialogOpen, setIsIntangibleCostDialogOpen] = useState(false);
+  const [isIncidentDetailsDialogOpen, setIsIncidentDetailsDialogOpen] = useState(false);
   
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
@@ -222,6 +155,10 @@ export default function CashierReportsPage() {
       i.paymentMethod === 'intangible_cost' && 
       i.cost > 0
     );
+  }, [incidents, currentMonth]);
+
+  const monthlyAllIncidents = useMemo(() => {
+    return incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth));
   }, [incidents, currentMonth]);
 
 
@@ -373,7 +310,7 @@ export default function CashierReportsPage() {
                     <p className="font-medium">Theo Phương thức Thanh toán:</p>
                     <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
                     <div className="pl-4 flex items-center gap-2"><span>Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></span>{monthlySummary.unpaidBankTransfer > 0 && (<div className='flex items-center gap-1'><Badge variant="destructive">Chưa TT: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge><Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsUnpaidSlipsDialogOpen(true)}>Xem chi tiết</Button></div>)}</div>
-                    <div className="pl-4 flex items-center gap-2"><span>Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span></span>{monthlySummary.intangibleCost > 0 && (<Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsIntangibleCostDialogOpen(true)}>Xem chi tiết</Button>)}</div>
+                    <div className="pl-4 flex items-center gap-2"><span>Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span></span></div>
                   </div>
                   <Separator/>
                   <div className="text-sm space-y-1"><p className="font-medium">Theo Loại chi phí:</p>{Object.entries(monthlySummary.expenseByType).map(([key, value]) => (<p key={key} className="pl-4">{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>))}</div>
@@ -392,7 +329,7 @@ export default function CashierReportsPage() {
                       <div className="w-full flex justify-between items-center gap-4">
                         <div className="flex flex-col text-left">
                           <div className="text-lg font-bold flex items-center gap-2">{dayReports.handover ? <ClipboardCheck className="h-5 w-5 text-green-500" /> : <ClipboardX className="h-5 w-5 text-destructive" />}{format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}</div>
-                          <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1"><span>Thu: <span className="font-semibold text-green-600">{totalDailyRevenue.toLocaleString('vi-VN')}đ</span></span><span>Chi: <span className="font-semibold text-red-600">{totalDailyExpense.toLocaleString('vi-VN')}đ</span></span>{(dayReports.incidents?.length || 0) > 0 && <span>Sự cố: <span className="font-semibold text-amber-600">{dayReports.incidents?.length}</span></span>}</div>
+                          <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1"><span>Thu: <span className="font-semibold text-green-600">{totalDailyRevenue.toLocaleString('vi-VN')}đ</span></span><span>Chi: <span className="font-semibold text-red-600">{totalDailyExpense.toLocaleString('vi-VN')}đ</span></span></div>
                         </div>
                       </div>
                     </AccordionTrigger>
@@ -400,7 +337,17 @@ export default function CashierReportsPage() {
                       <div className="space-y-6">
                         <Card className="border-green-500/50 rounded-lg shadow-sm"><CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle></CardHeader><CardContent className="p-4 pt-0"><RevenueStatsList stats={dayReports.revenue || []} onEdit={handleEditRevenue} onDelete={handleDeleteRevenue} processingItemId={processingItemId} /></CardContent></Card>
                         <Card className="border-blue-500/50 rounded-lg shadow-sm"><CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300"><Wallet /> Phiếu chi</CardTitle></CardHeader><CardContent className="p-4 pt-0"><ExpenseList expenses={dayReports.expenses || []} onEdit={handleEditExpense} onDelete={handleDeleteExpense} processingItemId={processingItemId} /></CardContent></Card>
-                        <Card className="border-amber-500/50 rounded-lg shadow-sm"><CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle /> Sự cố</CardTitle></CardHeader><CardContent className="p-4 pt-0"><IncidentList incidents={dayReports.incidents || []} onEdit={handleEditIncident} onDelete={handleDeleteIncident} onOpenLightbox={openPhotoLightbox} processingItemId={processingItemId} /></CardContent></Card>
+                        <Card className="border-amber-500/50 rounded-lg shadow-sm">
+                            <CardHeader className="p-4 pb-2 flex-row justify-between items-center">
+                                <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle /> Sự cố</CardTitle>
+                                {dayReports.incidents && dayReports.incidents.length > 0 && (
+                                    <Button variant="link" size="sm" onClick={() => setIsIncidentDetailsDialogOpen(true)}>Xem tất cả</Button>
+                                )}
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0">
+                                <IncidentList incidents={dayReports.incidents || []} onEdit={handleEditIncident} onDelete={handleDeleteIncident} onOpenLightbox={openPhotoLightbox} processingItemId={processingItemId} />
+                            </CardContent>
+                        </Card>
                         {dayReports.handover && <HandoverReportCard handover={dayReports.handover} onEdit={handleEditHandover} onDelete={handleDeleteHandover} processingItemId={processingItemId} />}
                       </div>
                     </AccordionContent>
@@ -462,11 +409,12 @@ export default function CashierReportsPage() {
           />
       )}
 
-      <IntangibleCostDetailsDialog
-        isOpen={isIntangibleCostDialogOpen}
-        onClose={() => setIsIntangibleCostDialogOpen(false)}
-        incidents={monthlyIntangibleIncidents}
+      <IncidentDetailsDialog
+        isOpen={isIncidentDetailsDialogOpen}
+        onClose={() => setIsIncidentDetailsDialogOpen(false)}
+        incidents={monthlyAllIncidents}
         onOpenLightbox={openPhotoLightbox}
+        currentMonth={currentMonth}
       />
 
       <Lightbox open={lightboxOpen} close={() => setLightboxOpen(false)} index={lightboxIndex} slides={lightboxSlides} carousel={{ finite: true }} />
