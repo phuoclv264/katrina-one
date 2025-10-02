@@ -26,6 +26,7 @@ import RevenueStatsList from './_components/RevenueStatsList';
 import ExpenseList from './_components/ExpenseList';
 import IncidentList from './_components/IncidentList';
 import HandoverReportCard from './_components/HandoverReportCard';
+import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
 import { Badge } from '@/components/ui/badge';
 
 
@@ -331,26 +332,52 @@ export default function CashierReportsPage() {
         )}
       </div>
       
-      {user && (
-          <OwnerCashierDialogs 
-            inventoryList={inventoryList}
-            isExpenseDialogOpen={isExpenseDialogOpen}
-            setIsExpenseDialogOpen={setIsExpenseDialogOpen}
-            handleSaveSlip={handleSaveSlip}
-            isProcessing={!!processingItemId}
-            slipToEdit={slipToEdit}
-            isRevenueDialogOpen={isRevenueDialogOpen}
-            setIsRevenueDialogOpen={setIsRevenueDialogOpen}
-            handleSaveRevenue={handleSaveRevenue}
-            revenueStatsToEdit={revenueStatsToEdit}
-            otherCostCategories={otherCostCategories}
-          />
-      )}
+      <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
+      
+      <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
+      
+      <UnpaidSlipsDialog 
+        isOpen={isUnpaidSlipsDialogOpen}
+        onClose={() => setIsUnpaidSlipsDialogOpen(false)}
+        bankTransferSlips={monthlyBankTransferSlips}
+        inventoryList={inventoryList}
+      />
+      
+      <OwnerCashierDialogs 
+        inventoryList={inventoryList}
+        isExpenseDialogOpen={isExpenseDialogOpen}
+        setIsExpenseDialogOpen={setIsExpenseDialogOpen}
+        handleSaveSlip={handleSaveSlip}
+        isProcessing={!!processingItemId}
+        slipToEdit={slipToEdit}
+        isRevenueDialogOpen={isRevenueDialogOpen}
+        setIsRevenueDialogOpen={setIsRevenueDialogOpen}
+        handleSaveRevenue={handleSaveRevenue}
+        revenueStatsToEdit={revenueStatsToEdit}
+        otherCostCategories={otherCostCategories}
+      />
 
+      <IncidentReportDialog
+        open={isIncidentDialogOpen}
+        onOpenChange={setIsIncidentDialogOpen}
+        onSave={handleSaveIncident}
+        isProcessing={!!processingItemId}
+        categories={incidentCategories}
+        onCategoriesChange={() => {}}
+        canManageCategories={false} // Only owner can manage from settings
+        reporter={incidentToEdit?.createdBy as AuthUser}
+        violationToEdit={incidentToEdit}
+      />
+      
       {user && (
-        <>
-            {/* These dialogs are for owner/manager view only */}
-        </>
+          <OwnerHandoverReportDialog
+            open={isHandoverReportDialogOpen}
+            onOpenChange={setIsHandoverReportDialogOpen}
+            onSave={handleSaveHandover}
+            isProcessing={!!processingItemId}
+            reportToEdit={handoverToEdit}
+            reporter={handoverToEdit?.createdBy as AuthUser}
+          />
       )}
 
       <Lightbox open={lightboxOpen} close={() => setLightboxOpen(false)} index={lightboxIndex} slides={lightboxSlides} carousel={{ finite: true }} />
@@ -358,4 +385,3 @@ export default function CashierReportsPage() {
   );
 }
 
-    

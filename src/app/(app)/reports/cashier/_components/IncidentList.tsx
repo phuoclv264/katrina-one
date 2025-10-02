@@ -18,9 +18,9 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                         <div className="flex justify-between items-start gap-2">
                             <div>
                                 <p className="font-semibold">{incident.content}</p>
-                                <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {format(new Date(incident.createdAt as string), 'HH:mm')}</p>
+                                <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {new Date(incident.createdAt as string).toLocaleString('vi-VN')}</p>
                             </div>
-                            <p className="text-xl font-bold text-amber-600">{incident.cost.toLocaleString('vi-VN')}đ</p>
+                            <p className="text-xl font-bold text-amber-600">{incident.cost > 0 ? `${incident.cost.toLocaleString('vi-VN')}đ` : ''}</p>
                         </div>
                         <div className="flex justify-end gap-1 mt-1">
                             {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => onOpenLightbox(incident.photos, 0)} className="h-8">Xem ảnh</Button>}
