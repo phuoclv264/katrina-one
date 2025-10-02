@@ -41,6 +41,7 @@ const GenerateProductRecipesInputSchema = z.object({
   inputText: z.string().optional().describe("A string containing the list of recipes, likely pasted from a document."),
   imageDataUri: z.string().optional().describe("An image of the recipe list, as a data URI."),
   inventoryItems: z.custom<InventoryItem[]>().describe("The complete list of current inventory items to match against."),
+  allProducts: z.custom<Product[]>().describe("A list of all other existing products to check for sub-recipes."),
 });
 export type GenerateProductRecipesInput = z.infer<typeof GenerateProductRecipesInputSchema>;
 
@@ -64,37 +65,37 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert at parsing structured data from unstructured text, specifically for coffee shop recipes.
 Your task is to analyze the provided text or image, which contains a list of drink recipes, and convert it into a structured JSON format.
 
-You will be given a list of available inventory items to match against the ingredients in the recipes.
+You will be given a list of available inventory items and other products to match against the ingredients in the recipes.
 
-**CRITICAL INSTRUCTIONS:**
+**General Guidelines:**
 
-1.  **Identify Products:** Each product starts with a number and a name in all caps, e.g., "1. ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)".
-2.  **Extract Product Details:** For each product, you MUST extract:
+1.  **Identify Products:** Look for lines that start with a number and a name in all caps, like "1. ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)". These are the products.
+
+2.  **Extract Product Details:** For each product, try to extract the following:
     *   'name': The full name of the product.
-    *   'category': Infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'CÀ PHÊ TRUYỀN THỐNG', 'TRÀ TRÁI CÂY', 'TRÀ SỮA').
-    *   'note': Any text in parentheses '()' that contains instructions or "Décor" notes should be extracted as the 'note'.
-    *   'ingredients': A list of all ingredients.
-    *   'isIngredient': Always set this to 'false'. This is a boolean flag.
-    *   'yield': This field is optional. Only extract if the notes explicitly state the total output volume, e.g., "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
-3.  **Parse Ingredients:** For each ingredient line (starting with '-'):
-    *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g', 'rúp đơn').
-    *   The 'name' is the original text of the ingredient, e.g., "Coffee hạt V1 Vincent".
-4.  **Match Ingredients to Inventory (VERY IMPORTANT):**
-    *   For each parsed ingredient, you MUST search through the provided 'inventoryItems' list.
-    *   Use fuzzy and semantic matching to find the BEST possible match. For example, "Coffee hạt V1 Vincent" should match an inventory item named "Cà phê Robusta". "Sữa đặc NSPN" should match "Sữa đặc".
-    *   **If a confident match is found:**
-        *   Set 'isMatched' to 'true'.
-        *   Set 'inventoryItemId' to the 'id' of the matched item from the 'inventoryItems' list.
-        *   Set 'productId' to 'null'.
-    *   **If no confident match is found:**
-        *   Set 'isMatched' to 'false'.
-        *   Set 'inventoryItemId' to 'null'.
-        *   Set 'productId' to 'null'.
+    *   'category': Try to infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'TRÀ SỮA'). If you can't, make a reasonable guess.
+    *   'note': Any text in parentheses '()' that seems like instructions should be the 'note'.
+    *   'ingredients': A list of all ingredients for that product.
+    *   'isIngredient': Always set this to 'false'.
+    *   'yield': This is optional. Only fill this if the notes clearly state the total output volume, like "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
+
+3.  **Parse Ingredients:** For each ingredient line (usually starting with '-'):
+    *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g').
+
+4.  **Match Ingredients:** For each ingredient you parse:
+    *   First, try to find a match in the 'allProducts' list. A good match is when the ingredient name is very similar to a product name.
+    *   If you find a product match, set 'isMatched' to 'true' and put its ID in 'productId'.
+    *   If no product matches, then search the 'inventoryItems' list. Use fuzzy matching (e.g., "Sữa đặc NSPN" should match "Sữa đặc").
+    *   If you find an inventory match, set 'isMatched' to 'true' and put its 'id' in 'inventoryItemId'.
+    *   **If you cannot find a confident match in either list, that's okay. Just set 'isMatched' to 'false' and move on.** Don't stop or return an error.
 
 **Input Data:**
 
 **Available Inventory Items:**
 {{{json inventoryItems}}}
+
+**Available Products (for sub-recipe matching):**
+{{{json allProducts}}}
 
 **Recipe List (from text or image):**
 {{#if inputText}}
@@ -106,7 +107,7 @@ You will be given a list of available inventory items to match against the ingre
 {{media url=imageDataUri}}
 {{/if}}
 
-Analyze the recipe list and return a clean JSON object according to the output schema.
+Analyze the recipe list and return a clean JSON object according to the output schema. Just return your best effort based on the information you can parse.
 `,
 });
 
@@ -157,3 +158,5 @@ const generateProductRecipesFlow = ai.defineFlow(
     throw new Error('Không thể phân tích công thức sau nhiều lần thử.');
   }
 );
+
+    
