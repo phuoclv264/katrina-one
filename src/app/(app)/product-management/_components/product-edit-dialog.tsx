@@ -142,7 +142,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()}>
-      <DialogContent className="max-w-3xl flex flex-col h-[90vh] p-0">
+      <DialogContent className="max-w-3xl flex flex-col h-[90vh] p-0 bg-white dark:bg-card">
         <DialogHeader className="p-6 pb-4">
           <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>
           <DialogDescription>
