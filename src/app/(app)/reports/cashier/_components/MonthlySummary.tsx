@@ -88,10 +88,9 @@ const MonthlySummary = React.memo(({ currentMonth, revenueStats, expenseSlips, i
             <div className="pl-4 flex items-center gap-2">
               <span>Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></span>
               {monthlySummary.unpaidBankTransfer > 0 && (
-                <div className='flex items-center gap-1'>
+                <button onClick={onOpenUnpaidDialog} className="flex items-center gap-1 rounded-full transition-opacity hover:opacity-80">
                   <Badge variant="destructive">Chưa TT: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={onOpenUnpaidDialog}>Xem chi tiết</Button>
-                </div>
+                </button>
               )}
             </div>
             <div className="pl-4 flex items-center gap-2"><span>Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span></span></div>
