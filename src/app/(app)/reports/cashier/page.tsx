@@ -218,13 +218,17 @@ export default function CashierReportsPage() {
   }, [user, revenueStatsToEdit]);
 
   const handleSaveIncident = useCallback(async (data: any, id?: string) => {
-    if (!user || !incidentToEdit) return;
+    if (!user) return;
+    setProcessingItemId(id || 'new');
     try {
         await dataStore.addOrUpdateIncident(data, id, user);
-        toast.success("Đã cập nhật sự cố.");
+        toast.success(id ? "Đã cập nhật sự cố." : "Đã ghi nhận sự cố.");
         setIsIncidentDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu báo cáo sự cố.'); }
-  }, [user, incidentToEdit]);
+    finally {
+        setProcessingItemId(null);
+    }
+  }, [user]);
 
   const handleSaveHandover = useCallback(async (data: any, id: string) => {
     if (!user) return;
@@ -391,8 +395,8 @@ export default function CashierReportsPage() {
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
           categories={incidentCategories}
-          onCategoriesChange={() => {}}
-          canManage={false}
+          onCategoriesChange={dataStore.updateIncidentCategories}
+          canManage={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy || user}
           violationToEdit={incidentToEdit}
         />
