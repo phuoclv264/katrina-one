@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Eye, Loader2 } from 'lucide-react';
 import type { IncidentReport } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, processingItemId }: { incidents: IncidentReport[], onEdit: (incident: IncidentReport) => void, onDelete: (id: string) => void, onOpenLightbox: (photos: string[], index: number) => void, processingItemId: string | null }) => {
     if (incidents.length === 0) return <p className="text-sm text-center text-muted-foreground py-2">Không có sự cố nào.</p>;
@@ -16,7 +17,10 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                     <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
                         <div className="flex justify-between items-start gap-2">
                             <div>
-                                <p className="font-semibold">{incident.content}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-semibold">{incident.content}</p>
+                                    <Badge variant="secondary">{incident.category}</Badge>
+                                </div>
                                 <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {new Date(incident.createdAt as string).toLocaleString('vi-VN')}</p>
                             </div>
                             <p className="text-xl font-bold text-amber-600">{incident.cost > 0 ? `${incident.cost.toLocaleString('vi-VN')}đ` : ''}</p>

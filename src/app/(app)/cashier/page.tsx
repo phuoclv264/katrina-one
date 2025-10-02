@@ -724,11 +724,11 @@ export default function CashierDashboardPage() {
                            <Table>
                                <TableHeader className="bg-muted/50">
                                    <TableRow>
+                                       <TableHead className="text-xs uppercase">Người tạo</TableHead>
                                        <TableHead className="text-xs uppercase">Nội dung</TableHead>
                                        <TableHead className="text-xs uppercase">Thời gian</TableHead>
                                        <TableHead className="text-right text-xs uppercase">Tổng tiền / Thực trả</TableHead>
                                        <TableHead className="text-xs uppercase">Hình thức</TableHead>
-                                       <TableHead className="text-xs uppercase">Người tạo</TableHead>
                                        <TableHead className="text-right text-xs uppercase">Hành động</TableHead>
                                    </TableRow>
                                </TableHeader>
@@ -737,6 +737,7 @@ export default function CashierDashboardPage() {
                                       const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
                                       return (
                                        <TableRow key={slip.id}>
+                                           <TableCell>{slip.createdBy.userName}</TableCell>
                                            <TableCell className="font-medium">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</span>
@@ -770,7 +771,6 @@ export default function CashierDashboardPage() {
                                                 {slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
                                             </Badge>
                                            </TableCell>
-                                           <TableCell>{slip.createdBy.userName}</TableCell>
                                            <TableCell className="text-right">
                                                {canEdit ? (
                                                 <>

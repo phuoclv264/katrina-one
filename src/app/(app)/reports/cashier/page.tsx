@@ -183,6 +183,9 @@ export default function CashierReportsPage() {
     try {
         await dataStore.addOrUpdateIncident(data, id, user);
         toast.success(id ? "Đã cập nhật sự cố." : "Đã ghi nhận sự cố.");
+        if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
+          toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
+        }
         setIsIncidentDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu báo cáo sự cố.'); }
     finally {
@@ -261,7 +264,7 @@ export default function CashierReportsPage() {
   }, []);
   
   const handleCategoriesChange = useCallback(async (newCategories: IncidentCategory[]) => {
-    await dataStore.updateIncidentCategories(newCategories);
+    await dataStore.updateViolationCategories(newCategories.map(c => c.name));
   }, []);
 
 
@@ -366,7 +369,7 @@ export default function CashierReportsPage() {
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
           categories={incidentCategories}
-          onCategoriesChange={handleCategoriesChange}
+          onCategoriesChange={() => {}}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
           violationToEdit={incidentToEdit}
