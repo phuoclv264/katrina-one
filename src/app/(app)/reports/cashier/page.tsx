@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -27,6 +28,7 @@ import ExpenseList from './_components/ExpenseList';
 import IncidentList from './_components/IncidentList';
 import HandoverReportCard from './_components/HandoverReportCard';
 import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
+import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import { Badge } from '@/components/ui/badge';
 
 
@@ -363,8 +365,8 @@ export default function CashierReportsPage() {
         onSave={handleSaveIncident}
         isProcessing={!!processingItemId}
         categories={incidentCategories}
-        onCategoriesChange={() => {}}
-        canManageCategories={false} // Only owner can manage from settings
+        onCategoriesChange={() => {}} // Owner manages categories in a separate dialog
+        canManage={false} // On this page, only owner can view, not manage categories directly in this dialog
         reporter={incidentToEdit?.createdBy as AuthUser}
         violationToEdit={incidentToEdit}
       />
@@ -384,4 +386,3 @@ export default function CashierReportsPage() {
     </>
   );
 }
-
