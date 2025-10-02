@@ -61,6 +61,14 @@ export default function IncidentReportDialog({
 
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    
+    const reporterName = useMemo(() => {
+        if (violationToEdit) {
+            return violationToEdit.createdBy.userName;
+        }
+        return reporter?.displayName || '...';
+    }, [reporter, violationToEdit]);
+
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -199,7 +207,7 @@ export default function IncidentReportDialog({
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Người báo cáo</Label>
                                 <div className="col-span-3">
-                                    <Badge variant="secondary">{reporter?.displayName || '...'}</Badge>
+                                    <Badge variant="secondary">{reporterName}</Badge>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
