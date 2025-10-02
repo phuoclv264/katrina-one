@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -33,10 +32,20 @@ const MonthlySummary = React.memo(({ currentMonth, revenueStats, expenseSlips, i
   const monthlyIntangibleIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth) && i.paymentMethod === 'intangible_cost' && i.cost > 0), [incidents, currentMonth]);
   
   const monthlySummary = useMemo(() => {
-    const totalRevenue = revenueStats.reduce((sum, stat) => sum + (stat.netRevenue || 0), 0);
+    // Group revenue stats by date to find the latest for each day
+    const latestDailyStats: { [date: string]: RevenueStats } = {};
+    revenueStats.forEach(stat => {
+        if (!latestDailyStats[stat.date] || new Date(stat.createdAt as string) > new Date(latestDailyStats[stat.date].createdAt as string)) {
+            latestDailyStats[stat.date] = stat;
+        }
+    });
+    const dailyRevenueArray = Object.values(latestDailyStats);
+
+    const totalRevenue = dailyRevenueArray.reduce((sum, stat) => sum + stat.netRevenue, 0);
+
     const totalExpense = expenseSlips.reduce((sum, slip) => sum + slip.totalAmount, 0);
 
-    const revenueByMethod = revenueStats.reduce((acc, stat) => {
+    const revenueByMethod = dailyRevenueArray.reduce((acc, stat) => {
         if (stat.revenueByPaymentMethod) Object.keys(stat.revenueByPaymentMethod).forEach(key => { acc[key] = (acc[key] || 0) + stat.revenueByPaymentMethod[key as keyof typeof stat.revenueByPaymentMethod]; });
         return acc;
     }, {} as {[key: string]: number});

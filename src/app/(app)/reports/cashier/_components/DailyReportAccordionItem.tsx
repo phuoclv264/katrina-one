@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -49,7 +48,9 @@ const DailyReportAccordionItem = React.memo(({
   processingItemId,
 }: DailyReportAccordionItemProps) => {
 
-  const totalDailyRevenue = (dayReports.revenue || []).reduce((sum, r) => sum + r.netRevenue, 0);
+  const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
+  const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
+  
   const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
 
   return (
