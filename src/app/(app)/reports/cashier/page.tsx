@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
@@ -65,6 +65,7 @@ export default function CashierReportsPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const initialMonthSet = useRef(false);
   
   useEffect(() => {
     if (lightboxOpen) {
@@ -115,8 +116,9 @@ export default function CashierReportsPage() {
   }, [revenueStats, expenseSlips, incidents, handoverReports]);
 
   useEffect(() => {
-    if (allMonthsWithData.length > 0) {
+    if (allMonthsWithData.length > 0 && !initialMonthSet.current) {
       setCurrentMonth(parseISO(`${allMonthsWithData[0]}-01`));
+      initialMonthSet.current = true;
     }
   }, [allMonthsWithData]);
 
