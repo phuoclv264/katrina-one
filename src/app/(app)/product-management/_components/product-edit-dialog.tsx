@@ -149,8 +149,8 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-grow -mt-4 px-6">
-          <div className="py-4 space-y-6">
+        <ScrollArea className="flex-grow -mt-4">
+          <div className="p-6 space-y-6">
           {/* Section: Basic Info */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
