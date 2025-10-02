@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -367,7 +366,7 @@ export default function CashierReportsPage() {
         categories={incidentCategories}
         onCategoriesChange={() => {}} // Owner manages categories in a separate dialog
         canManage={false} // On this page, only owner can view, not manage categories directly in this dialog
-        reporter={incidentToEdit?.createdBy as AuthUser}
+        reporter={incidentToEdit?.createdBy || user}
         violationToEdit={incidentToEdit}
       />
       

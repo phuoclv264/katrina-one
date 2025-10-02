@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -31,7 +30,7 @@ type IncidentReportDialogProps = {
     isProcessing: boolean;
     categories: IncidentCategory[];
     canManageCategories: boolean;
-    reporter: AuthUser;
+    reporter: AuthUser | null;
     violationToEdit: IncidentReport | null; // This should be incidentToEdit
     isSelfConfession?: boolean;
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
@@ -110,6 +109,10 @@ export default function IncidentReportDialog({
 
 
     const handleSave = () => {
+        if (!reporter) {
+            toast.error("Không tìm thấy thông tin người báo cáo.");
+            return;
+        }
         if (!content) {
             toast.error('Vui lòng nhập nội dung sự cố.');
             return;
@@ -196,7 +199,7 @@ export default function IncidentReportDialog({
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Người báo cáo</Label>
                                 <div className="col-span-3">
-                                    <Badge variant="secondary">{reporter.displayName}</Badge>
+                                    <Badge variant="secondary">{reporter?.displayName || '...'}</Badge>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -320,4 +323,3 @@ export default function IncidentReportDialog({
         </>
     );
 }
-
