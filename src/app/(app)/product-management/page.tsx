@@ -15,6 +15,8 @@ import ProductEditDialog from './_components/product-edit-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ProductTools from './_components/product-tools';
 import { v4 as uuidv4 } from 'uuid';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 
 type CategorizedProducts = {
@@ -31,6 +33,8 @@ export default function ProductManagementPage() {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -107,8 +111,40 @@ export default function ProductManagementPage() {
     handleUpdateAndSave(newList);
     toast.success("Đã xóa mặt hàng.");
   }
+
+  const handleToggleSelectProduct = (productId: string, isSelected: boolean) => {
+      setSelectedProductIds(prev => {
+          const newSet = new Set(prev);
+          if (isSelected) {
+              newSet.add(productId);
+          } else {
+              newSet.delete(productId);
+          }
+          return newSet;
+      });
+  };
+
+  const handleToggleSelectCategory = (productIdsInCategory: string[], isSelected: boolean) => {
+       setSelectedProductIds(prev => {
+          const newSet = new Set(prev);
+          if (isSelected) {
+              productIdsInCategory.forEach(id => newSet.add(id));
+          } else {
+              productIdsInCategory.forEach(id => newSet.delete(id));
+          }
+          return newSet;
+      });
+  }
   
-  const categorizedProducts = useMemo((): CategorizedProducts => {
+  const handleDeleteSelected = () => {
+    if (!products || selectedProductIds.size === 0) return;
+    const newList = products.filter(p => !selectedProductIds.has(p.id));
+    handleUpdateAndSave(newList);
+    toast.success(`Đã xóa ${selectedProductIds.size} mặt hàng.`);
+    setSelectedProductIds(new Set());
+  }
+
+  const categorizedProducts = useMemo((): CategorizedProducts[] => {
     if (!products) return [];
     
     const grouped: { [key: string]: Product[] } = {};
@@ -155,27 +191,73 @@ export default function ProductManagementPage() {
        <Card>
         <CardHeader>
             <CardTitle>Danh sách mặt hàng</CardTitle>
-            <CardDescription>
-                Hiện có {products.length} mặt hàng trong hệ thống.
-            </CardDescription>
+            <div className="flex justify-between items-center flex-wrap gap-2">
+                <CardDescription>
+                    Hiện có {products.length} mặt hàng. Đã chọn {selectedProductIds.size} mặt hàng.
+                </CardDescription>
+                 {selectedProductIds.size > 0 && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Xóa {selectedProductIds.size} mặt hàng
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Hành động này sẽ xóa vĩnh viễn {selectedProductIds.size} mặt hàng đã chọn. Bạn có chắc chắn không?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteSelected}>Xóa</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+            </div>
         </CardHeader>
         <CardContent>
             <Button onClick={() => handleOpenDialog()} className="mb-6 w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" /> Thêm mặt hàng mới
             </Button>
             <Accordion type="multiple" defaultValue={categorizedProducts.map(c => c.category)} className="w-full space-y-4">
-              {categorizedProducts.map(({ category, products: productList }) => (
+              {categorizedProducts.map(({ category, products: productList }) => {
+                const productIdsInCategory = productList.map(p => p.id);
+                const areAllSelected = productIdsInCategory.every(id => selectedProductIds.has(id));
+
+                return (
                 <AccordionItem value={category} key={category} className="border rounded-lg shadow-sm">
-                  <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                    {category} ({productList.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="p-4 border-t">
+                    <div className="flex items-center p-2 bg-muted/30 rounded-t-lg">
+                        <Checkbox
+                            id={`select-all-${category}`}
+                            checked={areAllSelected}
+                            onCheckedChange={(checked) => handleToggleSelectCategory(productIdsInCategory, !!checked)}
+                            className="mx-4"
+                        />
+                        <AccordionTrigger className="p-2 text-lg font-semibold hover:no-underline flex-1">
+                          {category} ({productList.length})
+                        </AccordionTrigger>
+                    </div>
+                  <AccordionContent className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {productList.map(product => (
-                            <Card key={product.id} className="flex flex-col">
+                            <Card key={product.id} className={cn("flex flex-col transition-all", selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary")}>
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start gap-2">
-                                        <CardTitle className="text-base">{product.name}</CardTitle>
+                                        <div className="flex items-start gap-3">
+                                            <Checkbox
+                                                id={`select-${product.id}`}
+                                                checked={selectedProductIds.has(product.id)}
+                                                onCheckedChange={(checked) => handleToggleSelectProduct(product.id, !!checked)}
+                                                className="mt-1"
+                                            />
+                                            <label htmlFor={`select-${product.id}`} className="cursor-pointer">
+                                                <CardTitle className="text-base">{product.name}</CardTitle>
+                                            </label>
+                                        </div>
                                         <div className="flex">
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(product)}><Edit className="h-4 w-4" /></Button>
                                             <AlertDialog>
@@ -200,7 +282,7 @@ export default function ProductManagementPage() {
                                     <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
                                         {(product.ingredients || []).map((ing, index) => {
                                             const inventoryItem = inventoryList.find(i => i.id === ing.inventoryItemId);
-                                            return <li key={index}>{inventoryItem?.name || ing.inventoryItemId}: {ing.quantity}{ing.unit}</li>
+                                            return <li key={index}>{inventoryItem?.name || ing.name}: {ing.quantity}{ing.unit}</li>
                                         })}
                                     </ul>
                                 </CardContent>
@@ -216,7 +298,8 @@ export default function ProductManagementPage() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              ))}
+                )
+              })}
             </Accordion>
         </CardContent>
       </Card>
