@@ -10,9 +10,9 @@ import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCos
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ArrowLeft, Banknote, Receipt, AlertTriangle, Wallet, Calendar, Settings, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardX, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
+import { Accordion } from '@/components/ui/accordion';
+import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import Lightbox from "yet-another-react-lightbox";
@@ -21,16 +21,13 @@ import Image from 'next/image';
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
-import RevenueStatsList from './_components/RevenueStatsList';
-import ExpenseList from './_components/ExpenseList';
-import IncidentList from './_components/IncidentList';
-import HandoverReportCard from './_components/HandoverReportCard';
 import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
 import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './_components/MonthlySummary';
+import DailyReportAccordionItem from './_components/DailyReportAccordionItem';
 
 
 export default function CashierReportsPage() {
@@ -313,41 +310,23 @@ export default function CashierReportsPage() {
             />
 
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0, 1)} className="space-y-4">
-              {sortedDatesInMonth.map(date => {
-                const dayReports = reportsForCurrentMonth[date];
-                const totalDailyRevenue = (dayReports.revenue || []).reduce((sum, r) => sum + r.netRevenue, 0);
-                const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
-                return (
-                  <AccordionItem value={date} key={date} className="border rounded-xl shadow-md bg-white dark:bg-card">
-                    <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline rounded-t-xl">
-                      <div className="w-full flex justify-between items-center gap-4">
-                        <div className="flex flex-col text-left">
-                          <div className="text-lg font-bold flex items-center gap-2">{dayReports.handover ? <ClipboardCheck className="h-5 w-5 text-green-500" /> : <ClipboardX className="h-5 w-5 text-destructive" />}{format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}</div>
-                          <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1"><span>Thu: <span className="font-semibold text-green-600">{totalDailyRevenue.toLocaleString('vi-VN')}đ</span></span><span>Chi: <span className="font-semibold text-red-600">{totalDailyExpense.toLocaleString('vi-VN')}đ</span></span></div>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="p-4 bg-muted/20 rounded-b-xl">
-                      <div className="space-y-6">
-                        <Card className="border-green-500/50 rounded-lg shadow-sm"><CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300"><Receipt /> Doanh thu</CardTitle></CardHeader><CardContent className="p-4 pt-0"><RevenueStatsList stats={dayReports.revenue || []} onEdit={handleEditRevenue} onDelete={handleDeleteRevenue} processingItemId={processingItemId} /></CardContent></Card>
-                        <Card className="border-blue-500/50 rounded-lg shadow-sm"><CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300"><Wallet /> Phiếu chi</CardTitle></CardHeader><CardContent className="p-4 pt-0"><ExpenseList expenses={dayReports.expenses || []} onEdit={handleEditExpense} onDelete={handleDeleteExpense} processingItemId={processingItemId} /></CardContent></Card>
-                        <Card className="border-amber-500/50 rounded-lg shadow-sm">
-                            <CardHeader className="p-4 pb-2 flex-row justify-between items-center">
-                                <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle /> Sự cố</CardTitle>
-                                {dayReports.incidents && dayReports.incidents.length > 0 && (
-                                    <Button variant="link" size="sm" onClick={() => setIsIncidentDetailsDialogOpen(true)}>Xem tất cả</Button>
-                                )}
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0">
-                                <IncidentList incidents={dayReports.incidents || []} onEdit={handleEditIncident} onDelete={handleDeleteIncident} onOpenLightbox={openPhotoLightbox} processingItemId={processingItemId} />
-                            </CardContent>
-                        </Card>
-                        {dayReports.handover && <HandoverReportCard handover={dayReports.handover} onEdit={handleEditHandover} onDelete={handleDeleteHandover} processingItemId={processingItemId} />}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
+              {sortedDatesInMonth.map(date => (
+                 <DailyReportAccordionItem
+                    key={date}
+                    date={date}
+                    dayReports={reportsForCurrentMonth[date]}
+                    onEditRevenue={handleEditRevenue}
+                    onDeleteRevenue={handleDeleteRevenue}
+                    onEditExpense={handleEditExpense}
+                    onDeleteExpense={handleDeleteExpense}
+                    onEditIncident={handleEditIncident}
+                    onDeleteIncident={handleDeleteIncident}
+                    onOpenLightbox={openPhotoLightbox}
+                    onEditHandover={handleEditHandover}
+                    onDeleteHandover={handleDeleteHandover}
+                    processingItemId={processingItemId}
+                 />
+              ))}
             </Accordion>
           </div>
         )}
