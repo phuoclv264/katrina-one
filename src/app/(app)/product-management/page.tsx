@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -151,7 +150,6 @@ export default function ProductManagementPage() {
   
   const handleToggleEditMode = () => {
     if (isEditMode) {
-      // When exiting edit mode, save the current order
       if (products) {
         dataStore.updateProducts(products).then(() => {
            toast.success("Đã lưu thứ tự mới của các mặt hàng.");
@@ -174,9 +172,22 @@ export default function ProductManagementPage() {
     newList[currentIndex] = newList[newIndex];
     newList[newIndex] = temp;
     
-    // Optimistic update of the local state
+    // Optimistic update of the local state, will be saved on "Done"
     setProducts(newList);
   };
+
+  const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
+    if (!products || !categorizedProducts) return;
+
+    const newCategoryOrder = [...categorizedProducts];
+    const targetIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
+    if (targetIndex < 0 || targetIndex >= newCategoryOrder.length) return;
+
+    [newCategoryOrder[categoryIndex], newCategoryOrder[targetIndex]] = [newCategoryOrder[targetIndex], newCategoryOrder[categoryIndex]];
+
+    const newFlatList = newCategoryOrder.flatMap(category => category.products);
+    setProducts(newFlatList);
+};
 
   const categorizedProducts = useMemo((): CategorizedProducts[] => {
     if (!products) return [];
@@ -194,7 +205,6 @@ export default function ProductManagementPage() {
     });
 
     return categoryOrder
-        .sort((a,b) => a.localeCompare(b, 'vi'))
         .map(category => ({ category, products: grouped[category] }));
 
   }, [products]);
@@ -264,7 +274,7 @@ export default function ProductManagementPage() {
                 <Plus className="mr-2 h-4 w-4" /> Thêm mặt hàng mới
             </Button>
             <Accordion type="multiple" defaultValue={categorizedProducts.map(c => c.category)} className="w-full space-y-4">
-              {categorizedProducts.map(({ category, products: productList }) => {
+              {categorizedProducts.map(({ category, products: productList }, categoryIndex) => {
                 const productIdsInCategory = productList.map(p => p.id);
                 const areAllSelected = productIdsInCategory.every(id => selectedProductIds.has(id));
 
@@ -282,10 +292,22 @@ export default function ProductManagementPage() {
                         <AccordionTrigger className={cn("p-2 text-lg font-semibold hover:no-underline flex-1", !isEditMode && 'pl-4')}>
                           {category} ({productList.length})
                         </AccordionTrigger>
+                        {isEditMode && (
+                            <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveCategory(categoryIndex, 'up')} disabled={categoryIndex === 0}>
+                                    <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveCategory(categoryIndex, 'down')} disabled={categoryIndex === categorizedProducts.length - 1}>
+                                    <ArrowDown className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
                     </div>
                   <AccordionContent className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {productList.map((product, index) => (
+                        {productList.map((product) => {
+                            const globalIndex = products.findIndex(p => p.id === product.id);
+                            return (
                             <Card key={product.id} className={cn("flex flex-col transition-all", isEditMode && selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary")}>
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start gap-2">
@@ -305,10 +327,10 @@ export default function ProductManagementPage() {
                                         <div className="flex">
                                              {isEditMode ? (
                                                 <div className="flex items-center">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveProduct(product.id, 'up')} disabled={index === 0}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveProduct(product.id, 'up')} disabled={globalIndex === 0 || products[globalIndex - 1]?.category !== product.category}>
                                                         <ArrowUp className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveProduct(product.id, 'down')} disabled={index === productList.length - 1}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveProduct(product.id, 'down')} disabled={globalIndex === products.length - 1 || products[globalIndex + 1]?.category !== product.category}>
                                                         <ArrowDown className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -351,7 +373,7 @@ export default function ProductManagementPage() {
                                     </CardFooter>
                                 )}
                             </Card>
-                        ))}
+                        )})}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
