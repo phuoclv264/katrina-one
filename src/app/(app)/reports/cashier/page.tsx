@@ -430,7 +430,7 @@ export default function CashierReportsPage() {
           categories={incidentCategories}
           onCategoriesChange={handleCategoriesChange}
           canManageCategories={user.role === 'Chủ nhà hàng'}
-          reporter={incidentToEdit?.createdBy || user}
+          reporter={incidentToEdit?.createdBy as AuthUser ?? user}
           violationToEdit={incidentToEdit}
         />
       )}
