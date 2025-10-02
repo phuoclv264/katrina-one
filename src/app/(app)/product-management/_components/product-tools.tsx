@@ -69,7 +69,6 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
         toast.loading("AI đang phân tích công thức...");
 
         try {
-            // Divide and Conquer: Split the text input into chunks of ~10 items
             const productChunks = textInput.split(/\n(?=\d+\.\s)/).reduce((acc: string[][], line) => {
                 if (!acc.length || acc[acc.length - 1].length === 10) {
                     acc.push([]);
@@ -242,15 +241,15 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                                     <Accordion type="multiple" className="w-full space-y-2">
                                     {previewState.existingProducts.map(({ product, action }, index) => (
                                         <AccordionItem value={product.name} key={`existing-${index}`} className="border rounded-lg shadow-sm bg-amber-500/5">
-                                             <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
-                                                <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center w-full p-4">
+                                                <AccordionTrigger className="text-base font-semibold hover:no-underline flex-1">
                                                     <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
-                                                    <div className="flex items-center gap-2 mr-4" onClick={(e) => e.stopPropagation()}>
-                                                        <Label htmlFor={`overwrite-${index}`} className="text-sm font-normal">Ghi đè</Label>
-                                                        <Switch id={`overwrite-${index}`} checked={action === 'overwrite'} onCheckedChange={() => handleToggleOverwrite(product.name)} />
-                                                    </div>
+                                                </AccordionTrigger>
+                                                <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
+                                                    <Label htmlFor={`overwrite-${index}`} className="text-sm font-normal">Ghi đè</Label>
+                                                    <Switch id={`overwrite-${index}`} checked={action === 'overwrite'} onCheckedChange={() => handleToggleOverwrite(product.name)} />
                                                 </div>
-                                            </AccordionTrigger>
+                                            </div>
                                             <AccordionContent className="p-4 border-t">
                                                  <div className="space-y-2">
                                                     {product.ingredients.map((ing, i) => (
