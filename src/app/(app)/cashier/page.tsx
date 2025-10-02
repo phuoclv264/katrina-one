@@ -321,7 +321,7 @@ export default function CashierDashboardPage() {
       try {
           await dataStore.addOrUpdateIncident(data, id, user);
           toast.success(`Đã ${id ? 'cập nhật' : 'ghi nhận'} sự cố.`);
-          if(data.cost > 0) {
+          if(data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
               toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
           }
           setIsIncidentDialogOpen(false);
@@ -825,7 +825,10 @@ export default function CashierDashboardPage() {
                                         <CardContent className="p-3">
                                             <div className="flex justify-between items-start gap-2 mb-2">
                                                 <div>
-                                                    <p className="font-semibold">{incident.content}</p>
+                                                    <div className="font-semibold flex items-center gap-2 flex-wrap">
+                                                        <p>{incident.content}</p>
+                                                        <Badge variant="secondary">{incident.category}</Badge>
+                                                    </div>
                                                     <p className="text-xs text-muted-foreground">{incident.createdBy.userName} • {format(new Date(incident.createdAt as string), 'HH:mm')}</p>
                                                 </div>
                                                 <p className="font-bold text-amber-600">{incident.cost > 0 && `${incident.cost.toLocaleString('vi-VN')}đ`}</p>
@@ -908,4 +911,5 @@ export default function CashierDashboardPage() {
     </>
   );
 }
+
 
