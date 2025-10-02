@@ -51,8 +51,8 @@ const DailyReportAccordionItem = React.memo(({
 }: DailyReportAccordionItemProps) => {
 
   const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
-  const totalDailyRevenue = dayReports.revenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
-  
+  const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
+
   const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
 
   return (
