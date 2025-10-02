@@ -5,7 +5,7 @@ import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Trash2, Plus, Edit } from 'lucide-react';
+import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -35,6 +35,7 @@ export default function ProductManagementPage() {
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
 
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -66,9 +67,13 @@ export default function ProductManagementPage() {
     };
   }, [user]);
 
-  const handleUpdateAndSave = (newProducts: Product[]) => {
+  const handleUpdateAndSave = (newProducts: Product[], showToast = true) => {
     setProducts(newProducts);
-    dataStore.updateProducts(newProducts).catch(err => {
+    dataStore.updateProducts(newProducts).then(() => {
+      if (showToast) {
+        toast.success("Thay đổi đã được lưu!");
+      }
+    }).catch(err => {
       toast.error("Không thể lưu thay đổi.");
       console.error(err);
     });
@@ -143,6 +148,35 @@ export default function ProductManagementPage() {
     toast.success(`Đã xóa ${selectedProductIds.size} mặt hàng.`);
     setSelectedProductIds(new Set());
   }
+  
+  const handleToggleEditMode = () => {
+    if (isEditMode) {
+      // When exiting edit mode, save the current order
+      if (products) {
+        dataStore.updateProducts(products).then(() => {
+           toast.success("Đã lưu thứ tự mới của các mặt hàng.");
+        });
+      }
+    }
+    setIsEditMode(!isEditMode);
+  };
+
+  const handleMoveProduct = (productId: string, direction: 'up' | 'down') => {
+    if (!products) return;
+    const currentIndex = products.findIndex(p => p.id === productId);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= products.length) return;
+
+    const newList = [...products];
+    const temp = newList[currentIndex];
+    newList[currentIndex] = newList[newIndex];
+    newList[newIndex] = temp;
+    
+    // Optimistic update of the local state
+    setProducts(newList);
+  };
 
   const categorizedProducts = useMemo((): CategorizedProducts[] => {
     if (!products) return [];
@@ -193,30 +227,36 @@ export default function ProductManagementPage() {
             <CardTitle>Danh sách mặt hàng</CardTitle>
             <div className="flex justify-between items-center flex-wrap gap-2">
                 <CardDescription>
-                    Hiện có {products.length} mặt hàng. Đã chọn {selectedProductIds.size} mặt hàng.
+                    Hiện có {products.length} mặt hàng. {isEditMode && `Đã chọn ${selectedProductIds.size} mặt hàng.`}
                 </CardDescription>
-                 {selectedProductIds.size > 0 && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Xóa {selectedProductIds.size} mặt hàng
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Hành động này sẽ xóa vĩnh viễn {selectedProductIds.size} mặt hàng đã chọn. Bạn có chắc chắn không?
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteSelected}>Xóa</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
+                <div className="flex items-center gap-2">
+                    <Button onClick={handleToggleEditMode} variant={isEditMode ? 'default' : 'outline'}>
+                        {isEditMode ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
+                        {isEditMode ? 'Xong' : 'Chỉnh sửa'}
+                    </Button>
+                    {isEditMode && selectedProductIds.size > 0 && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Xóa ({selectedProductIds.size})
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Hành động này sẽ xóa vĩnh viễn {selectedProductIds.size} mặt hàng đã chọn. Bạn có chắc chắn không?
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDeleteSelected}>Xóa</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
             </div>
         </CardHeader>
         <CardContent>
@@ -231,50 +271,67 @@ export default function ProductManagementPage() {
                 return (
                 <AccordionItem value={category} key={category} className="border rounded-lg shadow-sm">
                     <div className="flex items-center p-2 bg-muted/30 rounded-t-lg">
-                        <Checkbox
-                            id={`select-all-${category}`}
-                            checked={areAllSelected}
-                            onCheckedChange={(checked) => handleToggleSelectCategory(productIdsInCategory, !!checked)}
-                            className="mx-4"
-                        />
-                        <AccordionTrigger className="p-2 text-lg font-semibold hover:no-underline flex-1">
+                        {isEditMode && (
+                          <Checkbox
+                              id={`select-all-${category}`}
+                              checked={areAllSelected}
+                              onCheckedChange={(checked) => handleToggleSelectCategory(productIdsInCategory, !!checked)}
+                              className="mx-4"
+                          />
+                        )}
+                        <AccordionTrigger className={cn("p-2 text-lg font-semibold hover:no-underline flex-1", !isEditMode && 'pl-4')}>
                           {category} ({productList.length})
                         </AccordionTrigger>
                     </div>
                   <AccordionContent className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {productList.map(product => (
-                            <Card key={product.id} className={cn("flex flex-col transition-all", selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary")}>
+                        {productList.map((product, index) => (
+                            <Card key={product.id} className={cn("flex flex-col transition-all", isEditMode && selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary")}>
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="flex items-start gap-3">
-                                            <Checkbox
-                                                id={`select-${product.id}`}
-                                                checked={selectedProductIds.has(product.id)}
-                                                onCheckedChange={(checked) => handleToggleSelectProduct(product.id, !!checked)}
-                                                className="mt-1"
-                                            />
-                                            <label htmlFor={`select-${product.id}`} className="cursor-pointer">
+                                            {isEditMode && (
+                                              <Checkbox
+                                                  id={`select-${product.id}`}
+                                                  checked={selectedProductIds.has(product.id)}
+                                                  onCheckedChange={(checked) => handleToggleSelectProduct(product.id, !!checked)}
+                                                  className="mt-1"
+                                              />
+                                            )}
+                                            <label htmlFor={`select-${product.id}`} className={cn(isEditMode && "cursor-pointer")}>
                                                 <CardTitle className="text-base">{product.name}</CardTitle>
                                             </label>
                                         </div>
                                         <div className="flex">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(product)}><Edit className="h-4 w-4" /></Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Xóa "{product.name}"?</AlertDialogTitle>
-                                                        <AlertDialogDescription>Hành động này không thể được hoàn tác. Mặt hàng sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Xóa</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                             {isEditMode ? (
+                                                <div className="flex items-center">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveProduct(product.id, 'up')} disabled={index === 0}>
+                                                        <ArrowUp className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveProduct(product.id, 'down')} disabled={index === productList.length - 1}>
+                                                        <ArrowDown className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(product)}><Edit className="h-4 w-4" /></Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Xóa "{product.name}"?</AlertDialogTitle>
+                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác. Mặt hàng sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Xóa</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </CardHeader>
