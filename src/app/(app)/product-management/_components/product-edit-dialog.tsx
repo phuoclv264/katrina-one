@@ -15,6 +15,7 @@ import type { Product, ProductIngredient, InventoryItem } from '@/lib/types';
 import { Plus, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 
 type ProductEditDialogProps = {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         category: '',
         ingredients: [],
         note: '',
+        yield: { quantity: 0, unit: 'ml'},
       });
       setIngredientSource('inventory');
     }
