@@ -7,7 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ClipboardCheck, ClipboardX, Receipt, Wallet, AlertTriangle } from 'lucide-react';
-import type { RevenueStats, ExpenseSlip, IncidentReport, HandoverReport } from '@/lib/types';
+import type { RevenueStats, ExpenseSlip, IncidentReport, HandoverReport, InventoryItem } from '@/lib/types';
 import RevenueStatsList from './RevenueStatsList';
 import ExpenseList from './ExpenseList';
 import IncidentList from './IncidentList';
@@ -31,6 +31,7 @@ type DailyReportAccordionItemProps = {
   onEditHandover: (handover: HandoverReport) => void;
   onDeleteHandover: (id: string) => void;
   processingItemId: string | null;
+  inventoryList: InventoryItem[];
 };
 
 const DailyReportAccordionItem = React.memo(({
@@ -46,6 +47,7 @@ const DailyReportAccordionItem = React.memo(({
   onEditHandover,
   onDeleteHandover,
   processingItemId,
+  inventoryList,
 }: DailyReportAccordionItemProps) => {
 
   const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
@@ -88,7 +90,7 @@ const DailyReportAccordionItem = React.memo(({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <ExpenseList expenses={dayReports.expenses || []} onEdit={onEditExpense} onDelete={onDeleteExpense} processingItemId={processingItemId} />
+              <ExpenseList expenses={dayReports.expenses || []} onEdit={onEditExpense} onDelete={onDeleteExpense} processingItemId={processingItemId} inventoryList={inventoryList} />
             </CardContent>
           </Card>
           <Card className="border-amber-500/50 rounded-lg shadow-sm">

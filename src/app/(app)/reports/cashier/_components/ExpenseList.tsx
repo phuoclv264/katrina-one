@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,23 +6,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Loader2, Wallet, LandPlot, Edit2 } from 'lucide-react';
-import type { ExpenseSlip, ExpenseItem } from '@/lib/types';
+import type { ExpenseSlip, ExpenseItem, InventoryItem } from '@/lib/types';
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
-const getSlipContentName = (item: ExpenseItem): string => {
+const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, inventoryList }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, onDelete: (id: string) => void, processingItemId: string | null, inventoryList: InventoryItem[] }) => {
+  const isMobile = useIsMobile();
+
+  const getSlipContentName = (item: ExpenseItem): string => {
     if (item.itemId === 'other_cost') {
       if (item.name === 'Khác' && item.description) {
           return item.description;
       }
       return item.name;
+    }
+    const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+    return inventoryItem?.shortName || item.name;
   }
-  return item.name;
-}
 
-const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, onDelete: (id: string) => void, processingItemId: string | null }) => {
-  const isMobile = useIsMobile();
   if (expenses.length === 0) return <p className="text-sm text-center text-muted-foreground py-2">Không có phiếu chi nào.</p>;
 
   return (

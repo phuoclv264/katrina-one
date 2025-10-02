@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -111,17 +109,6 @@ function StartOfDayCashDialog({
     );
 }
 
-const getSlipContentName = (item: ExpenseItem): string => {
-    if (item.name?.startsWith('Chi phí sự cố')) return item.name;
-    if (item.itemId === 'other_cost') {
-      if (item.name === 'Khác' && item.description) {
-          return item.description;
-      }
-      return item.name;
-  }
-  return item.name;
-}
-
 const ChangeIndicator = ({ value }: { value: number }) => {
     if (isNaN(value) || !isFinite(value) || value === 0) return null;
 
@@ -177,6 +164,18 @@ export default function CashierDashboardPage() {
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+
+  const getSlipContentName = useCallback((item: ExpenseItem): string => {
+    if (item.name?.startsWith('Chi phí sự cố')) return item.name;
+    if (item.itemId === 'other_cost') {
+      if (item.name === 'Khác' && item.description) {
+          return item.description;
+      }
+      return item.name;
+    }
+    const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+    return inventoryItem?.shortName || item.name;
+  }, [inventoryList]);
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
@@ -911,5 +910,3 @@ export default function CashierDashboardPage() {
     </>
   );
 }
-
-
