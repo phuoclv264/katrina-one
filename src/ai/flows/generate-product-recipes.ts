@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to parse product recipes from text or an image and link them to inventory items.
@@ -24,6 +25,7 @@ const ParsedProductSchema = z.object({
   name: z.string().describe("The full name of the product, e.g., 'ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)'."),
   category: z.string().describe("The category of the product, e.g., 'ESPRESSO', 'TRÀ SỮA'."),
   ingredients: z.array(ProductIngredientSchema).describe("An array of all ingredients for this product."),
+  isIngredient: z.boolean().describe("Whether this product can be used as an ingredient in other recipes. Always default to false.").optional(),
   note: z.string().optional().describe("Any preparation notes or instructions associated with the product."),
 });
 export type ParsedProduct = z.infer<typeof ParsedProductSchema>;
@@ -67,6 +69,7 @@ You will be given a list of available inventory items to match against the ingre
     *   'category': Infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'CÀ PHÊ TRUYỀN THỐNG', 'TRÀ TRÁI CÂY', 'TRÀ SỮA').
     *   'note': Any text in parentheses '()' that contains instructions or "Décor" notes should be extracted as the 'note'.
     *   'ingredients': A list of all ingredients.
+    *   'isIngredient': Always set this to 'false'. This is a boolean flag.
 3.  **Parse Ingredients:** For each ingredient line (starting with '-'):
     *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g', 'rúp đơn').
     *   The 'name' is the original text of the ingredient, e.g., "Coffee hạt V1 Vincent".
@@ -83,9 +86,7 @@ You will be given a list of available inventory items to match against the ingre
 **Input Data:**
 
 **Available Inventory Items:**
-\`\`\`json
 {{{json inventoryItems}}}
-\`\`\`
 
 **Recipe List (from text or image):**
 {{#if inputText}}

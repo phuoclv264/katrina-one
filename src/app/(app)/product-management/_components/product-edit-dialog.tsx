@@ -16,6 +16,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 
 type ProductEditDialogProps = {
   isOpen: boolean;
@@ -41,6 +43,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         category: '',
         ingredients: [],
         note: '',
+        isIngredient: false, // Default to false
         yield: { quantity: 0, unit: 'ml'},
       });
       setIngredientSource('inventory');
@@ -98,8 +101,12 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             item.name.toLowerCase().includes(searchLower)
         );
     } else {
-        // Filter out the current product to prevent self-referencing
-        return allProducts.filter(p => p.id !== product.id && p.name.toLowerCase().includes(searchLower));
+        // Filter out the current product and only show products marked as ingredients
+        return allProducts.filter(p => 
+            p.id !== product.id && 
+            p.isIngredient === true && 
+            p.name.toLowerCase().includes(searchLower)
+        );
     }
   }, [ingredientSearch, inventoryList, allProducts, ingredientSource, product.id]);
 
@@ -124,15 +131,35 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <Input id="product-category" value={product.category || ''} onChange={(e) => handleFieldChange('category', e.target.value)} placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-                <Label htmlFor="yield-qty">Thành phẩm</Label>
-                 <div className="flex gap-2">
-                    <Input id="yield-qty" type="number" placeholder="Số lượng" value={product.yield?.quantity || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} />
-                    <Input placeholder="Đơn vị" value={product.yield?.unit || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })}/>
-                 </div>
+          
+          <Separator />
+
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+                <Switch 
+                    id="is-ingredient-switch" 
+                    checked={product.isIngredient}
+                    onCheckedChange={(checked) => handleFieldChange('isIngredient', checked)}
+                />
+                <Label htmlFor="is-ingredient-switch">Dùng làm nguyên liệu cho món khác (công thức con)</Label>
             </div>
+          
+            {product.isIngredient && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l-2 ml-2">
+                <div className="space-y-2">
+                    <Label htmlFor="yield-qty">Thành phẩm</Label>
+                    <p className="text-xs text-muted-foreground">Công thức này tạo ra bao nhiêu thành phẩm?</p>
+                    <div className="flex gap-2">
+                        <Input id="yield-qty" type="number" placeholder="Số lượng" value={product.yield?.quantity || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} />
+                        <Input placeholder="Đơn vị (ml, g,...)" value={product.yield?.unit || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })}/>
+                    </div>
+                </div>
+              </div>
+            )}
           </div>
+          
+          <Separator />
+          
           <div className="space-y-2">
             <h4 className="font-semibold">Công thức</h4>
              <ScrollArea className="h-72 w-full rounded-md border">

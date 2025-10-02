@@ -189,6 +189,7 @@ export type Product = {
   category: string;
   ingredients: ProductIngredient[];
   note?: string; // Optional notes, e.g., for preparation steps
+  isIngredient?: boolean; // Can this product be used as an ingredient in another product? Defaults to false.
   yield?: {
     quantity: number;
     unit: string;
