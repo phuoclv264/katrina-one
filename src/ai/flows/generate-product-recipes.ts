@@ -64,22 +64,22 @@ You will be given a list of available inventory items to match against the ingre
 
 1.  **Identify Products:** Each product starts with a number and a name in all caps, e.g., "1. ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)".
 2.  **Extract Product Details:** For each product, you MUST extract:
-    *   \`name\`: The full name of the product.
-    *   \`category\`: Infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'CÀ PHÊ TRUYỀN THỐNG', 'TRÀ TRÁI CÂY', 'TRÀ SỮA').
-    *   \`note\`: Any text in parentheses \`()\` that contains instructions or "Décor" notes should be extracted as the \`note\`.
-    *   \`ingredients\`: A list of all ingredients.
+    *   'name': The full name of the product.
+    *   'category': Infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'CÀ PHÊ TRUYỀN THỐNG', 'TRÀ TRÁI CÂY', 'TRÀ SỮA').
+    *   'note': Any text in parentheses '()' that contains instructions or "Décor" notes should be extracted as the 'note'.
+    *   'ingredients': A list of all ingredients.
 3.  **Parse Ingredients:** For each ingredient line (starting with '-'):
-    *   Extract the \`name\`, \`quantity\` (number), and \`unit\` (e.g., 'ml', 'g', 'rúp đơn').
-    *   The \`name\` is the original text of the ingredient, e.g., "Coffee hạt V1 Vincent".
+    *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g', 'rúp đơn').
+    *   The 'name' is the original text of the ingredient, e.g., "Coffee hạt V1 Vincent".
 4.  **Match Ingredients to Inventory (VERY IMPORTANT):**
-    *   For each parsed ingredient, you MUST search through the provided \`inventoryItems\` list.
+    *   For each parsed ingredient, you MUST search through the provided 'inventoryItems' list.
     *   Use fuzzy and semantic matching to find the BEST possible match. For example, "Coffee hạt V1 Vincent" should match an inventory item named "Cà phê Robusta". "Sữa đặc NSPN" should match "Sữa đặc".
     *   **If a confident match is found:**
-        *   Set \`isMatched\` to \`true\`.
-        *   Set \`inventoryItemId\` to the \`id\` of the matched item from the \`inventoryItems\` list.
+        *   Set 'isMatched' to 'true'.
+        *   Set 'inventoryItemId' to the 'id' of the matched item from the 'inventoryItems' list.
     *   **If no confident match is found:**
-        *   Set \`isMatched\` to \`false\`.
-        *   Set \`inventoryItemId\` to \`null\`.
+        *   Set 'isMatched' to 'false'.
+        *   Set 'inventoryItemId' to 'null'.
 
 **Input Data:**
 
