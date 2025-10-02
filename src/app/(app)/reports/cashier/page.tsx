@@ -239,22 +239,9 @@ export default function CashierReportsPage() {
     } catch (error) { toast.error('Không thể cập nhật báo cáo bàn giao.'); }
   }, [user]);
   
-  const handleDelete = useCallback(async (id: string, deleteFunc: (id: string, user: AuthUser) => Promise<void>, itemType: string) => {
-    if (!user) return;
-    setProcessingItemId(id);
-    try {
-      await deleteFunc(id, user);
-      toast.success(`Đã xóa ${itemType}.`);
-    } catch (error) {
-      toast.error(`Lỗi: Không thể xóa ${itemType}.`);
-    } finally {
-      setProcessingItemId(null);
-    }
-  }, [user]);
-  
   const handleDeleteExpense = useCallback((id: string) => {
     const expense = expenseSlips.find(e => e.id === id);
-    if (expense) {
+    if (expense && user) {
         setProcessingItemId(id);
         dataStore.deleteExpenseSlip(expense).then(() => {
             toast.success(`Đã xóa phiếu chi.`);
@@ -265,13 +252,24 @@ export default function CashierReportsPage() {
             setProcessingItemId(null);
         })
     }
-  }, [expenseSlips]);
+  }, [expenseSlips, user]);
 
-  const handleDeleteRevenue = useCallback((id: string) => handleDelete(id, dataStore.deleteRevenueStats, 'phiếu thống kê'), [handleDelete]);
+  const handleDeleteRevenue = useCallback((id: string) => {
+      if (!user) return;
+      setProcessingItemId(id);
+      dataStore.deleteRevenueStats(id, user).then(() => {
+          toast.success(`Đã xóa phiếu thống kê.`);
+      }).catch((e) => {
+          console.error(e);
+          toast.error(`Lỗi: Không thể xóa phiếu thống kê.`);
+      }).finally(() => {
+          setProcessingItemId(null);
+      })
+  }, [user]);
   
   const handleDeleteIncident = useCallback((id: string) => {
     const incidentToDelete = incidents.find(i => i.id === id);
-    if (!incidentToDelete) return;
+    if (!incidentToDelete || !user) return;
     setProcessingItemId(id);
     dataStore.deleteIncident(incidentToDelete).then(() => {
         toast.success('Đã xóa báo cáo sự cố.');
@@ -281,9 +279,20 @@ export default function CashierReportsPage() {
     }).finally(() => {
         setProcessingItemId(null);
     });
-  }, [incidents]);
+  }, [incidents, user]);
 
-  const handleDeleteHandover = useCallback((id: string) => handleDelete(id, dataStore.deleteHandoverReport, 'báo cáo bàn giao'), [handleDelete]);
+  const handleDeleteHandover = useCallback((id: string) => {
+      if (!user) return;
+      setProcessingItemId(id);
+      dataStore.deleteHandoverReport(id, user).then(() => {
+          toast.success(`Đã xóa báo cáo bàn giao.`);
+      }).catch((e) => {
+          console.error(e);
+          toast.error(`Lỗi: Không thể xóa báo cáo bàn giao.`);
+      }).finally(() => {
+          setProcessingItemId(null);
+      })
+  }, [user]);
 
   const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
     setLightboxSlides(photos.map(p => ({ src: p }))); 
