@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -27,6 +26,7 @@ import RevenueStatsList from './_components/RevenueStatsList';
 import ExpenseList from './_components/ExpenseList';
 import IncidentList from './_components/IncidentList';
 import HandoverReportCard from './_components/HandoverReportCard';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function CashierReportsPage() {
@@ -349,11 +349,7 @@ export default function CashierReportsPage() {
 
       {user && (
         <>
-            <IncidentReportDialog open={isIncidentDialogOpen} onOpenChange={setIsIncidentDialogOpen} onSave={handleSaveIncident} isProcessing={!!processingItemId} violationToEdit={incidentToEdit} reporter={incidentToEdit?.reporterId ? {uid: incidentToEdit.reporterId, displayName: incidentToEdit.reporterName} : user} categories={incidentCategories} onCategoriesChange={()=>{}} canManageCategories={false} />
-            <OwnerHandoverReportDialog open={isHandoverReportDialogOpen} onOpenChange={setIsHandoverReportDialogOpen} onSave={handleSaveHandover} isProcessing={!!processingItemId} reportToEdit={handoverToEdit} reporter={handoverToEdit?.createdBy || user} />
-            <UnpaidSlipsDialog isOpen={isUnpaidSlipsDialogOpen} onClose={() => setIsUnpaidSlipsDialogOpen(false)} bankTransferSlips={monthlyBankTransferSlips} inventoryList={inventoryList} />
-            <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
-            <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
+            {/* These dialogs are for owner/manager view only */}
         </>
       )}
 
@@ -362,3 +358,4 @@ export default function CashierReportsPage() {
   );
 }
 
+    
