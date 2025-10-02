@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { Product, ProductIngredient, InventoryItem } from '@/lib/types';
 import { Plus, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 type ProductEditDialogProps = {
   isOpen: boolean;
@@ -21,12 +22,15 @@ type ProductEditDialogProps = {
   onSave: (product: Product) => void;
   productToEdit: Product | null;
   inventoryList: InventoryItem[];
+  allProducts: Product[]; // Pass all other products for sub-recipe selection
 };
 
-export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList }: ProductEditDialogProps) {
+export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts }: ProductEditDialogProps) {
   const [product, setProduct] = useState<Partial<Product>>({});
   const [isIngredientPopoverOpen, setIsIngredientPopoverOpen] = useState(false);
   const [ingredientSearch, setIngredientSearch] = useState('');
+  const [ingredientSource, setIngredientSource] = useState<'inventory' | 'product'>('inventory');
+
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +41,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         ingredients: [],
         note: '',
       });
+      setIngredientSource('inventory');
     }
   }, [isOpen, productToEdit]);
 
@@ -50,13 +55,21 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     handleFieldChange('ingredients', newIngredients);
   };
 
-  const handleAddIngredient = (inventoryItem: InventoryItem) => {
-    const newIngredient: ProductIngredient = {
-      inventoryItemId: inventoryItem.id,
-      quantity: 1,
-      unit: inventoryItem.baseUnit,
+  const handleAddIngredient = (item: InventoryItem | Product, type: 'inventory' | 'product') => {
+    const newIngredient: Partial<ProductIngredient> = {
+        name: item.name,
+        quantity: 1,
+        isMatched: true,
     };
-    const newIngredients = [...(product.ingredients || []), newIngredient];
+    if (type === 'inventory') {
+        newIngredient.inventoryItemId = item.id;
+        newIngredient.unit = (item as InventoryItem).baseUnit;
+    } else {
+        newIngredient.productId = item.id;
+        newIngredient.unit = (item as Product).yield?.unit || 'ml'; // Default unit for sub-products
+    }
+
+    const newIngredients = [...(product.ingredients || []), newIngredient as ProductIngredient];
     handleFieldChange('ingredients', newIngredients);
     setIsIngredientPopoverOpen(false);
     setIngredientSearch('');
@@ -75,13 +88,19 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     }
     onSave(product as Product);
   };
-
+  
   const filteredInventory = useMemo(() => {
-    if (!ingredientSearch) return inventoryList;
-    return inventoryList.filter(item =>
-      item.name.toLowerCase().includes(ingredientSearch.toLowerCase())
-    );
-  }, [ingredientSearch, inventoryList]);
+    const searchLower = ingredientSearch.toLowerCase();
+    if (ingredientSource === 'inventory') {
+        return inventoryList.filter(item =>
+            item.name.toLowerCase().includes(searchLower)
+        );
+    } else {
+        // Filter out the current product to prevent self-referencing
+        return allProducts.filter(p => p.id !== product.id && p.name.toLowerCase().includes(searchLower));
+    }
+  }, [ingredientSearch, inventoryList, allProducts, ingredientSource, product.id]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -103,6 +122,15 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <Input id="product-category" value={product.category || ''} onChange={(e) => handleFieldChange('category', e.target.value)} placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label htmlFor="yield-qty">Thành phẩm</Label>
+                 <div className="flex gap-2">
+                    <Input id="yield-qty" type="number" placeholder="Số lượng" value={product.yield?.quantity || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} />
+                    <Input placeholder="Đơn vị" value={product.yield?.unit || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })}/>
+                 </div>
+            </div>
+          </div>
           <div className="space-y-2">
             <h4 className="font-semibold">Công thức</h4>
              <ScrollArea className="h-72 w-full rounded-md border">
@@ -117,10 +145,17 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                 </TableHeader>
                 <TableBody>
                   {(product.ingredients || []).map((ing, index) => {
-                    const inventoryItem = inventoryList.find(i => i.id === ing.inventoryItemId);
+                    const item = ing.inventoryItemId
+                        ? inventoryList.find(i => i.id === ing.inventoryItemId)
+                        : allProducts.find(p => p.id === ing.productId);
+                    const isSubProduct = !!ing.productId;
+
                     return (
                       <TableRow key={index}>
-                        <TableCell className="font-medium">{inventoryItem?.name || 'Không rõ'}</TableCell>
+                        <TableCell className="font-medium">
+                            {item?.name || 'Không rõ'}
+                            {isSubProduct && <Badge variant="outline" className="ml-2">Công thức con</Badge>}
+                        </TableCell>
                         <TableCell>
                           <Input
                             type="number"
@@ -135,9 +170,12 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {(inventoryItem?.units || []).map(u => (
+                                    {(item as InventoryItem)?.units?.map(u => (
                                         <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
                                     ))}
+                                    {isSubProduct && (item as Product)?.yield?.unit && (
+                                        <SelectItem value={(item as Product).yield!.unit}>{(item as Product).yield!.unit}</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </TableCell>
@@ -158,12 +196,24 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               </PopoverTrigger>
               <PopoverContent className="w-80 p-0">
                 <Command>
-                    <CommandInput placeholder="Tìm nguyên liệu..." value={ingredientSearch} onValueChange={setIngredientSearch} />
+                    <div className="p-2 border-b">
+                         <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => setIngredientSource(v as any)} className="flex gap-2">
+                            <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                                <RadioGroupItem value="inventory" id="source-inventory" />
+                                Từ Kho
+                            </Label>
+                             <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                                <RadioGroupItem value="product" id="source-product" />
+                                SP Khác
+                            </Label>
+                         </RadioGroup>
+                    </div>
+                    <CommandInput placeholder="Tìm kiếm..." value={ingredientSearch} onValueChange={setIngredientSearch} />
                     <CommandList>
                         <CommandEmpty>Không tìm thấy.</CommandEmpty>
                         <CommandGroup>
                             {filteredInventory.map((item) => (
-                                <CommandItem key={item.id} onSelect={() => handleAddIngredient(item)}>
+                                <CommandItem key={item.id} onSelect={() => handleAddIngredient(item, ingredientSource)}>
                                     {item.name}
                                 </CommandItem>
                             ))}

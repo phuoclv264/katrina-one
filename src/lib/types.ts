@@ -175,11 +175,12 @@ export type InventoryReport = {
 
 // --- Product & Recipe Types ---
 export type ProductIngredient = {
-  inventoryItemId: string; // Links to an item in the InventoryItem[] list
+  inventoryItemId?: string; // Links to an item in the InventoryItem[] list
+  productId?: string; // OR links to another product (sub-recipe)
   name: string; // The original name from the recipe text, for display
   quantity: number;
   unit: string; // e.g., 'gram', 'ml', 'viên'
-  isMatched: boolean; // Indicates if inventoryItemId is a confident match
+  isMatched: boolean; // Indicates if inventoryItemId/productId is a confident match
 };
 
 export type Product = {
@@ -188,6 +189,10 @@ export type Product = {
   category: string;
   ingredients: ProductIngredient[];
   note?: string; // Optional notes, e.g., for preparation steps
+  yield?: {
+    quantity: number;
+    unit: string;
+  }
 };
 
 export type ParsedProduct = Omit<Product, 'id'>;

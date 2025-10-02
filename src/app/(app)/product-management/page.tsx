@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -396,8 +397,15 @@ export default function ProductManagementPage() {
                                 <CardContent className="flex-grow">
                                     <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
                                         {(product.ingredients || []).map((ing, index) => {
-                                            const inventoryItem = inventoryList.find(i => i.id === ing.inventoryItemId);
-                                            return <li key={index}>{(inventoryItem?.name || ing.name) ?? 'N/A'}: {ing.quantity}{ing.unit}</li>
+                                            const item = ing.inventoryItemId
+                                              ? inventoryList.find(i => i.id === ing.inventoryItemId)
+                                              : products.find(p => p.id === ing.productId);
+                                            const isSubProduct = !!ing.productId;
+                                            return (
+                                              <li key={index} className={cn(isSubProduct && 'font-semibold text-primary/80')}>
+                                                {item?.name || ing.name || 'N/A'}: {ing.quantity}{ing.unit}
+                                              </li>
+                                            );
                                         })}
                                     </ul>
                                 </CardContent>
@@ -426,6 +434,7 @@ export default function ProductManagementPage() {
       onSave={handleSaveProduct}
       productToEdit={productToEdit}
       inventoryList={inventoryList}
+      allProducts={products}
     />
     </>
   );
