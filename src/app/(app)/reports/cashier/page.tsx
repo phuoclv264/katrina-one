@@ -54,11 +54,13 @@ const getSlipContentName = (item: ExpenseItem): string => {
 }
 
 
-const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, isProcessing: boolean }) => {
+const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, processingItemId }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, canDelete: boolean, onDelete: (id: string) => void, processingItemId: string | null }) => {
   return (
       <div className="space-y-3">
-          {expenses.map((expense, index) => (
-              <div key={expense.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+          {expenses.map((expense) => {
+            const isProcessing = processingItemId === expense.id;
+            return (
+              <div key={expense.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
                   <div className="flex justify-between items-start gap-3">
                       <div className="flex-1">
                           <p className="font-semibold">{getSlipContentName(expense.items[0])}{expense.items.length > 1 && ` và ${expense.items.length - 1} mục khác`}</p>
@@ -104,8 +106,14 @@ const ExpenseList = ({ expenses, onEdit, canDelete, onDelete, isProcessing }: { 
                             </AlertDialog>
                         )}
                     </div>
+                     {isProcessing && (
+                      <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md">
+                        <Loader2 className="h-6 w-6 animate-spin text-destructive"/>
+                        <span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span>
+                      </div>
+                    )}
               </div>
-          ))}
+          )})}
       </div>
   );
 };
@@ -128,6 +136,8 @@ export default function CashierReportsPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
+
   
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
@@ -413,23 +423,14 @@ export default function CashierReportsPage() {
   const handleDeleteExpense = async (id: string) => {
     const slipToDelete = allData.expenseSlips.find(s => s.id === id);
     if (!slipToDelete) return;
-
-    // Optimistic UI update
-    setAllData(prev => ({
-        ...prev,
-        expenseSlips: prev.expenseSlips.filter(s => s.id !== id),
-    }));
-
+    setProcessingItemId(id);
     try {
-        await dataStore.deleteExpenseSlip(slipToDelete);
-        toast.success("Đã xóa phiếu chi.");
+      await dataStore.deleteExpenseSlip(slipToDelete);
+      toast.success("Đã xóa phiếu chi.");
     } catch(error) {
-        toast.error("Lỗi: Không thể xóa phiếu chi. Đang hoàn tác.");
-        // Revert UI on failure
-        setAllData(prev => ({
-            ...prev,
-            expenseSlips: [...prev.expenseSlips, slipToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
-        }));
+      toast.error("Lỗi: Không thể xóa phiếu chi.");
+    } finally {
+      setProcessingItemId(null);
     }
   };
 
@@ -437,42 +438,28 @@ export default function CashierReportsPage() {
     if (!user) return;
     const statToDelete = allData.revenueStats.find(s => s.id === id);
     if(!statToDelete) return;
-
-    setAllData(prev => ({
-        ...prev,
-        revenueStats: prev.revenueStats.filter(s => s.id !== id),
-    }));
-
+    setProcessingItemId(id);
     try {
-        await dataStore.deleteRevenueStats(id, user);
-        toast.success("Đã xóa phiếu thống kê doanh thu.");
+      await dataStore.deleteRevenueStats(id, user);
+      toast.success("Đã xóa phiếu thống kê doanh thu.");
     } catch(error) {
-        toast.error("Lỗi: Không thể xóa phiếu thống kê. Đang hoàn tác.");
-        setAllData(prev => ({
-            ...prev,
-            revenueStats: [...prev.revenueStats, statToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
-        }));
+      toast.error("Lỗi: Không thể xóa phiếu thống kê.");
+    } finally {
+      setProcessingItemId(null);
     }
   };
 
   const handleDeleteIncident = async (id: string) => {
     const incidentToDelete = allData.incidents.find(i => i.id === id);
     if(!incidentToDelete) return;
-
-    setAllData(prev => ({
-        ...prev,
-        incidents: prev.incidents.filter(i => i.id !== id),
-    }));
-
+    setProcessingItemId(id);
     try {
-        await dataStore.deleteIncident(incidentToDelete);
-        toast.success("Đã xóa báo cáo sự cố.");
+      await dataStore.deleteIncident(incidentToDelete);
+      toast.success("Đã xóa báo cáo sự cố.");
     } catch(error) {
-        toast.error("Lỗi: Không thể xóa báo cáo sự cố. Đang hoàn tác.");
-        setAllData(prev => ({
-            ...prev,
-            incidents: [...prev.incidents, incidentToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
-        }));
+      toast.error("Lỗi: Không thể xóa báo cáo sự cố.");
+    } finally {
+      setProcessingItemId(null);
     }
   };
   
@@ -480,22 +467,15 @@ export default function CashierReportsPage() {
     if (!user) return;
     const handoverToDelete = allData.handoverReports.find(h => h.id === id);
     if (!handoverToDelete) return;
-
-    setAllData(prev => ({
-        ...prev,
-        handoverReports: prev.handoverReports.filter(h => h.id !== id),
-    }));
-
+    setProcessingItemId(id);
     try {
       await dataStore.deleteHandoverReport(id);
       toast.success("Đã xóa báo cáo bàn giao.");
     } catch (error) {
       console.error("Failed to delete handover report:", error);
-      toast.error("Không thể xóa báo cáo bàn giao. Đang hoàn tác.");
-      setAllData(prev => ({
-            ...prev,
-            handoverReports: [...prev.handoverReports, handoverToDelete].sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()),
-        }));
+      toast.error("Không thể xóa báo cáo bàn giao.");
+    } finally {
+      setProcessingItemId(null);
     }
   };
 
@@ -658,8 +638,9 @@ export default function CashierReportsPage() {
                                             {(dayReports.revenue || []).map((stat, index) => {
                                                 const prevStat = (dayReports.revenue || [])[index + 1];
                                                 const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
+                                                const isProcessing = processingItemId === stat.id;
                                                 return (
-                                                    <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                                    <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
                                                         <div className="flex justify-between items-start">
                                                             <p className="text-sm text-muted-foreground">Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}</p>
                                                             <div className="flex items-center gap-2">
@@ -691,6 +672,12 @@ export default function CashierReportsPage() {
                                                                 </AlertDialog>
                                                             </div>
                                                         </div>
+                                                        {isProcessing && (
+                                                            <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md">
+                                                              <Loader2 className="h-6 w-6 animate-spin text-destructive"/>
+                                                              <span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span>
+                                                            </div>
+                                                          )}
                                                     </div>
                                                 );
                                             })}
@@ -705,7 +692,7 @@ export default function CashierReportsPage() {
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
                                             {(dayReports.expenses || []).length > 0
-                                                ? <ExpenseList expenses={dayReports.expenses!} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} isProcessing={isProcessing} />
+                                                ? <ExpenseList expenses={dayReports.expenses!} onEdit={handleEditExpense} canDelete={true} onDelete={handleDeleteExpense} processingItemId={processingItemId} />
                                                 : <p className="text-sm text-center text-muted-foreground py-2">Không có phiếu chi nào.</p>
                                             }
                                         </CardContent>
@@ -715,11 +702,14 @@ export default function CashierReportsPage() {
                                     <Card className="border-amber-500/50 rounded-lg shadow-sm">
                                         <CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle /> Sự cố</CardTitle></CardHeader>
                                         <CardContent className="p-4 pt-0 space-y-3">
-                                            {(dayReports.incidents || []).length > 0 ? dayReports.incidents!.map(incident => (
-                                                <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0">
+                                            {(dayReports.incidents || []).length > 0 ? dayReports.incidents!.map(incident => {
+                                                const isProcessing = processingItemId === incident.id;
+                                                return (
+                                                <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
                                                     <div className="flex justify-between items-start gap-2">
                                                         <div>
                                                             <p className="font-semibold">{incident.content}</p>
+                                                            <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {format(new Date(incident.createdAt as string), 'HH:mm')}</p>
                                                         </div>
                                                         <p className="text-xl font-bold text-amber-600">{incident.cost.toLocaleString('vi-VN')}đ</p>
                                                     </div>
@@ -737,8 +727,15 @@ export default function CashierReportsPage() {
                                                             </AlertDialogContent>
                                                         </AlertDialog>
                                                     </div>
+                                                     {isProcessing && (
+                                                      <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md">
+                                                        <Loader2 className="h-6 w-6 animate-spin text-destructive"/>
+                                                        <span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span>
+                                                      </div>
+                                                    )}
                                                 </div>
-                                            )) : <p className="text-sm text-muted-foreground text-center py-2">Không có sự cố nào.</p>}
+                                            )
+                                            }) : <p className="text-sm text-muted-foreground text-center py-2">Không có sự cố nào.</p>}
                                         </CardContent>
                                     </Card>
 
@@ -746,7 +743,7 @@ export default function CashierReportsPage() {
                                      {dayReports.handover && (
                                         <Card className="border-slate-500/50 rounded-lg shadow-sm">
                                             <CardHeader className="p-4 pb-2"><CardTitle className="text-base flex items-center gap-2 text-slate-800 dark:text-slate-300"><ClipboardCheck /> Bàn giao ca</CardTitle></CardHeader>
-                                            <CardContent className="p-4 pt-0">
+                                            <CardContent className="p-4 pt-0 relative">
                                                 <div className="flex justify-between items-center mt-1">
                                                     <p className="text-sm text-muted-foreground">Bàn giao bởi: <span className="font-semibold text-foreground">{dayReports.handover.createdBy.userName}</span></p>
                                                     <div className="flex gap-1">
@@ -763,6 +760,12 @@ export default function CashierReportsPage() {
                                                       </AlertDialog>
                                                     </div>
                                                 </div>
+                                                {processingItemId === dayReports.handover.id && (
+                                                    <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-lg">
+                                                    <Loader2 className="h-6 w-6 animate-spin text-destructive"/>
+                                                    <span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span>
+                                                    </div>
+                                                )}
                                             </CardContent>
                                         </Card>
                                     )}
@@ -807,7 +810,7 @@ export default function CashierReportsPage() {
           violationToEdit={incidentToEdit as any}
           reporter={user}
           categories={allData.incidentCategories}
-          onCategoriesChange={dataStore.updateIncidentCategories}
+          onCategoriesChange={() => {}}
           canManageCategories={user.role === 'Chủ nhà hàng'}
         />
     )}
