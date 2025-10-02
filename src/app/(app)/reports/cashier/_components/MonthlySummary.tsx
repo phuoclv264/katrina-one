@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { RevenueStats, ExpenseSlip, IncidentReport, ExpenseItem } from '@/lib/types';
-import { isSameMonth, parseISO } from 'date-fns';
+import { isSameMonth, parseISO, format } from 'date-fns';
 
 type MonthlySummaryProps = {
   currentMonth: Date;
