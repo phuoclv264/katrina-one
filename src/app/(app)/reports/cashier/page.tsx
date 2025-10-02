@@ -395,7 +395,7 @@ export default function CashierReportsPage() {
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
           categories={incidentCategories}
-          onCategoriesChange={dataStore.updateIncidentCategories}
+          onCategoriesChange={dataStore.updateViolationCategories}
           canManage={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy || user}
           violationToEdit={incidentToEdit}
