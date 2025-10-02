@@ -20,7 +20,6 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Image from 'next/image';
 
-import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
 import RevenueStatsList from './_components/RevenueStatsList';
@@ -32,6 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
+import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
 
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -252,24 +252,38 @@ export default function CashierReportsPage() {
     }
   }, [user]);
   
-  const handleDeleteExpense = useCallback((id: string) => handleDelete(id, dataStore.deleteExpenseSlip as any, 'phiếu chi'), [handleDelete]);
-  const handleDeleteRevenue = useCallback((id: string) => handleDelete(id, dataStore.deleteRevenueStats, 'phiếu thống kê'), [handleDelete]);
-  const handleDeleteIncident = useCallback((id: string) => {
-    if (!user) return;
-    const incidentToDelete = incidents.find(i => i.id === id);
-    if (incidentToDelete) {
+  const handleDeleteExpense = useCallback((id: string) => {
+    const expense = expenseSlips.find(e => e.id === id);
+    if (expense) {
         setProcessingItemId(id);
-        dataStore.deleteIncident(incidentToDelete).then(() => {
-            toast.success('Đã xóa báo cáo sự cố.');
-        }).catch((error) => {
-            console.error("Failed to delete incident:", error);
-            toast.error('Không thể xóa báo cáo sự cố.');
+        dataStore.deleteExpenseSlip(expense).then(() => {
+            toast.success(`Đã xóa phiếu chi.`);
+        }).catch((e) => {
+            console.error(e);
+            toast.error(`Lỗi: Không thể xóa phiếu chi.`);
         }).finally(() => {
             setProcessingItemId(null);
-        });
+        })
     }
-  }, [user, incidents]);
-  const handleDeleteHandover = useCallback((id: string) => handleDelete(id, dataStore.deleteHandoverReport as any, 'báo cáo bàn giao'), [handleDelete]);
+  }, [expenseSlips]);
+
+  const handleDeleteRevenue = useCallback((id: string) => handleDelete(id, dataStore.deleteRevenueStats, 'phiếu thống kê'), [handleDelete]);
+  
+  const handleDeleteIncident = useCallback((id: string) => {
+    const incidentToDelete = incidents.find(i => i.id === id);
+    if (!incidentToDelete) return;
+    setProcessingItemId(id);
+    dataStore.deleteIncident(incidentToDelete).then(() => {
+        toast.success('Đã xóa báo cáo sự cố.');
+    }).catch((error) => {
+        console.error("Failed to delete incident:", error);
+        toast.error('Không thể xóa báo cáo sự cố.');
+    }).finally(() => {
+        setProcessingItemId(null);
+    });
+  }, [incidents]);
+
+  const handleDeleteHandover = useCallback((id: string) => handleDelete(id, dataStore.deleteHandoverReport, 'báo cáo bàn giao'), [handleDelete]);
 
   const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
     setLightboxSlides(photos.map(p => ({ src: p }))); 
