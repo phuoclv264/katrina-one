@@ -33,6 +33,7 @@ import DailyReportAccordionItem from './_components/DailyReportAccordionItem';
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const initialMonthSet = useRef(false);
 
   const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
   const [expenseSlips, setExpenseSlips] = useState<ExpenseSlip[]>([]);
@@ -65,7 +66,6 @@ export default function CashierReportsPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const initialMonthSet = useRef(false);
   
   useEffect(() => {
     if (lightboxOpen) {
@@ -330,6 +330,7 @@ export default function CashierReportsPage() {
                     onEditHandover={handleEditHandover}
                     onDeleteHandover={handleDeleteHandover}
                     processingItemId={processingItemId}
+                    inventoryList={inventoryList}
                  />
               ))}
             </Accordion>

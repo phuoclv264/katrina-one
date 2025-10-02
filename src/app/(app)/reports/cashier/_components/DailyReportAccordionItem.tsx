@@ -51,7 +51,7 @@ const DailyReportAccordionItem = React.memo(({
 }: DailyReportAccordionItemProps) => {
 
   const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
-  const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
+  const totalDailyRevenue = dayReports.revenue.reduce((sum, stat) => sum + stat.netRevenue, 0);
   
   const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
 
@@ -90,7 +90,13 @@ const DailyReportAccordionItem = React.memo(({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <ExpenseList expenses={dayReports.expenses || []} onEdit={onEditExpense} onDelete={onDeleteExpense} processingItemId={processingItemId} inventoryList={inventoryList} />
+              <ExpenseList 
+                expenses={dayReports.expenses || []} 
+                onEdit={onEditExpense} 
+                onDelete={onDeleteExpense} 
+                processingItemId={processingItemId} 
+                inventoryList={inventoryList} 
+              />
             </CardContent>
           </Card>
           <Card className="border-amber-500/50 rounded-lg shadow-sm">
