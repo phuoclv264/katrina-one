@@ -15,7 +15,6 @@ import { ArrowLeft, Banknote, Receipt, AlertTriangle, Wallet, Calendar, Settings
 import { format, startOfMonth, endOfMonth, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
-import { Separator } from '@/components/ui/separator';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Image from 'next/image';
@@ -27,11 +26,12 @@ import ExpenseList from './_components/ExpenseList';
 import IncidentList from './_components/IncidentList';
 import HandoverReportCard from './_components/HandoverReportCard';
 import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
-import { Badge } from '@/components/ui/badge';
 import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
+import MonthlySummary from './_components/MonthlySummary';
+
 
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -147,49 +147,10 @@ export default function CashierReportsPage() {
 
   const sortedDatesInMonth = useMemo(() => Object.keys(reportsForCurrentMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [reportsForCurrentMonth]);
   
-  const monthlyBankTransferSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth) && slip.paymentMethod === 'bank_transfer'), [expenseSlips, currentMonth]);
-  
-  const monthlyIntangibleIncidents = useMemo(() => {
-    return incidents.filter(i => 
-      isSameMonth(parseISO(i.date), currentMonth) && 
-      i.paymentMethod === 'intangible_cost' && 
-      i.cost > 0
-    );
-  }, [incidents, currentMonth]);
+  const monthlyRevenueStats = useMemo(() => revenueStats.filter(stat => isSameMonth(parseISO(stat.date), currentMonth)), [revenueStats, currentMonth]);
+  const monthlyExpenseSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth)), [expenseSlips, currentMonth]);
+  const monthlyIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth)), [incidents, currentMonth]);
 
-  const monthlyAllIncidents = useMemo(() => {
-    return incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth));
-  }, [incidents, currentMonth]);
-
-
-  const monthlySummary = useMemo(() => {
-    const reportsInMonth = Object.values(reportsForCurrentMonth);
-    const allExpenses = reportsInMonth.flatMap(day => day.expenses || []);
-    const allRevenueStats = reportsInMonth.flatMap(day => day.revenue || []);
-    
-    const latestDailyStats: { [date: string]: RevenueStats } = {};
-    allRevenueStats.forEach(stat => {
-        if (!latestDailyStats[stat.date] || new Date(stat.createdAt as string) > new Date(latestDailyStats[stat.date].createdAt as string)) {
-            latestDailyStats[stat.date] = stat;
-        }
-    });
-    const totalRevenue = Object.values(latestDailyStats).reduce((sum, stat) => sum + (stat.netRevenue || 0), 0);
-    const totalExpense = allExpenses.reduce((sum, slip) => sum + slip.totalAmount, 0);
-    const revenueByMethod = Object.values(latestDailyStats).reduce((acc, stat) => {
-        if (stat.revenueByPaymentMethod) Object.keys(stat.revenueByPaymentMethod).forEach(key => { acc[key] = (acc[key] || 0) + stat.revenueByPaymentMethod[key as keyof typeof stat.revenueByPaymentMethod]; });
-        return acc;
-    }, {} as {[key: string]: number});
-    const expenseByPaymentMethod = allExpenses.reduce((acc, slip) => { acc[slip.paymentMethod] = (acc[slip.paymentMethod] || 0) + slip.totalAmount; return acc; }, {} as {[key: string]: number});
-    const unpaidBankTransfer = monthlyBankTransferSlips.filter(s => s.paymentStatus === 'unpaid').reduce((sum, slip) => sum + slip.totalAmount, 0);
-    const intangibleCost = monthlyIntangibleIncidents.reduce((sum, i) => sum + i.cost, 0);
-    
-    const expenseByType = allExpenses.reduce((acc, slip) => {
-        const type = slip.expenseType === 'goods_import' ? 'Nhập hàng' : (slip.items[0]?.name || 'Khác');
-        acc[type] = (acc[type] || 0) + slip.totalAmount;
-        return acc;
-    }, {} as {[key: string]: number});
-    return { totalRevenue, totalExpense, revenueByMethod, expenseByType, expenseByPaymentMethod, intangibleCost, unpaidBankTransfer };
-  }, [reportsForCurrentMonth, monthlyBankTransferSlips, monthlyIntangibleIncidents]);
 
   const handleMonthChange = (direction: 'prev' | 'next') => setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
   const isNextMonthButtonDisabled = useMemo(() => allMonthsWithData.length > 0 && format(currentMonth, 'yyyy-MM') === allMonthsWithData[0], [currentMonth, allMonthsWithData]);
@@ -284,7 +245,7 @@ export default function CashierReportsPage() {
   const handleDeleteHandover = useCallback((id: string) => {
       if (!user) return;
       setProcessingItemId(id);
-      dataStore.deleteHandoverReport(id, user).then(() => {
+      dataStore.deleteHandoverReport(id).then(() => {
           toast.success(`Đã xóa báo cáo bàn giao.`);
       }).catch((e) => {
           console.error(e);
@@ -343,26 +304,13 @@ export default function CashierReportsPage() {
           <Card><CardContent className="py-16 text-center text-muted-foreground">Chưa có báo cáo nào trong tháng {format(currentMonth, 'MM/yyyy')}.</CardContent></Card>
         ) : (
           <div className="space-y-6">
-            <Card className="border-primary">
-              <CardHeader><CardTitle>Tổng quan Tháng {format(currentMonth, 'MM/yyyy')}</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-lg text-green-600">Doanh thu: {monthlySummary.totalRevenue.toLocaleString('vi-VN')}đ</h4>
-                  <div className="text-sm space-y-1"><p className="font-medium">Theo phương thức thanh toán:</p>{Object.entries(monthlySummary.revenueByMethod).map(([key, value]) => (<p key={key} className="pl-4">{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>))}</div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-lg text-red-600">Chi phí: {monthlySummary.totalExpense.toLocaleString('vi-VN')}đ</h4>
-                  <div className="text-sm space-y-1">
-                    <p className="font-medium">Theo Phương thức Thanh toán:</p>
-                    <p className="pl-4">Tiền mặt: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['cash'] || 0).toLocaleString('vi-VN')}đ</span></p>
-                    <div className="pl-4 flex items-center gap-2"><span>Chuyển khoản: <span className="font-medium">{(monthlySummary.expenseByPaymentMethod['bank_transfer'] || 0).toLocaleString('vi-VN')}đ</span></span>{monthlySummary.unpaidBankTransfer > 0 && (<div className='flex items-center gap-1'><Badge variant="destructive">Chưa TT: {monthlySummary.unpaidBankTransfer.toLocaleString('vi-VN')}đ</Badge><Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setIsUnpaidSlipsDialogOpen(true)}>Xem chi tiết</Button></div>)}</div>
-                    <div className="pl-4 flex items-center gap-2"><span>Chi phí vô hình: <span className="font-medium">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span></span></div>
-                  </div>
-                  <Separator/>
-                  <div className="text-sm space-y-1"><p className="font-medium">Theo Loại chi phí:</p>{Object.entries(monthlySummary.expenseByType).map(([key, value]) => (<p key={key} className="pl-4">{key}: <span className="font-medium">{value.toLocaleString('vi-VN')}đ</span></p>))}</div>
-                </div>
-              </CardContent>
-            </Card>
+            <MonthlySummary 
+              currentMonth={currentMonth}
+              revenueStats={monthlyRevenueStats}
+              expenseSlips={monthlyExpenseSlips}
+              incidents={monthlyIncidents}
+              onOpenUnpaidDialog={() => setIsUnpaidSlipsDialogOpen(true)}
+            />
 
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0, 1)} className="space-y-4">
               {sortedDatesInMonth.map(date => {
@@ -412,7 +360,7 @@ export default function CashierReportsPage() {
       <UnpaidSlipsDialog 
         isOpen={isUnpaidSlipsDialogOpen}
         onClose={() => setIsUnpaidSlipsDialogOpen(false)}
-        bankTransferSlips={monthlyBankTransferSlips}
+        bankTransferSlips={expenseSlips.filter(s => s.paymentMethod === 'bank_transfer')}
         inventoryList={inventoryList}
       />
       
@@ -458,7 +406,7 @@ export default function CashierReportsPage() {
       <IncidentDetailsDialog
         isOpen={isIncidentDetailsDialogOpen}
         onClose={() => setIsIncidentDetailsDialogOpen(false)}
-        incidents={monthlyAllIncidents}
+        incidents={monthlyIncidents}
         onOpenLightbox={openPhotoLightbox}
         currentMonth={currentMonth}
       />
