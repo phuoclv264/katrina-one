@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -25,8 +26,8 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
@@ -62,6 +63,33 @@ photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+    // --- Products ---
+    subscribeToProducts(callback: (products: Product[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'products');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().list as Product[]);
+            } else {
+                try {
+                    await setDoc(docRef, { list: initialProducts });
+                    callback(initialProducts);
+                } catch(e) {
+                    console.error("Permission denied to create default products.", e);
+                    callback(initialProducts);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read products: ${error.code}`);
+            callback(initialProducts);
+        });
+        return unsubscribe;
+    },
+
+    async updateProducts(newProducts: Product[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'products');
+        await setDoc(docRef, { list: newProducts });
+    },
+
      // --- Cashier ---
 
     subscribeToHandoverReport(date: string, callback: (report: HandoverReport | null) => void): () => void {

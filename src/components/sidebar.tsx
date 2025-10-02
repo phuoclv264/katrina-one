@@ -77,7 +77,7 @@ export function AppSidebar() {
             { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
             { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
             { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
-            { href: '/product-management', label: 'QL Mặt hàng', icon: FileSignature },
+            { href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature },
             { href: '/inventory-history', label: 'Lịch sử Kho', icon: History },
             commonViolationMenu
           );
