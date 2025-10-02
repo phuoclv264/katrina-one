@@ -113,7 +113,7 @@ export type InventoryItem = {
     category: string;
     supplier: string;
     
-    unit: string; // DEPRECATED, use baseUnit and units instead
+    unit?: string; // DEPRECATED, use baseUnit and units instead
     baseUnit: string; // The smallest unit for stock tracking (e.g., "ml", "gram")
     units: UnitDefinition[]; // Array of all possible units for this item
     
@@ -174,10 +174,7 @@ export type InventoryReport = {
 };
 
 // --- Violation Logging Types ---
-export type ViolationCategory = {
-  id: string;
-  name: string;
-}
+export type ViolationCategory = string;
 
 export type ViolationUser = {
   id: string;
@@ -196,7 +193,7 @@ export type ViolationComment = {
 export type Violation = {
   id: string;
   content: string;
-  category: string;
+  category: ViolationCategory;
   users: ViolationUser[]; // User who committed the violation
   reporterId: string; // User who reported the violation
   reporterName: string;

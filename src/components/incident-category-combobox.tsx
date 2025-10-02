@@ -42,32 +42,31 @@ export function IncidentCategoryCombobox({
     className
 }: IncidentCategoryComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [inputValue, setInputValue] = React.useState(value || "")
+  const [inputValue, setInputValue] = React.useState("")
 
-  React.useEffect(() => {
-    setInputValue(value || "")
-  }, [value, open])
-
-  const handleSelect = (currentValue: string) => {
-    onChange(currentValue)
-    setInputValue(currentValue)
+  const handleSelect = (categoryName: string) => {
+    onChange(categoryName)
     setOpen(false)
   }
 
   const handleAddNew = () => {
     if (inputValue && !categories.find(c => c.name.toLowerCase() === inputValue.toLowerCase())) {
-        const newCategories = [...categories, { id: `cat-${Date.now()}`, name: inputValue }].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        const newCategory: IncidentCategory = { id: `cat-${Date.now()}`, name: inputValue };
+        const newCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
         onCategoriesChange(newCategories);
-        onChange(inputValue);
+        onChange(newCategory.name); // Select the newly added category
     }
+    setInputValue("")
     setOpen(false);
   }
   
-  const handleDelete = (e: React.MouseEvent, categoryToDelete: string) => {
+  const handleDelete = (e: React.MouseEvent, categoryId: string) => {
       e.stopPropagation(); // Prevent dropdown from closing
-      const newCategories = categories.filter(c => c.name !== categoryToDelete);
+      const categoryToDelete = categories.find(c => c.id === categoryId);
+      if (!categoryToDelete) return;
+      const newCategories = categories.filter(c => c.id !== categoryId);
       onCategoriesChange(newCategories);
-      if(value === categoryToDelete) {
+      if(value === categoryToDelete.name) {
           onChange('');
       }
   }
@@ -99,7 +98,7 @@ export function IncidentCategoryCombobox({
           />
           <CommandList>
             <CommandEmpty>
-                {canManage ? (
+                {canManage && inputValue ? (
                      <Button variant="ghost" className="w-full justify-start" onClick={handleAddNew}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Thêm "{inputValue}"
@@ -126,7 +125,7 @@ export function IncidentCategoryCombobox({
                     {category.name}
                   </div>
                   {canManage && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => handleDelete(e, category.name)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => handleDelete(e, category.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
