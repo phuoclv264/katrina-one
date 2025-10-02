@@ -57,7 +57,6 @@ const ChangeIndicator = ({ value, isRevenue = true }: { value: number, isRevenue
     );
 };
 
-// Memoized List Components
 const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId }: { stats: RevenueStats[], onEdit: (stat: RevenueStats) => void, onDelete: (id: string) => void, processingItemId: string | null }) => {
     if (stats.length === 0) return <p className="text-sm text-center text-muted-foreground py-2">Chưa có báo cáo.</p>;
     return (
@@ -151,7 +150,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId }
 });
 ExpenseList.displayName = 'ExpenseList';
 
-const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, processingItemId }: { incidents: IncidentReport[], onEdit: (incident: IncidentReport) => void, onDelete: (id: string) => void, onOpenLightbox: (photos: string[]) => void, processingItemId: string | null }) => {
+const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, processingItemId }: { incidents: IncidentReport[], onEdit: (incident: IncidentReport) => void, onDelete: (id: string) => void, onOpenLightbox: (photos: string[], index: number) => void, processingItemId: string | null }) => {
     if (incidents.length === 0) return <p className="text-sm text-center text-muted-foreground py-2">Không có sự cố nào.</p>;
     return (
         <div className="space-y-3">
@@ -167,7 +166,7 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                             <p className="text-xl font-bold text-amber-600">{incident.cost.toLocaleString('vi-VN')}đ</p>
                         </div>
                         <div className="flex justify-end gap-1 mt-1">
-                            {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => onOpenLightbox(incident.photos)} className="h-8">Xem ảnh</Button>}
+                            {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => onOpenLightbox(incident.photos, 0)} className="h-8">Xem ảnh</Button>}
                             <Button variant="outline" size="sm" onClick={() => onEdit(incident)} className="h-8">Chi tiết</Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
@@ -218,6 +217,7 @@ export default function CashierReportsPage() {
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
@@ -391,7 +391,11 @@ export default function CashierReportsPage() {
   const handleDeleteIncident = useCallback((id: string) => handleDelete(id, dataStore.deleteIncident as any, 'báo cáo sự cố'), [handleDelete]);
   const handleDeleteHandover = useCallback((id: string) => handleDelete(id, dataStore.deleteHandoverReport as any, 'báo cáo bàn giao'), [handleDelete]);
 
-  const openPhotoLightbox = (photos: string[]) => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); };
+  const openPhotoLightbox = (photos: string[], index = 0) => { 
+    setLightboxSlides(photos.map(p => ({ src: p }))); 
+    setLightboxIndex(index);
+    setLightboxOpen(true); 
+  };
 
   if (isLoading || authLoading || !user) {
     return (
