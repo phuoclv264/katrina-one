@@ -18,8 +18,8 @@ const getSlipContentName = (item: ExpenseItem): string => {
           return item.description;
       }
       return item.name;
-    }
-    return item.name;
+  }
+  return item.name;
 }
 
 const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, onDelete: (id: string) => void, processingItemId: string | null }) => {
@@ -137,7 +137,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId }
                               </AlertDialogContent>
                           </AlertDialog>
                        </TableCell>
-                        {isProcessing && (<td className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></td>)}
+                        {isProcessing && (<td colSpan={6} className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></td>)}
                    </TableRow>
                   )
                })}

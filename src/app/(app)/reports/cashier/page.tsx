@@ -291,9 +291,9 @@ export default function CashierReportsPage() {
     setLightboxOpen(true); 
   }, []);
   
-  const handleCategoriesChange = async (newCategories: IncidentCategory[]) => {
+  const handleCategoriesChange = useCallback(async (newCategories: IncidentCategory[]) => {
     await dataStore.updateIncidentCategories(newCategories);
-  };
+  }, []);
 
 
   if (isLoading || authLoading || !user) {
