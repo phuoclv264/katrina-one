@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -32,6 +31,7 @@ import OwnerHandoverReportDialog from './_components/owner-handover-report-dialo
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import { Badge } from '@/components/ui/badge';
 import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
+import IncidentCategoryDialog from './_components/incident-category-dialog';
 
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -239,7 +239,7 @@ export default function CashierReportsPage() {
     } catch (error) { toast.error('Không thể cập nhật báo cáo bàn giao.'); }
   }, [user]);
   
-  const handleDelete = useCallback(async (id: string, deleteFunc: (id: string, user?: AuthUser) => Promise<void>, itemType: string) => {
+  const handleDelete = useCallback(async (id: string, deleteFunc: (id: string, user: AuthUser) => Promise<void>, itemType: string) => {
     if (!user) return;
     setProcessingItemId(id);
     try {
@@ -254,7 +254,7 @@ export default function CashierReportsPage() {
 
   const handleDeleteExpense = useCallback((id: string) => handleDelete(id, dataStore.deleteExpenseSlip as any, 'phiếu chi'), [handleDelete]);
   const handleDeleteRevenue = useCallback((id: string) => handleDelete(id, dataStore.deleteRevenueStats, 'phiếu thống kê'), [handleDelete]);
-  const handleDeleteIncident = useCallback((id: string) => handleDelete(id, dataStore.deleteIncident, 'báo cáo sự cố'), [handleDelete]);
+  const handleDeleteIncident = useCallback((id: string) => handleDelete(id, dataStore.deleteIncident as any, 'báo cáo sự cố'), [handleDelete]);
   const handleDeleteHandover = useCallback((id: string) => handleDelete(id, dataStore.deleteHandoverReport as any, 'báo cáo bàn giao'), [handleDelete]);
 
   const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
@@ -262,6 +262,11 @@ export default function CashierReportsPage() {
     setLightboxIndex(index);
     setLightboxOpen(true); 
   }, []);
+  
+  const handleCategoriesChange = async (newCategories: IncidentCategory[]) => {
+    await dataStore.updateIncidentCategories(newCategories);
+  };
+
 
   if (isLoading || authLoading || !user) {
     return (
@@ -364,7 +369,7 @@ export default function CashierReportsPage() {
       </div>
       
       <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
-      
+
       <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
       
       <UnpaidSlipsDialog 
@@ -425,4 +430,3 @@ export default function CashierReportsPage() {
     </>
   );
 }
-
