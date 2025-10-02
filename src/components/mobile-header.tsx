@@ -26,6 +26,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/bartender-tasks': 'QL Công việc Pha chế',
     '/comprehensive-checklist': 'QL Kiểm tra Toàn diện',
     '/inventory-management': 'QL Hàng tồn kho',
+    '/product-management': 'QL Mặt hàng & Công thức',
     '/inventory-history': 'Lịch sử Kho',
     '/violations': 'Danh sách Vi phạm',
     '/schedule': 'Lịch làm việc',

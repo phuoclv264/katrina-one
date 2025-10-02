@@ -1,0 +1,188 @@
+
+'use client';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { Product, ProductIngredient, InventoryItem } from '@/lib/types';
+import { Plus, Trash2 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+
+type ProductEditDialogProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (product: Product) => void;
+  productToEdit: Product | null;
+  inventoryList: InventoryItem[];
+};
+
+export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList }: ProductEditDialogProps) {
+  const [product, setProduct] = useState<Partial<Product>>({});
+  const [isIngredientPopoverOpen, setIsIngredientPopoverOpen] = useState(false);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setProduct(productToEdit || {
+        id: `prod_${uuidv4()}`,
+        name: '',
+        category: '',
+        ingredients: [],
+        note: '',
+      });
+    }
+  }, [isOpen, productToEdit]);
+
+  const handleFieldChange = (field: keyof Product, value: any) => {
+    setProduct(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleIngredientChange = (index: number, field: keyof ProductIngredient, value: any) => {
+    const newIngredients = [...(product.ingredients || [])];
+    (newIngredients[index] as any)[field] = value;
+    handleFieldChange('ingredients', newIngredients);
+  };
+
+  const handleAddIngredient = (inventoryItem: InventoryItem) => {
+    const newIngredient: ProductIngredient = {
+      inventoryItemId: inventoryItem.id,
+      quantity: 1,
+      unit: inventoryItem.baseUnit,
+    };
+    const newIngredients = [...(product.ingredients || []), newIngredient];
+    handleFieldChange('ingredients', newIngredients);
+    setIsIngredientPopoverOpen(false);
+    setIngredientSearch('');
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    const newIngredients = (product.ingredients || []).filter((_, i) => i !== index);
+    handleFieldChange('ingredients', newIngredients);
+  };
+
+  const handleSave = () => {
+    if (!product.name || !product.category) {
+        // Simple validation
+        alert('Vui lòng nhập tên và danh mục cho mặt hàng.');
+        return;
+    }
+    onSave(product as Product);
+  };
+
+  const filteredInventory = useMemo(() => {
+    if (!ingredientSearch) return inventoryList;
+    return inventoryList.filter(item =>
+      item.name.toLowerCase().includes(ingredientSearch.toLowerCase())
+    );
+  }, [ingredientSearch, inventoryList]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>
+          <DialogDescription>
+            Nhập thông tin chi tiết và công thức cho mặt hàng.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="product-name">Tên mặt hàng</Label>
+              <Input id="product-name" value={product.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="product-category">Danh mục</Label>
+              <Input id="product-category" value={product.category || ''} onChange={(e) => handleFieldChange('category', e.target.value)} placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Công thức</h4>
+             <ScrollArea className="h-72 w-full rounded-md border">
+              <Table>
+                <TableHeader className="sticky top-0 bg-muted z-10">
+                  <TableRow>
+                    <TableHead className="w-[40%]">Nguyên liệu</TableHead>
+                    <TableHead className="w-[20%]">Số lượng</TableHead>
+                    <TableHead className="w-[30%]">Đơn vị</TableHead>
+                    <TableHead className="w-[10%]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(product.ingredients || []).map((ing, index) => {
+                    const inventoryItem = inventoryList.find(i => i.id === ing.inventoryItemId);
+                    return (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{inventoryItem?.name || 'Không rõ'}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={ing.quantity}
+                            onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                            <Select value={ing.unit} onValueChange={(val) => handleIngredientChange(index, 'unit', val)}>
+                                <SelectTrigger className="h-8">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(inventoryItem?.units || []).map(u => (
+                                        <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveIngredient(index)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+             <Popover open={isIngredientPopoverOpen} onOpenChange={setIsIngredientPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline"><Plus className="mr-2 h-4 w-4" />Thêm nguyên liệu</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0">
+                <Command>
+                    <CommandInput placeholder="Tìm nguyên liệu..." value={ingredientSearch} onValueChange={setIngredientSearch} />
+                    <CommandList>
+                        <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                        <CommandGroup>
+                            {filteredInventory.map((item) => (
+                                <CommandItem key={item.id} onSelect={() => handleAddIngredient(item)}>
+                                    {item.name}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="product-note">Ghi chú pha chế</Label>
+            <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Hủy</Button>
+          <Button onClick={handleSave}>Lưu mặt hàng</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
