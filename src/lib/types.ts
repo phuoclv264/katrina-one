@@ -176,8 +176,10 @@ export type InventoryReport = {
 // --- Product & Recipe Types ---
 export type ProductIngredient = {
   inventoryItemId: string; // Links to an item in the InventoryItem[] list
+  name: string; // The original name from the recipe text, for display
   quantity: number;
   unit: string; // e.g., 'gram', 'ml', 'viên'
+  isMatched: boolean; // Indicates if inventoryItemId is a confident match
 };
 
 export type Product = {
@@ -187,6 +189,8 @@ export type Product = {
   ingredients: ProductIngredient[];
   note?: string; // Optional notes, e.g., for preparation steps
 };
+
+export type ParsedProduct = Omit<Product, 'id'>;
 
 
 // --- Violation Logging Types ---

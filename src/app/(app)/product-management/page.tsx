@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { Product, InventoryItem, Suppliers } from '@/lib/types';
+import type { Product, InventoryItem, ParsedProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Trash2, Plus, Edit } from 'lucide-react';
@@ -13,11 +13,14 @@ import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ProductEditDialog from './_components/product-edit-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import ProductTools from './_components/product-tools';
+import { v4 as uuidv4 } from 'uuid';
+
 
 type CategorizedProducts = {
     category: string;
     products: Product[];
-}[];
+};
 
 export default function ProductManagementPage() {
   const { user, loading: authLoading } = useAuth();
@@ -87,6 +90,16 @@ export default function ProductManagementPage() {
     toast.success(`Đã lưu mặt hàng "${productData.name}".`);
     setIsDialogOpen(false);
   };
+
+  const onProductsGenerated = (generatedProducts: ParsedProduct[]) => {
+      if (!products) return;
+      const newProducts: Product[] = generatedProducts.map(p => ({
+          ...p,
+          id: `prod_${uuidv4()}`
+      }));
+      const newList = [...products, ...newProducts];
+      handleUpdateAndSave(newList);
+  }
   
   const handleDeleteProduct = (productId: string) => {
     if(!products) return;
@@ -133,6 +146,11 @@ export default function ProductManagementPage() {
         <h1 className="text-3xl font-bold font-headline">Quản lý Mặt hàng & Công thức</h1>
         <p className="text-muted-foreground mt-2">Thêm, sửa, xóa các món nước và công thức pha chế tương ứng.</p>
       </header>
+
+      <ProductTools
+        inventoryList={inventoryList}
+        onProductsGenerated={onProductsGenerated}
+      />
       
        <Card>
         <CardHeader>

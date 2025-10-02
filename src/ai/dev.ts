@@ -13,3 +13,4 @@ import '@/ai/flows/generate-daily-summary.ts';
 import '@/ai/flows/extract-revenue-flow.ts';
 import '@/ai/flows/extract-invoice-items-flow.ts';
 import '@/ai/flows/extract-handover-data-flow.ts';
+import '@/ai/flows/generate-product-recipes.ts';
