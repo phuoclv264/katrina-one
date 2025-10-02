@@ -1,11 +1,10 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { InventoryItem, ParsedProduct, ProductIngredient, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, Search, Info } from 'lucide-react';
+import { Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, Search, Info, Plus, FileUp, Replace } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,20 +13,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
+type AiPreviewState = {
+    newProducts: ParsedProduct[];
+    existingProducts: {
+        product: ParsedProduct;
+        action: 'skip' | 'overwrite';
+    }[];
+};
 
 type ProductToolsProps = {
     inventoryList: InventoryItem[];
-    onProductsGenerated: (products: ParsedProduct[]) => void;
+    existingProducts: Product[];
+    onProductsGenerated: (productsToAdd: ParsedProduct[], productsToUpdate: ParsedProduct[]) => void;
 };
 
-export default function ProductTools({ inventoryList, onProductsGenerated }: ProductToolsProps) {
+export default function ProductTools({ inventoryList, existingProducts, onProductsGenerated }: ProductToolsProps) {
     const [isGenerating, setIsGenerating] = useState(false);
     
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [showPreview, setShowPreview] = useState(false);
-    const [previewProducts, setPreviewProducts] = useState<ParsedProduct[]>([]);
+    const [previewState, setPreviewState] = useState<AiPreviewState>({ newProducts: [], existingProducts: [] });
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -65,8 +74,20 @@ export default function ProductTools({ inventoryList, onProductsGenerated }: Pro
             if (!result || !result.products || result.products.length === 0) {
                 throw new Error("AI không thể nhận diện được công thức nào.");
             }
+            
+            const existingNames = new Set(existingProducts.map(p => p.name.toLowerCase()));
+            const newProducts: ParsedProduct[] = [];
+            const existingProductsFound: { product: ParsedProduct, action: 'skip' | 'overwrite' }[] = [];
 
-            setPreviewProducts(result.products);
+            result.products.forEach(p => {
+                if(existingNames.has(p.name.toLowerCase())) {
+                    existingProductsFound.push({ product: p, action: 'skip' });
+                } else {
+                    newProducts.push(p);
+                }
+            });
+
+            setPreviewState({ newProducts, existingProducts: existingProductsFound });
             setShowPreview(true);
 
         } catch (error: any) {
@@ -78,9 +99,37 @@ export default function ProductTools({ inventoryList, onProductsGenerated }: Pro
         }
     };
     
+    const handleToggleOverwrite = (productName: string) => {
+        setPreviewState(prev => ({
+            ...prev,
+            existingProducts: prev.existingProducts.map(p => 
+                p.product.name === productName 
+                    ? { ...p, action: p.action === 'skip' ? 'overwrite' : 'skip' }
+                    : p
+            )
+        }));
+    };
+    
+    const handleToggleAllOverwrite = (overwriteAll: boolean) => {
+        setPreviewState(prev => ({
+            ...prev,
+            existingProducts: prev.existingProducts.map(p => ({ ...p, action: overwriteAll ? 'overwrite' : 'skip' }))
+        }));
+    };
+
     const handleConfirm = () => {
-        onProductsGenerated(previewProducts);
-        toast.success(`Đã thêm ${previewProducts.length} công thức mới.`);
+        const productsToAdd = previewState.newProducts;
+        const productsToUpdate = previewState.existingProducts
+            .filter(p => p.action === 'overwrite')
+            .map(p => p.product);
+            
+        onProductsGenerated(productsToAdd, productsToUpdate);
+        
+        let message = '';
+        if(productsToAdd.length > 0) message += `Đã thêm ${productsToAdd.length} mặt hàng mới. `;
+        if(productsToUpdate.length > 0) message += `Đã ghi đè ${productsToUpdate.length} mặt hàng.`;
+        toast.success(message.trim() || "Không có thay đổi nào được áp dụng.");
+
         resetState();
         setShowPreview(false);
     };
@@ -114,41 +163,82 @@ export default function ProductTools({ inventoryList, onProductsGenerated }: Pro
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Xem trước Công thức đã tạo</DialogTitle>
-                        <DialogDescription>AI đã phân tích và liên kết các nguyên liệu. Vui lòng kiểm tra lại trước khi lưu.</DialogDescription>
+                        <DialogDescription>AI đã phân tích và liên kết các nguyên liệu. Vui lòng kiểm tra và xác nhận.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[60vh] -mx-6 px-6">
-                        <Accordion type="multiple" defaultValue={previewProducts.map(p => p.name)} className="w-full space-y-4 py-4">
-                            {previewProducts.map((product, index) => (
-                                <AccordionItem value={product.name} key={index} className="border rounded-lg shadow-sm">
-                                    <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
-                                       <div className="flex flex-col items-start text-left">
-                                         <span>{product.name}</span>
-                                         <Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge>
-                                       </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="p-4 border-t">
-                                        <div className="space-y-2">
-                                            {product.ingredients.map((ing, i) => (
-                                                <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/50">
-                                                    {ing.isMatched ? <CheckCircle className="h-4 w-4 text-green-500" /> : <AlertTriangle className="h-4 w-4 text-yellow-500" />}
-                                                    <span className="font-medium">{ing.name}</span>
-                                                    <span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span>
+                        <div className="py-4 space-y-6">
+                            {/* New Products */}
+                            {previewState.newProducts.length > 0 && (
+                                <div>
+                                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
+                                        <Plus className="h-5 w-5 text-green-500"/>
+                                        Mặt hàng mới ({previewState.newProducts.length})
+                                    </h3>
+                                    <Accordion type="multiple" defaultValue={previewState.newProducts.map(p => p.name)} className="w-full space-y-2">
+                                    {previewState.newProducts.map((product, index) => (
+                                        <AccordionItem value={product.name} key={`new-${index}`} className="border rounded-lg shadow-sm bg-green-500/5">
+                                            <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
+                                                <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="p-4 border-t">
+                                                <div className="space-y-2">
+                                                    {product.ingredients.map((ing, i) => (
+                                                        <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-background"><CheckCircle className="h-4 w-4 text-green-500" /><span className="font-medium">{ing.name}</span><span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span></div>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                            {product.note && <p className="text-xs italic text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md">Ghi chú: {product.note}</p>}
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                    </Accordion>
+                                </div>
+                            )}
+
+                            {/* Existing Products */}
+                            {previewState.existingProducts.length > 0 && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                                            <FileUp className="h-5 w-5 text-amber-500"/>
+                                            Mặt hàng đã tồn tại ({previewState.existingProducts.length})
+                                        </h3>
+                                        <div className="flex items-center space-x-2">
+                                            <Label htmlFor="overwrite-all" className="text-sm">Ghi đè tất cả</Label>
+                                            <Switch id="overwrite-all" onCheckedChange={handleToggleAllOverwrite} />
                                         </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                        <div className="sticky bottom-0 bg-background/80 backdrop-blur-sm p-4 text-center text-sm text-muted-foreground">
-                            <p className="flex items-center justify-center gap-2"><CheckCircle className="h-4 w-4 text-green-500"/> = Đã liên kết với kho.</p>
-                            <p className="flex items-center justify-center gap-2"><AlertTriangle className="h-4 w-4 text-yellow-500"/> = Không tìm thấy trong kho.</p>
+                                    </div>
+                                    <Accordion type="multiple" className="w-full space-y-2">
+                                    {previewState.existingProducts.map(({ product, action }, index) => (
+                                        <AccordionItem value={product.name} key={`existing-${index}`} className="border rounded-lg shadow-sm bg-amber-500/5">
+                                             <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
+                                                    <div className="flex items-center gap-2 mr-4" onClick={(e) => e.stopPropagation()}>
+                                                        <Label htmlFor={`overwrite-${index}`} className="text-sm font-normal">Ghi đè</Label>
+                                                        <Switch id={`overwrite-${index}`} checked={action === 'overwrite'} onCheckedChange={() => handleToggleOverwrite(product.name)} />
+                                                    </div>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="p-4 border-t">
+                                                 <div className="space-y-2">
+                                                    {product.ingredients.map((ing, i) => (
+                                                        <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-background"><CheckCircle className="h-4 w-4 text-green-500" /><span className="font-medium">{ing.name}</span><span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span></div>
+                                                    ))}
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                    </Accordion>
+                                </div>
+                            )}
+
                         </div>
                     </ScrollArea>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowPreview(false)}>Hủy</Button>
-                        <Button onClick={handleConfirm} disabled={previewProducts.length === 0}>Lưu {previewProducts.length} mặt hàng</Button>
+                        <Button onClick={handleConfirm} disabled={previewState.newProducts.length === 0 && previewState.existingProducts.every(p => p.action === 'skip')}>
+                            <Replace className="mr-2 h-4 w-4"/>
+                            Lưu thay đổi
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

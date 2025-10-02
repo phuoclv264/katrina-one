@@ -1,11 +1,10 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp } from 'lucide-react';
+import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -17,6 +16,7 @@ import ProductTools from './_components/product-tools';
 import { v4 as uuidv4 } from 'uuid';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import isEqual from 'lodash.isequal';
 
 
 type CategorizedProducts = {
@@ -103,14 +103,25 @@ export default function ProductManagementPage() {
     setIsDialogOpen(false);
   };
 
-  const onProductsGenerated = (generatedProducts: ParsedProduct[]) => {
+  const onProductsGenerated = (productsToAdd: ParsedProduct[], productsToUpdate: ParsedProduct[]) => {
       if (!products) return;
-      const newProducts: Product[] = generatedProducts.map(p => ({
+      
+      const newProducts: Product[] = productsToAdd.map(p => ({
           ...p,
           id: `prod_${uuidv4()}`
       }));
-      const newList = [...products, ...newProducts];
-      handleUpdateAndSave(newList);
+      
+      let updatedProductList = [...products, ...newProducts];
+
+      productsToUpdate.forEach(updatedProduct => {
+          const index = updatedProductList.findIndex(p => p.name.toLowerCase() === updatedProduct.name.toLowerCase());
+          if (index !== -1) {
+              const originalId = updatedProductList[index].id;
+              updatedProductList[index] = { ...updatedProduct, id: originalId };
+          }
+      });
+      
+      handleUpdateAndSave(updatedProductList, false); // Toast is handled in the tool
   }
   
   const handleDeleteProduct = (productId: string) => {
@@ -249,6 +260,7 @@ export default function ProductManagementPage() {
 
       <ProductTools
         inventoryList={inventoryList}
+        existingProducts={products}
         onProductsGenerated={onProductsGenerated}
       />
       

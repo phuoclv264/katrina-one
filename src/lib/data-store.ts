@@ -1,4 +1,3 @@
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -631,7 +630,6 @@ export const dataStore = {
     },
 
     async markSupplierDebtsAsPaid(debts: { slipId: string, supplier: string }[]): Promise<void> {
-        const batch = writeBatch(db);
         const slipUpdatePromises = debts.map(({ slipId, supplier }) => 
             runTransaction(db, async (transaction) => {
                 const slipRef = doc(db, 'expense_slips', slipId);
