@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -182,7 +182,7 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
 function AddIngredientDialog({
   isOpen,
   onClose,
-  onAddIngredients, // Changed to handle multiple ingredients
+  onAddIngredients,
   inventoryList,
   allProducts,
   currentProductId,
@@ -216,6 +216,7 @@ function AddIngredientDialog({
   
   const handleSelect = (item: InventoryItem | Product) => {
     setSelectedItem(item);
+    setQuantity(1); // Reset quantity
     if ('baseUnit' in item) {
         setSelectedUnit(item.baseUnit);
     } else if ('yield' in item && item.yield) {
@@ -288,27 +289,27 @@ function AddIngredientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 sm:p-0 h-full md:h-[90vh] flex flex-col">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle>Thêm nguyên liệu</DialogTitle>
-          <DialogDescription>Tìm kiếm, chọn và thêm nhiều nguyên liệu vào công thức của bạn.</DialogDescription>
+      <DialogContent className="max-w-2xl p-0 h-full md:h-[90vh] flex flex-col bg-muted/30 dark:bg-card/50">
+        <DialogHeader className="p-6 pb-4 border-b bg-background rounded-t-lg">
+          <DialogTitle className="text-2xl font-bold">Thêm nguyên liệu</DialogTitle>
+          <DialogDescription>Bạn có thể tìm, chọn và thêm nhiều nguyên liệu cùng lúc vào công thức.</DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto px-6 py-4">
+        <div className="flex-grow overflow-y-auto px-6 py-4 bg-background">
           {!selectedItem ? (
             // VIEW 1: SELECTION LIST
             <div className="flex flex-col gap-4 h-full">
                 <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
-                    <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                    <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
                         <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
                     </Label>
-                    <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                    <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
                         <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
                     </Label>
                 </RadioGroup>
                  <Command className="border rounded-lg flex-grow">
                   <div className="flex items-center border-b px-4">
                     <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} className="h-12" />
+                    <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} className="h-12 text-base" />
                   </div>
                   <ScrollArea className="h-[calc(100%-60px)]">
                     <CommandList>
@@ -331,19 +332,19 @@ function AddIngredientDialog({
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Chọn nguyên liệu khác
                 </Button>
-                <Card className="flex-1 flex flex-col bg-muted/30 dark:bg-card/50 rounded-2xl shadow-lg">
+                <Card className="flex-1 flex flex-col bg-background rounded-2xl shadow-lg">
                     <CardHeader>
-                        <CardTitle className="truncate">{selectedItem.name}</CardTitle>
+                        <CardTitle className="truncate text-xl">{selectedItem.name}</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-grow space-y-4">
                          <div className="space-y-2">
-                            <Label>Số lượng</Label>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-11 text-lg" />
+                            <Label className="text-base">Số lượng</Label>
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-12 text-lg" />
                          </div>
                          <div className="space-y-2">
-                            <Label>Đơn vị sử dụng</Label>
+                            <Label className="text-base">Đơn vị sử dụng</Label>
                              <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                                <SelectTrigger className="h-11 text-base">
+                                <SelectTrigger className="h-12 text-base">
                                     <SelectValue placeholder="Chọn đơn vị..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -354,43 +355,52 @@ function AddIngredientDialog({
                              </Select>
                          </div>
                          {ingredientSource === 'inventory' && (
-                            <AddUnitAdvanced onAdd={handleAddNewUnit} existingUnits={(selectedItem as InventoryItem).units} />
+                            <div className="pt-4 mt-4 border-t">
+                                <AddUnitAdvanced onAdd={handleAddNewUnit} existingUnits={(selectedItem as InventoryItem).units} />
+                            </div>
                          )}
                     </CardContent>
+                    <CardFooter>
+                         <Button onClick={handleStageIngredient} disabled={!selectedItem || !selectedUnit} className="h-12 text-base w-full">
+                            Thêm
+                        </Button>
+                    </CardFooter>
                 </Card>
-                <Button onClick={handleStageIngredient} disabled={!selectedItem || !selectedUnit} className="h-12 text-base">
-                    Thêm vào danh sách
-                </Button>
             </div>
           )}
         </div>
         
-        {stagedIngredients.length > 0 && (
-          <div className="px-6 py-4 border-t">
-              <h4 className="text-sm font-semibold mb-2">Sẽ được thêm ({stagedIngredients.length}):</h4>
-              <ScrollArea className="h-24">
-                  <div className="space-y-2 pr-4">
-                  {stagedIngredients.map((ing, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm bg-muted p-2 rounded-md">
-                          <span className="font-medium">{ing.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span>{ing.quantity} {ing.unit}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveStaged(index)}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                          </div>
+        <DialogFooter className="p-4 sm:p-6 bg-background border-t rounded-b-lg flex-col h-auto">
+            {stagedIngredients.length > 0 && (
+              <div className="w-full mb-2">
+                  <p className="text-sm font-medium mb-2">Sẽ được thêm:</p>
+                  <ScrollArea className="w-full whitespace-nowrap">
+                      <div className="flex w-max space-x-2 pb-2">
+                          {stagedIngredients.map((ing, index) => (
+                              <Badge key={index} variant="secondary" className="text-sm h-auto py-1 pl-3 pr-1">
+                                  <span>{ing.name}</span>
+                                  <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-5 w-5 ml-1"
+                                      onClick={() => handleRemoveStaged(index)}
+                                  >
+                                      <X className="h-3 w-3" />
+                                      <span className="sr-only">Xóa</span>
+                                  </Button>
+                              </Badge>
+                          ))}
                       </div>
-                  ))}
-                  </div>
-              </ScrollArea>
-          </div>
-        )}
-
-        <DialogFooter className="p-6 border-t flex-col-reverse sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={onClose} className="h-12 text-base sm:h-10 sm:text-sm">Đóng</Button>
-          <Button onClick={handleFinalSubmit} disabled={stagedIngredients.length === 0} className="h-12 text-base sm:h-10 sm:text-sm">
-            Thêm {stagedIngredients.length} nguyên liệu
-          </Button>
+                      <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+              </div>
+            )}
+             <div className="flex w-full gap-2 justify-end">
+                <Button variant="outline" onClick={onClose} className="h-11 text-base w-full sm:w-auto">Đóng</Button>
+                <Button onClick={handleFinalSubmit} disabled={stagedIngredients.length === 0} className="h-11 text-base w-full sm:w-auto">
+                    Thêm ({stagedIngredients.length}) nguyên liệu
+                </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -484,8 +494,8 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()}>
-      <DialogContent className="max-w-3xl flex flex-col h-[90vh] p-0 bg-white dark:bg-card rounded-xl shadow-lg">
-        <DialogHeader className="p-6 pb-4 border-b bg-muted/30 dark:bg-card/50">
+      <DialogContent className="max-w-3xl flex flex-col h-[90vh] p-0 bg-card rounded-xl shadow-lg">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>
           <DialogDescription>
             Quản lý công thức và thông tin chi tiết của sản phẩm.
@@ -639,18 +649,18 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
           </Button>
         </DialogFooter>
          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Ở lại</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitleComponent>Hủy các thay đổi?</AlertDialogTitleComponent>
+                  <AlertDialogDescriptionComponent>
+                  Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
+                  </AlertDialogDescriptionComponent>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Ở lại</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
         </AlertDialog>
       </DialogContent>
     </Dialog>
