@@ -71,6 +71,8 @@ export function UnitCombobox({
   
   const sortedUnits = React.useMemo(() => [...units].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [units]);
 
+  const showAddNewOption = canManage && inputValue && !sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -94,16 +96,15 @@ export function UnitCombobox({
           />
           <CommandList>
             <CommandEmpty>
-                {canManage && inputValue ? (
-                     <Button variant="ghost" className="w-full justify-start" onClick={handleAddNew}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Thêm "{inputValue}"
-                    </Button>
-                ) : (
-                    <div className="py-6 text-center text-sm">Không tìm thấy đơn vị.</div>
-                )}
+                Không tìm thấy đơn vị.
             </CommandEmpty>
             <CommandGroup>
+              {showAddNewOption && (
+                <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Thêm "{inputValue}"
+                </CommandItem>
+              )}
               {sortedUnits.map((unit) => (
                 <CommandItem
                   key={unit.id}
