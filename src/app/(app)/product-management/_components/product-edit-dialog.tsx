@@ -618,16 +618,18 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     />
 
     <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
-        <AlertDialogHeader>
-            <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
-            <AlertDialogDescription>
-            Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-            </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-            <AlertDialogCancel>Ở lại</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
-        </AlertDialogFooter>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
+                <AlertDialogDescription>
+                Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Ở lại</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
     </AlertDialog>
     </>
   );
