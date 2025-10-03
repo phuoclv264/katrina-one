@@ -45,21 +45,43 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
     }
 
     const handleUpdateUnit = (index: number, field: keyof UnitDefinition, value: string | number | boolean) => {
-        const newUnits = [...units];
+        let newUnits = [...units];
         const unitToUpdate = { ...newUnits[index] };
 
         if (field === 'isBaseUnit' && value === true) {
-            // If setting a new base unit, unset the old one
-            newUnits.forEach((u, i) => {
-                if(u.isBaseUnit) newUnits[i] = {...u, isBaseUnit: false};
-            });
-            unitToUpdate.isBaseUnit = true;
-            unitToUpdate.conversionRate = 1; // Base unit always has rate of 1
+            const newBaseUnitName = unitToUpdate.name;
+            const oldBaseUnit = newUnits.find(u => u.isBaseUnit);
+            
+            if (oldBaseUnit && oldBaseUnit.name !== newBaseUnitName) {
+                // A new base unit is chosen. We need to recalculate all conversion rates relative to this new base.
+                // The conversion rate of the new base unit becomes the divisor.
+                const newBaseConversionRate = unitToUpdate.conversionRate;
+
+                newUnits = newUnits.map(u => ({
+                    ...u,
+                    // The conversion rate of each unit is now its old rate divided by the new base's old rate.
+                    conversionRate: u.conversionRate / newBaseConversionRate,
+                    // Set the new base unit flag.
+                    isBaseUnit: u.name === newBaseUnitName,
+                }));
+            } else if (!oldBaseUnit) {
+                // This case handles initialization or if no base unit was set previously.
+                newUnits.forEach(u => u.isBaseUnit = false);
+                unitToUpdate.isBaseUnit = true;
+                unitToUpdate.conversionRate = 1;
+                newUnits[index] = unitToUpdate;
+            } else {
+                 // The same base unit was just toggled, do nothing special, just set the flag.
+                 newUnits.forEach(u => u.isBaseUnit = false);
+                 newUnits[index].isBaseUnit = true;
+                 newUnits[index].conversionRate = 1;
+            }
+
         } else {
              (unitToUpdate as any)[field] = value;
+             newUnits[index] = unitToUpdate;
         }
 
-        newUnits[index] = unitToUpdate;
         onUnitsChange(newUnits);
     }
     
@@ -183,18 +205,6 @@ export default function ItemEditPopover({
     };
 
     // Combine qty and unit back into orderSuggestion string before saving
-    const combineOrderSuggestion = () => {
-        const qty = String(orderSuggestionQty).trim();
-        const unit = orderSuggestionUnit.trim();
-        if (!qty) {
-            handleFieldChange('orderSuggestion', '');
-            return;
-        }
-        const combined = `${qty}${unit ? ` ${unit}` : ''}`;
-        handleFieldChange('orderSuggestion', combined);
-    };
-
-    // Use an effect to update the main item state when the suggestion parts change
     useEffect(() => {
         const qty = String(orderSuggestionQty).trim();
         const unit = orderSuggestionUnit.trim();
