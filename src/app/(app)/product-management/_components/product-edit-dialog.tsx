@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -370,78 +370,76 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
           <div className="space-y-2">
             <Label className="font-semibold">Công thức</Label>
             <div className="border rounded-md">
-                 <ScrollArea className="h-60">
-                    <Table>
-                        <TableHeader className="sticky top-0 bg-muted z-10">
-                        <TableRow>
-                            <TableHead className="w-[45%]">Nguyên liệu</TableHead>
-                            <TableHead className="w-[20%] text-right">Số lượng</TableHead>
-                            <TableHead className="w-[25%]">Đơn vị</TableHead>
-                            <TableHead className="w-[10%]"></TableHead>
-                        </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                        {(product.ingredients || []).length > 0 ? (
-                            (product.ingredients || []).map((ing, index) => {
-                                const item = ing.inventoryItemId
-                                    ? inventoryList.find(i => i.id === ing.inventoryItemId)
-                                    : allProducts.find(p => p.id === ing.productId);
-                                const isSubProduct = !!ing.productId;
+              <Table>
+                  <TableHeader>
+                  <TableRow>
+                      <TableHead className="w-[45%]">Nguyên liệu</TableHead>
+                      <TableHead className="w-[20%] text-right">Số lượng</TableHead>
+                      <TableHead className="w-[25%]">Đơn vị</TableHead>
+                      <TableHead className="w-[10%]"></TableHead>
+                  </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                  {(product.ingredients || []).length > 0 ? (
+                      (product.ingredients || []).map((ing, index) => {
+                          const item = ing.inventoryItemId
+                              ? inventoryList.find(i => i.id === ing.inventoryItemId)
+                              : allProducts.find(p => p.id === ing.productId);
+                          const isSubProduct = !!ing.productId;
 
-                                return (
-                                <TableRow key={`${ing.inventoryItemId || ing.productId}-${index}`}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
-                                            {isSubProduct ? <Beaker className="h-4 w-4 text-purple-500"/> : <Box className="h-4 w-4 text-blue-500" />}
-                                            <span>{item?.name || 'Không rõ'}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                    <Input
-                                        type="number"
-                                        value={ing.quantity}
-                                        onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                        className="h-8 text-right"
-                                    />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Select value={ing.unit} onValueChange={(val) => handleIngredientChange(index, 'unit', val)}>
-                                            <SelectTrigger className="h-8">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {(item as InventoryItem)?.units?.map(u => (
-                                                    <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
-                                                ))}
-                                                {isSubProduct && (item as Product)?.yield?.unit && (
-                                                    <SelectItem value={(item as Product).yield!.unit}>{(item as Product).yield!.unit}</SelectItem>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveIngredient(index)} className="h-8 w-8">
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent><p>Xóa nguyên liệu</p></TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </TableCell>
-                                </TableRow>
-                                )
-                            })
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">Chưa có nguyên liệu nào.</TableCell>
-                            </TableRow>
-                        )}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
+                          return (
+                          <TableRow key={`${ing.inventoryItemId || ing.productId}-${index}`}>
+                              <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                      {isSubProduct ? <Beaker className="h-4 w-4 text-purple-500"/> : <Box className="h-4 w-4 text-blue-500" />}
+                                      <span>{item?.name || 'Không rõ'}</span>
+                                  </div>
+                              </TableCell>
+                              <TableCell>
+                              <Input
+                                  type="number"
+                                  value={ing.quantity}
+                                  onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                  className="h-8 text-right"
+                              />
+                              </TableCell>
+                              <TableCell>
+                                  <Select value={ing.unit} onValueChange={(val) => handleIngredientChange(index, 'unit', val)}>
+                                      <SelectTrigger className="h-8">
+                                          <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          {(item as InventoryItem)?.units?.map(u => (
+                                              <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
+                                          ))}
+                                          {isSubProduct && (item as Product)?.yield?.unit && (
+                                              <SelectItem value={(item as Product).yield!.unit}>{(item as Product).yield!.unit}</SelectItem>
+                                          )}
+                                      </SelectContent>
+                                  </Select>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                  <TooltipProvider>
+                                      <Tooltip>
+                                          <TooltipTrigger asChild>
+                                               <Button variant="ghost" size="icon" onClick={() => handleRemoveIngredient(index)} className="h-8 w-8">
+                                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                              </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent><p>Xóa nguyên liệu</p></TooltipContent>
+                                      </Tooltip>
+                                  </TooltipProvider>
+                              </TableCell>
+                          </TableRow>
+                          )
+                      })
+                  ) : (
+                      <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">Chưa có nguyên liệu nào.</TableCell>
+                      </TableRow>
+                  )}
+                  </TableBody>
+              </Table>
             </div>
             <Button variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />Thêm nguyên liệu
@@ -479,10 +477,10 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
         <AlertDialogContent>
         <AlertDialogHeader>
-            <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitleComponent>Hủy các thay đổi?</AlertDialogTitleComponent>
+            <AlertDialogDescriptionComponent>
             Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-            </AlertDialogDescription>
+            </AlertDialogDescriptionComponent>
         </AlertDialogHeader>
         <AlertDialogFooter>
             <AlertDialogCancel>Ở lại</AlertDialogCancel>
