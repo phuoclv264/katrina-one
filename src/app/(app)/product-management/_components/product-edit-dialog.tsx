@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -11,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { Product, ProductIngredient, InventoryItem } from '@/lib/types';
+import type { Product, ProductIngredient, InventoryItem, UnitDefinition } from '@/lib/types';
 import { Plus, Trash2, Box, Beaker, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -22,6 +21,152 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
+
+// New Component for Adding Ingredients
+function AddIngredientDialog({
+  isOpen,
+  onClose,
+  onAddIngredient,
+  inventoryList,
+  allProducts,
+  currentProductId,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddIngredient: (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string) => void;
+  inventoryList: InventoryItem[];
+  allProducts: Product[];
+  currentProductId?: string;
+}) {
+  const [ingredientSource, setIngredientSource] = useState<'inventory' | 'product'>('inventory');
+  const [search, setSearch] = useState('');
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | Product | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearch('');
+      setSelectedItem(null);
+      setSelectedUnit('');
+      setIngredientSource('inventory');
+    }
+  }, [isOpen]);
+  
+  const handleSelect = (item: InventoryItem | Product) => {
+    setSelectedItem(item);
+    if ('baseUnit' in item) { // It's an InventoryItem
+        setSelectedUnit(item.baseUnit);
+    } else if ('yield' in item && item.yield) { // It's a Product
+        setSelectedUnit(item.yield.unit);
+    } else {
+        setSelectedUnit('phần');
+    }
+  }
+  
+  const handleAdd = () => {
+    if (selectedItem && selectedUnit) {
+        onAddIngredient(selectedItem, ingredientSource, selectedUnit);
+        onClose();
+    }
+  };
+
+  const filteredItems = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    if (ingredientSource === 'inventory') {
+      return inventoryList.filter(item => item.name.toLowerCase().includes(searchLower));
+    } else {
+      return allProducts.filter(p =>
+        p.id !== currentProductId &&
+        p.isIngredient === true &&
+        p.name.toLowerCase().includes(searchLower)
+      );
+    }
+  }, [search, ingredientSource, inventoryList, allProducts, currentProductId]);
+  
+  const availableUnits = useMemo(() => {
+      if (!selectedItem) return [];
+      if ('units' in selectedItem) { // InventoryItem
+          return selectedItem.units.map(u => u.name);
+      }
+      if ('yield' in selectedItem && selectedItem.yield) { // Product
+          return [selectedItem.yield.unit];
+      }
+      return ['phần'];
+  }, [selectedItem]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Thêm nguyên liệu</DialogTitle>
+          <DialogDescription>Tìm kiếm và chọn một nguyên liệu từ kho hoặc một sản phẩm khác.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[50vh]">
+          {/* Left Panel: Search and Select */}
+          <div className="flex flex-col gap-4">
+            <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
+                <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                    <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
+                </Label>
+                <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                    <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
+                </Label>
+            </RadioGroup>
+             <Command className="border rounded-lg">
+              <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} />
+              <ScrollArea className="h-full">
+                <CommandList>
+                  <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                  <CommandGroup>
+                    {filteredItems.map((item) => (
+                      <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
+                        {item.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </ScrollArea>
+            </Command>
+          </div>
+
+          {/* Right Panel: Details and Unit Selection */}
+          <div className="flex flex-col gap-4">
+             {selectedItem ? (
+                <Card className="flex-1">
+                    <CardHeader>
+                        <CardTitle>{selectedItem.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                         <div className="space-y-2">
+                            <Label>Chọn đơn vị sử dụng</Label>
+                             <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Chọn đơn vị..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableUnits.map(unit => (
+                                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                             </Select>
+                         </div>
+                    </CardContent>
+                </Card>
+             ) : (
+                <div className="flex-1 flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground">Chọn một nguyên liệu để xem chi tiết</p>
+                </div>
+             )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Hủy</Button>
+          <Button onClick={handleAdd} disabled={!selectedItem || !selectedUnit}>Thêm vào công thức</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 
 type ProductEditDialogProps = {
@@ -35,9 +180,7 @@ type ProductEditDialogProps = {
 
 export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts }: ProductEditDialogProps) {
   const [product, setProduct] = useState<Partial<Product>>({});
-  const [isIngredientPopoverOpen, setIsIngredientPopoverOpen] = useState(false);
-  const [ingredientSearch, setIngredientSearch] = useState('');
-  const [ingredientSource, setIngredientSource] = useState<'inventory' | 'product'>('inventory');
+  const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -55,7 +198,6 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         yield: { quantity: 1, unit: 'phần' },
       };
       setProduct(initialProduct);
-      setIngredientSource('inventory');
       setHasUnsavedChanges(false);
     }
   }, [isOpen, productToEdit]);
@@ -76,25 +218,23 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     handleFieldChange('ingredients', newIngredients);
   };
 
-  const handleAddIngredient = (item: InventoryItem | Product, type: 'inventory' | 'product') => {
+ const handleAddIngredient = (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string) => {
     const newIngredient: Partial<ProductIngredient> = {
         name: item.name,
         quantity: 1,
+        unit: unit,
         isMatched: true,
     };
     if (type === 'inventory') {
         newIngredient.inventoryItemId = item.id;
-        newIngredient.unit = (item as InventoryItem).baseUnit;
     } else {
         newIngredient.productId = item.id;
-        newIngredient.unit = (item as Product).yield?.unit || 'phần'; // Default unit for sub-products
     }
 
     const newIngredients = [...(product.ingredients || []), newIngredient as ProductIngredient];
     handleFieldChange('ingredients', newIngredients);
-    setIsIngredientPopoverOpen(false);
-    setIngredientSearch('');
   };
+
 
   const handleRemoveIngredient = (index: number) => {
     const newIngredients = (product.ingredients || []).filter((_, i) => i !== index);
@@ -123,21 +263,6 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
       setIsConfirmCloseOpen(false);
       onClose();
   }
-  
-  const filteredInventory = useMemo(() => {
-    const searchLower = ingredientSearch.toLowerCase();
-    if (ingredientSource === 'inventory') {
-        return inventoryList.filter(item =>
-            item.name.toLowerCase().includes(searchLower)
-        );
-    } else {
-        return allProducts.filter(p => 
-            p.id !== product.id && 
-            p.isIngredient === true && 
-            p.name.toLowerCase().includes(searchLower)
-        );
-    }
-  }, [ingredientSearch, inventoryList, allProducts, ingredientSource, product.id]);
 
   return (
     <>
@@ -149,7 +274,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-grow -mt-4">
+        <ScrollArea className="flex-grow">
           <div className="p-6 space-y-6">
           {/* Section: Basic Info */}
           <div className="space-y-4">
@@ -220,7 +345,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                 const isSubProduct = !!ing.productId;
 
                                 return (
-                                <TableRow key={index}>
+                                <TableRow key={`${ing.inventoryItemId || ing.productId}-${index}`}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">
                                             {isSubProduct ? <Beaker className="h-4 w-4 text-purple-500"/> : <Box className="h-4 w-4 text-blue-500" />}
@@ -274,38 +399,9 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                     </Table>
                 </ScrollArea>
             </div>
-             <Popover open={isIngredientPopoverOpen} onOpenChange={setIsIngredientPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full"><Plus className="mr-2 h-4 w-4" />Thêm nguyên liệu</Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0" align="start">
-                <Command>
-                    <div className="p-2 border-b">
-                         <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => setIngredientSource(v as any)} className="flex gap-2">
-                            <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                                <RadioGroupItem value="inventory" id="source-inventory" />
-                                Kho
-                            </Label>
-                             <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                                <RadioGroupItem value="product" id="source-product" />
-                                SP Khác
-                            </Label>
-                         </RadioGroup>
-                    </div>
-                    <CommandInput placeholder="Tìm kiếm..." value={ingredientSearch} onValueChange={setIngredientSearch} />
-                    <CommandList>
-                        <CommandEmpty>Không tìm thấy.</CommandEmpty>
-                        <CommandGroup>
-                            {filteredInventory.map((item) => (
-                                <CommandItem key={item.id} onSelect={() => handleAddIngredient(item, ingredientSource)}>
-                                    {item.name}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <Button variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />Thêm nguyên liệu
+            </Button>
           </div>
 
           <Separator />
@@ -326,6 +422,15 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    
+    <AddIngredientDialog
+        isOpen={isAddIngredientOpen}
+        onClose={() => setIsAddIngredientOpen(false)}
+        onAddIngredient={handleAddIngredient}
+        inventoryList={inventoryList}
+        allProducts={allProducts}
+        currentProductId={product.id}
+    />
 
     <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
         <AlertDialogContent>
