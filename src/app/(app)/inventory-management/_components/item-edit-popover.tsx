@@ -34,13 +34,94 @@ import { toast } from 'react-hot-toast';
 import isEqual from 'lodash.isequal';
 import type { InventoryItem, UnitDefinition } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { Box, Settings, SlidersHorizontal, ToggleRight, Trash2, Plus, Star } from 'lucide-react';
+import { Box, Settings, SlidersHorizontal, ToggleRight, Trash2, Plus, Star, ChevronsRight } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
+
+function AddUnitAdvanced({ 
+    onAdd,
+    existingUnits 
+}: { 
+    onAdd: (newUnit: UnitDefinition) => void,
+    existingUnits: UnitDefinition[]
+}) {
+    const [unitA_qty, setUnitA_qty] = useState('1');
+    const [unitA_name, setUnitA_name] = useState('');
+    const [unitB_qty, setUnitB_qty] = useState('');
+    const [unitB_name, setUnitB_name] = useState('');
+
+    const handleAddUnit = () => {
+        const qtyA = parseFloat(unitA_qty);
+        const qtyB = parseFloat(unitB_qty);
+        const nameA = unitA_name.trim();
+        const nameB = unitB_name.trim();
+
+        if (isNaN(qtyA) || isNaN(qtyB) || !nameA || !nameB) {
+            toast.error("Vui lòng điền đầy đủ thông tin quy đổi.");
+            return;
+        }
+
+        const unitA_exists = existingUnits.find(u => u.name === nameA);
+        const unitB_exists = existingUnits.find(u => u.name === nameB);
+
+        if (!unitA_exists && !unitB_exists) {
+            toast.error("Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại trong danh sách.");
+            return;
+        }
+        if (unitA_exists && unitB_exists) {
+            toast.error("Không thể tạo mối quan hệ giữa hai đơn vị đã có. Vui lòng chỉnh sửa trực tiếp.");
+            return;
+        }
+
+        const newUnitName = unitA_exists ? nameB : nameA;
+        const knownUnit = unitA_exists ? unitA_exists : unitB_exists!;
+        
+        let newConversionRate = 1;
+
+        if (unitA_exists) { // Known unit is A, new unit is B. e.g. 1 gói = 500 gr
+            // qtyA of A = qtyB of B  => 1 B = (qtyA / qtyB) A
+            newConversionRate = (qtyA / qtyB) * knownUnit.conversionRate;
+        } else { // Known unit is B, new unit is A. e.g. 500 gr = 1 gói
+            // qtyA of A = qtyB of B => 1 A = (qtyB / qtyA) B
+            newConversionRate = (qtyB / qtyA) * knownUnit.conversionRate;
+        }
+        
+        onAdd({ name: newUnitName, conversionRate: newConversionRate, isBaseUnit: false });
+        
+        // Reset form
+        setUnitA_qty('1'); setUnitA_name('');
+        setUnitB_qty(''); setUnitB_name('');
+        toast.success(`Đã thêm quy đổi cho đơn vị "${newUnitName}".`);
+    }
+
+    return (
+         <Accordion type="single" collapsible>
+            <AccordionItem value="add-unit">
+                <AccordionTrigger><span className="text-sm font-medium">Thêm đơn vị (Nâng cao)</span></AccordionTrigger>
+                <AccordionContent className="space-y-2 pt-2">
+                    <p className="text-xs text-muted-foreground">Điền vào mối quan hệ quy đổi. Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.</p>
+                    <div className="flex items-center gap-2">
+                        <Input type="number" value={unitA_qty} onChange={e => setUnitA_qty(e.target.value)} className="w-1/4"/>
+                        <Input placeholder="Tên ĐV 1..." value={unitA_name} onChange={e => setUnitA_name(e.target.value)} />
+                        <span className="font-bold">=</span>
+                        <Input type="number" value={unitB_qty} onChange={e => setUnitB_qty(e.target.value)} className="w-1/4"/>
+                        <Input placeholder="Tên ĐV 2..." value={unitB_name} onChange={e => setUnitB_name(e.target.value)} />
+                    </div>
+                    <Button size="sm" onClick={handleAddUnit} className="w-full">Thêm quy đổi này</Button>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    )
+}
 
 function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void }) {
     
     const handleAddUnit = () => {
         const newUnit: UnitDefinition = { name: 'Đơn vị mới', isBaseUnit: false, conversionRate: 1 };
+        onUnitsChange([...units, newUnit]);
+    }
+    
+    const handleAddUnitAdvanced = (newUnit: UnitDefinition) => {
         onUnitsChange([...units, newUnit]);
     }
 
@@ -121,7 +202,10 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
                     </div>
                 </div>
             ))}
-            <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm đơn vị</Button>
+            <div className='flex gap-2'>
+              <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm ĐV (Đơn giản)</Button>
+            </div>
+            <AddUnitAdvanced onAdd={handleAddUnitAdvanced} existingUnits={units} />
         </div>
     )
 }
