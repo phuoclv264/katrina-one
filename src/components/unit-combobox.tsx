@@ -70,6 +70,11 @@ export function UnitCombobox({
   const displayValue = value ? units.find((unit) => unit.name === value)?.name || placeholder : placeholder;
   
   const sortedUnits = React.useMemo(() => [...units].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [units]);
+  
+  const filteredUnits = React.useMemo(() => {
+    if (!inputValue) return sortedUnits;
+    return sortedUnits.filter(unit => unit.name.toLowerCase().includes(inputValue.toLowerCase()));
+  }, [inputValue, sortedUnits]);
 
   const showAddNewOption = canManage && inputValue && !sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
 
@@ -95,9 +100,9 @@ export function UnitCombobox({
             onValueChange={setInputValue}
           />
           <CommandList>
-            <CommandEmpty>
-              Không tìm thấy đơn vị.
-            </CommandEmpty>
+            {filteredUnits.length === 0 && !showAddNewOption && (
+                <CommandEmpty>Không tìm thấy đơn vị.</CommandEmpty>
+            )}
             <CommandGroup>
               {showAddNewOption && (
                 <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
@@ -105,7 +110,7 @@ export function UnitCombobox({
                   Thêm "{inputValue}"
                 </CommandItem>
               )}
-              {sortedUnits.map((unit) => (
+              {filteredUnits.map((unit) => (
                 <CommandItem
                   key={unit.id}
                   value={unit.name}
