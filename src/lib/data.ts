@@ -1,5 +1,5 @@
 
-import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory, OtherCostCategory, IncidentCategory, Product } from './types';
+import type { TimeSlot, TasksByShift, TaskSection, InventoryItem, ComprehensiveTaskSection, Suppliers, ViolationCategory, OtherCostCategory, IncidentCategory, Product, GlobalUnit } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 export const staff: { pin: string, name: string }[] = [
@@ -316,5 +316,23 @@ export const initialProducts: Product[] = [
   { "id": "prod_56", "name": "TRÂN CHÂU ĐEN", "category": "TOPPINGS", "note": "B1: Đổ 2000ml nước vào nồi bấm On/Off. B2: Nồi báo → thêm trân châu và khuấy. B3: Nấu và ủ trân châu 50p. B4: Khi nồi báo End, đem trân châu ra rửa qua. B5: Thêm syrup đường đen + cốt bí đao + đường đen HQ, khuấy đều, bỏ vào nồi bấm ủ ấm.", "ingredients": [ { "inventoryItemId": "trân-châu-đen", "quantity": 500, "unit": "g" }, { "inventoryItemId": "syrup-đường-đen", "quantity": 150, "unit": "ml" }, { "inventoryItemId": "đường-nâu-trendy", "quantity": 50, "unit": "g" }, { "inventoryItemId": "bí-đao-trendy", "quantity": 50, "unit": "ml" }, { "inventoryItemId": "nước-sôi", "quantity": 2000, "unit": "ml" } ] },
   { "id": "prod_57", "name": "TRÂN CHÂU PHÔ MAI", "category": "TOPPINGS", "note": "B1: Cấp đông phô mai. B2: Chia thành 6 viên/1 cục. B3: Vo chun với bột năng. B4: Rây bột, cấp đông. B5: Lấy trân châu phô mai từ ngăn đông ra 5–10p cho rã đông, áo thêm bột năng, rây bột. B6: Nấu nước sôi, đổ trân châu vào, khi trân châu trong thì vớt ra ngâm nước đá. B7: Tỉ lệ nước đường 1–1.", "ingredients": [ { "inventoryItemId": "phô-mai-con-bò-cười", "quantity": 1, "unit": "hộp" }, { "inventoryItemId": "bột-năng", "quantity": 1, "unit": "gói" } ] }
 ]
+
+export const initialGlobalUnits: GlobalUnit[] = [
+    { id: 'ml', name: 'ml' },
+    { id: 'g', name: 'g' },
+    { id: 'kg', name: 'kg' },
+    { id: 'l', name: 'l' },
+    { id: 'cái', name: 'cái' },
+    { id: 'hộp', name: 'hộp' },
+    { id: 'thùng', name: 'thùng' },
+    { id: 'gói', name: 'gói' },
+    { id: 'viên', name: 'viên' },
+    { id: 'bình', name: 'bình' },
+    { id: 'cây', name: 'cây' },
+    { id: 'quả', name: 'quả' },
+    { id: 'lát', name: 'lát' },
+    { id: 'phần', name: 'phần' },
+];
+    
 
     

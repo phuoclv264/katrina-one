@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -30,9 +29,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SupplierCombobox } from '@/components/supplier-combobox';
+import { UnitCombobox } from '@/components/unit-combobox';
 import { toast } from 'react-hot-toast';
 import isEqual from 'lodash.isequal';
-import type { InventoryItem, UnitDefinition } from '@/lib/types';
+import type { InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Box, Settings, SlidersHorizontal, ToggleRight, Trash2, Plus, Star, ChevronsRight } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -46,8 +46,8 @@ function AddUnitSimple({
     onAdd: (newUnit: UnitDefinition) => void;
 }) {
     const [newUnitName, setNewUnitName] = useState('');
-    const [newUnitQty, setNewUnitQty] = useState<number | ''>('');
-    const [baseUnitQty, setBaseUnitQty] = useState<number | ''>(1);
+    const [newUnitQty, setNewUnitQty] = useState<number | ''>(1);
+    const [baseUnitQty, setBaseUnitQty] = useState<number | ''>('');
 
     const handleAdd = () => {
         if (!newUnitName.trim() || !newUnitQty || !baseUnitQty) {
@@ -60,18 +60,18 @@ function AddUnitSimple({
         
         // Reset form
         setNewUnitName('');
-        setNewUnitQty('');
-        setBaseUnitQty(1);
+        setNewUnitQty(1);
+        setBaseUnitQty('');
     };
 
     return (
         <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
              <div className="flex items-center gap-2">
-                <Input placeholder="Tên ĐV mới" value={newUnitName} onChange={e => setNewUnitName(e.target.value)} className="h-9 flex-1" />
                 <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                <Input placeholder="Tên ĐV mới" value={newUnitName} onChange={e => setNewUnitName(e.target.value)} className="h-9 flex-1" />
                 <span className="font-bold">=</span>
-                <Input type="number" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
                 <span className="font-semibold text-sm">{baseUnitName}</span>
              </div>
              <Button size="sm" onClick={handleAdd} className="w-full h-9">Thêm đơn vị</Button>
@@ -79,7 +79,7 @@ function AddUnitSimple({
     );
 }
 
-function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void }) {
+function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, canManageUnits }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void, globalUnits: GlobalUnit[], onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void, canManageUnits: boolean }) {
     
     const handleAddUnit = (newUnit: UnitDefinition) => {
         if (units.some(u => u.name.toLowerCase() === newUnit.name.toLowerCase())) {
@@ -138,15 +138,29 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
 
     return (
         <div className="space-y-3">
-             {units.map((unit, index) => (
+             {units.map((unit, index) => {
+                const isBase = unit.isBaseUnit;
+                return (
                 <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md">
                     <div className="col-span-4">
                         <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
-                        <Input id={`unit-name-${index}`} value={unit.name} onChange={e => handleUpdateUnit(index, 'name', e.target.value)} />
+                        <UnitCombobox 
+                            units={globalUnits} 
+                            value={unit.name}
+                            onChange={(val) => handleUpdateUnit(index, 'name', val)}
+                            onUnitsChange={onGlobalUnitsChange}
+                            canManage={canManageUnits}
+                        />
                     </div>
                      <div className="col-span-5">
-                        <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">1 {unit.name} = ? {baseUnitName}</Label>
-                        <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} disabled={unit.isBaseUnit} />
+                        <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">
+                            {isBase ? 'Đơn vị cơ sở' : `1 ${unit.name} = ${unit.conversionRate.toFixed(4).replace(/\.0000$/, '')} ${baseUnitName}`}
+                        </Label>
+                        {isBase ? (
+                             <p className="font-semibold text-sm h-9 flex items-center">{unit.name}</p>
+                        ) : (
+                             <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} />
+                        )}
                     </div>
                      <div className="col-span-2 flex flex-col items-center justify-center pt-4">
                         <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
@@ -156,7 +170,8 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                 </div>
-            ))}
+                )
+            })}
             <AddUnitSimple baseUnitName={baseUnitName} onAdd={handleAddUnit} />
         </div>
     )
@@ -166,14 +181,20 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
 export default function ItemEditPopover({
     item: initialItem,
     suppliers,
+    globalUnits,
+    canManageUnits,
     onUpdate,
     onSupplierChange,
+    onGlobalUnitsChange,
     children
 }: {
     item: InventoryItem;
     suppliers: string[];
+    globalUnits: GlobalUnit[];
+    canManageUnits: boolean;
     onUpdate: (updatedItem: InventoryItem) => void;
     onSupplierChange: (newSupplier: string) => void;
+    onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
     children: React.ReactNode;
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -328,7 +349,7 @@ export default function ItemEditPopover({
 
                         <div className="space-y-4">
                              <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><SlidersHorizontal className="h-4 w-4"/>Đơn vị & Quy đổi</h4>
-                            <UnitEditor units={item.units} onUnitsChange={(newUnits) => handleFieldChange('units', newUnits)} />
+                            <UnitEditor units={item.units} onUnitsChange={(newUnits) => handleFieldChange('units', newUnits)} globalUnits={globalUnits} onGlobalUnitsChange={onGlobalUnitsChange} canManageUnits={canManageUnits}/>
                         </div>
                         
                          <Separator/>

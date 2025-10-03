@@ -100,6 +100,12 @@ export type ShiftReport = {
 };
 
 // --- Inventory Types ---
+
+export type GlobalUnit = {
+  id: string;
+  name: string;
+};
+
 export type UnitDefinition = {
   name: string;
   isBaseUnit: boolean;
