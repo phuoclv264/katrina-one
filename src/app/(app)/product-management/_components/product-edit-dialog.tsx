@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import type { Product, ProductIngredient, InventoryItem, UnitDefinition } from '@/lib/types';
-import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight } from 'lucide-react';
+import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
+import { cn } from '@/lib/utils';
 
 function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void }) {
     
@@ -99,7 +100,9 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
                     </div>
                 </div>
             ))}
-            <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm đơn vị</Button>
+            <div className='flex gap-2'>
+              <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm ĐV (Đơn giản)</Button>
+            </div>
         </div>
     )
 }
@@ -157,29 +160,25 @@ function AddUnitAdvanced({
         // Reset form
         setUnitA_qty('1'); setUnitA_name('');
         setUnitB_qty(''); setUnitB_name('');
+        toast.success(`Đã thêm quy đổi cho đơn vị "${newUnitName}".`);
     }
 
     return (
-         <Accordion type="single" collapsible>
-            <AccordionItem value="add-unit">
-                <AccordionTrigger><span className="text-sm font-medium">Thêm đơn vị (Nâng cao)</span></AccordionTrigger>
-                <AccordionContent className="space-y-2 pt-2">
-                    <p className="text-xs text-muted-foreground">Điền vào mối quan hệ quy đổi. Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.</p>
-                    <div className="flex items-center gap-2">
-                        <Input type="number" value={unitA_qty} onChange={e => setUnitA_qty(e.target.value)} className="w-1/4"/>
-                        <Input placeholder="Tên ĐV 1..." value={unitA_name} onChange={e => setUnitA_name(e.target.value)} />
-                        <span className="font-bold">=</span>
-                        <Input type="number" value={unitB_qty} onChange={e => setUnitB_qty(e.target.value)} className="w-1/4"/>
-                        <Input placeholder="Tên ĐV 2..." value={unitB_name} onChange={e => setUnitB_name(e.target.value)} />
-                    </div>
-                    <Button size="sm" onClick={handleAddUnit} className="w-full">Thêm quy đổi này</Button>
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
+        <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
+            <p className="text-sm font-medium">Thêm đơn vị (Nâng cao)</p>
+            <p className="text-xs text-muted-foreground">Điền vào mối quan hệ quy đổi. Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.</p>
+            <div className="flex items-center gap-2">
+                <Input type="number" value={unitA_qty} onChange={e => setUnitA_qty(e.target.value)} className="w-1/4 h-9"/>
+                <Input placeholder="Tên ĐV 1..." value={unitA_name} onChange={e => setUnitA_name(e.target.value)} className="h-9" />
+                <span className="font-bold">=</span>
+                <Input type="number" value={unitB_qty} onChange={e => setUnitB_qty(e.target.value)} className="w-1/4 h-9"/>
+                <Input placeholder="Tên ĐV 2..." value={unitB_name} onChange={e => setUnitB_name(e.target.value)} className="h-9"/>
+            </div>
+            <Button size="sm" onClick={handleAddUnit} className="w-full h-9">Thêm quy đổi này</Button>
+        </div>
     )
 }
 
-// New Component for Adding Ingredients
 function AddIngredientDialog({
   isOpen,
   onClose,
@@ -215,9 +214,9 @@ function AddIngredientDialog({
   
   const handleSelect = (item: InventoryItem | Product) => {
     setSelectedItem(item);
-    if ('baseUnit' in item) { // It's an InventoryItem
+    if ('baseUnit' in item) {
         setSelectedUnit(item.baseUnit);
-    } else if ('yield' in item && item.yield) { // It's a Product
+    } else if ('yield' in item && item.yield) {
         setSelectedUnit(item.yield.unit);
     } else {
         setSelectedUnit('phần');
@@ -246,10 +245,10 @@ function AddIngredientDialog({
   
   const availableUnits = useMemo(() => {
       if (!selectedItem) return [];
-      if ('units' in selectedItem) { // InventoryItem
+      if ('units' in selectedItem) {
           return selectedItem.units.map(u => u.name);
       }
-      if ('yield' in selectedItem && selectedItem.yield) { // Product
+      if ('yield' in selectedItem && selectedItem.yield) {
           return [selectedItem.yield.unit];
       }
       return ['phần'];
@@ -260,11 +259,8 @@ function AddIngredientDialog({
 
       const updatedItem = { ...selectedItem, units: [...selectedItem.units, newUnit] };
       
-      // Update the item in the dialog state
       setSelectedItem(updatedItem as InventoryItem);
-      // Automatically select the new unit
       setSelectedUnit(newUnit.name);
-      // Notify parent component to update the main inventory list
       onInventoryItemUpdate(updatedItem as InventoryItem);
 
       toast.success(`Đã thêm đơn vị "${newUnit.name}" cho "${updatedItem.name}".`);
@@ -272,30 +268,33 @@ function AddIngredientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl p-0 sm:p-6">
+        <DialogHeader className="p-6 pb-0 sm:p-0 sm:pb-0">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
           <DialogDescription>Tìm kiếm và chọn một nguyên liệu từ kho hoặc một sản phẩm khác.</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[50vh]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh] md:h-[55vh] p-6 pt-4 sm:p-0 sm:pt-4">
           {/* Left Panel: Search and Select */}
           <div className="flex flex-col gap-4">
             <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
-                <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
                     <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
                 </Label>
-                <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-2 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
                     <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
                 </Label>
             </RadioGroup>
-             <Command className="border rounded-lg">
-              <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} />
-              <ScrollArea className="h-full">
+             <Command className="border rounded-lg flex-grow">
+              <div className="flex items-center border-b px-4">
+                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} className="h-12" />
+              </div>
+              <ScrollArea className="h-[calc(100%-60px)]">
                 <CommandList>
                   <CommandEmpty>Không tìm thấy.</CommandEmpty>
                   <CommandGroup>
                     {filteredItems.map((item) => (
-                      <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
+                      <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-3">
                         {item.name}
                       </CommandItem>
                     ))}
@@ -308,19 +307,19 @@ function AddIngredientDialog({
           {/* Right Panel: Details and Unit Selection */}
           <div className="flex flex-col gap-4">
              {selectedItem ? (
-                <Card className="flex-1">
+                <Card className="flex-1 flex flex-col bg-muted/30 rounded-2xl shadow-lg">
                     <CardHeader>
-                        <CardTitle>{selectedItem.name}</CardTitle>
+                        <CardTitle className="truncate">{selectedItem.name}</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="flex-grow space-y-4">
                          <div className="space-y-2">
                             <Label>Số lượng</Label>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" />
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-11" />
                          </div>
                          <div className="space-y-2">
                             <Label>Đơn vị sử dụng</Label>
                              <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-11">
                                     <SelectValue placeholder="Chọn đơn vị..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -336,15 +335,16 @@ function AddIngredientDialog({
                     </CardContent>
                 </Card>
              ) : (
-                <div className="flex-1 flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/50">
-                    <p className="text-sm text-muted-foreground">Chọn một nguyên liệu để xem chi tiết</p>
+                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl bg-muted/30 text-center p-4">
+                    {ingredientSource === 'inventory' ? <Box className="h-12 w-12 text-muted-foreground/50"/> : <Beaker className="h-12 w-12 text-muted-foreground/50"/>}
+                    <p className="mt-4 text-sm font-medium text-muted-foreground">Hãy chọn một nguyên liệu để xem chi tiết</p>
                 </div>
              )}
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Hủy</Button>
-          <Button onClick={handleAdd} disabled={!selectedItem || !selectedUnit}>Thêm vào công thức</Button>
+        <DialogFooter className="p-6 pt-0 sm:p-0 sm:pt-0 sm:flex-col-reverse md:flex-row md:justify-end">
+          <Button variant="outline" onClick={onClose} className="h-12 text-base md:h-10 md:text-sm">Hủy</Button>
+          <Button onClick={handleAdd} disabled={!selectedItem || !selectedUnit} className="h-12 text-base md:h-10 md:text-sm">Thêm vào công thức</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -458,7 +458,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-grow">
+          <div className="flex-grow overflow-y-auto">
           <div className="p-6 space-y-6">
             {/* Section: Basic Info */}
             <div className="space-y-4">
@@ -596,7 +596,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..."/>
             </div>
           </div>
-        </ScrollArea>
+        </div>
         <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
           <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
