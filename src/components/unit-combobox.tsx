@@ -71,13 +71,6 @@ export function UnitCombobox({
   
   const sortedUnits = React.useMemo(() => [...units].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [units]);
   
-  const hasExactMatch = React.useMemo(() => {
-      if (!inputValue) return true;
-      return sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
-  }, [inputValue, sortedUnits]);
-
-  const showAddNewOption = canManage && inputValue && !hasExactMatch;
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -101,7 +94,7 @@ export function UnitCombobox({
           />
           <CommandList>
             <CommandEmpty>
-                {showAddNewOption ? (
+                {canManage && inputValue ? (
                      <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Thêm "{inputValue}"
@@ -111,12 +104,6 @@ export function UnitCombobox({
                 )}
             </CommandEmpty>
             <CommandGroup>
-                {showAddNewOption && (
-                     <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Thêm "{inputValue}"
-                    </CommandItem>
-                )}
               {sortedUnits.map((unit) => (
                 <CommandItem
                   key={unit.id}
