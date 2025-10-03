@@ -53,7 +53,7 @@ function AddUnitAdvanced({
         const unitB_exists = existingUnits.find(u => u.name === nameB);
 
         if (!unitA_exists && !unitB_exists) {
-            toast.error("Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.");
+            toast.error("Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại trong danh sách.");
             return;
         }
         if (unitA_exists && unitB_exists) {
@@ -290,7 +290,7 @@ function AddIngredientDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl">
-        <DialogHeader className="p-6 pb-4 border-b">
+        <DialogHeader className="p-4 sm:p-6 pb-4 border-b">
           <DialogTitle className="text-2xl font-bold">Thêm nguyên liệu</DialogTitle>
         </DialogHeader>
 
@@ -302,28 +302,27 @@ function AddIngredientDialog({
           )}>
             <div className="p-4 space-y-4 sticky top-0 bg-background z-10 border-b">
               <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="grid grid-cols-2 gap-2">
-                  <Label htmlFor="source-inventory" className="flex items-center justify-center gap-2 border rounded-md p-3 h-14 text-sm font-medium cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
+                  <Label htmlFor="source-inventory" className="flex items-center justify-center gap-2 border rounded-lg p-3 h-14 text-sm font-medium cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/10">
                       <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
                   </Label>
-                  <Label htmlFor="source-product" className="flex items-center justify-center gap-2 border rounded-md p-3 h-14 text-sm font-medium cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
+                  <Label htmlFor="source-product" className="flex items-center justify-center gap-2 border rounded-lg p-3 h-14 text-sm font-medium cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/10">
                       <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
                   </Label>
               </RadioGroup>
               <Command>
                 <CommandInput placeholder="Tìm nguyên liệu..." value={search} onValueChange={setSearch} className="h-12 text-base" />
+                <CommandList>
+                    <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                    <CommandGroup>
+                        {filteredItems.map((item) => (
+                        <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-4 cursor-pointer">
+                            {item.name}
+                        </CommandItem>
+                        ))}
+                    </CommandGroup>
+                </CommandList>
               </Command>
             </div>
-            
-            <CommandList className="flex-grow overflow-y-auto">
-              <CommandEmpty>Không tìm thấy.</CommandEmpty>
-              <CommandGroup>
-                {filteredItems.map((item) => (
-                  <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-4 cursor-pointer">
-                    {item.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
           </div>
           
           {/* Right Panel: Details & Staging */}
