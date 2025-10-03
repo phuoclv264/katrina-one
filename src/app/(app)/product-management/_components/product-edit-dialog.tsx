@@ -9,9 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Product, ProductIngredient, InventoryItem, UnitDefinition } from '@/lib/types';
-import { Plus, Trash2, Box, Beaker, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Box, Beaker, Loader2, X, Settings } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
 
@@ -33,7 +33,7 @@ function AddIngredientDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onAddIngredient: (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string) => void;
+  onAddIngredient: (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string, quantity: number) => void;
   inventoryList: InventoryItem[];
   allProducts: Product[];
   currentProductId?: string;
@@ -42,12 +42,18 @@ function AddIngredientDialog({
   const [search, setSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<InventoryItem | Product | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string>('');
+  const [quantity, setQuantity] = useState(1);
+  const [newUnitName, setNewUnitName] = useState('');
+  const [newUnitConversion, setNewUnitConversion] = useState(1);
 
   useEffect(() => {
     if (!isOpen) {
       setSearch('');
       setSelectedItem(null);
       setSelectedUnit('');
+      setQuantity(1);
+      setNewUnitName('');
+      setNewUnitConversion(1);
       setIngredientSource('inventory');
     }
   }, [isOpen]);
@@ -65,7 +71,7 @@ function AddIngredientDialog({
   
   const handleAdd = () => {
     if (selectedItem && selectedUnit) {
-        onAddIngredient(selectedItem, ingredientSource, selectedUnit);
+        onAddIngredient(selectedItem, ingredientSource, selectedUnit, quantity);
         onClose();
     }
   };
@@ -93,10 +99,28 @@ function AddIngredientDialog({
       }
       return ['phần'];
   }, [selectedItem]);
+  
+  const handleAddNewUnit = () => {
+      if (!selectedItem || !('units' in selectedItem) || !newUnitName.trim() || newUnitConversion <= 0) {
+          toast.error("Vui lòng điền đủ tên và tỉ lệ quy đổi cho đơn vị mới.");
+          return;
+      }
+      const newUnit: UnitDefinition = {
+          name: newUnitName.trim(),
+          conversionRate: newUnitConversion,
+          isBaseUnit: false,
+      };
+      
+      const updatedItem = { ...selectedItem, units: [...selectedItem.units, newUnit] };
+      setSelectedItem(updatedItem as InventoryItem);
+      setSelectedUnit(newUnit.name);
+      setNewUnitName('');
+      setNewUnitConversion(1);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
           <DialogDescription>Tìm kiếm và chọn một nguyên liệu từ kho hoặc một sản phẩm khác.</DialogDescription>
@@ -138,7 +162,11 @@ function AddIngredientDialog({
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <div className="space-y-2">
-                            <Label>Chọn đơn vị sử dụng</Label>
+                            <Label>Số lượng</Label>
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" />
+                         </div>
+                         <div className="space-y-2">
+                            <Label>Đơn vị sử dụng</Label>
                              <Select value={selectedUnit} onValueChange={setSelectedUnit}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn đơn vị..." />
@@ -150,6 +178,21 @@ function AddIngredientDialog({
                                 </SelectContent>
                              </Select>
                          </div>
+                         {ingredientSource === 'inventory' && (
+                             <Accordion type="single" collapsible>
+                                 <AccordionItem value="add-unit">
+                                     <AccordionTrigger><span className="text-sm font-medium">Thêm đơn vị mới</span></AccordionTrigger>
+                                     <AccordionContent className="space-y-2 pt-2">
+                                          <Input placeholder="Tên đơn vị mới, VD: thùng" value={newUnitName} onChange={e => setNewUnitName(e.target.value)} />
+                                          <div className="flex items-center gap-2">
+                                             <Input type="number" placeholder="Tỉ lệ quy đổi" value={newUnitConversion} onChange={e => setNewUnitConversion(parseFloat(e.target.value) || 1)} />
+                                             <span>/ {(selectedItem as InventoryItem).baseUnit}</span>
+                                          </div>
+                                          <Button size="sm" onClick={handleAddNewUnit} className="w-full">Thêm đơn vị này</Button>
+                                     </AccordionContent>
+                                 </AccordionItem>
+                             </Accordion>
+                         )}
                     </CardContent>
                 </Card>
              ) : (
@@ -218,10 +261,10 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     handleFieldChange('ingredients', newIngredients);
   };
 
- const handleAddIngredient = (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string) => {
+ const handleAddIngredient = (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string, quantity: number) => {
     const newIngredient: Partial<ProductIngredient> = {
         name: item.name,
-        quantity: 1,
+        quantity: quantity,
         unit: unit,
         isMatched: true,
     };
