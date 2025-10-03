@@ -44,14 +44,11 @@ export function ItemMultiSelect({
   const [tempSelected, setTempSelected] = React.useState<InventoryItem[]>([])
 
   React.useEffect(() => {
+    // When dialog opens, always start with an empty temporary list.
     if (open) {
-      // When dialog opens, initialize tempSelected with items that match the selectedItems
-      const initialSelectedInventory = selectedItems
-        .map(item => inventoryItems.find(inv => inv.id === item.itemId)!)
-        .filter(Boolean); // Filter out any undefined if an item is not found
-      setTempSelected(initialSelectedInventory);
+      setTempSelected([]);
     }
-  }, [open, selectedItems, inventoryItems])
+  }, [open])
 
   const handleSelect = (inventoryItem: InventoryItem) => {
     // Allows adding the same item multiple times
@@ -128,7 +125,7 @@ export function ItemMultiSelect({
                 </Command>
             </div>
             <div className="col-span-1 border rounded-md p-2">
-                <h4 className="font-semibold text-sm mb-2">Đã chọn ({tempSelected.length})</h4>
+                <h4 className="font-semibold text-sm mb-2">Sẽ thêm ({tempSelected.length})</h4>
                 <div className="space-y-1 max-h-[40vh] overflow-y-auto">
                     {tempSelected.length > 0 ? tempSelected.map((item, index) => (
                         <Badge
@@ -149,7 +146,7 @@ export function ItemMultiSelect({
           <DialogClose asChild>
             <Button variant="outline">Hủy</Button>
           </DialogClose>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={tempSelected.length === 0}>
             <Save className="mr-2 h-4 w-4" />
             Thêm {tempSelected.length} mặt hàng
           </Button>
