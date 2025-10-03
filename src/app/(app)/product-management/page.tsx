@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -239,6 +238,14 @@ export default function ProductManagementPage() {
       setOpenCategories(categorizedProducts.map(c => c.category));
     }
   };
+  
+    const handleInventoryItemUpdate = (updatedItem: InventoryItem) => {
+        if (!inventoryList) return;
+        const newList = inventoryList.map(item => item.id === updatedItem.id ? updatedItem : item);
+        setInventoryList(newList);
+        dataStore.updateInventoryList(newList);
+  };
+
 
   if (isLoading || authLoading || !products || !inventoryList) {
     return (
@@ -435,6 +442,7 @@ export default function ProductManagementPage() {
       productToEdit={productToEdit}
       inventoryList={inventoryList}
       allProducts={products}
+      onInventoryItemUpdate={handleInventoryItemUpdate}
     />
     </>
   );

@@ -16,10 +16,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
 
@@ -31,6 +32,7 @@ function AddIngredientDialog({
   inventoryList,
   allProducts,
   currentProductId,
+  onInventoryItemUpdate, // New prop
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -38,6 +40,7 @@ function AddIngredientDialog({
   inventoryList: InventoryItem[];
   allProducts: Product[];
   currentProductId?: string;
+  onInventoryItemUpdate: (updatedItem: InventoryItem) => void; // New prop
 }) {
   const [ingredientSource, setIngredientSource] = useState<'inventory' | 'product'>('inventory');
   const [search, setSearch] = useState('');
@@ -113,10 +116,18 @@ function AddIngredientDialog({
       };
       
       const updatedItem = { ...selectedItem, units: [...selectedItem.units, newUnit] };
+      
+      // Update the item in the dialog state
       setSelectedItem(updatedItem as InventoryItem);
+      // Automatically select the new unit
       setSelectedUnit(newUnit.name);
+      // Notify parent component to update the main inventory list
+      onInventoryItemUpdate(updatedItem as InventoryItem);
+
+      // Reset fields
       setNewUnitName('');
       setNewUnitConversion(1);
+      toast.success(`Đã thêm đơn vị "${newUnit.name}" cho "${updatedItem.name}".`);
   };
 
   return (
@@ -220,9 +231,10 @@ type ProductEditDialogProps = {
   productToEdit: Product | null;
   inventoryList: InventoryItem[];
   allProducts: Product[];
+  onInventoryItemUpdate: (updatedItem: InventoryItem) => void; // New prop
 };
 
-export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts }: ProductEditDialogProps) {
+export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts, onInventoryItemUpdate }: ProductEditDialogProps) {
   const [product, setProduct] = useState<Partial<Product>>({});
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
   
@@ -318,7 +330,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-grow">
+        <div className="flex-grow overflow-y-auto">
           <div className="p-6 space-y-6">
           {/* Section: Basic Info */}
           <div className="space-y-4">
@@ -454,7 +466,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..."/>
           </div>
         </div>
-        </ScrollArea>
+        </div>
         <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
           <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
@@ -472,15 +484,16 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         inventoryList={inventoryList}
         allProducts={allProducts}
         currentProductId={product.id}
+        onInventoryItemUpdate={onInventoryItemUpdate}
     />
 
     <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
         <AlertDialogContent>
         <AlertDialogHeader>
-            <AlertDialogTitleComponent>Hủy các thay đổi?</AlertDialogTitleComponent>
-            <AlertDialogDescriptionComponent>
+            <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
+            <AlertDialogDescription>
             Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-            </AlertDialogDescriptionComponent>
+            </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
             <AlertDialogCancel>Ở lại</AlertDialogCancel>
