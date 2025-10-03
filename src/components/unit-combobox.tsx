@@ -76,7 +76,13 @@ export function UnitCombobox({
     return sortedUnits.filter(unit => unit.name.toLowerCase().includes(inputValue.toLowerCase()));
   }, [inputValue, sortedUnits]);
 
-  const showAddNewOption = canManage && inputValue && !sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
+  // Exact match check for showing "Add new" button
+  const hasExactMatch = React.useMemo(() => {
+      return sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
+  }, [inputValue, sortedUnits]);
+
+  const showAddNewOption = canManage && inputValue && !hasExactMatch;
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
