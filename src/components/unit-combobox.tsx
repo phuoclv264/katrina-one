@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -48,6 +47,9 @@ export function UnitCombobox({
   React.useEffect(() => {
     if (!open) {
         setInputValue(value || "")
+    } else {
+        // Reset search input when opening, but keep the selected value
+        setInputValue("")
     }
   }, [open, value])
 
@@ -62,15 +64,22 @@ export function UnitCombobox({
         const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: inputValue };
         const newUnits = [...units, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
         onUnitsChange(newUnits);
-        onChange(newUnit.name); // Select the newly added unit
+        onChange(newUnit.name);
     }
     setOpen(false);
   }
 
-  const displayValue = value ? units.find((unit) => unit.name === value)?.name || placeholder : placeholder;
+  const displayValue = value ? units.find((unit) => unit.name === value)?.name || value : placeholder;
   
   const sortedUnits = React.useMemo(() => [...units].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [units]);
+
+  const hasExactMatch = React.useMemo(() => 
+    sortedUnits.some(unit => unit.name.toLowerCase() === inputValue.toLowerCase()),
+    [sortedUnits, inputValue]
+  );
   
+  const showAddSuggestion = canManage && inputValue.trim() !== "" && !hasExactMatch;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -94,14 +103,7 @@ export function UnitCombobox({
           />
           <CommandList>
             <CommandEmpty>
-                {canManage && inputValue ? (
-                     <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Thêm "{inputValue}"
-                    </CommandItem>
-                ) : (
-                    <div className="py-6 text-center text-sm">Không tìm thấy đơn vị.</div>
-                )}
+                {/* This part is intentionally left empty. The "add" functionality is handled in the footer. */}
             </CommandEmpty>
             <CommandGroup>
               {sortedUnits.map((unit) => (
@@ -122,6 +124,15 @@ export function UnitCombobox({
             </CommandGroup>
           </CommandList>
         </Command>
+        {showAddSuggestion && (
+            <div className="p-2 border-t text-sm text-center text-muted-foreground">
+                <p>Không tìm thấy đơn vị nào.</p>
+                <Button variant="link" className="h-auto p-1 mt-1" onClick={handleAddNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm đơn vị "{inputValue}"
+                </Button>
+            </div>
+        )}
       </PopoverContent>
     </Popover>
   )
