@@ -16,15 +16,86 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+
+function AddUnitAdvanced({ 
+    onAdd,
+    existingUnits 
+}: { 
+    onAdd: (newUnit: UnitDefinition) => void,
+    existingUnits: UnitDefinition[]
+}) {
+    const [unitA_qty, setUnitA_qty] = useState('1');
+    const [unitA_name, setUnitA_name] = useState('');
+    const [unitB_qty, setUnitB_qty] = useState('');
+    const [unitB_name, setUnitB_name] = useState('');
+
+    const handleAddUnit = () => {
+        const qtyA = parseFloat(unitA_qty);
+        const qtyB = parseFloat(unitB_qty);
+        const nameA = unitA_name.trim();
+        const nameB = unitB_name.trim();
+
+        if (isNaN(qtyA) || isNaN(qtyB) || !nameA || !nameB) {
+            toast.error("Vui lòng điền đầy đủ thông tin quy đổi.");
+            return;
+        }
+
+        const unitA_exists = existingUnits.find(u => u.name === nameA);
+        const unitB_exists = existingUnits.find(u => u.name === nameB);
+
+        if (!unitA_exists && !unitB_exists) {
+            toast.error("Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.");
+            return;
+        }
+        if (unitA_exists && unitB_exists) {
+            toast.error("Không thể tạo mối quan hệ giữa hai đơn vị đã có. Vui lòng chỉnh sửa trực tiếp.");
+            return;
+        }
+
+        const newUnitName = unitA_exists ? nameB : nameA;
+        const knownUnit = unitA_exists ? unitA_exists : unitB_exists!;
+        
+        let newConversionRate = 1;
+
+        if (unitA_exists) { // Known unit is A, new unit is B
+            // qtyA of A = qtyB of B  => 1 B = (qtyA / qtyB) A
+            newConversionRate = (qtyA / qtyB) * knownUnit.conversionRate;
+        } else { // Known unit is B, new unit is A
+            // qtyA of A = qtyB of B => 1 A = (qtyB / qtyA) B
+            newConversionRate = (qtyB / qtyA) * knownUnit.conversionRate;
+        }
+        
+        onAdd({ name: newUnitName, conversionRate: newConversionRate, isBaseUnit: false });
+        
+        setUnitA_qty('1'); setUnitA_name('');
+        setUnitB_qty(''); setUnitB_name('');
+        toast.success(`Đã thêm quy đổi cho đơn vị "${newUnitName}".`);
+    }
+
+    return (
+        <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
+            <p className="text-sm font-medium">Thêm đơn vị (Nâng cao)</p>
+            <p className="text-xs text-muted-foreground">Điền vào mối quan hệ quy đổi. Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.</p>
+            <div className="flex items-center gap-2">
+                <Input type="number" value={unitA_qty} onChange={e => setUnitA_qty(e.target.value)} className="w-1/4 h-9"/>
+                <Input placeholder="Tên ĐV 1..." value={unitA_name} onChange={e => setUnitA_name(e.target.value)} className="h-9" />
+                <span className="font-bold">=</span>
+                <Input type="number" value={unitB_qty} onChange={e => setUnitB_qty(e.target.value)} className="w-1/4 h-9"/>
+                <Input placeholder="Tên ĐV 2..." value={unitB_name} onChange={e => setUnitB_name(e.target.value)} className="h-9"/>
+            </div>
+            <Button size="sm" onClick={handleAddUnit} className="w-full h-9">Thêm quy đổi này</Button>
+        </div>
+    )
+}
 
 function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void }) {
     
@@ -108,82 +179,10 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
     )
 }
 
-function AddUnitAdvanced({ 
-    onAdd,
-    existingUnits 
-}: { 
-    onAdd: (newUnit: UnitDefinition) => void,
-    existingUnits: UnitDefinition[]
-}) {
-    const [unitA_qty, setUnitA_qty] = useState('1');
-    const [unitA_name, setUnitA_name] = useState('');
-    const [unitB_qty, setUnitB_qty] = useState('');
-    const [unitB_name, setUnitB_name] = useState('');
-
-    const handleAddUnit = () => {
-        const qtyA = parseFloat(unitA_qty);
-        const qtyB = parseFloat(unitB_qty);
-        const nameA = unitA_name.trim();
-        const nameB = unitB_name.trim();
-
-        if (isNaN(qtyA) || isNaN(qtyB) || !nameA || !nameB) {
-            toast.error("Vui lòng điền đầy đủ thông tin quy đổi.");
-            return;
-        }
-
-        const unitA_exists = existingUnits.find(u => u.name === nameA);
-        const unitB_exists = existingUnits.find(u => u.name === nameB);
-
-        if (!unitA_exists && !unitB_exists) {
-            toast.error("Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.");
-            return;
-        }
-        if (unitA_exists && unitB_exists) {
-            toast.error("Không thể tạo mối quan hệ giữa hai đơn vị đã có. Vui lòng chỉnh sửa trực tiếp.");
-            return;
-        }
-
-        const newUnitName = unitA_exists ? nameB : nameA;
-        const knownUnit = unitA_exists ? unitA_exists : unitB_exists!;
-        
-        let newConversionRate = 1;
-
-        if (unitA_exists) { // Known unit is A, new unit is B
-            // qtyA of A = qtyB of B  => 1 B = (qtyA / qtyB) A
-            newConversionRate = (qtyA / qtyB) * knownUnit.conversionRate;
-        } else { // Known unit is B, new unit is A
-            // qtyA of A = qtyB of B => 1 A = (qtyB / qtyA) B
-            newConversionRate = (qtyB / qtyA) * knownUnit.conversionRate;
-        }
-        
-        onAdd({ name: newUnitName, conversionRate: newConversionRate, isBaseUnit: false });
-        
-        // Reset form
-        setUnitA_qty('1'); setUnitA_name('');
-        setUnitB_qty(''); setUnitB_name('');
-        toast.success(`Đã thêm quy đổi cho đơn vị "${newUnitName}".`);
-    }
-
-    return (
-        <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
-            <p className="text-sm font-medium">Thêm đơn vị (Nâng cao)</p>
-            <p className="text-xs text-muted-foreground">Điền vào mối quan hệ quy đổi. Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.</p>
-            <div className="flex items-center gap-2">
-                <Input type="number" value={unitA_qty} onChange={e => setUnitA_qty(e.target.value)} className="w-1/4 h-9"/>
-                <Input placeholder="Tên ĐV 1..." value={unitA_name} onChange={e => setUnitA_name(e.target.value)} className="h-9" />
-                <span className="font-bold">=</span>
-                <Input type="number" value={unitB_qty} onChange={e => setUnitB_qty(e.target.value)} className="w-1/4 h-9"/>
-                <Input placeholder="Tên ĐV 2..." value={unitB_name} onChange={e => setUnitB_name(e.target.value)} className="h-9"/>
-            </div>
-            <Button size="sm" onClick={handleAddUnit} className="w-full h-9">Thêm quy đổi này</Button>
-        </div>
-    )
-}
-
 function AddIngredientDialog({
   isOpen,
   onClose,
-  onAddIngredient,
+  onAddIngredients, // Changed to handle multiple ingredients
   inventoryList,
   allProducts,
   currentProductId,
@@ -191,7 +190,7 @@ function AddIngredientDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onAddIngredient: (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string, quantity: number) => void;
+  onAddIngredients: (ingredients: ProductIngredient[]) => void;
   inventoryList: InventoryItem[];
   allProducts: Product[];
   currentProductId?: string;
@@ -202,6 +201,7 @@ function AddIngredientDialog({
   const [selectedItem, setSelectedItem] = useState<InventoryItem | Product | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
+  const [stagedIngredients, setStagedIngredients] = useState<ProductIngredient[]>([]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -210,6 +210,7 @@ function AddIngredientDialog({
       setSelectedUnit('');
       setQuantity(1);
       setIngredientSource('inventory');
+      setStagedIngredients([]);
     }
   }, [isOpen]);
   
@@ -224,12 +225,33 @@ function AddIngredientDialog({
     }
   }
   
-  const handleAdd = () => {
+  const handleStageIngredient = () => {
     if (selectedItem && selectedUnit) {
-        onAddIngredient(selectedItem, ingredientSource, selectedUnit, quantity);
-        onClose();
+        const newIngredient: Partial<ProductIngredient> = {
+            name: selectedItem.name,
+            quantity: quantity,
+            unit: selectedUnit,
+            isMatched: true,
+        };
+        if (ingredientSource === 'inventory') {
+            newIngredient.inventoryItemId = selectedItem.id;
+        } else {
+            newIngredient.productId = selectedItem.id;
+        }
+        setStagedIngredients(prev => [...prev, newIngredient as ProductIngredient]);
+        setSelectedItem(null); // Go back to selection view
+        setSearch('');
     }
   };
+
+  const handleRemoveStaged = (index: number) => {
+    setStagedIngredients(prev => prev.filter((_, i) => i !== index));
+  }
+  
+  const handleFinalSubmit = () => {
+    onAddIngredients(stagedIngredients);
+    onClose();
+  }
 
   const filteredItems = useMemo(() => {
     const searchLower = search.toLowerCase();
@@ -257,27 +279,24 @@ function AddIngredientDialog({
   
   const handleAddNewUnit = (newUnit: UnitDefinition) => {
       if (!selectedItem || !('units' in selectedItem)) return;
-
       const updatedItem = { ...selectedItem, units: [...selectedItem.units, newUnit] };
-      
       setSelectedItem(updatedItem as InventoryItem);
       setSelectedUnit(newUnit.name);
       onInventoryItemUpdate(updatedItem as InventoryItem);
-
       toast.success(`Đã thêm đơn vị "${newUnit.name}" cho "${updatedItem.name}".`);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 sm:p-0">
+      <DialogContent className="max-w-2xl p-0 sm:p-0 h-full md:h-[90vh] flex flex-col">
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
-          <DialogDescription>Tìm kiếm và chọn một nguyên liệu từ kho hoặc một sản phẩm khác.</DialogDescription>
+          <DialogDescription>Tìm kiếm, chọn và thêm nhiều nguyên liệu vào công thức của bạn.</DialogDescription>
         </DialogHeader>
-        <div className="p-6 pt-0 h-[70vh] md:h-auto flex flex-col">
+        <div className="flex-grow overflow-y-auto px-6 py-4">
           {!selectedItem ? (
             // VIEW 1: SELECTION LIST
-            <div className="flex flex-col gap-4 flex-grow">
+            <div className="flex flex-col gap-4 h-full">
                 <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
                     <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
                         <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
@@ -307,12 +326,12 @@ function AddIngredientDialog({
             </div>
           ) : (
             // VIEW 2: DETAILS
-            <div className="flex flex-col gap-4 flex-grow">
+            <div className="flex flex-col gap-4">
                 <Button variant="ghost" onClick={() => setSelectedItem(null)} className="self-start -ml-4">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Chọn nguyên liệu khác
                 </Button>
-                <Card className="flex-1 flex flex-col bg-muted/30 rounded-2xl shadow-lg">
+                <Card className="flex-1 flex flex-col bg-muted/30 dark:bg-card/50 rounded-2xl shadow-lg">
                     <CardHeader>
                         <CardTitle className="truncate">{selectedItem.name}</CardTitle>
                     </CardHeader>
@@ -339,12 +358,39 @@ function AddIngredientDialog({
                          )}
                     </CardContent>
                 </Card>
+                <Button onClick={handleStageIngredient} disabled={!selectedItem || !selectedUnit} className="h-12 text-base">
+                    Thêm vào danh sách
+                </Button>
             </div>
           )}
         </div>
-        <DialogFooter className="p-6 pt-0 border-t flex-col-reverse sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={onClose} className="h-12 text-base sm:h-10 sm:text-sm">Hủy</Button>
-          <Button onClick={handleAdd} disabled={!selectedItem || !selectedUnit} className="h-12 text-base sm:h-10 sm:text-sm">Thêm vào công thức</Button>
+        
+        {stagedIngredients.length > 0 && (
+          <div className="px-6 py-4 border-t">
+              <h4 className="text-sm font-semibold mb-2">Sẽ được thêm ({stagedIngredients.length}):</h4>
+              <ScrollArea className="h-24">
+                  <div className="space-y-2 pr-4">
+                  {stagedIngredients.map((ing, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm bg-muted p-2 rounded-md">
+                          <span className="font-medium">{ing.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span>{ing.quantity} {ing.unit}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveStaged(index)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                      </div>
+                  ))}
+                  </div>
+              </ScrollArea>
+          </div>
+        )}
+
+        <DialogFooter className="p-6 border-t flex-col-reverse sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onClose} className="h-12 text-base sm:h-10 sm:text-sm">Đóng</Button>
+          <Button onClick={handleFinalSubmit} disabled={stagedIngredients.length === 0} className="h-12 text-base sm:h-10 sm:text-sm">
+            Thêm {stagedIngredients.length} nguyên liệu
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -402,21 +448,8 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     handleFieldChange('ingredients', newIngredients);
   };
 
- const handleAddIngredient = (item: InventoryItem | Product, type: 'inventory' | 'product', unit: string, quantity: number) => {
-    const newIngredient: Partial<ProductIngredient> = {
-        name: item.name,
-        quantity: quantity,
-        unit: unit,
-        isMatched: true,
-    };
-    if (type === 'inventory') {
-        newIngredient.inventoryItemId = item.id;
-    } else {
-        newIngredient.productId = item.id;
-    }
-
-    const newIngredients = [...(product.ingredients || []), newIngredient as ProductIngredient];
-    handleFieldChange('ingredients', newIngredients);
+ const handleAddIngredients = (newIngredients: ProductIngredient[]) => {
+    handleFieldChange('ingredients', [...(product.ingredients || []), ...newIngredients]);
   };
 
 
@@ -458,8 +491,8 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-grow -mx-6 px-6">
-          <div className="space-y-6 py-4 px-1">
+        <div className="flex-grow overflow-y-auto">
+            <div className="space-y-6 p-6">
             
             {/* Section: Basic Info */}
             <div className="space-y-4">
@@ -597,7 +630,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..."/>
             </div>
           </div>
-        </ScrollArea>
+        </div>
         <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
           <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
@@ -611,7 +644,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     <AddIngredientDialog
         isOpen={isAddIngredientOpen}
         onClose={() => setIsAddIngredientOpen(false)}
-        onAddIngredient={handleAddIngredient}
+        onAddIngredients={handleAddIngredients}
         inventoryList={inventoryList}
         allProducts={allProducts}
         currentProductId={product.id}
@@ -619,18 +652,18 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     />
 
     <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
-        <AlertDialogContent>
+        <DialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
                 <AlertDialogDescription>
                 Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+            <DialogFooter>
                 <AlertDialogCancel>Ở lại</AlertDialogCancel>
                 <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
+            </DialogFooter>
+        </DialogContent>
     </AlertDialog>
     </>
   );
