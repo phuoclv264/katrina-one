@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -289,96 +289,106 @@ function AddIngredientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 h-full md:h-[90vh] flex flex-col bg-muted/30 dark:bg-card/50">
-        <DialogHeader className="p-6 pb-4 border-b bg-background rounded-t-lg">
+      <DialogContent className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-2xl font-bold">Thêm nguyên liệu</DialogTitle>
-          <DialogDescription>Bạn có thể tìm, chọn và thêm nhiều nguyên liệu cùng lúc vào công thức.</DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto px-6 py-4 bg-background">
-          {!selectedItem ? (
-            // VIEW 1: SELECTION LIST
-            <div className="flex flex-col gap-4 h-full">
-                <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
-                    <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
-                        <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
-                    </Label>
-                    <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
-                        <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
-                    </Label>
-                </RadioGroup>
-                 <Command className="border rounded-lg flex-grow">
-                  <div className="flex items-center border-b px-4">
-                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} className="h-12 text-base" />
-                  </div>
-                  <ScrollArea className="h-[calc(100%-60px)]">
-                    <CommandList>
-                      <CommandEmpty>Không tìm thấy.</CommandEmpty>
-                      <CommandGroup>
-                        {filteredItems.map((item) => (
-                          <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-3">
-                            {item.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </ScrollArea>
-                </Command>
+
+        <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+          {/* Left Panel: Search & Select */}
+          <div className={cn(
+            "w-full md:w-1/2 flex flex-col border-r overflow-y-auto",
+            selectedItem && "hidden md:flex"
+          )}>
+            <div className="p-4 space-y-4 sticky top-0 bg-background z-10 border-b">
+              <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="grid grid-cols-2 gap-2">
+                  <Label htmlFor="source-inventory" className="flex items-center justify-center gap-2 border rounded-md p-3 h-14 text-sm font-medium cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
+                      <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
+                  </Label>
+                  <Label htmlFor="source-product" className="flex items-center justify-center gap-2 border rounded-md p-3 h-14 text-sm font-medium cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10">
+                      <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
+                  </Label>
+              </RadioGroup>
+              <Command>
+                <CommandInput placeholder="Tìm nguyên liệu..." value={search} onValueChange={setSearch} className="h-12 text-base" />
+              </Command>
             </div>
-          ) : (
-            // VIEW 2: DETAILS
-            <div className="flex flex-col gap-4">
-                <Button variant="ghost" onClick={() => setSelectedItem(null)} className="self-start -ml-4">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Chọn nguyên liệu khác
-                </Button>
-                <Card className="flex-1 flex flex-col bg-background rounded-2xl shadow-lg">
-                    <CardHeader>
-                        <CardTitle className="truncate text-xl">{selectedItem.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-grow space-y-4">
-                         <div className="space-y-2">
-                            <Label className="text-base">Số lượng</Label>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-12 text-lg" />
-                         </div>
-                         <div className="space-y-2">
-                            <Label className="text-base">Đơn vị sử dụng</Label>
-                             <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                                <SelectTrigger className="h-12 text-base">
-                                    <SelectValue placeholder="Chọn đơn vị..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableUnits.map(unit => (
-                                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                             </Select>
-                         </div>
-                         {ingredientSource === 'inventory' && (
-                            <div className="pt-4 mt-4 border-t">
-                                <AddUnitAdvanced onAdd={handleAddNewUnit} existingUnits={(selectedItem as InventoryItem).units} />
-                            </div>
-                         )}
-                    </CardContent>
-                    <CardFooter>
-                         <Button onClick={handleStageIngredient} disabled={!selectedItem || !selectedUnit} className="h-12 text-base w-full">
-                            Thêm
-                        </Button>
-                    </CardFooter>
-                </Card>
-            </div>
-          )}
+            
+            <CommandList className="flex-grow overflow-y-auto">
+              <CommandEmpty>Không tìm thấy.</CommandEmpty>
+              <CommandGroup>
+                {filteredItems.map((item) => (
+                  <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-4 cursor-pointer">
+                    {item.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </div>
+          
+          {/* Right Panel: Details & Staging */}
+          <div className={cn(
+            "flex-1 flex flex-col overflow-y-auto p-4",
+            !selectedItem && "items-center justify-center"
+          )}>
+             {!selectedItem ? (
+                <div className="text-center text-muted-foreground">
+                    <Box className="mx-auto h-12 w-12 opacity-50" />
+                    <p className="mt-4 text-sm">Chọn một nguyên liệu để xem chi tiết.</p>
+                </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                  <Button variant="ghost" onClick={() => setSelectedItem(null)} className="self-start -ml-4 md:hidden">
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Chọn nguyên liệu khác
+                  </Button>
+                  <Card className="flex-1 flex flex-col bg-background rounded-2xl shadow-lg">
+                      <CardHeader>
+                          <CardTitle className="truncate text-xl">{selectedItem.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex-grow space-y-4">
+                           <div className="space-y-2">
+                              <Label className="text-base">Số lượng</Label>
+                              <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-12 text-lg" />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-base">Đơn vị sử dụng</Label>
+                               <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+                                  <SelectTrigger className="h-12 text-base">
+                                      <SelectValue placeholder="Chọn đơn vị..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {availableUnits.map(unit => (
+                                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                               </Select>
+                           </div>
+                           {ingredientSource === 'inventory' && (
+                              <div className="pt-4 mt-4 border-t">
+                                  <AddUnitAdvanced onAdd={handleAddNewUnit} existingUnits={(selectedItem as InventoryItem).units} />
+                              </div>
+                           )}
+                      </CardContent>
+                      <CardFooter>
+                           <Button onClick={handleStageIngredient} disabled={!selectedItem || !selectedUnit} className="h-12 text-base w-full">
+                              Thêm
+                          </Button>
+                      </CardFooter>
+                  </Card>
+              </div>
+            )}
+          </div>
         </div>
         
-        <DialogFooter className="p-4 sm:p-6 bg-background border-t rounded-b-lg flex-col h-auto">
+        <DialogFooter className="p-4 sm:p-6 bg-muted/50 border-t flex-col md:flex-row h-auto">
             {stagedIngredients.length > 0 && (
-              <div className="w-full mb-2">
-                  <p className="text-sm font-medium mb-2">Sẽ được thêm:</p>
+              <div className="w-full mb-2 md:mb-0 md:flex-1 overflow-hidden">
                   <ScrollArea className="w-full whitespace-nowrap">
                       <div className="flex w-max space-x-2 pb-2">
                           {stagedIngredients.map((ing, index) => (
                               <Badge key={index} variant="secondary" className="text-sm h-auto py-1 pl-3 pr-1">
-                                  <span>{ing.name}</span>
+                                  <span>{ing.name} <span className="font-normal text-muted-foreground">({ing.quantity} {ing.unit})</span></span>
                                   <Button 
                                       variant="ghost" 
                                       size="icon" 
@@ -395,7 +405,7 @@ function AddIngredientDialog({
                   </ScrollArea>
               </div>
             )}
-             <div className="flex w-full gap-2 justify-end">
+             <div className="flex w-full md:w-auto gap-2 justify-end">
                 <Button variant="outline" onClick={onClose} className="h-11 text-base w-full sm:w-auto">Đóng</Button>
                 <Button onClick={handleFinalSubmit} disabled={stagedIngredients.length === 0} className="h-11 text-base w-full sm:w-auto">
                     Thêm ({stagedIngredients.length}) nguyên liệu
@@ -651,10 +661,10 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogTitleComponent>Hủy các thay đổi?</AlertDialogTitleComponent>
+                    <AlertDialogDescriptionComponent>
                     Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-                    </AlertDialogDescription>
+                    </AlertDialogDescriptionComponent>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Ở lại</AlertDialogCancel>
