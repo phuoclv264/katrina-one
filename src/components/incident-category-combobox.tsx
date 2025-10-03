@@ -89,7 +89,7 @@ export function IncidentCategoryCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper"  onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput 
             placeholder={canManage ? "Tìm hoặc thêm mới..." : "Tìm kiếm..."}
@@ -107,7 +107,7 @@ export function IncidentCategoryCombobox({
                     <div className="py-6 text-center text-sm">Không tìm thấy loại sự cố.</div>
                 )}
             </CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className="max-h-48 overflow-y-auto">
               {sortedCategories.map((category) => (
                 <CommandItem
                   key={category.id}

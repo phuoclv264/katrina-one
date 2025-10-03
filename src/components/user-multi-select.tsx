@@ -109,12 +109,12 @@ export function UserMultiSelect({
           </Button>
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper"  onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput placeholder="Tìm nhân viên..." />
           <CommandList>
             <CommandEmpty>Không tìm thấy nhân viên.</CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className="max-h-48 overflow-y-auto">
               {selectableUsers.map((user) => {
                 const isSelected = selectedUsers.some(
                   (selected) => selected.uid === user.uid
