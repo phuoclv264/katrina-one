@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import type { Product, ProductIngredient, InventoryItem, UnitDefinition } from '@/lib/types';
-import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search } from 'lucide-react';
+import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search, ArrowLeft } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
@@ -103,6 +103,7 @@ function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnits
             <div className='flex gap-2'>
               <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm ĐV (Đơn giản)</Button>
             </div>
+            <AddUnitAdvanced onAdd={(newUnit) => onUnitsChange([...units, newUnit])} existingUnits={units} />
         </div>
     )
 }
@@ -268,45 +269,49 @@ function AddIngredientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 sm:p-6">
-        <DialogHeader className="p-6 pb-0 sm:p-0 sm:pb-0">
+      <DialogContent className="max-w-2xl p-0 sm:p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
           <DialogDescription>Tìm kiếm và chọn một nguyên liệu từ kho hoặc một sản phẩm khác.</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh] md:h-[55vh] p-6 pt-4 sm:p-0 sm:pt-4">
-          {/* Left Panel: Search and Select */}
-          <div className="flex flex-col gap-4">
-            <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
-                <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                    <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
-                </Label>
-                <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                    <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
-                </Label>
-            </RadioGroup>
-             <Command className="border rounded-lg flex-grow">
-              <div className="flex items-center border-b px-4">
-                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} className="h-12" />
-              </div>
-              <ScrollArea className="h-[calc(100%-60px)]">
-                <CommandList>
-                  <CommandEmpty>Không tìm thấy.</CommandEmpty>
-                  <CommandGroup>
-                    {filteredItems.map((item) => (
-                      <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-3">
-                        {item.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </ScrollArea>
-            </Command>
-          </div>
-
-          {/* Right Panel: Details and Unit Selection */}
-          <div className="flex flex-col gap-4">
-             {selectedItem ? (
+        <div className="p-6 pt-0 h-[70vh] md:h-auto flex flex-col">
+          {!selectedItem ? (
+            // VIEW 1: SELECTION LIST
+            <div className="flex flex-col gap-4 flex-grow">
+                <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="flex gap-2">
+                    <Label htmlFor="source-inventory" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
+                    </Label>
+                    <Label htmlFor="source-product" className="flex items-center gap-2 border rounded-md p-3 h-14 flex-1 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
+                    </Label>
+                </RadioGroup>
+                 <Command className="border rounded-lg flex-grow">
+                  <div className="flex items-center border-b px-4">
+                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    <CommandInput placeholder="Tìm kiếm..." value={search} onValueChange={setSearch} className="h-12" />
+                  </div>
+                  <ScrollArea className="h-[calc(100%-60px)]">
+                    <CommandList>
+                      <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                      <CommandGroup>
+                        {filteredItems.map((item) => (
+                          <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-3">
+                            {item.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </ScrollArea>
+                </Command>
+            </div>
+          ) : (
+            // VIEW 2: DETAILS
+            <div className="flex flex-col gap-4 flex-grow">
+                <Button variant="ghost" onClick={() => setSelectedItem(null)} className="self-start -ml-4">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Chọn nguyên liệu khác
+                </Button>
                 <Card className="flex-1 flex flex-col bg-muted/30 rounded-2xl shadow-lg">
                     <CardHeader>
                         <CardTitle className="truncate">{selectedItem.name}</CardTitle>
@@ -314,12 +319,12 @@ function AddIngredientDialog({
                     <CardContent className="flex-grow space-y-4">
                          <div className="space-y-2">
                             <Label>Số lượng</Label>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-11" />
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-11 text-lg" />
                          </div>
                          <div className="space-y-2">
                             <Label>Đơn vị sử dụng</Label>
                              <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                                <SelectTrigger className="h-11">
+                                <SelectTrigger className="h-11 text-base">
                                     <SelectValue placeholder="Chọn đơn vị..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -334,17 +339,12 @@ function AddIngredientDialog({
                          )}
                     </CardContent>
                 </Card>
-             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl bg-muted/30 text-center p-4">
-                    {ingredientSource === 'inventory' ? <Box className="h-12 w-12 text-muted-foreground/50"/> : <Beaker className="h-12 w-12 text-muted-foreground/50"/>}
-                    <p className="mt-4 text-sm font-medium text-muted-foreground">Hãy chọn một nguyên liệu để xem chi tiết</p>
-                </div>
-             )}
-          </div>
+            </div>
+          )}
         </div>
-        <DialogFooter className="p-6 pt-0 sm:p-0 sm:pt-0 sm:flex-col-reverse md:flex-row md:justify-end">
-          <Button variant="outline" onClick={onClose} className="h-12 text-base md:h-10 md:text-sm">Hủy</Button>
-          <Button onClick={handleAdd} disabled={!selectedItem || !selectedUnit} className="h-12 text-base md:h-10 md:text-sm">Thêm vào công thức</Button>
+        <DialogFooter className="p-6 pt-0 border-t flex-col-reverse sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onClose} className="h-12 text-base sm:h-10 sm:text-sm">Hủy</Button>
+          <Button onClick={handleAdd} disabled={!selectedItem || !selectedUnit} className="h-12 text-base sm:h-10 sm:text-sm">Thêm vào công thức</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -458,8 +458,9 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-          <div className="flex-grow overflow-y-auto">
-          <div className="p-6 space-y-6">
+        <ScrollArea className="flex-grow -mx-6 px-6">
+          <div className="space-y-6 py-4 px-1">
+            
             {/* Section: Basic Info */}
             <div className="space-y-4">
               <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Box className="h-4 w-4"/>Thông tin cơ bản</h4>
@@ -596,7 +597,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..."/>
             </div>
           </div>
-        </div>
+        </ScrollArea>
         <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
           <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
