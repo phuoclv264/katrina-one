@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -70,9 +71,8 @@ export function UnitCombobox({
   
   const sortedUnits = React.useMemo(() => [...units].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [units]);
   
-  // Check for an exact match to prevent adding duplicates
   const hasExactMatch = React.useMemo(() => {
-      if (!inputValue) return true; // Don't show "add" when input is empty
+      if (!inputValue) return true;
       return sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
   }, [inputValue, sortedUnits]);
 
@@ -101,11 +101,18 @@ export function UnitCombobox({
           />
           <CommandList>
             <CommandEmpty>
-                Không tìm thấy đơn vị.
+                {showAddNewOption ? (
+                     <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Thêm "{inputValue}"
+                    </CommandItem>
+                ) : (
+                    <div className="py-6 text-center text-sm">Không tìm thấy đơn vị.</div>
+                )}
             </CommandEmpty>
             <CommandGroup>
                 {showAddNewOption && (
-                    <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
+                     <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Thêm "{inputValue}"
                     </CommandItem>
