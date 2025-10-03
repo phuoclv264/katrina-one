@@ -18,6 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import type { IncidentCategory } from "@/lib/types"
 
 type ViolationCategoryComboboxProps = {
     categories: string[];
@@ -44,8 +45,12 @@ export function ViolationCategoryCombobox({
   const [inputValue, setInputValue] = React.useState(value || "")
 
   React.useEffect(() => {
-    setInputValue(value || "")
-  }, [value, open])
+    if (!open) {
+      setInputValue(value || "");
+    } else {
+      setInputValue("");
+    }
+  }, [open, value])
 
   const handleSelect = (currentValue: string) => {
     onChange(currentValue)
@@ -59,14 +64,14 @@ export function ViolationCategoryCombobox({
         onCategoriesChange(newCategories);
         onChange(inputValue);
     }
+    setInputValue("")
     setOpen(false);
   }
   
   const handleDelete = (e: React.MouseEvent, categoryToDelete: string) => {
-      e.stopPropagation(); // Prevent dropdown from closing
+      e.stopPropagation();
       const newCategories = categories.filter(c => c !== categoryToDelete);
       onCategoriesChange(newCategories);
-      // If the deleted category was the selected one, clear the selection
       if(value === categoryToDelete) {
           onChange('');
       }
@@ -75,6 +80,13 @@ export function ViolationCategoryCombobox({
   const displayValue = value ? categories.find((cat) => cat === value) || placeholder : placeholder;
   
   const sortedCategories = React.useMemo(() => [...categories].sort((a,b) => a.localeCompare(b, 'vi')), [categories]);
+
+  const hasExactMatch = React.useMemo(() => 
+    sortedCategories.some(cat => cat.toLowerCase() === inputValue.toLowerCase()),
+    [sortedCategories, inputValue]
+  );
+  
+  const showAddSuggestion = canManage && inputValue.trim() !== "" && !hasExactMatch;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -99,14 +111,7 @@ export function ViolationCategoryCombobox({
           />
           <CommandList>
             <CommandEmpty>
-                {canManage ? (
-                     <Button variant="ghost" className="w-full justify-start" onClick={handleAddNew}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Thêm "{inputValue}"
-                    </Button>
-                ) : (
-                    <div className="py-6 text-center text-sm">Không tìm thấy loại vi phạm.</div>
-                )}
+                <div className="py-6 text-center text-sm">Không tìm thấy loại vi phạm.</div>
             </CommandEmpty>
             <CommandGroup>
                 <CommandItem
@@ -148,6 +153,14 @@ export function ViolationCategoryCombobox({
             </CommandGroup>
           </CommandList>
         </Command>
+        {showAddSuggestion && (
+            <div className="p-2 border-t text-sm text-center text-muted-foreground">
+                <Button variant="link" className="h-auto p-1 mt-1" onClick={handleAddNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm loại vi phạm "{inputValue}"
+                </Button>
+            </div>
+        )}
       </PopoverContent>
     </Popover>
   )

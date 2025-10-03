@@ -102,9 +102,6 @@ export function UnitCombobox({
             onValueChange={setInputValue}
           />
           <CommandList>
-            <CommandEmpty>
-                {/* This part is intentionally left empty. The "add" functionality is handled in the footer. */}
-            </CommandEmpty>
             <CommandGroup>
               {sortedUnits.map((unit) => (
                 <CommandItem
