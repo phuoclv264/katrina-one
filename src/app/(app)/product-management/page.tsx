@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { Product, InventoryItem, ParsedProduct } from '@/lib/types';
+import type { Product, InventoryItem, ParsedProduct, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2 } from 'lucide-react';
@@ -29,6 +29,7 @@ export default function ProductManagementPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[] | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
+  const [globalUnits, setGlobalUnits] = useState<GlobalUnit[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -50,8 +51,9 @@ export default function ProductManagementPage() {
     if (!user) return;
     let productsSubscribed = false;
     let inventorySubscribed = false;
+    let unitsSubscribed = false;
 
-    const checkLoadingDone = () => { if (productsSubscribed && inventorySubscribed) setIsLoading(false); };
+    const checkLoadingDone = () => { if (productsSubscribed && inventorySubscribed && unitsSubscribed) setIsLoading(false); };
 
     const unsubProducts = dataStore.subscribeToProducts((data) => {
         setProducts(data);
@@ -63,10 +65,16 @@ export default function ProductManagementPage() {
         inventorySubscribed = true;
         checkLoadingDone();
     });
+     const unsubUnits = dataStore.subscribeToGlobalUnits((units) => {
+        setGlobalUnits(units);
+        unitsSubscribed = true;
+        checkLoadingDone();
+    });
     
     return () => {
         unsubProducts();
         unsubInventory();
+        unsubUnits();
     };
   }, [user]);
 
@@ -246,8 +254,13 @@ export default function ProductManagementPage() {
         dataStore.updateInventoryList(newList);
   };
 
+  const handleGlobalUnitsChange = (newUnits: GlobalUnit[]) => {
+    setGlobalUnits(newUnits);
+    dataStore.updateGlobalUnits(newUnits);
+  };
 
-  if (isLoading || authLoading || !products || !inventoryList) {
+
+  if (isLoading || authLoading || !products || !inventoryList || !globalUnits) {
     return (
       <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
         <header className="mb-8"><Skeleton className="h-10 w-3/4" /></header>
@@ -443,6 +456,9 @@ export default function ProductManagementPage() {
       inventoryList={inventoryList}
       allProducts={products}
       onInventoryItemUpdate={handleInventoryItemUpdate}
+      globalUnits={globalUnits}
+      onGlobalUnitsChange={handleGlobalUnitsChange}
+      canManageUnits={user.role === 'Chủ nhà hàng'}
     />
     </>
   );
