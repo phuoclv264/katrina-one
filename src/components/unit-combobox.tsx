@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, PlusCircle } from "lucide-react"
+import { Check, ChevronsUpDown, PlusCircle, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import type { GlobalUnit } from "@/lib/types"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+
 
 type UnitComboboxProps = {
     units: GlobalUnit[];
@@ -48,7 +51,6 @@ export function UnitCombobox({
     if (!open) {
         setInputValue(value || "")
     } else {
-        // Reset search input when opening, but keep the selected value
         setInputValue("")
     }
   }, [open, value])
@@ -67,6 +69,18 @@ export function UnitCombobox({
         onChange(newUnit.name);
     }
     setOpen(false);
+  }
+
+  const handleDelete = (e: React.MouseEvent, unitIdToDelete: string) => {
+      e.stopPropagation(); // Prevent dropdown from closing
+      const unitToDelete = units.find(u => u.id === unitIdToDelete);
+      if (!unitToDelete) return;
+
+      const newUnits = units.filter(u => u.id !== unitIdToDelete);
+      onUnitsChange(newUnits);
+      if(value === unitToDelete.name) {
+          onChange('');
+      }
   }
 
   const displayValue = value ? units.find((unit) => unit.name === value)?.name || value : placeholder;
@@ -102,20 +116,47 @@ export function UnitCombobox({
             onValueChange={setInputValue}
           />
           <CommandList>
+            <CommandEmpty>
+              <p className="py-6 text-center text-sm">Không tìm thấy đơn vị.</p>
+            </CommandEmpty>
             <CommandGroup>
               {sortedUnits.map((unit) => (
                 <CommandItem
                   key={unit.id}
                   value={unit.name}
                   onSelect={() => handleSelect(unit.name)}
+                  className="flex justify-between items-center"
                 >
-                  <Check
-                      className={cn(
-                      "mr-2 h-4 w-4",
-                      value === unit.name ? "opacity-100" : "opacity-0"
-                      )}
-                  />
-                  {unit.name}
+                  <div className="flex items-center">
+                    <Check
+                        className={cn(
+                        "mr-2 h-4 w-4",
+                        value === unit.name ? "opacity-100" : "opacity-0"
+                        )}
+                    />
+                    {unit.name}
+                  </div>
+                   {canManage && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                           </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Xóa đơn vị "{unit.name}"?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Hành động này sẽ xóa vĩnh viễn đơn vị này khỏi hệ thống. Bạn có chắc chắn không?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Hủy</AlertDialogCancel>
+                            <AlertDialogAction onClick={(e) => handleDelete(e, unit.id)}>Xóa</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -123,7 +164,6 @@ export function UnitCombobox({
         </Command>
         {showAddSuggestion && (
             <div className="p-2 border-t text-sm text-center text-muted-foreground">
-                <p>Không tìm thấy đơn vị nào.</p>
                 <Button variant="link" className="h-auto p-1 mt-1" onClick={handleAddNew}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Thêm đơn vị "{inputValue}"
