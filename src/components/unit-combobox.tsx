@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -63,7 +64,6 @@ export function UnitCombobox({
         onUnitsChange(newUnits);
         onChange(newUnit.name); // Select the newly added unit
     }
-    setInputValue(inputValue)
     setOpen(false);
   }
 
