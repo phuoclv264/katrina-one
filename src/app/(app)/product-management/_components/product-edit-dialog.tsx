@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -234,8 +234,9 @@ function AddIngredientDialog({
             unit: selectedUnit,
             isMatched: true,
         };
-        if (ingredientSource === 'inventory') {
+        if (ingredientSource === 'inventory' && 'shortName' in selectedItem) {
             newIngredient.inventoryItemId = selectedItem.id;
+            (newIngredient as any).shortName = selectedItem.shortName;
         } else {
             newIngredient.productId = selectedItem.id;
         }
@@ -291,7 +292,7 @@ function AddIngredientDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl">
         <DialogHeader className="p-4 sm:p-6 pb-4 border-b">
-          <DialogTitle className="text-2xl font-bold">Thêm nguyên liệu</DialogTitle>
+          <DialogTitle>Thêm nguyên liệu</DialogTitle>
         </DialogHeader>
 
         <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
@@ -387,7 +388,7 @@ function AddIngredientDialog({
                       <div className="flex w-max space-x-2 pb-2">
                           {stagedIngredients.map((ing, index) => (
                               <Badge key={index} variant="secondary" className="text-sm h-auto py-1 pl-3 pr-1">
-                                  <span>{ing.name} <span className="font-normal text-muted-foreground">({ing.quantity} {ing.unit})</span></span>
+                                  <span>{(ing as any).shortName || ing.name} <span className="font-normal text-muted-foreground">({ing.quantity} {ing.unit})</span></span>
                                   <Button 
                                       variant="ghost" 
                                       size="icon" 
@@ -660,10 +661,10 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitleComponent>Hủy các thay đổi?</AlertDialogTitleComponent>
-                    <AlertDialogDescriptionComponent>
+                    <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
+                    <AlertDialogDescription>
                     Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-                    </AlertDialogDescriptionComponent>
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Ở lại</AlertDialogCancel>
