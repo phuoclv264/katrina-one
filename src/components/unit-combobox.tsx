@@ -76,13 +76,12 @@ export function UnitCombobox({
     return sortedUnits.filter(unit => unit.name.toLowerCase().includes(inputValue.toLowerCase()));
   }, [inputValue, sortedUnits]);
 
-  // Exact match check for showing "Add new" button
+  // Check for an exact match to prevent adding duplicates
   const hasExactMatch = React.useMemo(() => {
       return sortedUnits.some(u => u.name.toLowerCase() === inputValue.toLowerCase());
   }, [inputValue, sortedUnits]);
 
   const showAddNewOption = canManage && inputValue && !hasExactMatch;
-
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -106,32 +105,30 @@ export function UnitCombobox({
             onValueChange={setInputValue}
           />
           <CommandList>
-            {filteredUnits.length === 0 && !showAddNewOption && (
-                <CommandEmpty>Không tìm thấy đơn vị.</CommandEmpty>
-            )}
-            <CommandGroup>
-              {showAddNewOption && (
+            <CommandEmpty>
+              {showAddNewOption ? (
                 <CommandItem onSelect={handleAddNew} className="text-primary hover:text-primary cursor-pointer">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Thêm "{inputValue}"
                 </CommandItem>
+              ) : (
+                <div className="py-6 text-center text-sm">Không tìm thấy đơn vị.</div>
               )}
+            </CommandEmpty>
+            <CommandGroup>
               {filteredUnits.map((unit) => (
                 <CommandItem
                   key={unit.id}
                   value={unit.name}
                   onSelect={() => handleSelect(unit.name)}
-                  className="flex justify-between"
                 >
-                  <div className="flex items-center">
-                    <Check
-                        className={cn(
-                        "mr-2 h-4 w-4",
-                        value === unit.name ? "opacity-100" : "opacity-0"
-                        )}
-                    />
-                    {unit.name}
-                  </div>
+                  <Check
+                      className={cn(
+                      "mr-2 h-4 w-4",
+                      value === unit.name ? "opacity-100" : "opacity-0"
+                      )}
+                  />
+                  {unit.name}
                 </CommandItem>
               ))}
             </CommandGroup>
