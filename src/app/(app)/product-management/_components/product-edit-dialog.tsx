@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -491,7 +491,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             Quản lý công thức và thông tin chi tiết của sản phẩm.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto">
+        <ScrollArea className="flex-grow">
             <div className="space-y-6 p-6">
             
             {/* Section: Basic Info */}
@@ -630,7 +630,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..."/>
             </div>
           </div>
-        </div>
+        </ScrollArea>
         <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
           <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
@@ -638,6 +638,20 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             {isProcessing ? 'Đang lưu...' : 'Lưu mặt hàng'}
           </Button>
         </DialogFooter>
+         <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Ở lại</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
     
@@ -650,21 +664,6 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         currentProductId={product.id}
         onInventoryItemUpdate={onInventoryItemUpdate}
     />
-
-    <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
-        <DialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
-                <AlertDialogDescription>
-                Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <DialogFooter>
-                <AlertDialogCancel>Ở lại</AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
-            </DialogFooter>
-        </DialogContent>
-    </AlertDialog>
     </>
   );
 }
