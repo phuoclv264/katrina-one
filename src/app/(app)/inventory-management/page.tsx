@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UserRole, Suppliers } from '@/lib/types';
+import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UserRole, Suppliers, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ export default function InventoryManagementPage() {
   const router = useRouter();
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<Suppliers | null>(null);
+  const [globalUnits, setGlobalUnits] = useState<GlobalUnit[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [isSorting, setIsSorting] = useState(false);
@@ -55,12 +56,15 @@ export default function InventoryManagementPage() {
     if (!user) return;
     let inventorySubscribed = false;
     let suppliersSubscribed = false;
+    let unitsSubscribed = false;
 
-    const checkLoadingDone = () => { if (inventorySubscribed && suppliersSubscribed) { setIsLoading(false); } }
+    const checkLoadingDone = () => { if (inventorySubscribed && suppliersSubscribed && unitsSubscribed) { setIsLoading(false); } }
 
     const unsubSuppliers = dataStore.subscribeToSuppliers((supplierList) => { setSuppliers(supplierList); suppliersSubscribed = true; checkLoadingDone(); });
     const unsubInventory = dataStore.subscribeToInventoryList((items) => { setInventoryList(items); inventorySubscribed = true; checkLoadingDone(); });
-    return () => { unsubSuppliers(); unsubInventory(); };
+    const unsubUnits = dataStore.subscribeToGlobalUnits((units) => { setGlobalUnits(units); unitsSubscribed = true; checkLoadingDone(); });
+
+    return () => { unsubSuppliers(); unsubInventory(); unsubUnits(); };
   }, [user]);
   
   const filteredInventoryList = useMemo(() => {
@@ -122,6 +126,11 @@ export default function InventoryManagementPage() {
         toast.success(`Đã thêm nhà cung cấp mới: "${newSupplier}"`);
     }
   };
+  
+  const handleGlobalUnitsChange = (newUnits: GlobalUnit[]) => {
+    setGlobalUnits(newUnits);
+    dataStore.updateGlobalUnits(newUnits);
+  }
 
   const handleMoveItem = (indexToMove: number, direction: 'up' | 'down') => {
     if (!inventoryList) return;
@@ -254,7 +263,7 @@ export default function InventoryManagementPage() {
   }, [inventoryList]);
 
 
-  if (isLoading || authLoading || !inventoryList || !suppliers) {
+  if (isLoading || authLoading || !inventoryList || !suppliers || !globalUnits) {
     return (
       <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
         <header className="mb-8">
@@ -269,6 +278,8 @@ export default function InventoryManagementPage() {
     )
   }
    const areAllCategoriesOpen = categorizedList && categorizedList.length > 0 && openCategories.length === categorizedList.length;
+   const canManageUnits = user?.role === 'Chủ nhà hàng';
+
 
   return (
     <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
@@ -358,7 +369,7 @@ export default function InventoryManagementPage() {
                                         {items.map((item, index) => {
                                             const globalIndex = inventoryList.findIndex(i => i.id === item.id);
                                             return (
-                                            <ItemEditPopover key={item.id} item={item} suppliers={suppliers || []} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange}>
+                                            <ItemEditPopover key={item.id} item={item} suppliers={suppliers || []} globalUnits={globalUnits || []} canManageUnits={canManageUnits} onUpdate={handleUpdate} onSupplierChange={handleSupplierChange} onGlobalUnitsChange={handleGlobalUnitsChange}>
                                                 <Card className="flex flex-col justify-between hover:bg-muted/50 transition-colors cursor-pointer">
                                                     <CardContent className="p-4 space-y-3">
                                                         <div className="flex justify-between items-start gap-2">
