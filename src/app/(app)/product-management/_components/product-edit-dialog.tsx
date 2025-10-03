@@ -26,157 +26,45 @@ import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 
-function AddUnitAdvanced({ 
-    onAdd,
-    existingUnits 
-}: { 
-    onAdd: (newUnit: UnitDefinition) => void,
-    existingUnits: UnitDefinition[]
+function AddUnitSimple({
+    baseUnitName,
+    onAdd
+}: {
+    baseUnitName: string;
+    onAdd: (newUnit: UnitDefinition) => void;
 }) {
-    const [unitA_qty, setUnitA_qty] = useState('1');
-    const [unitA_name, setUnitA_name] = useState('');
-    const [unitB_qty, setUnitB_qty] = useState('');
-    const [unitB_name, setUnitB_name] = useState('');
+    const [newUnitName, setNewUnitName] = useState('');
+    const [newUnitQty, setNewUnitQty] = useState<number | ''>('');
+    const [baseUnitQty, setBaseUnitQty] = useState<number | ''>(1);
 
-    const handleAddUnit = () => {
-        const qtyA = parseFloat(unitA_qty);
-        const qtyB = parseFloat(unitB_qty);
-        const nameA = unitA_name.trim();
-        const nameB = unitB_name.trim();
-
-        if (isNaN(qtyA) || isNaN(qtyB) || !nameA || !nameB) {
+    const handleAdd = () => {
+        if (!newUnitName.trim() || !newUnitQty || !baseUnitQty) {
             toast.error("Vui lòng điền đầy đủ thông tin quy đổi.");
             return;
         }
 
-        const unitA_exists = existingUnits.find(u => u.name === nameA);
-        const unitB_exists = existingUnits.find(u => u.name === nameB);
-
-        if (!unitA_exists && !unitB_exists) {
-            toast.error("Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại trong danh sách.");
-            return;
-        }
-        if (unitA_exists && unitB_exists) {
-            toast.error("Không thể tạo mối quan hệ giữa hai đơn vị đã có. Vui lòng chỉnh sửa trực tiếp.");
-            return;
-        }
-
-        const newUnitName = unitA_exists ? nameB : nameA;
-        const knownUnit = unitA_exists ? unitA_exists : unitB_exists!;
+        const conversionRate = Number(baseUnitQty) / Number(newUnitQty);
+        onAdd({ name: newUnitName, conversionRate, isBaseUnit: false });
         
-        let newConversionRate = 1;
-
-        if (unitA_exists) { // Known unit is A, new unit is B
-            // qtyA of A = qtyB of B  => 1 B = (qtyA / qtyB) A
-            newConversionRate = (qtyA / qtyB) * knownUnit.conversionRate;
-        } else { // Known unit is B, new unit is A
-            // qtyA of A = qtyB of B => 1 A = (qtyB / qtyA) B
-            newConversionRate = (qtyB / qtyA) * knownUnit.conversionRate;
-        }
-        
-        onAdd({ name: newUnitName, conversionRate: newConversionRate, isBaseUnit: false });
-        
-        setUnitA_qty('1'); setUnitA_name('');
-        setUnitB_qty(''); setUnitB_name('');
-        toast.success(`Đã thêm quy đổi cho đơn vị "${newUnitName}".`);
-    }
+        // Reset form
+        setNewUnitName('');
+        setNewUnitQty('');
+        setBaseUnitQty(1);
+    };
 
     return (
         <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
-            <p className="text-sm font-medium">Thêm đơn vị (Nâng cao)</p>
-            <p className="text-xs text-muted-foreground">Điền vào mối quan hệ quy đổi. Ít nhất một trong hai đơn vị phải là đơn vị đã tồn tại.</p>
-            <div className="flex items-center gap-2">
-                <Input type="number" value={unitA_qty} onChange={e => setUnitA_qty(e.target.value)} className="w-1/4 h-9"/>
-                <Input placeholder="Tên ĐV 1..." value={unitA_name} onChange={e => setUnitA_name(e.target.value)} className="h-9" />
+            <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
+             <div className="flex items-center gap-2">
+                <Input placeholder="Tên ĐV mới" value={newUnitName} onChange={e => setNewUnitName(e.target.value)} className="h-9 flex-1" />
+                <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" />
                 <span className="font-bold">=</span>
-                <Input type="number" value={unitB_qty} onChange={e => setUnitB_qty(e.target.value)} className="w-1/4 h-9"/>
-                <Input placeholder="Tên ĐV 2..." value={unitB_name} onChange={e => setUnitB_name(e.target.value)} className="h-9"/>
-            </div>
-            <Button size="sm" onClick={handleAddUnit} className="w-full h-9">Thêm quy đổi này</Button>
+                <Input type="number" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                <span className="font-semibold text-sm">{baseUnitName}</span>
+             </div>
+             <Button size="sm" onClick={handleAdd} className="w-full h-9">Thêm đơn vị</Button>
         </div>
-    )
-}
-
-function UnitEditor({ units, onUnitsChange }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void }) {
-    
-    const handleAddUnit = () => {
-        const newUnit: UnitDefinition = { name: 'Đơn vị mới', isBaseUnit: false, conversionRate: 1 };
-        onUnitsChange([...units, newUnit]);
-    }
-
-    const handleUpdateUnit = (index: number, field: keyof UnitDefinition, value: string | number | boolean) => {
-        let newUnits = [...units];
-        const unitToUpdate = { ...newUnits[index] };
-
-        if (field === 'isBaseUnit' && value === true) {
-            const newBaseUnitName = unitToUpdate.name;
-            const oldBaseUnit = newUnits.find(u => u.isBaseUnit);
-            
-            if (oldBaseUnit && oldBaseUnit.name !== newBaseUnitName) {
-                const newBaseConversionRate = unitToUpdate.conversionRate;
-                newUnits = newUnits.map(u => ({
-                    ...u,
-                    isBaseUnit: u.name === newBaseUnitName,
-                    conversionRate: u.conversionRate / newBaseConversionRate
-                }));
-            } else {
-                 newUnits = newUnits.map(u => ({
-                    ...u,
-                    isBaseUnit: u.name === newBaseUnitName,
-                }));
-                 const newBase = newUnits.find(u => u.isBaseUnit);
-                 if(newBase) newBase.conversionRate = 1;
-            }
-        } else {
-            (unitToUpdate as any)[field] = value;
-            newUnits[index] = unitToUpdate;
-        }
-
-        onUnitsChange(newUnits);
-    }
-    
-    const handleDeleteUnit = (index: number) => {
-        if(units[index].isBaseUnit && units.length > 1) {
-            toast.error("Không thể xóa đơn vị cơ sở. Vui lòng đặt một đơn vị khác làm cơ sở trước.");
-            return;
-        }
-        if(units.length === 1){
-            toast.error("Phải có ít nhất một đơn vị.");
-            return;
-        }
-        const newUnits = units.filter((_, i) => i !== index);
-        onUnitsChange(newUnits);
-    }
-
-    const baseUnitName = units.find(u => u.isBaseUnit)?.name || 'N/A';
-
-    return (
-        <div className="space-y-3">
-             {units.map((unit, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md">
-                    <div className="col-span-4">
-                        <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
-                        <Input id={`unit-name-${index}`} value={unit.name} onChange={e => handleUpdateUnit(index, 'name', e.target.value)} />
-                    </div>
-                     <div className="col-span-5">
-                        <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">1 {unit.name} = ? {baseUnitName}</Label>
-                        <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} disabled={unit.isBaseUnit} />
-                    </div>
-                     <div className="col-span-2 flex flex-col items-center justify-center pt-4">
-                        <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
-                        <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
-                    </div>
-                    <div className="col-span-1 flex items-center justify-center pt-5">
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                </div>
-            ))}
-            <div className='flex gap-2'>
-              <Button variant="outline" size="sm" onClick={handleAddUnit}><Plus className="mr-2 h-4 w-4"/> Thêm ĐV (Đơn giản)</Button>
-            </div>
-            <AddUnitAdvanced onAdd={(newUnit) => onUnitsChange([...units, newUnit])} existingUnits={units} />
-        </div>
-    )
+    );
 }
 
 function AddIngredientDialog({
@@ -366,7 +254,7 @@ function AddIngredientDialog({
                            </div>
                            {ingredientSource === 'inventory' && (
                               <div className="pt-4 mt-4 border-t">
-                                  <AddUnitAdvanced onAdd={handleAddNewUnit} existingUnits={(selectedItem as InventoryItem).units} />
+                                  <AddUnitSimple baseUnitName={(selectedItem as InventoryItem).baseUnit} onAdd={handleAddNewUnit} />
                               </div>
                            )}
                       </CardContent>
