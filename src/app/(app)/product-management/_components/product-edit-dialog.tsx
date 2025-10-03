@@ -9,7 +9,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import type { Product, ProductIngredient, InventoryItem, UnitDefinition } from '@/lib/types';
+import type { Product, ProductIngredient, InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
 import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search, ArrowLeft } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -25,17 +25,25 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import { UnitCombobox } from '@/components/unit-combobox';
+
 
 function AddUnitSimple({
     baseUnitName,
-    onAdd
+    onAdd,
+    globalUnits,
+    onGlobalUnitsChange,
+    canManageUnits,
 }: {
     baseUnitName: string;
     onAdd: (newUnit: UnitDefinition) => void;
+    globalUnits: GlobalUnit[];
+    onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
+    canManageUnits: boolean;
 }) {
     const [newUnitName, setNewUnitName] = useState('');
-    const [newUnitQty, setNewUnitQty] = useState<number | ''>('');
-    const [baseUnitQty, setBaseUnitQty] = useState<number | ''>(1);
+    const [newUnitQty, setNewUnitQty] = useState<number | ''>(1);
+    const [baseUnitQty, setBaseUnitQty] = useState<number | ''>('');
 
     const handleAdd = () => {
         if (!newUnitName.trim() || !newUnitQty || !baseUnitQty) {
@@ -48,18 +56,26 @@ function AddUnitSimple({
         
         // Reset form
         setNewUnitName('');
-        setNewUnitQty('');
-        setBaseUnitQty(1);
+        setNewUnitQty(1);
+        setBaseUnitQty('');
     };
 
     return (
         <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
              <div className="flex items-center gap-2">
-                <Input placeholder="Tên ĐV mới" value={newUnitName} onChange={e => setNewUnitName(e.target.value)} className="h-9 flex-1" />
                 <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                 <UnitCombobox 
+                    units={globalUnits}
+                    value={newUnitName}
+                    onChange={setNewUnitName}
+                    onUnitsChange={onGlobalUnitsChange}
+                    canManage={canManageUnits}
+                    placeholder="Tên ĐV mới"
+                    className="flex-1"
+                />
                 <span className="font-bold">=</span>
-                <Input type="number" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
                 <span className="font-semibold text-sm">{baseUnitName}</span>
              </div>
              <Button size="sm" onClick={handleAdd} className="w-full h-9">Thêm đơn vị</Button>
@@ -75,6 +91,9 @@ function AddIngredientDialog({
   allProducts,
   currentProductId,
   onInventoryItemUpdate,
+  globalUnits,
+  onGlobalUnitsChange,
+  canManageUnits,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -83,6 +102,9 @@ function AddIngredientDialog({
   allProducts: Product[];
   currentProductId?: string;
   onInventoryItemUpdate: (updatedItem: InventoryItem) => void;
+  globalUnits: GlobalUnit[];
+  onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
+  canManageUnits: boolean;
 }) {
   const [ingredientSource, setIngredientSource] = useState<'inventory' | 'product'>('inventory');
   const [search, setSearch] = useState('');
@@ -254,7 +276,13 @@ function AddIngredientDialog({
                            </div>
                            {ingredientSource === 'inventory' && (
                               <div className="pt-4 mt-4 border-t">
-                                  <AddUnitSimple baseUnitName={(selectedItem as InventoryItem).baseUnit} onAdd={handleAddNewUnit} />
+                                  <AddUnitSimple 
+                                    baseUnitName={(selectedItem as InventoryItem).baseUnit} 
+                                    onAdd={handleAddNewUnit}
+                                    globalUnits={globalUnits}
+                                    onGlobalUnitsChange={onGlobalUnitsChange}
+                                    canManageUnits={canManageUnits}
+                                  />
                               </div>
                            )}
                       </CardContent>
@@ -314,9 +342,12 @@ type ProductEditDialogProps = {
   inventoryList: InventoryItem[];
   allProducts: Product[];
   onInventoryItemUpdate: (updatedItem: InventoryItem) => void;
+  globalUnits: GlobalUnit[];
+  onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
+  canManageUnits: boolean;
 };
 
-export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts, onInventoryItemUpdate }: ProductEditDialogProps) {
+export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts, onInventoryItemUpdate, globalUnits, onGlobalUnitsChange, canManageUnits }: ProductEditDialogProps) {
   const [product, setProduct] = useState<Partial<Product>>({});
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
   
@@ -571,6 +602,9 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
         allProducts={allProducts}
         currentProductId={product.id}
         onInventoryItemUpdate={onInventoryItemUpdate}
+        globalUnits={globalUnits}
+        onGlobalUnitsChange={onGlobalUnitsChange}
+        canManageUnits={canManageUnits}
     />
     </>
   );

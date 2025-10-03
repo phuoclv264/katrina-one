@@ -45,13 +45,14 @@ export function UnitCombobox({
   const [inputValue, setInputValue] = React.useState(value || "")
 
   React.useEffect(() => {
-    if (open) {
-        setInputValue("")
+    if (!open) {
+        setInputValue(value || "")
     }
-  }, [open])
+  }, [open, value])
 
   const handleSelect = (unitName: string) => {
     onChange(unitName)
+    setInputValue(unitName)
     setOpen(false)
   }
 
@@ -62,7 +63,7 @@ export function UnitCombobox({
         onUnitsChange(newUnits);
         onChange(newUnit.name); // Select the newly added unit
     }
-    setInputValue("")
+    setInputValue(inputValue)
     setOpen(false);
   }
 

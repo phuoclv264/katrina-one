@@ -40,10 +40,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 function AddUnitSimple({
     baseUnitName,
-    onAdd
+    onAdd,
+    globalUnits,
+    onGlobalUnitsChange,
+    canManageUnits,
 }: {
     baseUnitName: string;
     onAdd: (newUnit: UnitDefinition) => void;
+    globalUnits: GlobalUnit[];
+    onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
+    canManageUnits: boolean;
 }) {
     const [newUnitName, setNewUnitName] = useState('');
     const [newUnitQty, setNewUnitQty] = useState<number | ''>(1);
@@ -69,7 +75,15 @@ function AddUnitSimple({
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
              <div className="flex items-center gap-2">
                 <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" />
-                <Input placeholder="Tên ĐV mới" value={newUnitName} onChange={e => setNewUnitName(e.target.value)} className="h-9 flex-1" />
+                <UnitCombobox 
+                    units={globalUnits}
+                    value={newUnitName}
+                    onChange={setNewUnitName}
+                    onUnitsChange={onGlobalUnitsChange}
+                    canManage={canManageUnits}
+                    placeholder="Tên ĐV mới"
+                    className="flex-1"
+                />
                 <span className="font-bold">=</span>
                 <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
                 <span className="font-semibold text-sm">{baseUnitName}</span>
@@ -122,12 +136,13 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
     }
     
     const handleDeleteUnit = (index: number) => {
-        if(units[index].isBaseUnit && units.length > 1) {
-            toast.error("Không thể xóa đơn vị cơ sở. Vui lòng đặt một đơn vị khác làm cơ sở trước.");
+        if(units.length <= 1){
+            toast.error("Phải có ít nhất một đơn vị.");
             return;
         }
-        if(units.length === 1){
-            toast.error("Phải có ít nhất một đơn vị.");
+        const unitToDelete = units[index];
+        if (unitToDelete.isBaseUnit) {
+            toast.error("Không thể xóa đơn vị cơ sở. Vui lòng đặt một đơn vị khác làm cơ sở trước.");
             return;
         }
         const newUnits = units.filter((_, i) => i !== index);
@@ -142,37 +157,59 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
                 const isBase = unit.isBaseUnit;
                 return (
                 <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md">
-                    <div className="col-span-4">
-                        <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
-                        <UnitCombobox 
-                            units={globalUnits} 
-                            value={unit.name}
-                            onChange={(val) => handleUpdateUnit(index, 'name', val)}
-                            onUnitsChange={onGlobalUnitsChange}
-                            canManage={canManageUnits}
-                        />
-                    </div>
-                     <div className="col-span-5">
-                        <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">
-                            {isBase ? 'Đơn vị cơ sở' : `1 ${unit.name} = ${unit.conversionRate.toFixed(4).replace(/\.0000$/, '')} ${baseUnitName}`}
-                        </Label>
-                        {isBase ? (
-                             <p className="font-semibold text-sm h-9 flex items-center">{unit.name}</p>
-                        ) : (
-                             <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} />
-                        )}
-                    </div>
-                     <div className="col-span-2 flex flex-col items-center justify-center pt-4">
-                        <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
-                        <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
-                    </div>
-                    <div className="col-span-1 flex items-center justify-center pt-5">
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
+                     {units.length === 1 ? (
+                        <>
+                            <div className="col-span-8">
+                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
+                                 <UnitCombobox 
+                                    units={globalUnits} 
+                                    value={unit.name}
+                                    onChange={(val) => handleUpdateUnit(index, 'name', val)}
+                                    onUnitsChange={onGlobalUnitsChange}
+                                    canManage={canManageUnits}
+                                />
+                            </div>
+                            <div className="col-span-2 flex flex-col items-center justify-center pt-4">
+                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
+                                <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
+                            </div>
+                            <div className="col-span-2 flex items-center justify-center pt-5">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        </>
+                     ) : (
+                        <>
+                            <div className="col-span-4">
+                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
+                                <p className="font-semibold text-sm h-9 flex items-center">{unit.name}</p>
+                            </div>
+                             <div className="col-span-5">
+                                <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">
+                                    {isBase ? 'Đơn vị cơ sở' : `1 ${unit.name} = ${unit.conversionRate.toFixed(4).replace(/\.0000$/, '')} ${baseUnitName}`}
+                                </Label>
+                                {!isBase && (
+                                     <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} />
+                                )}
+                            </div>
+                             <div className="col-span-2 flex flex-col items-center justify-center pt-4">
+                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
+                                <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
+                            </div>
+                            <div className="col-span-1 flex items-center justify-center pt-5">
+                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        </>
+                     )}
                 </div>
                 )
             })}
-            <AddUnitSimple baseUnitName={baseUnitName} onAdd={handleAddUnit} />
+            <AddUnitSimple 
+                baseUnitName={baseUnitName} 
+                onAdd={handleAddUnit}
+                globalUnits={globalUnits}
+                onGlobalUnitsChange={onGlobalUnitsChange}
+                canManageUnits={canManageUnits}
+            />
         </div>
     )
 }
