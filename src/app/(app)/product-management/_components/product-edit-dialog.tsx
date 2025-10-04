@@ -504,10 +504,19 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                     <TableBody>
                     {(product.ingredients || []).length > 0 ? (
                         (product.ingredients || []).map((ing, index) => {
-                            const item = ing.inventoryItemId
-                                ? inventoryList.find(i => i.id === ing.inventoryItemId)
-                                : allProducts.find(p => p.id === ing.productId);
                             const isSubProduct = !!ing.productId;
+                            const item = isSubProduct
+                                ? allProducts.find(p => p.id === ing.productId)
+                                : inventoryList.find(i => i.id === ing.inventoryItemId);
+                            
+                            let availableUnits: string[] = [];
+                            if (item) {
+                                if (isSubProduct) {
+                                    availableUnits = [(item as Product).yield?.unit || 'phần'];
+                                } else {
+                                    availableUnits = (item as InventoryItem).units.map(u => u.name);
+                                }
+                            }
 
                             return (
                             <TableRow key={`${ing.inventoryItemId || ing.productId}-${index}`}>
@@ -532,12 +541,9 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {(item as InventoryItem)?.units?.map(u => (
-                                                <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
+                                            {availableUnits.map(unit => (
+                                                <SelectItem key={unit} value={unit}>{unit}</SelectItem>
                                             ))}
-                                            {isSubProduct && (item as Product)?.yield?.unit && (
-                                                <SelectItem value={(item as Product).yield!.unit}>{(item as Product).yield!.unit}</SelectItem>
-                                            )}
                                         </SelectContent>
                                     </Select>
                                 </TableCell>
@@ -617,5 +623,3 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     </>
   );
 }
-
-    
