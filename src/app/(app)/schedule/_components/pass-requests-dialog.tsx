@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser } from '@/lib/types';
 import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -176,7 +176,7 @@ export default function PassRequestsDialog({
          )
       }
 
-      if (notification.status === 'pending' && currentUser.role === 'Chủ nhà hàng') {
+      if (notification.status === 'pending' && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
           return (
              <div className="flex gap-2 self-end sm:self-center">
                  <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessingThis}>
@@ -238,12 +238,13 @@ export default function PassRequestsDialog({
           }
       } else { // It's someone else's request
            if (notification.status === 'pending') {
-             return (
+              const isSwap = payload.isSwapRequest;
+              return (
                  <div className="flex gap-2 self-end sm:self-center">
                     <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessingThis}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
                     <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessingThis}>
-                        {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
-                        Nhận ca
+                        {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : (isSwap ? <Replace className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4"/>)}
+                        {isSwap ? 'Đổi ca' : 'Nhận ca'}
                     </Button>
                 </div>
              );
@@ -277,6 +278,7 @@ export default function PassRequestsDialog({
                             const payload = notification.payload;
                             const isMyRequest = payload.requestingUser.userId === currentUser.uid;
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
+                            const isSwap = payload.isSwapRequest;
                             return (
                                 <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
@@ -288,7 +290,9 @@ export default function PassRequestsDialog({
                                                 
                                                 {isMyRequest ? (
                                                     targetUser ? (
-                                                        <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Đã gửi trực tiếp đến: {targetUser.displayName}</p>
+                                                        <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                            {isSwap ? 'Đã gửi yêu cầu ĐỔI CA tới:' : 'Đã gửi yêu cầu PASS CA tới:'} {targetUser.displayName}
+                                                        </p>
                                                     ) : (
                                                         <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Yêu cầu công khai của bạn</p>
                                                     )
@@ -296,8 +300,11 @@ export default function PassRequestsDialog({
                                                     <>
                                                         <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
                                                         {payload.targetUserId && payload.targetUserId === currentUser.uid &&
-                                                            <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Yêu cầu trực tiếp cho bạn</p>
+                                                            <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                                {isSwap ? 'Yêu cầu ĐỔI CA với bạn.' : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
+                                                            </p>
                                                         }
+                                                        {isSwap && <p className="font-semibold text-primary">Ca của bạn: {currentUser.shifts?.[payload.shiftDate] || 'Không có'}</p>}
                                                     </>
                                                 )}
                                                 

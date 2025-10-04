@@ -1158,6 +1158,7 @@ export const dataStore = {
                     userName: requestingUser.displayName
                 },
                 targetUserId: targetUser.uid, // Add the target user ID
+                isSwapRequest: true, // Mark this as a swap request
                 declinedBy: [],
             }
         };
@@ -1201,8 +1202,25 @@ export const dataStore = {
         });
     },
 
-    async acceptPassShift(notificationId: string, acceptingUser: AssignedUser): Promise<void> {
-        const notificationRef = doc(db, "notifications", notificationId);
+    async acceptPassShift(notification: Notification, acceptingUser: AssignedUser): Promise<void> {
+        const notificationRef = doc(db, "notifications", notification.id);
+        const { payload } = notification;
+
+        // For swap requests, the conflict check is bypassed.
+        if (!payload.isSwapRequest) {
+            const scheduleDoc = await getDoc(doc(db, "schedules", payload.weekId));
+            if (scheduleDoc.exists()) {
+                const scheduleData = scheduleDoc.data() as Schedule;
+                const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === payload.shiftDate);
+                const shiftToTake: AssignedShift = { ...scheduleData.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
+                
+                const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
+                if (conflict) {
+                    throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
+                }
+            }
+        }
+        
         await updateDoc(notificationRef, {
             status: 'pending_approval',
             'payload.takenBy': acceptingUser
@@ -1247,17 +1265,19 @@ export const dataStore = {
             // Check for time conflicts for the accepting user
             const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === notification.payload.shiftDate);
             const shiftToTake: AssignedShift = { ...shiftToUpdate, assignedUsers: [] };
-            const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
             
-            if (conflict) {
-                transaction.update(notificationRef, {
-                    status: 'cancelled',
-                    'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
-                    'payload.takenBy': null,
-                    resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
-                    resolvedAt: serverTimestamp(),
-                });
-                throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
+            if (!notification.payload.isSwapRequest) {
+                const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
+                if (conflict) {
+                    transaction.update(notificationRef, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
+                        'payload.takenBy': null,
+                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                        resolvedAt: serverTimestamp(),
+                    });
+                    throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
+                }
             }
     
             // Update Schedule
