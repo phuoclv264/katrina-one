@@ -1,10 +1,10 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
@@ -215,36 +215,11 @@ export default function ScheduleView() {
         
         (window as any).processingNotificationId = notification.id;
         setIsProcessing(true);
-    
-        const { payload } = notification;
-        const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-        
-        const shiftToTake: AssignedShift = {
-            id: payload.shiftId,
-            templateId: '', // Not needed for conflict check
-            date: payload.shiftDate,
-            label: payload.shiftLabel,
-            role: payload.shiftRole,
-            timeSlot: payload.shiftTimeSlot,
-            assignedUsers: [], 
-            minUsers: 0,
-        };
-    
-        if (!payload.isSwapRequest) {
-          const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
-          if (conflict) {
-              toast.error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`, {
-                  duration: 7000,
-              });
-              setIsProcessing(false);
-              return;
-          }
-        }
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
             
-            await dataStore.acceptPassShift(notification.id, acceptingUser);
+            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser);
 
             // Optimistically update UI
             setNotifications(prevNotifs => prevNotifs.map(n => {
@@ -629,6 +604,7 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
 
 
