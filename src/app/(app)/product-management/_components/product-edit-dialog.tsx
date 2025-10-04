@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import type { Product, ProductIngredient, InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
-import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
@@ -114,30 +114,6 @@ function AddIngredientDialog({
   const [stagedIngredients, setStagedIngredients] = useState<ProductIngredient[]>([]);
 
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isOpen) {
-        event.preventDefault();
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      window.history.pushState({ dialogOpen: 'add-ingredient' }, '');
-      window.addEventListener('popstate', handlePopState);
-    } else {
-       // If the dialog is closed by other means (e.g. Escape key), we might need to go back in history
-      if (window.history.state?.dialogOpen === 'add-ingredient') {
-        window.history.back();
-      }
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isOpen, onClose]);
-
-
-  useEffect(() => {
     if (!isOpen) {
       setSearch('');
       setSelectedItem(null);
@@ -166,11 +142,9 @@ function AddIngredientDialog({
             name: selectedItem.name,
             quantity: quantity,
             unit: selectedUnit,
-            isMatched: true,
         };
         if (ingredientSource === 'inventory' && 'shortName' in selectedItem) {
             newIngredient.inventoryItemId = selectedItem.id;
-            (newIngredient as any).shortName = selectedItem.shortName;
         } else {
             newIngredient.productId = selectedItem.id;
         }
@@ -390,7 +364,10 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      if (isOpen) {
+      if (isAddIngredientOpen) {
+        event.preventDefault();
+        setIsAddIngredientOpen(false);
+      } else if (isOpen) {
         event.preventDefault();
         handleAttemptClose();
       }
@@ -400,7 +377,6 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
       window.history.pushState({ dialogOpen: 'product-edit' }, '');
       window.addEventListener('popstate', handlePopState);
     } else {
-       // If the dialog is closed by other means (e.g. Escape key), we might need to go back in history
       if (window.history.state?.dialogOpen === 'product-edit') {
         window.history.back();
       }
@@ -410,7 +386,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
       window.removeEventListener('popstate', handlePopState);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, hasUnsavedChanges]);
+  }, [isOpen, isAddIngredientOpen, hasUnsavedChanges]);
 
 
   useEffect(() => {
@@ -565,11 +541,13 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                             
                             let availableUnits: string[] = [];
                             if (item) {
-                                if (isSubProduct) {
+                                if (isSubProduct && 'yield' in item) {
                                     availableUnits = [(item as Product).yield?.unit || 'phần'];
-                                } else {
+                                } else if (!isSubProduct && 'units' in item){
                                     availableUnits = (item as InventoryItem).units.map(u => u.name);
                                 }
+                            } else {
+                                availableUnits = [ing.unit];
                             }
 
                             return (
@@ -577,7 +555,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">
                                         {isSubProduct ? <Beaker className="h-4 w-4 text-purple-500"/> : <Box className="h-4 w-4 text-blue-500" />}
-                                        <span>{item?.name || ing.name || 'Không rõ'}</span>
+                                        {item ? <span>{item.name}</span> : <span className="flex items-center gap-2 text-yellow-600"><AlertTriangle className="h-4 w-4"/>{ing.name || 'Không rõ'}</span>}
                                     </div>
                                 </TableCell>
                                 <TableCell>
