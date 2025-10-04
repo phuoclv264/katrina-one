@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import {
@@ -11,7 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, UserCheck, Send, Loader2 } from 'lucide-react';
+import { Users, UserCheck, Send, Loader2, Replace } from 'lucide-react';
 import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -32,7 +31,7 @@ type ShiftInfoDialogProps = {
 
 type ColleagueInfo = {
     user: ManagedUser;
-    shiftLabel: string;
+    shift: AssignedShift;
 }
 
 export default function ShiftInfoDialog({
@@ -61,30 +60,19 @@ export default function ShiftInfoDialog({
 
     const colleagueMap = new Map<string, ColleagueInfo>();
 
-    // 1. Add colleagues from the SAME shift
-    shift.assignedUsers.forEach(u => {
-        if (u.userId !== currentUser.uid) {
-            const user = allUsers.find(au => au.uid === u.userId);
-            if (user) {
-                colleagueMap.set(u.userId, { user, shiftLabel: shift.label });
-            }
-        }
-    });
-
-    // 2. Find colleagues from OTHER overlapping shifts
-    const otherOverlappingShifts = schedule.shifts.filter(s =>
+    // Find all shifts on the same day that overlap in time
+    const overlappingShifts = schedule.shifts.filter(s =>
       s.date === shiftDate &&
-      s.id !== shift.id &&
       parseTime(s.timeSlot.start) < shiftEnd &&
       shiftStart < parseTime(s.timeSlot.end)
     );
     
-    otherOverlappingShifts.forEach(overlappingShift => {
+    overlappingShifts.forEach(overlappingShift => {
       overlappingShift.assignedUsers.forEach(u => {
           if (u.userId !== currentUser.uid && !colleagueMap.has(u.userId)) {
              const user = allUsers.find(au => au.uid === u.userId);
              if (user) {
-                colleagueMap.set(u.userId, { user, shiftLabel: overlappingShift.label });
+                colleagueMap.set(u.userId, { user, shift: overlappingShift });
              }
           }
       });
@@ -139,14 +127,26 @@ export default function ShiftInfoDialog({
              <ScrollArea className="h-72 mt-4">
                 {colleagues.length > 0 ? (
                     <div className="space-y-2 pr-4">
-                    {colleagues.map(({ user, shiftLabel }) => (
-                        <Card key={user.uid}>
-                        <CardContent className="p-3">
-                            <p className="font-semibold">{user.displayName}</p>
-                            <p className="text-sm text-muted-foreground">{shiftLabel} ({user.role})</p>
-                        </CardContent>
-                        </Card>
-                    ))}
+                    {colleagues.map(({ user, shift: colleagueShift }) => {
+                        const canSwap = shift.label === colleagueShift.label && (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
+                        const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
+                        return (
+                            <Card key={user.uid}>
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="font-semibold">{user.displayName}</p>
+                                        <p className="text-sm text-muted-foreground">{colleagueShift.label} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
+                                    </div>
+                                    {canSwap && (
+                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user)} disabled={isProcessing || alreadyRequested}>
+                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Replace className="mr-2 h-4 w-4" />}
+                                            {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
+                                        </Button>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )
+                    })}
                     </div>
                 ) : (
                     <p className="text-sm text-muted-foreground text-center py-8">Không có đồng nghiệp nào làm cùng khung giờ này.</p>
