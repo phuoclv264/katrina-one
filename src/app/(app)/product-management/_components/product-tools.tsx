@@ -82,6 +82,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                     inputText: source === 'text' ? chunk.join('\n') : undefined,
                     imageDataUri: source === 'image' ? chunk[0] : undefined,
                     inventoryItems: inventoryList,
+                    allProducts: existingProducts,
                 })
             );
             

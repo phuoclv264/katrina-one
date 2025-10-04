@@ -4,7 +4,7 @@ import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2 } from 'lucide-react';
+import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -259,12 +259,30 @@ export default function ProductManagementPage() {
     dataStore.updateGlobalUnits(newUnits);
   };
 
+  const handleExport = () => {
+    if (!products) return;
+    const textToCopy = products.map(p => {
+        const ingredients = (p.ingredients || []).map(i => `  - ${i.quantity} ${i.unit} ${i.name}`).join('\n');
+        let productText = `# ${p.category} - ${p.name}\n${ingredients}`;
+        if (p.note) productText += `\n  Note: ${p.note}`;
+        if (p.yield) productText += `\n  Yield: ${p.yield.quantity}${p.yield.unit}`;
+        if (p.isIngredient) productText += `\n  Is Ingredient: true`;
+        return productText;
+    }).join('\n\n');
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        toast.success("Đã sao chép toàn bộ công thức vào bộ nhớ tạm.");
+    }).catch(() => {
+        toast.error("Không thể sao chép.");
+    });
+  };
+
 
   if (isLoading || authLoading || !products || !inventoryList || !globalUnits) {
     return (
       <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
         <header className="mb-8"><Skeleton className="h-10 w-3/4" /></header>
-        <Card><CardContent><Skeleton className="h-96 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-6"><Skeleton className="h-96 w-full" /></CardContent></Card>
       </div>
     );
   }
@@ -293,6 +311,7 @@ export default function ProductManagementPage() {
                     Hiện có {products.length} mặt hàng. {isEditMode && `Đã chọn ${selectedProductIds.size} mặt hàng.`}
                 </CardDescription>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleExport}><Download className="mr-2 h-4 w-4"/>Xuất</Button>
                     <Button variant="outline" size="sm" onClick={handleToggleAllCategories}>
                       <ChevronsDownUp className="mr-2 h-4 w-4" />
                       {areAllCategoriesOpen ? 'Thu gọn' : 'Mở rộng'}

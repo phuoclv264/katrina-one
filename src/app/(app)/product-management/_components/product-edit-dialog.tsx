@@ -64,7 +64,7 @@ function AddUnitSimple({
         <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
              <div className="flex items-center gap-2">
-                <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" onFocus={(e) => e.target.select()} />
                  <UnitCombobox 
                     units={globalUnits}
                     value={newUnitName}
@@ -75,7 +75,7 @@ function AddUnitSimple({
                     className="flex-1"
                 />
                 <span className="font-bold">=</span>
-                <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
+                <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" onFocus={(e) => e.target.select()} />
                 <span className="font-semibold text-sm">{baseUnitName}</span>
              </div>
              <Button size="sm" onClick={handleAdd} className="w-full h-9">Thêm đơn vị</Button>
@@ -200,7 +200,7 @@ function AddIngredientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl">
+      <DialogContent className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl shadow-lg">
         <DialogHeader className="p-4 sm:p-6 pb-4 border-b">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
         </DialogHeader>
@@ -259,7 +259,7 @@ function AddIngredientDialog({
                       <CardContent className="flex-grow space-y-4">
                            <div className="space-y-2">
                               <Label className="text-base">Số lượng</Label>
-                              <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-12 text-lg" />
+                              <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-12 text-lg" onFocus={(e) => e.target.select()} />
                            </div>
                            <div className="space-y-2">
                               <Label className="text-base">Đơn vị sử dụng</Label>
@@ -439,11 +439,11 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="product-name" className="text-xs text-muted-foreground">Tên mặt hàng</Label>
-                  <Input id="product-name" value={product.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} placeholder="VD: Cà phê sữa đá"/>
+                  <Input id="product-name" value={product.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} placeholder="VD: Cà phê sữa đá" onFocus={(e) => e.target.select()} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="product-category" className="text-xs text-muted-foreground">Danh mục</Label>
-                  <Input id="product-category" value={product.category || ''} onChange={(e) => handleFieldChange('category', e.target.value)} placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" />
+                  <Input id="product-category" value={product.category || ''} onChange={(e) => handleFieldChange('category', e.target.value)} placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" onFocus={(e) => e.target.select()} />
                 </div>
               </div>
             </div>
@@ -469,11 +469,11 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                   <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 ml-2">
                       <div className="space-y-1.5">
                           <Label htmlFor="yield-qty" className="text-xs text-muted-foreground">Số lượng thành phẩm</Label>
-                          <Input id="yield-qty" type="number" placeholder="Số lượng" value={product.yield?.quantity || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} />
+                          <Input id="yield-qty" type="number" placeholder="Số lượng" value={product.yield?.quantity || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} onFocus={(e) => e.target.select()} />
                       </div>
                       <div className="space-y-1.5">
                           <Label htmlFor="yield-unit" className="text-xs text-muted-foreground">Đơn vị thành phẩm</Label>
-                          <Input id="yield-unit" placeholder="ml, g,..." value={product.yield?.unit || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })}/>
+                          <Input id="yield-unit" placeholder="ml, g,..." value={product.yield?.unit || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })} onFocus={(e) => e.target.select()} />
                       </div>
                   </div>
                   )}
@@ -507,7 +507,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">
                                         {isSubProduct ? <Beaker className="h-4 w-4 text-purple-500"/> : <Box className="h-4 w-4 text-blue-500" />}
-                                        <span>{item?.name || 'Không rõ'}</span>
+                                        <span>{item?.name || ing.name || 'Không rõ'}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -516,6 +516,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                     value={ing.quantity}
                                     onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                                     className="h-8 text-right"
+                                    onFocus={(e) => e.target.select()}
                                 />
                                 </TableCell>
                                 <TableCell>
@@ -566,7 +567,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
             {/* Section: Notes */}
             <div className="space-y-1.5">
               <Label htmlFor="product-note" className="text-xs text-muted-foreground">Ghi chú pha chế</Label>
-              <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..."/>
+              <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..." onFocus={(e) => e.target.select()} />
             </div>
           </div>
         </ScrollArea>
