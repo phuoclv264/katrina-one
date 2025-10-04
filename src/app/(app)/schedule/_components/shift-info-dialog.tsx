@@ -128,7 +128,7 @@ export default function ShiftInfoDialog({
                 {colleagues.length > 0 ? (
                     <div className="space-y-2 pr-4">
                     {colleagues.map(({ user, shift: colleagueShift }) => {
-                        const canSwap = shift.label === colleagueShift.label && (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
+                        const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
                         const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
                         return (
                             <Card key={user.uid}>

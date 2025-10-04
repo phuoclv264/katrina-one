@@ -1,5 +1,3 @@
-
-
 'use client';
 import React, { useMemo, useEffect, useState } from 'react';
 import {
@@ -89,8 +87,11 @@ export default function PassRequestsDialog({
          }
          // If I am a manager/owner, I can see all pending approvals
          if(notification.status === 'pending_approval' && (currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng')) {
-             pending.push(notification);
-             return;
+             const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
+             if (currentUser.role === 'Chủ nhà hàng' || !isRequestInvolvingManager) {
+                pending.push(notification);
+                return;
+             }
          }
          // If status is 'pending', check if I am eligible to see it
          if (notification.status === 'pending') {
@@ -98,7 +99,7 @@ export default function PassRequestsDialog({
             const isPublicRequest = !payload.targetUserId;
             
             if (isTargetedToMe || isPublicRequest) {
-                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole;
+                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole && !currentUser.secondaryRoles?.includes(payload.shiftRole as UserRole);
                 const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
                 if (!isDifferentRole && !hasDeclined) {
                     pending.push(notification);
@@ -132,7 +133,7 @@ export default function PassRequestsDialog({
 
 
     return { pendingRequests: pending, historicalRequests: historical };
-  }, [notifications, currentUser, weekInterval]);
+  }, [notifications, currentUser, allUsers, weekInterval]);
   
   const handleDeleteFromHistory = async (notificationId: string) => {
     if (currentUser.role !== 'Chủ nhà hàng') return;
@@ -175,7 +176,7 @@ export default function PassRequestsDialog({
          )
       }
 
-      if (notification.status === 'pending' && currentUser.role === 'Chủ nhà hàng') {
+      if (notification.status === 'pending' && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
           return (
              <div className="flex gap-2 self-end sm:self-center">
                  <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessingThis}>
