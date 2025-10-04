@@ -5,7 +5,7 @@ import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Download, AlertTriangle, Box, Beaker } from 'lucide-react';
+import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Download, AlertTriangle, Box, Beaker, Search, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -19,6 +19,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type CategorizedProducts = {
@@ -42,6 +44,9 @@ export default function ProductManagementPage() {
   
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const hasInitializedOpenState = useRef(false);
+
+  const [filter, setFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -79,6 +84,18 @@ export default function ProductManagementPage() {
         unsubUnits();
     };
   }, [user]);
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    let list = products;
+    if (filter) {
+      list = list.filter(product => product.name.toLowerCase().includes(filter.toLowerCase()));
+    }
+    if (categoryFilter !== 'all') {
+      list = list.filter(product => product.category === categoryFilter);
+    }
+    return list;
+  }, [products, filter, categoryFilter]);
 
   const handleUpdateAndSave = (newProducts: Product[], showToast = true) => {
     setProducts(newProducts);
@@ -233,11 +250,11 @@ export default function ProductManagementPage() {
   };
 
   const categorizedProducts = useMemo((): CategorizedProducts[] => {
-    if (!products) return [];
+    if (!filteredProducts) return [];
     
     const categoryMap = new Map<string, Product[]>();
     
-    products.forEach(product => {
+    filteredProducts.forEach(product => {
         const category = product.category || 'CHƯA PHÂN LOẠI';
         if (!categoryMap.has(category)) {
             categoryMap.set(category, []);
@@ -250,7 +267,7 @@ export default function ProductManagementPage() {
         products: categoryMap.get(category)!
     }));
 
-  }, [products]);
+  }, [filteredProducts]);
 
     useEffect(() => {
       if (categorizedProducts.length > 0 && !hasInitializedOpenState.current) {
@@ -297,6 +314,11 @@ export default function ProductManagementPage() {
     });
   };
 
+  const allCategories = useMemo(() => {
+    if (!products) return [];
+    return [...new Set(products.map(product => product.category))].sort();
+  }, [products]);
+
 
   if (isLoading || authLoading || !products || !inventoryList || !globalUnits) {
     return (
@@ -326,19 +348,19 @@ export default function ProductManagementPage() {
        <Card>
         <CardHeader>
             <CardTitle>Danh sách mặt hàng</CardTitle>
-            <div className="flex justify-between items-center flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <CardDescription>
-                    Hiện có {products.length} mặt hàng. {isEditMode && `Đã chọn ${selectedProductIds.size} mặt hàng.`}
+                    Hiển thị {filteredProducts.length} / {products.length} mặt hàng.
                 </CardDescription>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <Button variant="outline" size="sm" onClick={handleExport}><Download className="mr-2 h-4 w-4"/>Xuất</Button>
                     <Button variant="outline" size="sm" onClick={handleToggleAllCategories}>
                       <ChevronsDownUp className="mr-2 h-4 w-4" />
                       {areAllCategoriesOpen ? 'Thu gọn' : 'Mở rộng'}
                     </Button>
-                    <Button onClick={handleToggleEditMode} variant={isEditMode ? 'default' : 'outline'}>
+                    <Button onClick={handleToggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="sm">
                         {isEditMode ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
-                        {isEditMode ? 'Xong' : 'Chỉnh sửa'}
+                        {isEditMode ? 'Xong' : 'Sửa'}
                     </Button>
                     {isEditMode && selectedProductIds.size > 0 && (
                         <AlertDialog>
@@ -363,6 +385,26 @@ export default function ProductManagementPage() {
                         </AlertDialog>
                     )}
                 </div>
+            </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <SelectValue placeholder="Lọc theo nhóm..." />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả danh mục</SelectItem>
+                  {allCategories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
         </CardHeader>
         <CardContent>
@@ -404,11 +446,13 @@ export default function ProductManagementPage() {
                         {productList.map((product) => {
                             const globalIndex = products.findIndex(p => p.id === product.id);
                             return (
-                             <div key={product.id} onClick={() => !isEditMode && handleOpenDialog(product)}>
+                             <DialogTrigger key={product.id} asChild>
                                 <Card className={cn("flex flex-col transition-all h-full", 
                                     isEditMode ? "cursor-default" : "cursor-pointer hover:bg-muted/50",
                                     isEditMode && selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary"
-                                )}>
+                                )}
+                                onClick={() => !isEditMode && handleOpenDialog(product)}
+                                >
                                     <CardHeader className="pb-2">
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="flex items-start gap-3">
@@ -488,7 +532,7 @@ export default function ProductManagementPage() {
                                         </CardFooter>
                                     )}
                                 </Card>
-                            </div>
+                            </DialogTrigger>
                         )})}
                     </div>
                   </AccordionContent>
