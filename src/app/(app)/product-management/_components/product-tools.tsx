@@ -177,7 +177,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                 <CardContent>
                     <Tabs defaultValue="paste" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="paste"><FileText className="mr-2 h-4 w-4"/>Dán & Xử lý</TabsTrigger>
+                            <TabsTrigger value="paste"><FileText className="mr-2 h-4 w-4"/>Dán &amp; Xử lý</TabsTrigger>
                             <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
                         </TabsList>
                         <TabsContent value="paste" className="mt-4 space-y-4">
