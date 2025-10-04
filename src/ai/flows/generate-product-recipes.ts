@@ -82,14 +82,16 @@ You will be given a list of available inventory items and a list of other produc
 3.  **Parse Ingredients:** For each ingredient line (usually starting with '-'):
     *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g').
 
-4.  **Match Ingredients (IMPORTANT LOGIC):** For each ingredient you parse, you MUST follow this order:
-    *   **Step 4.1: Match with Other Products (Sub-recipes) FIRST.**
-        *   Search the \`allProducts\` list. If an ingredient's name is very similar to a product's name (e.g., ingredient "kem trứng" matches product "KEM TRỨNG"), you MUST set \`isMatched: true\`, put its ID in \`productId\`, and set \`inventoryItemId: null\`. Then, STOP searching for this ingredient and move to the next one.
-    *   **Step 4.2: Match with Inventory Items SECOND.**
-        *   ONLY if you did NOT find a match in \`allProducts\`, then search the \`inventoryItems\` list. Use fuzzy matching (e.g., "Sữa đặc NSPN" should match "Sữa đặc").
-        *   If you find an inventory match, set \`isMatched: true\`, put its 'id' in \`inventoryItemId\`, and set \`productId: null\`.
+4.  **Match Ingredients (IMPORTANT LOGIC):** For each ingredient you parse, you MUST follow this strict priority order:
+    *   **Step 4.1: Match with Inventory Items FIRST.**
+        *   Search the \`inventoryItems\` list. Use fuzzy matching (e.g., "Sữa đặc NSPN" should match "Sữa đặc").
+        *   If you find a confident inventory match, you MUST set \`isMatched: true\`, put its 'id' in \`inventoryItemId\`, and set \`productId: null\`. Then, STOP searching for this ingredient and move to the next one.
+    *   **Step 4.2: Match with Other Products SECOND (as sub-recipes).**
+        *   ONLY if you did NOT find a match in \`inventoryItems\`, then search the \`allProducts\` list.
+        *   A product can ONLY be matched if its \`isIngredient\` property is \`true\`.
+        *   If an ingredient's name is very similar to a product's name (e.g., ingredient "kem trứng" matches product "KEM TRỨNG" which has \`isIngredient: true\`), you MUST set \`isMatched: true\`, put its ID in \`productId\`, and set \`inventoryItemId: null\`.
     *   **Step 4.3: Handle No Match.**
-        *   If you cannot find a confident match in EITHER list, set \`isMatched: false\`, \`productId: null\`, and \`inventoryItemId: null\`. Do not stop or return an error. Just mark it as unmatched.
+        *   If you cannot find a confident match in EITHER list following the rules above, set \`isMatched: false\`, \`productId: null\`, and \`inventoryItemId: null\`. Do not stop or return an error. Just mark it as unmatched.
 
 **Input Data:**
 
