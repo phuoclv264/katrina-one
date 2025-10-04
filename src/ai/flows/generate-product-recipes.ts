@@ -26,7 +26,7 @@ const ParsedProductSchema = z.object({
   name: z.string().describe("The full name of the product, e.g., 'ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)'."),
   category: z.string().describe("The category of the product, e.g., 'ESPRESSO', 'TRÀ SỮA'."),
   ingredients: z.array(ProductIngredientSchema).describe("An array of all ingredients for this product."),
-  isIngredient: z.boolean().describe("Whether this product can be used as an ingredient in other recipes. Always default to false.").optional(),
+  isIngredient: z.boolean().describe("Whether this product can be used as an ingredient in other recipes. Infer this based on whether it appears as an ingredient in other recipes in the input text.").optional(),
   yield: z.object({
     quantity: z.number().describe("The total quantity of the final product yielded by this recipe."),
     unit: z.string().describe("The unit for the yield quantity, e.g., 'ml', 'g'."),
@@ -76,7 +76,7 @@ You will be given a list of available inventory items and a list of other produc
     *   'category': Try to infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'TRÀ SỮA'). If you can't, make a reasonable guess.
     *   'note': Any text in parentheses '()' that seems like instructions should be the 'note'.
     *   'ingredients': A list of all ingredients for that product.
-    *   'isIngredient': Always set this to 'false' by default.
+    *   'isIngredient': Infer this value. If you see this product's name being used as an ingredient in *other* recipes within this same input, set this to 'true'. Otherwise, set it to 'false'.
     *   'yield': This is optional. Only fill this if the notes clearly state the total output volume, like "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
 
 3.  **Parse Ingredients:** For each ingredient line (usually starting with '-'):
@@ -162,3 +162,5 @@ const generateProductRecipesFlow = ai.defineFlow(
     throw new Error('Không thể phân tích công thức sau nhiều lần thử.');
   }
 );
+
+    

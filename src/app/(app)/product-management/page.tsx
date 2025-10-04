@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -482,3 +483,5 @@ export default function ProductManagementPage() {
     </>
   );
 }
+
+    

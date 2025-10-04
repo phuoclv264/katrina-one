@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -180,7 +181,7 @@ function AddIngredientDialog({
   
   const availableUnits = useMemo(() => {
       if (!selectedItem) return [];
-      if ('units' in selectedItem) {
+      if ('units' in selectedItem && selectedItem.units) {
           return selectedItem.units.map(u => u.name);
       }
       if ('yield' in selectedItem && selectedItem.yield) {
@@ -274,10 +275,10 @@ function AddIngredientDialog({
                                   </SelectContent>
                                </Select>
                            </div>
-                           {ingredientSource === 'inventory' && (
+                           {ingredientSource === 'inventory' && 'baseUnit' in selectedItem && (
                               <div className="pt-4 mt-4 border-t">
                                   <AddUnitSimple 
-                                    baseUnitName={(selectedItem as InventoryItem).baseUnit} 
+                                    baseUnitName={selectedItem.baseUnit} 
                                     onAdd={handleAddNewUnit}
                                     globalUnits={globalUnits}
                                     onGlobalUnitsChange={onGlobalUnitsChange}
@@ -302,9 +303,14 @@ function AddIngredientDialog({
               <div className="w-full mb-2 md:mb-0 md:flex-1 overflow-hidden">
                   <ScrollArea className="w-full whitespace-nowrap">
                       <div className="flex w-max space-x-2 pb-2">
-                          {stagedIngredients.map((ing, index) => (
+                          {stagedIngredients.map((ing, index) => {
+                            const isSubProduct = !!ing.productId;
+                            return (
                               <Badge key={index} variant="secondary" className="text-sm h-auto py-1 pl-3 pr-1">
-                                  <span>{(ing as any).shortName || ing.name} <span className="font-normal text-muted-foreground">({ing.quantity} {ing.unit})</span></span>
+                                  <div className="flex items-center gap-1.5">
+                                      {isSubProduct ? <Beaker className="h-3 w-3 text-purple-500"/> : <Box className="h-3 w-3 text-blue-500" />}
+                                      <span>{ing.name} <span className="font-normal text-muted-foreground">({ing.quantity} {ing.unit})</span></span>
+                                  </div>
                                   <Button 
                                       variant="ghost" 
                                       size="icon" 
@@ -315,7 +321,8 @@ function AddIngredientDialog({
                                       <span className="sr-only">Xóa</span>
                                   </Button>
                               </Badge>
-                          ))}
+                            )
+                          })}
                       </div>
                       <ScrollBar orientation="horizontal" />
                   </ScrollArea>
@@ -610,3 +617,5 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     </>
   );
 }
+
+    
