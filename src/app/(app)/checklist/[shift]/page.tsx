@@ -111,25 +111,12 @@ export default function ChecklistPage() {
   }, [isLightboxOpen]);
 
 
-  // Initialize accordion state based on completion status
+  // Initialize accordion state to be all open by default
   useEffect(() => {
-    if (shift && report) {
-      const defaultOpenItems = shift.sections
-        .filter(section => {
-          if (section.title === 'Trong ca') {
-            return true;
-          }
-          const allTasksCompleted = section.tasks.every(task => {
-            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-            return completions.length > 0;
-          });
-          return !allTasksCompleted;
-        })
-        .map(section => section.title);
-        
-      setOpenAccordionItems(defaultOpenItems);
+    if (shift) {
+      setOpenAccordionItems(shift.sections.map(section => section.title));
     }
-  }, [shift, report]);
+  }, [shift]);
 
   const handleProgressiveCollapse = useCallback((completedTaskId: string) => {
     if (!shift) return;
