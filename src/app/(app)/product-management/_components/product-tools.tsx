@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { InventoryItem, ParsedProduct, ProductIngredient, Product } from '@/lib/types';
@@ -176,18 +175,18 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                     <CardDescription>Sử dụng AI để tự động nhập hàng loạt công thức từ văn bản hoặc hình ảnh.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="text">
+                    <Tabs defaultValue="paste" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger>
+                            <TabsTrigger value="paste"><FileText className="mr-2 h-4 w-4"/>Dán & Xử lý</TabsTrigger>
                             <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="text" className="mt-4 space-y-4">
-                            <Textarea placeholder="Dán danh sách công thức vào đây..." rows={8} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
-                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo công thức</Button>
+                        <TabsContent value="paste" className="mt-4 space-y-4">
+                            <Textarea placeholder="Dán danh sách công thức đã được chuẩn hóa (từ file xuất ra) vào đây..." rows={8} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
+                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Xử lý văn bản</Button>
                         </TabsContent>
                         <TabsContent value="image" className="mt-4 space-y-4">
                             <Input id="product-image-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isGenerating} />
-                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo công thức</Button>
+                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo từ ảnh</Button>
                         </TabsContent>
                     </Tabs>
                 </CardContent>

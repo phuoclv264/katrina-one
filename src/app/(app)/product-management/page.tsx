@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { dataStore } from '@/lib/data-store';
@@ -298,11 +297,19 @@ export default function ProductManagementPage() {
 
   const handleExport = () => {
     if (!products) return;
-    const textToCopy = products.map(p => {
-        const ingredients = (p.ingredients || []).map(i => `  - ${i.quantity} ${i.unit} ${i.name}`).join('\n');
-        let productText = `# ${p.category} - ${p.name}\n${ingredients}`;
+    const textToCopy = products.map((p, index) => {
+        const ingredients = (p.ingredients || [])
+            .map(ing => {
+                const item = ing.inventoryItemId
+                    ? inventoryList?.find(i => i.id === ing.inventoryItemId)
+                    : products.find(prod => prod.id === ing.productId);
+                const name = item?.name || ing.name || 'Không rõ';
+                return `  - ${ing.quantity} ${ing.unit} ${name}`;
+            }).join('\n');
+        
+        let productText = `${index + 1}. ${p.name.toUpperCase()} (${p.category.toUpperCase()})\n${ingredients}`;
         if (p.note) productText += `\n  Note: ${p.note}`;
-        if (p.yield) productText += `\n  Yield: ${p.yield.quantity}${p.yield.unit}`;
+        if (p.yield && (p.yield.quantity !== 1 || p.yield.unit !== 'phần')) productText += `\n  Yield: ${p.yield.quantity} ${p.yield.unit}`;
         if (p.isIngredient) productText += `\n  Is Ingredient: true`;
         return productText;
     }).join('\n\n');
@@ -446,7 +453,7 @@ export default function ProductManagementPage() {
                         {productList.map((product) => {
                             const globalIndex = products.findIndex(p => p.id === product.id);
                             return (
-                             <Dialog key={product.id}>
+                             <Dialog key={product.id} onOpenChange={(open) => { if (open) { handleOpenDialog(product) } else { setIsDialogOpen(false) }}}>
                                 <DialogTrigger asChild>
                                     <Card className={cn("flex flex-col transition-all h-full", 
                                         isEditMode ? "cursor-default" : "cursor-pointer hover:bg-muted/50",
@@ -534,18 +541,6 @@ export default function ProductManagementPage() {
                                         )}
                                     </Card>
                                 </DialogTrigger>
-                                <ProductEditDialog
-                                  isOpen={isDialogOpen && productToEdit?.id === product.id}
-                                  onClose={() => setIsDialogOpen(false)}
-                                  onSave={handleSaveProduct}
-                                  productToEdit={productToEdit}
-                                  inventoryList={inventoryList}
-                                  allProducts={products}
-                                  onInventoryItemUpdate={handleInventoryItemUpdate}
-                                  globalUnits={globalUnits}
-                                  onGlobalUnitsChange={handleGlobalUnitsChange}
-                                  canManageUnits={user.role === 'Chủ nhà hàng'}
-                                />
                              </Dialog>
                         )})}
                     </div>
@@ -559,10 +554,10 @@ export default function ProductManagementPage() {
     </div>
     
     <ProductEditDialog
-      isOpen={isDialogOpen && !productToEdit}
+      isOpen={isDialogOpen}
       onClose={() => setIsDialogOpen(false)}
       onSave={handleSaveProduct}
-      productToEdit={null}
+      productToEdit={productToEdit}
       inventoryList={inventoryList}
       allProducts={products}
       onInventoryItemUpdate={handleInventoryItemUpdate}
