@@ -117,7 +117,11 @@ export default function ProductManagementPage() {
       
       const newProducts: Product[] = productsToAdd.map(p => ({
           ...p,
-          id: `prod_${uuidv4()}`
+          id: `prod_${uuidv4()}`,
+          isIngredient: p.isIngredient ?? false,
+          yield: p.yield ?? { quantity: 1, unit: 'phần' },
+          note: p.note ?? '',
+          ingredients: p.ingredients || [],
       }));
       
       let updatedProductList = [...products, ...newProducts];
@@ -126,7 +130,14 @@ export default function ProductManagementPage() {
           const index = updatedProductList.findIndex(p => p.name.toLowerCase() === updatedProduct.name.toLowerCase());
           if (index !== -1) {
               const originalId = updatedProductList[index].id;
-              updatedProductList[index] = { ...updatedProduct, id: originalId };
+              updatedProductList[index] = { 
+                ...updatedProduct, 
+                id: originalId,
+                isIngredient: updatedProduct.isIngredient ?? false,
+                yield: updatedProduct.yield ?? { quantity: 1, unit: 'phần' },
+                note: updatedProduct.note ?? '',
+                ingredients: updatedProduct.ingredients || [],
+              };
           }
       });
       
@@ -491,4 +502,3 @@ export default function ProductManagementPage() {
   );
 }
 
-    
