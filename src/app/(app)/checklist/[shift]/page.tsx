@@ -111,12 +111,36 @@ export default function ChecklistPage() {
   }, [isLightboxOpen]);
 
 
-  // Initialize accordion state to be all open by default
+  // Initialize accordion state based on completion status on load
   useEffect(() => {
-    if (shift) {
+    if (shift && report) {
+      const endShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
+      const inShiftSection = shift.sections.find(s => s.title === 'Trong ca');
+
+      let hasCompletedEndShiftTask = false;
+      if (endShiftSection) {
+        hasCompletedEndShiftTask = endShiftSection.tasks.some(task => report.completedTasks[task.id]?.length > 0);
+      }
+
+      if (hasCompletedEndShiftTask) {
+        setOpenAccordionItems(['Cuối ca']);
+        return;
+      }
+
+      let hasCompletedInShiftTask = false;
+      if (inShiftSection) {
+        hasCompletedInShiftTask = inShiftSection.tasks.some(task => report.completedTasks[task.id]?.length > 0);
+      }
+      
+      if (hasCompletedInShiftTask) {
+          setOpenAccordionItems(['Trong ca', 'Cuối ca']);
+          return;
+      }
+      
+      // Default: open all
       setOpenAccordionItems(shift.sections.map(section => section.title));
     }
-  }, [shift]);
+  }, [shift, report]);
 
   const handleProgressiveCollapse = useCallback((completedTaskId: string) => {
     if (!shift) return;
@@ -622,7 +646,7 @@ export default function ChecklistPage() {
                             key={task.id}
                             task={task}
                             completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                            isReadonly={isReadonly}
+                            isReadonly={isReadonly || isSubmitting}
                             isExpanded={expandedTaskIds.has(task.id)}
                             isSingleCompletion={isSingleCompletionSection}
                             onPhotoAction={handlePhotoTaskAction}
