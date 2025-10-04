@@ -131,20 +131,20 @@ export default function ChecklistPage() {
     }
   }, [shift, report]);
 
-  const collapseCompletedSection = useCallback((section: TaskSection) => {
-    if (!report) return;
-    const isCollapsible = section.title === 'Đầu ca' || section.title === 'Cuối ca';
-    if (!isCollapsible) return;
+  const handleProgressiveCollapse = useCallback((completedTaskId: string) => {
+    if (!shift) return;
 
-    const allTasksCompleted = section.tasks.every(task => {
-        const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-        return completions.length > 0;
-    });
+    const completedTaskSection = shift.sections.find(s => s.tasks.some(t => t.id === completedTaskId));
+    if (!completedTaskSection) return;
 
-    if (allTasksCompleted) {
-        setOpenAccordionItems(prev => prev.filter(item => item !== section.title));
+    const sectionTitle = completedTaskSection.title;
+
+    if (sectionTitle === 'Trong ca') {
+        setOpenAccordionItems(prev => prev.filter(item => item !== 'Đầu ca'));
+    } else if (sectionTitle === 'Cuối ca') {
+        setOpenAccordionItems(prev => prev.filter(item => item !== 'Đầu ca' && item !== 'Trong ca'));
     }
-  }, [report]);
+  }, [shift]);
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
@@ -288,13 +288,9 @@ export default function ChecklistPage() {
             taskCompletions.unshift(newCompletion);
             newCompletedTasks[taskId] = taskCompletions;
             newReport.completedTasks = newCompletedTasks;
-
-            const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
-            if (section) {
-                collapseCompletedSection(section);
-            }
             return newReport;
         });
+        handleProgressiveCollapse(taskId);
     };
 
     const handleOpinionTaskAction = (task: Task) => {
@@ -320,7 +316,7 @@ export default function ChecklistPage() {
             newReport.completedTasks = newCompletedTasks;
             return newReport;
         });
-        
+        handleProgressiveCollapse(activeTask.id);
         handleOpinionClose();
     }
   
@@ -349,19 +345,15 @@ export default function ChecklistPage() {
             
             newCompletedTasks[taskId] = taskCompletions;
             newReport.completedTasks = newCompletedTasks;
-
-            if (completionIndex === null) {
-                const section = shift?.sections.find(s => s.tasks.some(t => t.id === taskId));
-                if (section) {
-                    collapseCompletedSection(section);
-                }
-            }
-
             return newReport;
         });
         
+        if(completionIndex === null) { // This is a new completion
+          handleProgressiveCollapse(taskId);
+        }
+        
         handleCameraClose();
-    }, [activeTask, activeCompletionIndex, shift, collapseCompletedSection, updateLocalReport, handleCameraClose]);
+    }, [activeTask, activeCompletionIndex, handleProgressiveCollapse, updateLocalReport, handleCameraClose]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
        if (isLocal) {
@@ -757,3 +749,4 @@ export default function ChecklistPage() {
     </TooltipProvider>
   );
 }
+
