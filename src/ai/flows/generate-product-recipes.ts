@@ -75,7 +75,7 @@ You will be given a list of available inventory items and a list of other produc
     *   'name': The full name of the product.
     *   'category': Try to infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'TRÀ SỮA'). If you can't, make a reasonable guess.
     *   'note': Any text in parentheses '()' that seems like instructions should be the 'note'.
-    *   'ingredients': A list of all ingredients for that product.
+    *   'ingredients': A list of all ingredients for that product. Your main focus for each ingredient is to get the correct 'inventoryItemId' or 'productId', 'quantity', and 'unit'.
     *   'isIngredient': Infer this value. If you see this product's name being used as an ingredient in *other* recipes within this same input, set this to 'true'. Otherwise, set it to 'false'.
     *   'yield': This is optional. Only fill this if the notes clearly state the total output volume, like "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
 

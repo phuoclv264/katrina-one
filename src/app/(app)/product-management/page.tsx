@@ -5,7 +5,7 @@ import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Download } from 'lucide-react';
+import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Download, AlertTriangle, Box, Beaker } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -174,7 +174,7 @@ export default function ProductManagementPage() {
   
   const handleToggleEditMode = () => {
     if (isEditMode) {
-      if (products) {
+      if (products && !isEqual(products, dataStore.getProducts())) { // This is a mock, in reality you'd compare to server state
         dataStore.updateProducts(products).then(() => {
            toast.success("Đã lưu thứ tự mới của các mặt hàng.");
         });
@@ -196,8 +196,8 @@ export default function ProductManagementPage() {
     newList[currentIndex] = newList[newIndex];
     newList[newIndex] = temp;
     
-    // Optimistic update of the local state, will be saved on "Done"
     setProducts(newList);
+    setHasUnsavedChanges(true); // Mark changes as unsaved
   };
 
   const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
@@ -211,6 +211,7 @@ export default function ProductManagementPage() {
 
     const newFlatList = newCategoryOrder.flatMap(category => category.products);
     setProducts(newFlatList);
+    setHasUnsavedChanges(true); // Mark changes as unsaved
 };
 
   const categorizedProducts = useMemo((): CategorizedProducts[] => {
@@ -397,7 +398,7 @@ export default function ProductManagementPage() {
                                                   className="mt-1"
                                               />
                                             )}
-                                            <label htmlFor={`select-${product.id}`} className={cn(isEditMode && "cursor-pointer")}>
+                                            <label htmlFor={`select-${product.id}`} className={cn("cursor-pointer", !isEditMode && "cursor-default")}>
                                                 <CardTitle className="text-base">{product.name}</CardTitle>
                                             </label>
                                         </div>
@@ -435,15 +436,21 @@ export default function ProductManagementPage() {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="flex-grow">
-                                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                                    <ul className="text-sm text-muted-foreground list-none pl-0 space-y-1">
                                         {(product.ingredients || []).map((ing, index) => {
                                             const item = ing.inventoryItemId
                                               ? inventoryList.find(i => i.id === ing.inventoryItemId)
                                               : products.find(p => p.id === ing.productId);
                                             const isSubProduct = !!ing.productId;
+                                            const isValid = !!item;
                                             return (
-                                              <li key={index} className={cn(isSubProduct && 'font-semibold text-primary/80')}>
-                                                {item?.name || ing.name || 'N/A'}: {ing.quantity}{ing.unit}
+                                              <li key={index} className={cn("flex items-start gap-2", isSubProduct && 'font-semibold text-primary/80')}>
+                                                {isValid ? (
+                                                  isSubProduct ? <Beaker className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" /> : <Box className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                                                ) : (
+                                                  <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+                                                )}
+                                                {item?.name || ing.name || 'Không rõ'}: {ing.quantity}{ing.unit}
                                               </li>
                                             );
                                         })}
