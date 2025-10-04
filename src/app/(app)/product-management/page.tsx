@@ -183,17 +183,19 @@ export default function ProductManagementPage() {
     setSelectedProductIds(new Set());
   }
   
-  const handleToggleEditMode = () => {
-    if (isEditMode) {
-      if (products && !isEqual(products, dataStore.getProducts())) { // This is a mock, in reality you'd compare to server state
-        dataStore.updateProducts(products).then(() => {
-           toast.success("Đã lưu thứ tự mới của các mặt hàng.");
-        });
-      }
-    }
-    setIsEditMode(!isEditMode);
-  };
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  const handleToggleEditMode = () => {
+    const newSortState = !isEditMode;
+    if (newSortState === false && hasUnsavedChanges && products) {
+      dataStore.updateProducts(products).then(() => {
+        toast.success("Đã lưu thứ tự mới của các mặt hàng.");
+        setHasUnsavedChanges(false);
+      });
+    }
+    setIsEditMode(newSortState);
+  };
+  
   const handleMoveProduct = (productId: string, direction: 'up' | 'down') => {
     if (!products) return;
     const currentIndex = products.findIndex(p => p.id === productId);
@@ -201,47 +203,51 @@ export default function ProductManagementPage() {
 
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     if (newIndex < 0 || newIndex >= products.length) return;
+    
+    // Prevent moving across categories
+    if (products[currentIndex].category !== products[newIndex].category) {
+        toast.error("Chỉ có thể sắp xếp các mục trong cùng một danh mục.");
+        return;
+    }
 
     const newList = [...products];
-    const temp = newList[currentIndex];
-    newList[currentIndex] = newList[newIndex];
-    newList[newIndex] = temp;
+    [newList[currentIndex], newList[newIndex]] = [newList[newIndex], newList[currentIndex]];
     
     setProducts(newList);
-    setHasUnsavedChanges(true); // Mark changes as unsaved
+    setHasUnsavedChanges(true);
   };
 
   const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
-    if (!products || !categorizedProducts) return;
+      if (!products || !categorizedProducts) return;
 
-    const newCategoryOrder = [...categorizedProducts];
-    const targetIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
-    if (targetIndex < 0 || targetIndex >= newCategoryOrder.length) return;
+      const newCategoryOrder = [...categorizedProducts];
+      const targetIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
+      if (targetIndex < 0 || targetIndex >= newCategoryOrder.length) return;
 
-    [newCategoryOrder[categoryIndex], newCategoryOrder[targetIndex]] = [newCategoryOrder[targetIndex], newCategoryOrder[categoryIndex]];
+      [newCategoryOrder[categoryIndex], newCategoryOrder[targetIndex]] = [newCategoryOrder[targetIndex], newCategoryOrder[categoryIndex]];
 
-    const newFlatList = newCategoryOrder.flatMap(category => category.products);
-    setProducts(newFlatList);
-    setHasUnsavedChanges(true); // Mark changes as unsaved
-};
+      const newFlatList = newCategoryOrder.flatMap(category => category.products);
+      setProducts(newFlatList);
+      setHasUnsavedChanges(true);
+  };
 
   const categorizedProducts = useMemo((): CategorizedProducts[] => {
     if (!products) return [];
     
-    const grouped: { [key: string]: Product[] } = {};
-    const categoryOrder: string[] = [];
-
+    const categoryMap = new Map<string, Product[]>();
+    
     products.forEach(product => {
         const category = product.category || 'CHƯA PHÂN LOẠI';
-        if (!grouped[category]) {
-            grouped[category] = [];
-            categoryOrder.push(category);
+        if (!categoryMap.has(category)) {
+            categoryMap.set(category, []);
         }
-        grouped[category].push(product);
+        categoryMap.get(category)!.push(product);
     });
 
-    return categoryOrder
-        .map(category => ({ category, products: grouped[category] }));
+    return Array.from(categoryMap.keys()).map(category => ({
+        category,
+        products: categoryMap.get(category)!
+    }));
 
   }, [products]);
 
@@ -502,3 +508,4 @@ export default function ProductManagementPage() {
   );
 }
 
+    

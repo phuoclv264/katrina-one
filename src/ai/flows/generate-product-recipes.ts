@@ -13,19 +13,17 @@ import type { InventoryItem, Product } from '@/lib/types';
 
 // Define Zod schema for a single ingredient
 const ProductIngredientSchema = z.object({
-  inventoryItemId: z.string().nullable().describe("The ID of the matched inventory item. Null if not an inventory item."),
-  productId: z.string().nullable().describe("The ID of the matched sub-product. Null if not a sub-product."),
-  name: z.string().describe("The original name of the ingredient as it appeared in the source text."),
+  inventoryItemId: z.string().optional().describe("The ID of the matched inventory item. Use this if the ingredient is a raw material."),
+  productId: z.string().optional().describe("The ID of the matched sub-product. Use this if the ingredient is another recipe."),
   quantity: z.number().describe("The numeric quantity of the ingredient."),
   unit: z.string().describe("The unit of measurement for the quantity (e.g., 'ml', 'g', 'viên')."),
-  isMatched: z.boolean().describe("True if a confident match was found in the inventory or product list, otherwise false."),
 });
 
 // Define Zod schema for a single product (recipe)
 const ParsedProductSchema = z.object({
   name: z.string().describe("The full name of the product, e.g., 'ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)'."),
   category: z.string().describe("The category of the product, e.g., 'ESPRESSO', 'TRÀ SỮA'."),
-  ingredients: z.array(ProductIngredientSchema).describe("An array of all ingredients for this product."),
+  ingredients: z.array(ProductIngredientSchema).describe("An array of all matched ingredients for this product. IGNORE any ingredient you cannot find a match for."),
   isIngredient: z.boolean().describe("Whether this product can be used as an ingredient in other recipes. Infer this based on whether it appears as an ingredient in other recipes in the input text.").optional(),
   yield: z.object({
     quantity: z.number().describe("The total quantity of the final product yielded by this recipe."),
@@ -72,26 +70,25 @@ You will be given a list of available inventory items and a list of other produc
 1.  **Identify Products:** Look for lines that start with a number and a name in all caps, like "1. ESPRESSO (CÀ PHÊ ĐEN PHA MÁY)". These are the products.
 
 2.  **Extract Product Details:** For each product, extract the following:
-    *   'name': The full name of the product.
-    *   'category': Try to infer the category from the product name or surrounding context (e.g., 'ESPRESSO', 'TRÀ SỮA'). If you can't, make a reasonable guess.
-    *   'note': Any text in parentheses '()' that seems like instructions should be the 'note'.
-    *   'ingredients': A list of all ingredients for that product. Your main focus for each ingredient is to get the correct 'inventoryItemId' or 'productId', 'quantity', and 'unit'.
-    *   'isIngredient': Infer this value. If you see this product's name being used as an ingredient in *other* recipes within this same input, set this to 'true'. Otherwise, set it to 'false'.
-    *   'yield': This is optional. Only fill this if the notes clearly state the total output volume, like "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
+    *   'name', 'category', 'note'.
+    *   'isIngredient': Infer this. If you see this product's name used as an ingredient in *other* recipes in this same input, set this to 'true', otherwise 'false'.
+    *   'yield': Optional. Only if the notes clearly state the total output volume, like "thu được 450ml cốt cà phê" -> { quantity: 450, unit: 'ml' }.
+    *   'ingredients': An array of ingredients. This is the most critical part.
 
-3.  **Parse Ingredients:** For each ingredient line (usually starting with '-'):
-    *   Extract the 'name', 'quantity' (number), and 'unit' (e.g., 'ml', 'g').
+3.  **Parse and Match Ingredients (MOST IMPORTANT LOGIC):**
+    For each ingredient line you find (e.g., "- 30ml Sữa đặc"), you MUST extract its \`quantity\` and \`unit\`, then perform a strict matching process.
 
-4.  **Match Ingredients (IMPORTANT LOGIC):** For each ingredient you parse, you MUST follow this strict priority order:
-    *   **Step 4.1: Match with Inventory Items FIRST.**
+    *   **Step 3.1: Match with Inventory Items FIRST.**
         *   Search the \`inventoryItems\` list. Use fuzzy matching (e.g., "Sữa đặc NSPN" should match "Sữa đặc").
-        *   If you find a confident inventory match, you MUST set \`isMatched: true\`, put its 'id' in \`inventoryItemId\`, and set \`productId: null\`. Then, STOP searching for this ingredient and move to the next one.
-    *   **Step 4.2: Match with Other Products SECOND (as sub-recipes).**
-        *   ONLY if you did NOT find a match in \`inventoryItems\`, then search the \`allProducts\` list.
-        *   A product can ONLY be matched if its \`isIngredient\` property is \`true\`.
-        *   If an ingredient's name is very similar to a product's name (e.g., ingredient "kem trứng" matches product "KEM TRỨNG" which has \`isIngredient: true\`), you MUST set \`isMatched: true\`, put its ID in \`productId\`, and set \`inventoryItemId: null\`.
-    *   **Step 4.3: Handle No Match.**
-        *   If you cannot find a confident match in EITHER list following the rules above, set \`isMatched: false\`, \`productId: null\`, and \`inventoryItemId: null\`. Do not stop or return an error. Just mark it as unmatched.
+        *   If you find a confident match, you MUST return an ingredient object with its \`inventoryItemId\`, \`quantity\`, and \`unit\`. **STOP** searching for this ingredient and move to the next one.
+
+    *   **Step 3.2: Match with Other Products SECOND (as sub-recipes).**
+        *   **ONLY IF** you did **NOT** find a match in \`inventoryItems\`, then search the \`allProducts\` list.
+        *   A product can **ONLY** be matched if its \`isIngredient\` property is \`true\`.
+        *   If an ingredient's name is very similar to a product's name (e.g., ingredient "kem trứng" matches product "KEM TRỨNG" which has \`isIngredient: true\`), you MUST return an ingredient object with its \`productId\`, \`quantity\`, and \`unit\`.
+
+    *   **Step 3.3: IGNORE IF NO MATCH.**
+        *   If you cannot find a confident match in **EITHER** list following the rules above, you **MUST IGNORE** that ingredient completely. **DO NOT** include it in the final 'ingredients' array for the product. Your goal is to return only ingredients that can be successfully linked.
 
 **Input Data:**
 
@@ -111,7 +108,7 @@ You will be given a list of available inventory items and a list of other produc
 {{media url=imageDataUri}}
 {{/if}}
 
-Analyze the recipe list and return a clean JSON object according to the output schema. Just return your best effort based on the information you can parse.
+Analyze the recipe list and return a clean JSON object according to the output schema.
 `,
 });
 
