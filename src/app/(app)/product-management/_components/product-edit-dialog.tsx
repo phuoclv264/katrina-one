@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -115,6 +114,30 @@ function AddIngredientDialog({
   const [stagedIngredients, setStagedIngredients] = useState<ProductIngredient[]>([]);
 
   useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (isOpen) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState({ dialogOpen: 'add-ingredient' }, '');
+      window.addEventListener('popstate', handlePopState);
+    } else {
+       // If the dialog is closed by other means (e.g. Escape key), we might need to go back in history
+      if (window.history.state?.dialogOpen === 'add-ingredient') {
+        window.history.back();
+      }
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isOpen, onClose]);
+
+
+  useEffect(() => {
     if (!isOpen) {
       setSearch('');
       setSelectedItem(null);
@@ -201,7 +224,10 @@ function AddIngredientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl shadow-lg">
+      <DialogContent 
+        className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl shadow-lg"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="p-4 sm:p-6 pb-4 border-b">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
         </DialogHeader>
@@ -363,6 +389,31 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
   const [isConfirmCloseOpen, setIsConfirmCloseOpen] = useState(false);
 
   useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (isOpen) {
+        event.preventDefault();
+        handleAttemptClose();
+      }
+    };
+
+    if (isOpen) {
+      window.history.pushState({ dialogOpen: 'product-edit' }, '');
+      window.addEventListener('popstate', handlePopState);
+    } else {
+       // If the dialog is closed by other means (e.g. Escape key), we might need to go back in history
+      if (window.history.state?.dialogOpen === 'product-edit') {
+        window.history.back();
+      }
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, hasUnsavedChanges]);
+
+
+  useEffect(() => {
     if (isOpen) {
       const initialProduct = productToEdit || {
         id: `prod_${uuidv4()}`,
@@ -430,7 +481,10 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()}>
-      <DialogContent className="max-w-3xl flex flex-col h-[90vh] p-0 bg-card rounded-xl shadow-lg">
+      <DialogContent 
+        className="max-w-3xl flex flex-col h-[90vh] p-0 bg-card rounded-xl shadow-lg"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>
           <DialogDescription>
