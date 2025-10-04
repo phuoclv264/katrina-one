@@ -155,6 +155,18 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
         <div className="space-y-3">
              {units.map((unit, index) => {
                 const isBase = unit.isBaseUnit;
+                let conversionDescription = `1 ${unit.name} = ${Number(unit.conversionRate.toFixed(4))} ${baseUnitName}`;
+
+                if (!isBase && unit.conversionRate !== 0) {
+                    const inverseRate = 1 / unit.conversionRate;
+                    if (unit.conversionRate > 1) { // e.g., 1 thùng = 24 lon (base: lon, rate: 24)
+                        conversionDescription = `1 ${unit.name} = ${unit.conversionRate.toFixed(4).replace(/\.0000$/, '').replace(/(\.\d*?[1-9])0+$/, '$1')} ${baseUnitName}`;
+                    } else { // e.g., 1 ml = 0.0013 lit (base: lit, rate: 0.0013)
+                        conversionDescription = `1 ${baseUnitName} = ${inverseRate.toFixed(4).replace(/\.0000$/, '').replace(/(\.\d*?[1-9])0+$/, '$1')} ${unit.name}`;
+                    }
+                }
+
+
                 return (
                 <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md">
                      {units.length === 1 ? (
@@ -185,7 +197,7 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
                             </div>
                              <div className="col-span-5">
                                 <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">
-                                    {isBase ? 'Đơn vị cơ sở' : `1 ${unit.name} = ${unit.conversionRate.toFixed(4).replace(/\.0000$/, '')} ${baseUnitName}`}
+                                    {isBase ? 'Đơn vị cơ sở' : conversionDescription}
                                 </Label>
                                 {!isBase && (
                                      <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} />
