@@ -76,7 +76,7 @@ You will be given a list of available inventory items and a list of other produc
     *   'ingredients': An array of ingredients. This is the most critical part.
 
 3.  **Parse and Match Ingredients (MOST IMPORTANT LOGIC):**
-    For each ingredient line you find (e.g., "- 30ml Sữa đặc"), you MUST extract its \`quantity\` and \`unit\`, then perform a strict matching process.
+    For each ingredient line you find (e.g., "- 30ml Sữa đặc"), you MUST extract its \`quantity\` and \`unit\`, then perform a strict matching process. Your job is ONLY to find the correct ID, quantity, and unit.
 
     *   **Step 3.1: Match with Inventory Items FIRST.**
         *   Search the \`inventoryItems\` list. Use fuzzy matching (e.g., "Sữa đặc NSPN" should match "Sữa đặc").
@@ -159,5 +159,3 @@ const generateProductRecipesFlow = ai.defineFlow(
     throw new Error('Không thể phân tích công thức sau nhiều lần thử.');
   }
 );
-
-    
