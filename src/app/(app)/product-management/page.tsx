@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
-import { DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -446,93 +446,107 @@ export default function ProductManagementPage() {
                         {productList.map((product) => {
                             const globalIndex = products.findIndex(p => p.id === product.id);
                             return (
-                             <DialogTrigger key={product.id} asChild>
-                                <Card className={cn("flex flex-col transition-all h-full", 
-                                    isEditMode ? "cursor-default" : "cursor-pointer hover:bg-muted/50",
-                                    isEditMode && selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary"
-                                )}
-                                onClick={() => !isEditMode && handleOpenDialog(product)}
-                                >
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <div className="flex items-start gap-3">
-                                                {isEditMode && (
-                                                <Checkbox
-                                                    id={`select-${product.id}`}
-                                                    checked={selectedProductIds.has(product.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        const event = window.event as MouseEvent;
-                                                        event?.stopPropagation();
-                                                        handleToggleSelectProduct(product.id, !!checked);
-                                                    }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className="mt-1"
-                                                />
-                                                )}
-                                                <label htmlFor={`select-${product.id}`} className={cn(isEditMode && "cursor-pointer", !isEditMode && "cursor-default")}>
-                                                    <CardTitle className="text-base">{product.name}</CardTitle>
-                                                </label>
-                                            </div>
-                                            <div className="flex">
-                                                {isEditMode ? (
-                                                    <div className="flex items-center">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleMoveProduct(product.id, 'up')}} disabled={globalIndex === 0 || products[globalIndex - 1]?.category !== product.category}>
-                                                            <ArrowUp className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleMoveProduct(product.id, 'down')}} disabled={globalIndex === products.length - 1 || products[globalIndex + 1]?.category !== product.category}>
-                                                            <ArrowDown className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Xóa "{product.name}"?</AlertDialogTitle>
-                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác. Mặt hàng sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Xóa</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="flex-grow">
-                                        <ul className="text-sm text-muted-foreground list-none pl-0 space-y-1">
-                                            {(product.ingredients || []).map((ing, index) => {
-                                                const item = ing.inventoryItemId
-                                                ? inventoryList.find(i => i.id === ing.inventoryItemId)
-                                                : products.find(p => p.id === ing.productId);
-                                                const isSubProduct = !!ing.productId;
-                                                const isValid = !!item;
-                                                return (
-                                                <li key={index} className={cn("flex items-start gap-2", isSubProduct && 'font-semibold text-primary/80')}>
-                                                    {isValid ? (
-                                                    isSubProduct ? <Beaker className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" /> : <Box className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                                                    ) : (
-                                                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
-                                                    )}
-                                                    {item?.name || ing.name || 'Không rõ'}: {ing.quantity}{ing.unit}
-                                                </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </CardContent>
-                                    {product.note && (
-                                        <CardFooter className="pt-2">
-                                            <p className="text-xs italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-md w-full">
-                                                <strong>Ghi chú:</strong> {product.note}
-                                            </p>
-                                        </CardFooter>
+                             <Dialog key={product.id}>
+                                <DialogTrigger asChild>
+                                    <Card className={cn("flex flex-col transition-all h-full", 
+                                        isEditMode ? "cursor-default" : "cursor-pointer hover:bg-muted/50",
+                                        isEditMode && selectedProductIds.has(product.id) && "ring-2 ring-primary border-primary"
                                     )}
-                                </Card>
-                            </DialogTrigger>
+                                    onClick={() => !isEditMode && handleOpenDialog(product)}
+                                    >
+                                        <CardHeader className="pb-2">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <div className="flex items-start gap-3">
+                                                    {isEditMode && (
+                                                    <Checkbox
+                                                        id={`select-${product.id}`}
+                                                        checked={selectedProductIds.has(product.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            const event = window.event as MouseEvent;
+                                                            event?.stopPropagation();
+                                                            handleToggleSelectProduct(product.id, !!checked);
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="mt-1"
+                                                    />
+                                                    )}
+                                                    <label htmlFor={`select-${product.id}`} className={cn(isEditMode && "cursor-pointer", !isEditMode && "cursor-default")}>
+                                                        <CardTitle className="text-base">{product.name}</CardTitle>
+                                                    </label>
+                                                </div>
+                                                <div className="flex">
+                                                    {isEditMode ? (
+                                                        <div className="flex items-center">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleMoveProduct(product.id, 'up')}} disabled={globalIndex === 0 || products[globalIndex - 1]?.category !== product.category}>
+                                                                <ArrowUp className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleMoveProduct(product.id, 'down')}} disabled={globalIndex === products.length - 1 || products[globalIndex + 1]?.category !== product.category}>
+                                                                <ArrowDown className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Xóa "{product.name}"?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>Hành động này không thể được hoàn tác. Mặt hàng sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Xóa</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="flex-grow">
+                                            <ul className="text-sm text-muted-foreground list-none pl-0 space-y-1">
+                                                {(product.ingredients || []).map((ing, index) => {
+                                                    const item = ing.inventoryItemId
+                                                    ? inventoryList.find(i => i.id === ing.inventoryItemId)
+                                                    : products.find(p => p.id === ing.productId);
+                                                    const isSubProduct = !!ing.productId;
+                                                    const isValid = !!item;
+                                                    return (
+                                                    <li key={index} className={cn("flex items-start gap-2", isSubProduct && 'font-semibold text-primary/80')}>
+                                                        {isValid ? (
+                                                        isSubProduct ? <Beaker className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" /> : <Box className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                                                        ) : (
+                                                        <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+                                                        )}
+                                                        {item?.name || 'Nguyên liệu không xác định'}: {ing.quantity}{ing.unit}
+                                                    </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </CardContent>
+                                        {product.note && (
+                                            <CardFooter className="pt-2">
+                                                <p className="text-xs italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-md w-full">
+                                                    <strong>Ghi chú:</strong> {product.note}
+                                                </p>
+                                            </CardFooter>
+                                        )}
+                                    </Card>
+                                </DialogTrigger>
+                                <ProductEditDialog
+                                  isOpen={isDialogOpen && productToEdit?.id === product.id}
+                                  onClose={() => setIsDialogOpen(false)}
+                                  onSave={handleSaveProduct}
+                                  productToEdit={productToEdit}
+                                  inventoryList={inventoryList}
+                                  allProducts={products}
+                                  onInventoryItemUpdate={handleInventoryItemUpdate}
+                                  globalUnits={globalUnits}
+                                  onGlobalUnitsChange={handleGlobalUnitsChange}
+                                  canManageUnits={user.role === 'Chủ nhà hàng'}
+                                />
+                             </Dialog>
                         )})}
                     </div>
                   </AccordionContent>
@@ -545,10 +559,10 @@ export default function ProductManagementPage() {
     </div>
     
     <ProductEditDialog
-      isOpen={isDialogOpen}
+      isOpen={isDialogOpen && !productToEdit}
       onClose={() => setIsDialogOpen(false)}
       onSave={handleSaveProduct}
-      productToEdit={productToEdit}
+      productToEdit={null}
       inventoryList={inventoryList}
       allProducts={products}
       onInventoryItemUpdate={handleInventoryItemUpdate}
