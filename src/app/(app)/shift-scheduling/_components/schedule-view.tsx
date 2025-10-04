@@ -988,6 +988,7 @@ export default function ScheduleView() {
                 onApprove={handleApproveRequest}
                 onRejectApproval={handleRejectApproval}
                 isProcessing={isSubmitting}
+                schedule={localSchedule}
             />
             
             {selectedUserForDetails && (

@@ -1,6 +1,3 @@
-
-
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -233,14 +230,15 @@ export default function ScheduleView() {
             minUsers: 0,
         };
     
-        const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
-        
-        if (conflict) {
-            toast.error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`, {
-                duration: 7000,
-            });
-            setIsProcessing(false);
-            return;
+        if (!payload.isSwapRequest) {
+          const conflict = hasTimeConflict(user.uid, shiftToTake, allShiftsOnDay);
+          if (conflict) {
+              toast.error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`, {
+                  duration: 7000,
+              });
+              setIsProcessing(false);
+              return;
+          }
         }
         
         try {
@@ -613,6 +611,7 @@ export default function ScheduleView() {
                 onApprove={handleApproveRequest}
                 onRejectApproval={handleRejectApproval}
                 isProcessing={isProcessing}
+                schedule={schedule}
             />
             
             {activeShiftForInfo && schedule && (
@@ -630,6 +629,7 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
 
 
 

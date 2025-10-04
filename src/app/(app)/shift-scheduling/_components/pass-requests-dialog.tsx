@@ -45,6 +45,7 @@ type PassRequestsDialogProps = {
   onApprove: (notification: Notification) => void;
   onRejectApproval: (notificationId: string) => void;
   isProcessing: boolean;
+  schedule: Schedule | null; // Pass the whole schedule
 };
 
 export default function PassRequestsDialog({
@@ -62,6 +63,7 @@ export default function PassRequestsDialog({
   onApprove,
   onRejectApproval,
   isProcessing,
+  schedule,
 }: PassRequestsDialogProps) {
   const { toast } = useToast();
   
@@ -277,6 +279,10 @@ export default function PassRequestsDialog({
                             const payload = notification.payload;
                             const isMyRequest = payload.requestingUser.userId === currentUser.uid;
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
+                            const myCurrentShiftLabel = schedule?.shifts
+                                .filter(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === currentUser.uid))
+                                .map(s => s.label)
+                                .join(', ') || 'Không có';
                             return (
                                 <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
@@ -298,6 +304,7 @@ export default function PassRequestsDialog({
                                                         {payload.targetUserId && payload.targetUserId === currentUser.uid &&
                                                             <p className="flex items-center gap-2 font-medium text-blue-600"><Send />Yêu cầu trực tiếp cho bạn</p>
                                                         }
+                                                        {payload.isSwapRequest && <p className="font-semibold text-primary">Ca của bạn: {myCurrentShiftLabel}</p>}
                                                     </>
                                                 )}
                                                 
