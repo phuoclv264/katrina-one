@@ -4,7 +4,7 @@ import type { InventoryItem, ParsedProduct, ProductIngredient, Product } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, Search, Info, Plus, FileUp, Replace } from 'lucide-react';
+import { Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, Search, Info, Plus, FileUp, Replace, FileEdit } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -172,21 +172,35 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
             <Card className="mb-8 rounded-xl shadow-sm border bg-white dark:bg-card">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ AI</CardTitle>
-                    <CardDescription>Sử dụng AI để tự động nhập hàng loạt công thức từ văn bản hoặc hình ảnh.</CardDescription>
+                    <CardDescription>Sử dụng AI để tự động nhập hoặc cập nhật hàng loạt công thức.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="paste" className="w-full">
+                    <Tabs defaultValue="add" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="paste"><FileText className="mr-2 h-4 w-4"/>Dán &amp; Xử lý</TabsTrigger>
-                            <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm bằng AI</TabsTrigger>
+                            <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4"/>Xử lý hàng loạt</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="paste" className="mt-4 space-y-4">
-                            <Textarea placeholder="Dán danh sách công thức đã được chuẩn hóa (từ file xuất ra) vào đây..." rows={8} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
-                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Xử lý văn bản</Button>
+
+                        <TabsContent value="add" className="mt-4 space-y-4">
+                            <Tabs defaultValue="text" className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Nhập văn bản</TabsTrigger>
+                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="text" className="mt-4 space-y-4">
+                                    <Textarea placeholder="Dán văn bản hoặc mô tả công thức tự do vào đây..." rows={6} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
+                                    <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo danh sách</Button>
+                                </TabsContent>
+                                <TabsContent value="image" className="mt-4 space-y-4">
+                                    <Input id="product-image-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isGenerating} />
+                                    <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo từ ảnh</Button>
+                                </TabsContent>
+                            </Tabs>
                         </TabsContent>
-                        <TabsContent value="image" className="mt-4 space-y-4">
-                            <Input id="product-image-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isGenerating} />
-                            <Button onClick={() => handleGenerate('image')} disabled={isGenerating || !imageInput} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo từ ảnh</Button>
+
+                        <TabsContent value="bulk-edit" className="mt-4 space-y-4">
+                             <Textarea placeholder="Dán nội dung từ file đã xuất (đã chỉnh sửa) vào đây để cập nhật hoặc thêm mới hàng loạt..." rows={8} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
+                            <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Xử lý văn bản</Button>
                         </TabsContent>
                     </Tabs>
                 </CardContent>
