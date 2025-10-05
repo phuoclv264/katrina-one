@@ -50,6 +50,41 @@ type PassRequestsDialogProps = {
   schedule: Schedule | null;
 };
 
+const ManagerReviewContent = ({ notification }: { notification: Notification }) => {
+    const { payload } = notification;
+    
+    // This is for a swap request review
+    if (payload.isSwapRequest) {
+        return (
+             <div className="text-center space-y-2 py-2">
+                <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
+                <div className="flex flex-col items-center gap-1">
+                    <p className="font-semibold">{payload.requestingUser.userName}</p>
+                    <p className="text-sm text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                </div>
+                <Replace className="h-5 w-5 text-muted-foreground mx-auto" />
+                <div className="flex flex-col items-center gap-1">
+                    <p className="font-semibold">{payload.takenBy?.userName}</p>
+                    {payload.swapForShift ? (
+                         <p className="text-sm text-muted-foreground">{payload.swapForShift?.label} ({payload.swapForShift?.timeSlot.start} - {payload.swapForShift?.timeSlot.end})</p>
+                    ) : (
+                        <p className="text-sm text-red-500">Lỗi: không tìm thấy ca để đổi</p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // This is for a simple pass request review
+    return (
+        <p className="flex items-center gap-2 font-medium text-amber-600">
+            <Send />
+            {payload.requestingUser.userName} pass ca, được nhận bởi {payload.takenBy?.userName}
+        </p>
+    );
+};
+
+
 export default function PassRequestsDialog({
   isOpen,
   onClose,
@@ -89,21 +124,23 @@ export default function PassRequestsDialog({
       const didITakeTheShift = payload.takenBy?.userId === currentUser.uid;
 
       if (notification.status === 'pending' || notification.status === 'pending_approval') {
-        // Manager/Owner specific logic from shift-scheduling dialog
-        if (isManagerOrOwner) {
-          const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
-          if (currentUser.role === 'Chủ nhà hàng' || !isRequestInvolvingManager) {
-            // A request specifically targeted to the manager should be treated as a staff action first.
-            if(payload.targetUserId === currentUser.uid && notification.status === 'pending') {
-               pending.push(notification);
-            } else {
-               pending.push(notification);
-            }
+        const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
+
+        // Always show direct requests to the current user first, regardless of role.
+        if (notification.status === 'pending' && payload.targetUserId === currentUser.uid) {
+            pending.push(notification);
             return;
-          }
+        }
+
+        // Manager/Owner specific logic
+        if (isManagerOrOwner) {
+            if (currentUser.role === 'Chủ nhà hàng' || !isRequestInvolvingManager) {
+                pending.push(notification);
+                return;
+            }
         }
         
-        // Staff logic
+        // Staff logic (or manager acting as staff for non-manager requests)
         if (isMyRequest) {
            pending.push(notification);
            return;
@@ -115,10 +152,9 @@ export default function PassRequestsDialog({
         }
 
         if (notification.status === 'pending') {
-           const isTargetedToMe = payload.targetUserId === currentUser.uid;
            const isPublicRequest = !payload.targetUserId;
            
-           if (isTargetedToMe || isPublicRequest) {
+           if (isPublicRequest) {
                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole && !currentUser.secondaryRoles?.includes(payload.shiftRole as UserRole);
                const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
                if (!isDifferentRole && !hasDeclined) {
@@ -171,13 +207,11 @@ export default function PassRequestsDialog({
     const isMyRequest = payload.requestingUser.userId === currentUser!.uid;
     const isSwap = payload.isSwapRequest;
     
+    const isDirectRequestToMe = notification.status === 'pending' && payload.targetUserId === currentUser!.uid;
     const isManagerReviewing = isManagerOrOwner && notification.status === 'pending_approval';
 
-    // Check if this request is a direct request to the current user (who might be a manager)
-    const isDirectRequestToMe = notification.status === 'pending' && payload.targetUserId === currentUser!.uid;
-
+    // Priority 1: Handle direct requests to the current user (even if they are a manager)
     if (isDirectRequestToMe) {
-      // Show staff actions first for direct requests, even for managers
       return (
         <div className="flex gap-2 self-end sm:self-center">
           <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
@@ -189,6 +223,7 @@ export default function PassRequestsDialog({
       );
     }
     
+    // Priority 2: Handle manager's approval actions
     if (isManagerReviewing) {
         const canOwnerApprove = currentUser!.role === 'Chủ nhà hàng';
         const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
@@ -208,6 +243,7 @@ export default function PassRequestsDialog({
         }
     }
 
+    // Priority 3: Handle manager's actions on pending public requests
     if (isManagerOrOwner && notification.status === 'pending') {
         return (
             <div className="flex gap-2 self-end sm:self-center">
@@ -227,6 +263,7 @@ export default function PassRequestsDialog({
         );
     }
 
+    // Priority 4: Manager actions on historical requests
     if (isManagerOrOwner && (notification.status === 'resolved' || notification.status === 'cancelled')) {
         return (
             <div className="flex gap-2 self-end sm:self-center">
@@ -279,33 +316,6 @@ export default function PassRequestsDialog({
     
     return null;
   };
-  
-  const ManagerReviewContent = ({ notification }: { notification: Notification }) => {
-    const { payload } = notification;
-    if (!payload.isSwapRequest) {
-        return (
-            <p className="flex items-center gap-2 font-medium text-amber-600">
-                <Send />
-                {payload.requestingUser.userName} pass ca, được nhận bởi {payload.takenBy?.userName}
-            </p>
-        );
-    }
-    
-    return (
-        <div className="text-center space-y-2">
-            <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
-            <div className="flex flex-col items-center gap-1">
-                <p className="font-semibold">{payload.requestingUser.userName}</p>
-                <p className="text-sm text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-            </div>
-            <Replace className="h-5 w-5 text-muted-foreground mx-auto" />
-            <div className="flex flex-col items-center gap-1">
-                <p className="font-semibold">{payload.takenBy?.userName}</p>
-                <p className="text-sm text-muted-foreground">{payload.swapForShift?.label} ({payload.swapForShift?.timeSlot.start} - {payload.swapForShift?.timeSlot.end})</p>
-            </div>
-        </div>
-    );
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -326,11 +336,10 @@ export default function PassRequestsDialog({
                             const payload = notification.payload;
                             const isMyRequest = payload.requestingUser.userId === currentUser!.uid;
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
-                            
-                            const isManagerReviewingSwap = isManagerOrOwner && notification.status === 'pending_approval' && payload.isSwapRequest;
+                            const isManagerReviewing = isManagerOrOwner && notification.status === 'pending_approval';
 
-                            let myCurrentShiftLabel = "Không có";
-                             if (schedule && !isManagerOrOwner) {
+                             let myCurrentShiftLabel = "Không có";
+                             if (schedule && !isManagerOrOwner && payload.isSwapRequest) {
                                 myCurrentShiftLabel = schedule.shifts
                                     .filter(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === currentUser!.uid))
                                     .map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`)
@@ -341,7 +350,7 @@ export default function PassRequestsDialog({
                                 <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
                                         <div className="space-y-2">
-                                           {isManagerReviewingSwap ? (
+                                           {isManagerReviewing ? (
                                                 <ManagerReviewContent notification={notification} />
                                             ) : (
                                                 <>
