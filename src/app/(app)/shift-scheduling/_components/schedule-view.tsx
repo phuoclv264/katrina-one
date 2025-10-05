@@ -607,6 +607,38 @@ export default function ScheduleView() {
         isPublishAction = true;
     }
 
+    const renderUserBadge = (assignedUser: AssignedUser, dateKey: string, shiftObject: AssignedShift) => {
+        const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+        const userAvailability = availabilityByDay[dateKey];
+        const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
+        const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
+        const hasMultipleShifts = shiftCount >= 2;
+
+        const badgeContent = (
+            <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
+                {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                {hasMultipleShifts && (
+                    <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
+                )}
+                {abbreviateName(assignedUser.userName)}
+            </Badge>
+        );
+
+        if (isBusy || hasMultipleShifts) {
+            return (
+                <Tooltip key={assignedUser.userId} delayDuration={100}>
+                    <TooltipTrigger asChild>{badgeContent}</TooltipTrigger>
+                    <TooltipContent>
+                        {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
+                        {hasMultipleShifts && <p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p>}
+                    </TooltipContent>
+                </Tooltip>
+            );
+        }
+
+        return badgeContent;
+    };
+
 
     return (
         <TooltipProvider>
@@ -691,29 +723,7 @@ export default function ScheduleView() {
                                                                     </div>
                                                                 ) : (
                                                                      <div className="flex-grow flex flex-col items-center justify-center space-y-1 py-1 w-full">
-                                                                        {sortedAssignedUsers.map(assignedUser => {
-                                                                            const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
-                                                                            const userAvailability = availabilityByDay[dateKey];
-                                                                            const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
-                                                                            const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
-                                                                            const hasMultipleShifts = shiftCount >= 2;
-                                                                            return (
-                                                                            <Tooltip key={assignedUser.userId} delayDuration={100}>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
-                                                                                        {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
-                                                                                        {hasMultipleShifts && (
-                                                                                            <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
-                                                                                        )}
-                                                                                        {abbreviateName(assignedUser.userName)}
-                                                                                    </Badge>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>
-                                                                                    {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
-                                                                                    {hasMultipleShifts && <p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p>}
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        )})}
+                                                                        {sortedAssignedUsers.map(assignedUser => renderUserBadge(assignedUser, dateKey, shiftObject))}
                                                                     </div>
                                                                 )}
                                                             </Button>
@@ -760,27 +770,7 @@ export default function ScheduleView() {
                                                             return (
                                                                 <div key={shiftObject.id} className="flex items-center gap-2 flex-wrap text-sm font-normal">
                                                                     <span className="font-semibold">{shiftObject.label}:</span>
-                                                                    {sortedAssignedUsers.map(assignedUser => {
-                                                                        const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
-                                                                        const userAvailability = availabilityByDay[dateKey];
-                                                                        const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
-                                                                        const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
-                                                                        const hasMultipleShifts = shiftCount >= 2;
-                                                                        return (
-                                                                            <Tooltip key={assignedUser.userId} delayDuration={100}>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <Badge className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
-                                                                                        {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
-                                                                                        {hasMultipleShifts && (
-                                                                                            <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
-                                                                                        )}
-                                                                                        {abbreviateName(assignedUser.userName)}
-                                                                                    </Badge>
-                                                                                </TooltipTrigger>
-                                                                                 {hasMultipleShifts && <TooltipContent><p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p></TooltipContent>}
-                                                                            </Tooltip>
-                                                                        )
-                                                                    })}
+                                                                    {sortedAssignedUsers.map(assignedUser => renderUserBadge(assignedUser, dateKey, shiftObject))}
                                                                 </div>
                                                             )
                                                         })}
@@ -821,28 +811,7 @@ export default function ScheduleView() {
                                                                         </Button>
                                                                     </div>
                                                                      <div className="flex flex-wrap gap-1 mt-2">
-                                                                        {sortedAssignedUsers.map(assignedUser => {
-                                                                            const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
-                                                                            const userAvailability = availabilityByDay[dateKey];
-                                                                            const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
-                                                                            const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
-                                                                            const hasMultipleShifts = shiftCount >= 2;
-
-                                                                            return (
-                                                                                <Tooltip key={assignedUser.userId} delayDuration={100}>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <Badge variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
-                                                                                            {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
-                                                                                            {hasMultipleShifts && (
-                                                                                                <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
-                                                                                            )}
-                                                                                            {abbreviateName(assignedUser.userName)}
-                                                                                        </Badge>
-                                                                                    </TooltipTrigger>
-                                                                                     {hasMultipleShifts && <TooltipContent><p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p></TooltipContent>}
-                                                                                </Tooltip>
-                                                                            )
-                                                                        })}
+                                                                        {sortedAssignedUsers.map(assignedUser => renderUserBadge(assignedUser, dateKey, shiftObject))}
                                                                     </div>
                                                                 </div>
                                                             );
