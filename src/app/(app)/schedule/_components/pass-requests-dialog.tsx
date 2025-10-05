@@ -154,7 +154,7 @@ export default function PassRequestsDialog({
         const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
 
         // Always show direct requests to the current user first, regardless of role.
-        if (notification.status === 'pending' && payload.targetUserId === currentUser.uid) {
+        if (notification.status === 'pending' && wasTargetedToMe) {
             pending.push(notification);
             return;
         }
@@ -371,6 +371,7 @@ export default function PassRequestsDialog({
                             const isMyRequest = payload.requestingUser.userId === currentUser!.uid;
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
                             const isManagerReviewing = isManagerOrOwner && notification.status === 'pending_approval';
+                            const isManagerViewingPendingDirect = isManagerOrOwner && !isMyRequest && payload.targetUserId && notification.status === 'pending';
                             
                             const targetUserShift = (payload.isSwapRequest && payload.targetUserId && schedule) 
                                 ? schedule.shifts.find(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === payload.targetUserId))
@@ -386,6 +387,15 @@ export default function PassRequestsDialog({
                                         <div className="space-y-2">
                                            {isManagerReviewing ? (
                                                 <ManagerReviewContent notification={notification} schedule={schedule} />
+                                            ) : isManagerViewingPendingDirect ? (
+                                                <div className="text-left space-y-2 py-2">
+                                                    <p className="font-bold text-lg text-primary text-center">YÊU CẦU TRỰC TIẾP</p>
+                                                    <div className="text-sm border p-3 rounded-md bg-background">
+                                                        <p><span className="font-semibold">{payload.requestingUser.userName}</span> đã gửi yêu cầu <span className="font-semibold">{payload.isSwapRequest ? 'ĐỔI CA' : 'PASS CA'}</span> tới <span className="font-semibold">{targetUser?.displayName || 'Không rõ'}</span> cho ca:</p>
+                                                        <p className="font-semibold text-primary">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                                                        <p className="text-muted-foreground">{format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+                                                    </div>
+                                                </div>
                                             ) : (
                                                 <>
                                                     <p className="font-bold text-lg">{payload.shiftLabel}</p>
