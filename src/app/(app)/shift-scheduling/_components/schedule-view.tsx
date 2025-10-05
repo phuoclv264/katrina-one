@@ -81,7 +81,7 @@ const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> =
     });
 
     for (const [lastName, userGroup] of usersByLastName.entries()) {
-        if (userGroup.length === 1) {
+        if (userGroup.length === 1 && ![...usersByLastName.keys()].some(key => key !== lastName && key.includes(lastName))) {
             // If the last name is unique across all users, just use the last name
             abbreviations.set(userGroup[0].uid, lastName);
         } else {
@@ -598,8 +598,8 @@ export default function ScheduleView() {
             const shiftsOnDay = localSchedule.shifts.filter(s => s.date === dateKey);
             shiftsOnDay.forEach(shift => {
                 shift.assignedUsers.forEach(assignedUser => {
-                    const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role;
-                    if (userRole && userRole !== 'Quản lý' && userRole !== 'Chủ nhà hàng') {
+                    const userDetails = allUsers.find(u => u.uid === assignedUser.userId);
+                    if (userDetails && userDetails.role !== 'Quản lý' && userDetails.role !== 'Chủ nhà hàng') {
                        dailyCounts.set(assignedUser.userId, (dailyCounts.get(assignedUser.userId) || 0) + 1);
                     }
                 });
@@ -650,7 +650,16 @@ export default function ScheduleView() {
     }
 
     const renderUserBadge = (assignedUser: AssignedUser, dateKey: string, shiftObject: AssignedShift) => {
-        const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
+        const userDetails = allUsers.find(u => u.uid === assignedUser.userId);
+        if (!userDetails) return null;
+
+        if (user?.role !== 'Chủ nhà hàng') {
+            if (userDetails.role === 'Chủ nhà hàng' || userDetails.displayName.includes('Không chọn')) {
+                return null;
+            }
+        }
+        
+        const userRole = userDetails.role;
         const userAvailability = availabilityByDay[dateKey];
         const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
         const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
@@ -671,7 +680,7 @@ export default function ScheduleView() {
             isBusy && "Nhân viên này không đăng ký rảnh.",
             hasMultipleShifts && `Nhân viên này được xếp ${shiftCount} ca hôm nay.`
         ].filter(Boolean).join(' ');
-
+        
         if (tooltipContent) {
             return (
                 <Tooltip delayDuration={100}>
@@ -821,9 +830,9 @@ export default function ScheduleView() {
                                                                     <span className="font-semibold">{shiftObject.label}:</span>
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {sortedAssignedUsers.map(assignedUser => (
-                                                                        <React.Fragment key={assignedUser.userId}>
+                                                                           <React.Fragment key={assignedUser.userId}>
                                                                             {renderUserBadge(assignedUser, dateKey, shiftObject)}
-                                                                        </React.Fragment>
+                                                                          </React.Fragment>
                                                                         ))}
                                                                     </div>
                                                                 </div>
@@ -867,7 +876,7 @@ export default function ScheduleView() {
                                                                     </div>
                                                                      <div className="flex flex-wrap gap-1 mt-2">
                                                                         {sortedAssignedUsers.map(assignedUser => (
-                                                                          <React.Fragment key={assignedUser.userId}>
+                                                                           <React.Fragment key={assignedUser.userId}>
                                                                             {renderUserBadge(assignedUser, dateKey, shiftObject)}
                                                                           </React.Fragment>
                                                                         ))}
