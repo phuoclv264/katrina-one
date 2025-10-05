@@ -64,8 +64,7 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
 
         return (
             <div className="text-center space-y-2 py-2">
-                <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
-                <p className="text-sm text-muted-foreground -mt-2">({shiftDateFormatted})</p>
+                <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA ({shiftDateFormatted})</p>
                 <div className="text-sm border p-3 rounded-md bg-background">
                     <p className="font-semibold">{payload.requestingUser.userName}</p>
                     <p className="text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
@@ -148,6 +147,7 @@ export default function PassRequestsDialog({
       const payload = notification.payload;
       const isMyRequest = payload.requestingUser.userId === currentUser.uid;
       const didITakeTheShift = payload.takenBy?.userId === currentUser.uid;
+      const wasTargetedToMe = payload.targetUserId === currentUser.uid;
 
       if (notification.status === 'pending' || notification.status === 'pending_approval') {
         const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
@@ -189,7 +189,7 @@ export default function PassRequestsDialog({
            }
         }
       } else { // 'resolved' or 'cancelled'
-        if (isMyRequest || didITakeTheShift) {
+        if (isMyRequest || didITakeTheShift || wasTargetedToMe) {
             historical.push(notification);
         }
       }
@@ -275,7 +275,7 @@ export default function PassRequestsDialog({
         return (
             <div className="flex gap-2 self-end sm:self-center">
                  {!isDirectRequest && (
-                    <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing}>
+                    <Button variant="secondary" size="sm" onClick={() => onAssign && onAssign(notification)} disabled={isProcessing}>
                         <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
                     </Button>
                  )}
