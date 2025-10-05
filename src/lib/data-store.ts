@@ -341,7 +341,7 @@ export const dataStore = {
             const docRef = doc(db, 'incidents', id);
             const currentDoc = await getDoc(docRef);
             const existingPhotos = currentDoc.exists() ? currentDoc.data().photos || [] : [];
-            const remainingPhotos = existingPhotos.filter((p: string) => !photosToDelete.includes(p));
+            const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
             finalData.photos = [...remainingPhotos, ...validNewUrls];
             await updateDoc(docRef, finalData);
         } else {
@@ -1128,7 +1128,7 @@ export const dataStore = {
         await addDoc(collection(db, "notifications"), newNotification);
     },
 
-    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser): Promise<void> {
+    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean): Promise<void> {
         const existingRequestQuery = query(
             collection(db, 'notifications'),
             where('type', '==', 'pass_request'),
@@ -1158,8 +1158,8 @@ export const dataStore = {
                     userId: requestingUser.uid,
                     userName: requestingUser.displayName
                 },
-                targetUserId: targetUser.uid, // Add the target user ID
-                isSwapRequest: true, // Mark this as a swap request
+                targetUserId: targetUser.uid,
+                isSwapRequest: isSwap, // Set based on the parameter
                 declinedBy: [],
             }
         };
@@ -1203,21 +1203,17 @@ export const dataStore = {
         });
     },
 
-    async acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: AssignedUser): Promise<void> {
+    async acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: AssignedUser, schedule: Schedule): Promise<void> {
         const notificationRef = doc(db, "notifications", notificationId);
 
         // For swap requests, the conflict check is bypassed.
         if (!payload.isSwapRequest) {
-            const scheduleDoc = await getDoc(doc(db, "schedules", payload.weekId));
-            if (scheduleDoc.exists()) {
-                const scheduleData = scheduleDoc.data() as Schedule;
-                const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === payload.shiftDate);
-                const shiftToTake: AssignedShift = { ...scheduleData.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
-                
-                const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
-                if (conflict) {
-                    throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
-                }
+            const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+            const shiftToTake: AssignedShift = { ...schedule.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
+            
+            const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
+            if (conflict) {
+                throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
             }
         }
         
