@@ -2208,7 +2208,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+          const timeB = a.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
