@@ -197,12 +197,13 @@ export default function ScheduleView() {
         }
     }
     
-    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser) => {
+    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean) => {
         if (!user) return;
         setIsProcessing(true);
         try {
-            await dataStore.requestDirectPassShift(shift, user, targetUser);
-            toast.success(`Yêu cầu đổi ca đã được gửi trực tiếp đến ${targetUser.displayName}.`);
+            await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap);
+            const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
+            toast.success(`Yêu cầu ${actionText} đã được gửi trực tiếp đến ${targetUser.displayName}.`);
         } catch(error: any) {
             console.error("Failed to send direct pass request:", error);
             toast.error(`Không thể gửi yêu cầu: ${error.message}`);
