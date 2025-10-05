@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, IncidentCategory } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -51,8 +51,8 @@ function ViolationDialog({
   violationToEdit: Violation | null;
   reporter: AuthUser;
   isSelfConfession?: boolean;
-  categories: ViolationCategory[];
-  onCategoriesChange: (newCategories: ViolationCategory[]) => void;
+  categories: string[];
+  onCategoriesChange: (newCategories: string[]) => void;
   canManageCategories: boolean;
 }) {
   const [content, setContent] = useState('');
@@ -436,6 +436,7 @@ export default function ViolationsPage() {
     if (user.role === 'Chủ nhà hàng') {
       return users;
     }
+    // For manager, filter out Owner and "Không chọn"
     return users.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes("Không chọn"));
   }, [user, users]);
 
@@ -454,8 +455,8 @@ export default function ViolationsPage() {
     }
   };
 
-  const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
-    await dataStore.updateViolationCategories(newCategories.map(c => c.name));
+  const handleCategoriesChange = async (newCategories: string[]) => {
+    await dataStore.updateViolationCategories(newCategories);
   };
 
   const handleDeleteViolation = async (violation: Violation) => {
@@ -668,10 +669,10 @@ export default function ViolationsPage() {
                         </SelectContent>
                     </Select>
                     <ViolationCategoryCombobox
-                        categories={categories.map(c => c.name)}
+                        categories={categories}
                         value={filterCategory || ''}
                         onChange={(val) => setFilterCategory(val || null)}
-                        onCategoriesChange={() => {}}
+                        onCategoriesChange={handleCategoriesChange}
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
                     />
