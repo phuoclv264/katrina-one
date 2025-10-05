@@ -36,6 +36,7 @@ import { Separator } from '@/components/ui/separator';
 
 const ManagerReviewContent = ({ notification, schedule }: { notification: Notification, schedule: Schedule | null }) => {
     const { payload } = notification;
+    const shiftDateFormatted = format(parseISO(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi });
 
     // Detailed Pass Request
     if (!payload.isSwapRequest && payload.takenBy) {
@@ -45,7 +46,7 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
                 <div className="text-sm border p-3 rounded-md bg-background">
                     <p><span className="font-semibold">{payload.requestingUser.userName}</span> muốn pass ca:</p>
                     <p className="font-semibold text-primary">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                    <p className="text-muted-foreground">{format(parseISO(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+                    <p className="text-muted-foreground">{shiftDateFormatted}</p>
                 </div>
                  <div className="text-sm border p-3 rounded-md bg-background">
                     <p><span className="font-semibold">{payload.takenBy.userName}</span> đã nhận ca này.</p>
@@ -64,7 +65,7 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
         return (
             <div className="text-center space-y-2 py-2">
                 <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
-                <p className="text-sm text-muted-foreground -mt-2">({format(parseISO(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })})</p>
+                <p className="text-sm text-muted-foreground -mt-2">({shiftDateFormatted})</p>
                 <div className="text-sm border p-3 rounded-md bg-background">
                     <p className="font-semibold">{payload.requestingUser.userName}</p>
                     <p className="text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
@@ -188,7 +189,7 @@ export default function PassRequestsDialog({
            }
         }
       } else { // 'resolved' or 'cancelled'
-        if(isMyRequest || didITakeTheShift || isManagerOrOwner) {
+        if (isMyRequest || didITakeTheShift) {
             historical.push(notification);
         }
       }
@@ -440,9 +441,13 @@ export default function PassRequestsDialog({
                             const isSwap = payload.isSwapRequest && notification.status === 'resolved' && payload.takenBy;
                             let swapForShiftLabel: string | null = null;
                             if (isSwap) {
-                                const swapShift = schedule?.shifts.find(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === payload.requestingUser.userId));
-                                if (swapShift) {
-                                     swapForShiftLabel = `${swapShift.label} (${swapShift.timeSlot.start}-${swapShift.timeSlot.end})`;
+                                // Find the original shift of the user who took the request
+                                const originalShiftOfTaker = schedule?.shifts.find(s => 
+                                    s.date === payload.shiftDate && 
+                                    s.assignedUsers.some(u => u.userId === payload.requestingUser.userId)
+                                );
+                                if (originalShiftOfTaker) {
+                                     swapForShiftLabel = `${originalShiftOfTaker.label} (${originalShiftOfTaker.timeSlot.start}-${originalShiftOfTaker.timeSlot.end})`;
                                 }
                             }
 
