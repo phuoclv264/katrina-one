@@ -1122,7 +1122,7 @@ export const dataStore = {
                     userId: requestingUser.uid,
                     userName: requestingUser.displayName
                 },
-                isSwapRequest: false, // Explicitly set for public pass requests
+                isSwapRequest: false,
                 declinedBy: [],
             }
         };
@@ -1326,15 +1326,27 @@ export const dataStore = {
         });
     },
 
-    async declinePassShift(notificationId: string, decliningUserId: string): Promise<void> {
-        const notificationRef = doc(db, "notifications", notificationId);
-        await runTransaction(db, async (transaction) => {
-            const notificationDoc = await transaction.get(notificationRef);
-            if (!notificationDoc.exists()) throw new Error("Notification not found");
-            const existingDeclined = notificationDoc.data().payload.declinedBy || [];
-            const newDeclined = Array.from(new Set([...existingDeclined, decliningUserId]));
-            transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
-        });
+    async declinePassShift(notification: Notification, decliningUser: { uid: string, displayName: string }): Promise<void> {
+        const notificationRef = doc(db, "notifications", notification.id);
+
+        if (notification.payload.targetUserId === decliningUser.uid) {
+            // It's a direct request, so declining means cancelling it.
+            await updateDoc(notificationRef, {
+                status: 'cancelled',
+                'payload.cancellationReason': `Bị từ chối bởi ${decliningUser.displayName}`,
+                resolvedBy: { userId: decliningUser.uid, userName: decliningUser.displayName },
+                resolvedAt: serverTimestamp(),
+            });
+        } else {
+            // It's a public request, just add to the declined list.
+            await runTransaction(db, async (transaction) => {
+                const notificationDoc = await transaction.get(notificationRef);
+                if (!notificationDoc.exists()) throw new Error("Notification not found");
+                const existingDeclined = notificationDoc.data().payload.declinedBy || [];
+                const newDeclined = Array.from(new Set([...existingDeclined, decliningUser.uid]));
+                transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
+            });
+        }
     },
 
     async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser, resolver: AuthUser): Promise<void> {
@@ -2513,3 +2525,4 @@ export const dataStore = {
 
 
     
+
