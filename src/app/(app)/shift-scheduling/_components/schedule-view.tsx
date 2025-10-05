@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -624,9 +625,11 @@ export default function ScheduleView() {
             </Badge>
         );
 
-        if (isBusy || hasMultipleShifts) {
+        const hasTooltipContent = isBusy || hasMultipleShifts;
+
+        if (hasTooltipContent) {
             return (
-                <Tooltip key={assignedUser.userId} delayDuration={100}>
+                <Tooltip delayDuration={100}>
                     <TooltipTrigger asChild>{badgeContent}</TooltipTrigger>
                     <TooltipContent>
                         {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
@@ -723,7 +726,11 @@ export default function ScheduleView() {
                                                                     </div>
                                                                 ) : (
                                                                      <div className="flex-grow flex flex-col items-center justify-center space-y-1 py-1 w-full">
-                                                                        {sortedAssignedUsers.map(assignedUser => renderUserBadge(assignedUser, dateKey, shiftObject))}
+                                                                        {sortedAssignedUsers.map(assignedUser => (
+                                                                          <React.Fragment key={assignedUser.userId}>
+                                                                            {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                          </React.Fragment>
+                                                                        ))}
                                                                     </div>
                                                                 )}
                                                             </Button>
@@ -770,7 +777,11 @@ export default function ScheduleView() {
                                                             return (
                                                                 <div key={shiftObject.id} className="flex items-center gap-2 flex-wrap text-sm font-normal">
                                                                     <span className="font-semibold">{shiftObject.label}:</span>
-                                                                    {sortedAssignedUsers.map(assignedUser => renderUserBadge(assignedUser, dateKey, shiftObject))}
+                                                                    {sortedAssignedUsers.map(assignedUser => (
+                                                                      <React.Fragment key={assignedUser.userId}>
+                                                                        {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                      </React.Fragment>
+                                                                    ))}
                                                                 </div>
                                                             )
                                                         })}
@@ -811,7 +822,11 @@ export default function ScheduleView() {
                                                                         </Button>
                                                                     </div>
                                                                      <div className="flex flex-wrap gap-1 mt-2">
-                                                                        {sortedAssignedUsers.map(assignedUser => renderUserBadge(assignedUser, dateKey, shiftObject))}
+                                                                        {sortedAssignedUsers.map(assignedUser => (
+                                                                          <React.Fragment key={assignedUser.userId}>
+                                                                            {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                          </React.Fragment>
+                                                                        ))}
                                                                     </div>
                                                                 </div>
                                                             );
