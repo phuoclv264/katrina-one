@@ -255,7 +255,7 @@ export default function ScheduleView() {
     const handleDeclineShift = async (notification: Notification) => {
         if (!user) return;
         try {
-            await dataStore.declinePassShift(notification.id, user.uid);
+            await dataStore.declinePassShift(notification, { uid: user.uid, displayName: user.displayName });
             toast.success('Đã từ chối. Bạn sẽ không thấy lại yêu cầu này.');
         } catch (error: any) {
             toast.error('Không thể từ chối yêu cầu.');
