@@ -190,7 +190,7 @@ export default function PassRequestsDialog({
            }
         }
       } else { // 'resolved' or 'cancelled'
-        if (currentUser.role === 'Chủ nhà hàng') {
+        if (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý') {
             historical.push(notification);
         } else {
             if (isMyRequest || didITakeTheShift || wasTargetedToMe) {
