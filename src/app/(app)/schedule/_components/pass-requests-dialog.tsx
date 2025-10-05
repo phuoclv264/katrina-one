@@ -204,7 +204,7 @@ export default function PassRequestsDialog({
     historical.sort((a,b) => {
         const timeA = a.resolvedAt || a.createdAt;
         const timeB = b.resolvedAt || b.createdAt;
-        return new Date(timeB as string).getTime() - new Date(timeA as string).getTime();
+        return new Date(timeB as string).getTime() - new Date(a.createdAt as string).getTime();
     });
 
 
@@ -367,13 +367,11 @@ export default function PassRequestsDialog({
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
                             const isManagerReviewing = isManagerOrOwner && notification.status === 'pending_approval';
 
-                             let myCurrentShiftLabel = "Không có";
-                             if (schedule && !isManagerOrOwner && payload.isSwapRequest) {
-                                myCurrentShiftLabel = schedule.shifts
-                                    .filter(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === currentUser!.uid))
-                                    .map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`)
-                                    .join(', ') || 'Không có';
-                            }
+                            const targetUserShift = (payload.isSwapRequest && payload.targetUserId && schedule) 
+                                ? schedule.shifts.find(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === payload.targetUserId))
+                                : null;
+                            
+                            const targetUserShiftLabel = targetUserShift ? `${targetUserShift.label} (${targetUserShift.timeSlot.start}-${targetUserShift.timeSlot.end})` : 'Không có';
                              
                             const isManagerViewingPendingSwap = isManagerOrOwner && !isMyRequest && payload.isSwapRequest && payload.targetUserId && notification.status === 'pending';
 
@@ -392,9 +390,12 @@ export default function PassRequestsDialog({
                                                         
                                                         {isMyRequest ? (
                                                             targetUser ? (
-                                                                <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
-                                                                    {payload.isSwapRequest ? 'Đã gửi yêu cầu ĐỔI CA tới:' : 'Đã gửi yêu cầu PASS CA tới:'} {targetUser.displayName}
-                                                                </p>
+                                                                <>
+                                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                                        {payload.isSwapRequest ? 'Đã gửi yêu cầu ĐỔI CA tới:' : 'Đã gửi yêu cầu PASS CA tới:'} {targetUser.displayName}
+                                                                    </p>
+                                                                    {payload.isSwapRequest && <p className="font-semibold text-primary">Ca của bạn sẽ đổi với ca: {targetUserShiftLabel}</p>}
+                                                                </>
                                                             ) : (
                                                                 <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Yêu cầu công khai của bạn</p>
                                                             )
@@ -402,12 +403,13 @@ export default function PassRequestsDialog({
                                                             <>
                                                                 <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
                                                                 {(isManagerViewingPendingSwap || (payload.targetUserId === currentUser!.uid)) && (
-                                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
-                                                                        {payload.isSwapRequest ? `Yêu cầu ĐỔI CA ${isManagerViewingPendingSwap ? `tới: ${targetUser?.displayName || 'Không rõ'}` : 'với bạn.'}` : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
-                                                                    </p>
+                                                                    <>
+                                                                        <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                                            {payload.isSwapRequest ? `Yêu cầu ĐỔI CA ${isManagerViewingPendingSwap ? `tới: ${targetUser?.displayName || 'Không rõ'}` : 'với bạn.'}` : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
+                                                                        </p>
+                                                                         {payload.isSwapRequest && <p className="font-semibold text-primary">Ca của bạn sẽ đổi: {targetUserShiftLabel}</p>}
+                                                                    </>
                                                                 )}
-
-                                                                {payload.isSwapRequest && !isManagerOrOwner && <p className="font-semibold text-primary">Ca của bạn: {myCurrentShiftLabel}</p>}
                                                             </>
                                                         )}
                                                         
