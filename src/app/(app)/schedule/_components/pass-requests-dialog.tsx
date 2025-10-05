@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -38,23 +39,6 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
     const { payload } = notification;
     const shiftDateFormatted = format(parseISO(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi });
 
-    // Detailed Pass Request
-    if (!payload.isSwapRequest && payload.takenBy) {
-        return (
-            <div className="text-left space-y-2 py-2">
-                 <p className="font-bold text-lg text-primary text-center">YÊU CẦU PASS CA</p>
-                <div className="text-sm border p-3 rounded-md bg-background">
-                    <p><span className="font-semibold">{payload.requestingUser.userName}</span> muốn pass ca:</p>
-                    <p className="font-semibold text-primary">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
-                    <p className="text-muted-foreground">{shiftDateFormatted}</p>
-                </div>
-                 <div className="text-sm border p-3 rounded-md bg-background">
-                    <p><span className="font-semibold">{payload.takenBy.userName}</span> đã nhận ca này.</p>
-                </div>
-            </div>
-        );
-    }
-
     // Swap Request
     if (payload.isSwapRequest) {
         const swapForShift = schedule?.shifts.find(s =>
@@ -77,6 +61,23 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
                     ) : (
                         <p className="text-sm text-red-500">Lỗi: không tìm thấy ca để đổi</p>
                     )}
+                </div>
+            </div>
+        );
+    }
+    
+    // Pass Request
+    if (payload.takenBy) {
+        return (
+            <div className="text-left space-y-2 py-2">
+                <p className="font-bold text-lg text-primary text-center">YÊU CẦU PASS CA</p>
+                <div className="text-sm border p-3 rounded-md bg-background">
+                    <p><span className="font-semibold">{payload.requestingUser.userName}</span> muốn pass ca:</p>
+                    <p className="font-semibold text-primary">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                    <p className="text-muted-foreground">{shiftDateFormatted}</p>
+                </div>
+                 <div className="text-sm border p-3 rounded-md bg-background">
+                    <p><span className="font-semibold">{payload.takenBy.userName}</span> đã nhận ca này.</p>
                 </div>
             </div>
         );
@@ -189,8 +190,12 @@ export default function PassRequestsDialog({
            }
         }
       } else { // 'resolved' or 'cancelled'
-        if (isMyRequest || didITakeTheShift || wasTargetedToMe) {
+        if (currentUser.role === 'Chủ nhà hàng') {
             historical.push(notification);
+        } else {
+            if (isMyRequest || didITakeTheShift || wasTargetedToMe) {
+                historical.push(notification);
+            }
         }
       }
     });
@@ -366,7 +371,7 @@ export default function PassRequestsDialog({
                             const isMyRequest = payload.requestingUser.userId === currentUser!.uid;
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
                             const isManagerReviewing = isManagerOrOwner && notification.status === 'pending_approval';
-
+                            
                             const targetUserShift = (payload.isSwapRequest && payload.targetUserId && schedule) 
                                 ? schedule.shifts.find(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === payload.targetUserId))
                                 : null;
