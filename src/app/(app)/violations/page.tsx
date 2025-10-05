@@ -431,6 +431,14 @@ export default function ViolationsPage() {
     };
   }, [user]);
 
+  const displayUsers = useMemo(() => {
+    if (!user || !users) return [];
+    if (user.role === 'Chủ nhà hàng') {
+      return users;
+    }
+    return users.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes("Không chọn"));
+  }, [user, users]);
+
   const handleSaveViolation = async (data: any, id?: string) => {
     setIsProcessing(true);
     try {
@@ -447,7 +455,7 @@ export default function ViolationsPage() {
   };
 
   const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
-    await dataStore.updateViolationCategories(newCategories);
+    await dataStore.updateViolationCategories(newCategories.map(c => c.name));
   };
 
   const handleDeleteViolation = async (violation: Violation) => {
@@ -654,17 +662,17 @@ export default function ViolationsPage() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tất cả nhân viên</SelectItem>
-                            {users.map(u => (
+                            {displayUsers.map(u => (
                                 <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                     <ViolationCategoryCombobox
-                        categories={categories}
+                        categories={categories.map(c => c.name)}
                         value={filterCategory || ''}
                         onChange={(val) => setFilterCategory(val || null)}
-                        onCategoriesChange={handleCategoriesChange}
-                        canManage={user.role === 'Chủ nhà hàng'}
+                        onCategoriesChange={() => {}}
+                        canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
                     />
                     <div className="col-start-1 sm:col-start-4 sm:col-span-1">
@@ -840,7 +848,7 @@ export default function ViolationsPage() {
             open={isDialogOpen}
             onOpenChange={setIsDialogOpen}
             onSave={handleSaveViolation}
-            users={users}
+            users={displayUsers}
             isProcessing={isProcessing}
             violationToEdit={violationToEdit}
             reporter={user}
