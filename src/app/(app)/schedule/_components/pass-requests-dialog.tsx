@@ -73,6 +73,24 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
 };
 
 
+type PassRequestsDialogProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    notifications: Notification[];
+    allUsers: ManagedUser[];
+    weekInterval: { start: Date; end: Date };
+    onAccept: (notification: Notification) => void;
+    onDecline: (notification: Notification) => void;
+    onCancel: (notificationId: string) => void;
+    onRevert: (notification: Notification) => void;
+    onAssign?: (notification: Notification) => void; // Made optional for staff view
+    onApprove: (notification: Notification) => void;
+    onRejectApproval: (notificationId: string) => void;
+    isProcessing: boolean;
+    schedule: Schedule | null;
+}
+
+
 export default function PassRequestsDialog({
   isOpen,
   onClose,
@@ -333,6 +351,8 @@ export default function PassRequestsDialog({
                                     .map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`)
                                     .join(', ') || 'Không có';
                             }
+                             
+                            const isManagerViewingPendingSwap = isManagerOrOwner && !isMyRequest && payload.isSwapRequest && payload.targetUserId && notification.status === 'pending';
 
                             return (
                                 <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
@@ -358,12 +378,17 @@ export default function PassRequestsDialog({
                                                         ) : (
                                                             <>
                                                                 <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
-                                                                {payload.targetUserId === currentUser!.uid &&
+                                                                {isManagerViewingPendingSwap ? (
+                                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                                        Yêu cầu đổi ca tới: {targetUser?.displayName || 'Không rõ'}
+                                                                    </p>
+                                                                ) : payload.targetUserId === currentUser!.uid && (
                                                                     <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
                                                                         {payload.isSwapRequest ? 'Yêu cầu ĐỔI CA với bạn.' : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
                                                                     </p>
-                                                                }
-                                                                {payload.isSwapRequest && <p className="font-semibold text-primary">Ca của bạn: {myCurrentShiftLabel}</p>}
+                                                                )}
+
+                                                                {payload.isSwapRequest && !isManagerOrOwner && <p className="font-semibold text-primary">Ca của bạn: {myCurrentShiftLabel}</p>}
                                                             </>
                                                         )}
                                                         
