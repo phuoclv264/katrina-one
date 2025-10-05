@@ -81,8 +81,9 @@ const abbreviateName = (name: string): string => {
 const roleOrder: Record<UserRole, number> = {
   'Phục vụ': 1,
   'Pha chế': 2,
-  'Quản lý': 3,
-  'Chủ nhà hàng': 4,
+  'Thu ngân': 3,
+  'Quản lý': 4,
+  'Chủ nhà hàng': 5,
 };
 
 
@@ -541,6 +542,7 @@ export default function ScheduleView() {
         switch (role) {
             case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
             case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+            case 'Thu ngân': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700';
             case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700';
             default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
         }
@@ -554,14 +556,18 @@ export default function ScheduleView() {
             const dailyCounts = new Map<string, number>();
             const shiftsOnDay = localSchedule.shifts.filter(s => s.date === dateKey);
             shiftsOnDay.forEach(shift => {
-                shift.assignedUsers.forEach(user => {
-                    dailyCounts.set(user.userId, (dailyCounts.get(user.userId) || 0) + 1);
+                shift.assignedUsers.forEach(assignedUser => {
+                    const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role;
+                    // Only count for non-manager roles
+                    if (userRole && userRole !== 'Quản lý' && userRole !== 'Chủ nhà hàng') {
+                       dailyCounts.set(assignedUser.userId, (dailyCounts.get(assignedUser.userId) || 0) + 1);
+                    }
                 });
             });
             counts.set(dateKey, dailyCounts);
         });
         return counts;
-    }, [localSchedule, daysOfWeek]);
+    }, [localSchedule, daysOfWeek, allUsers]);
 
 
     if (isLoading) {
@@ -696,7 +702,7 @@ export default function ScheduleView() {
                                                                                 <TooltipTrigger asChild>
                                                                                     <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
                                                                                         {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
-                                                                                        {shiftCount > 1 && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
+                                                                                        {shiftCount > 1 && <ChevronsDownUp className="h-3 w-3 mr-1" />}
                                                                                         {abbreviateName(assignedUser.userName)}
                                                                                     </Badge>
                                                                                 </TooltipTrigger>
@@ -762,7 +768,7 @@ export default function ScheduleView() {
                                                                                 <TooltipTrigger asChild>
                                                                                     <Badge className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
                                                                                         {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
-                                                                                        {shiftCount > 1 && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
+                                                                                        {shiftCount > 1 && <ChevronsDownUp className="h-3 w-3 mr-1" />}
                                                                                         {abbreviateName(assignedUser.userName)}
                                                                                     </Badge>
                                                                                 </TooltipTrigger>
@@ -824,7 +830,7 @@ export default function ScheduleView() {
                                                                                     <TooltipTrigger asChild>
                                                                                         <Badge variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
                                                                                             {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
-                                                                                            {shiftCount > 1 && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
+                                                                                            {shiftCount > 1 && <ChevronsDownUp className="h-3 w-3 mr-1" />}
                                                                                             {abbreviateName(assignedUser.userName)}
                                                                                         </Badge>
                                                                                     </TooltipTrigger>
