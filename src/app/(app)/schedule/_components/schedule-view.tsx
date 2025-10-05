@@ -76,6 +76,10 @@ export default function ScheduleView() {
             router.replace('/');
             return;
         }
+        if (user.role === 'Chủ nhà hàng') {
+            router.replace('/shift-scheduling');
+            return;
+        }
 
         setIsLoading(true);
         let scheduleSubscribed = false;
