@@ -37,25 +37,42 @@ import { Separator } from '@/components/ui/separator';
 const ManagerReviewContent = ({ notification, schedule }: { notification: Notification, schedule: Schedule | null }) => {
     const { payload } = notification;
 
+    // Detailed Pass Request
+    if (!payload.isSwapRequest && payload.takenBy) {
+        return (
+            <div className="text-left space-y-2 py-2">
+                 <p className="font-bold text-lg text-primary text-center">YÊU CẦU PASS CA</p>
+                <div className="text-sm border p-3 rounded-md bg-background">
+                    <p><span className="font-semibold">{payload.requestingUser.userName}</span> muốn pass ca:</p>
+                    <p className="font-semibold text-primary">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                    <p className="text-muted-foreground">{format(parseISO(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+                </div>
+                 <div className="text-sm border p-3 rounded-md bg-background">
+                    <p><span className="font-semibold">{payload.takenBy.userName}</span> đã nhận ca này.</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Swap Request
     if (payload.isSwapRequest) {
-        // Find the shift that the 'takenBy' user is giving up
-        const swapForShift = schedule?.shifts.find(s => 
-            s.date === payload.shiftDate && 
+        const swapForShift = schedule?.shifts.find(s =>
+            s.date === payload.shiftDate &&
             s.assignedUsers.some(u => u.userId === payload.takenBy?.userId)
         );
 
         return (
             <div className="text-center space-y-2 py-2">
                 <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
-                <div className="flex flex-col items-center gap-1">
+                <div className="text-sm border p-3 rounded-md bg-background">
                     <p className="font-semibold">{payload.requestingUser.userName}</p>
-                    <p className="text-sm text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+                    <p className="text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
                 </div>
                 <Replace className="h-5 w-5 text-muted-foreground mx-auto" />
-                <div className="flex flex-col items-center gap-1">
+                <div className="text-sm border p-3 rounded-md bg-background">
                     <p className="font-semibold">{payload.takenBy?.userName}</p>
                     {swapForShift ? (
-                         <p className="text-sm text-muted-foreground">{swapForShift.label} ({swapForShift.timeSlot.start} - {swapForShift.timeSlot.end})</p>
+                         <p className="text-muted-foreground">{swapForShift.label} ({swapForShift.timeSlot.start} - {swapForShift.timeSlot.end})</p>
                     ) : (
                         <p className="text-sm text-red-500">Lỗi: không tìm thấy ca để đổi</p>
                     )}
@@ -64,7 +81,7 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
         );
     }
 
-    // This is for a simple pass request review
+    // Fallback for simple pass request review (should not be commonly hit for manager review)
     return (
         <p className="flex items-center gap-2 font-medium text-amber-600">
             <Send />
