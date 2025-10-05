@@ -545,6 +545,23 @@ export default function ScheduleView() {
             default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
         }
     };
+    
+    const dailyShiftCounts = useMemo(() => {
+        if (!localSchedule) return new Map<string, Map<string, number>>();
+        const counts = new Map<string, Map<string, number>>();
+        daysOfWeek.forEach(day => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const dailyCounts = new Map<string, number>();
+            const shiftsOnDay = localSchedule.shifts.filter(s => s.date === dateKey);
+            shiftsOnDay.forEach(shift => {
+                shift.assignedUsers.forEach(user => {
+                    dailyCounts.set(user.userId, (dailyCounts.get(user.userId) || 0) + 1);
+                });
+            });
+            counts.set(dateKey, dailyCounts);
+        });
+        return counts;
+    }, [localSchedule, daysOfWeek]);
 
 
     if (isLoading) {
@@ -673,15 +690,20 @@ export default function ScheduleView() {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                             const userAvailability = availabilityByDay[dateKey];
                                                                             const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
+                                                                            const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
                                                                             return (
                                                                             <Tooltip key={assignedUser.userId} delayDuration={100}>
                                                                                 <TooltipTrigger asChild>
                                                                                     <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
                                                                                         {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                                                                                        {shiftCount > 1 && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
                                                                                         {abbreviateName(assignedUser.userName)}
                                                                                     </Badge>
                                                                                 </TooltipTrigger>
-                                                                                {isBusy && <TooltipContent><p>Nhân viên này không đăng ký rảnh</p></TooltipContent>}
+                                                                                <TooltipContent>
+                                                                                    {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
+                                                                                    {shiftCount > 1 && <p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p>}
+                                                                                </TooltipContent>
                                                                             </Tooltip>
                                                                         )})}
                                                                     </div>
@@ -734,15 +756,20 @@ export default function ScheduleView() {
                                                                         const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                         const userAvailability = availabilityByDay[dateKey];
                                                                         const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
+                                                                        const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
                                                                         return (
                                                                             <Tooltip key={assignedUser.userId} delayDuration={100}>
                                                                                 <TooltipTrigger asChild>
                                                                                     <Badge className={cn("whitespace-normal h-auto py-0.5", getRoleColor(userRole))}>
                                                                                         {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                                                                                        {shiftCount > 1 && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
                                                                                         {abbreviateName(assignedUser.userName)}
                                                                                     </Badge>
                                                                                 </TooltipTrigger>
-                                                                                 {isBusy && <TooltipContent><p>Nhân viên này không đăng ký rảnh</p></TooltipContent>}
+                                                                                 <TooltipContent>
+                                                                                    {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
+                                                                                    {shiftCount > 1 && <p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p>}
+                                                                                </TooltipContent>
                                                                             </Tooltip>
                                                                         )
                                                                     })}
@@ -790,16 +817,21 @@ export default function ScheduleView() {
                                                                             const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role || 'Bất kỳ';
                                                                             const userAvailability = availabilityByDay[dateKey];
                                                                             const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
+                                                                            const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
 
                                                                             return (
                                                                                 <Tooltip key={assignedUser.userId} delayDuration={100}>
                                                                                     <TooltipTrigger asChild>
                                                                                         <Badge variant="outline" className={cn("whitespace-normal h-auto", getRoleColor(userRole))}>
                                                                                             {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                                                                                            {shiftCount > 1 && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
                                                                                             {abbreviateName(assignedUser.userName)}
                                                                                         </Badge>
                                                                                     </TooltipTrigger>
-                                                                                    {isBusy && <TooltipContent><p>Nhân viên này không đăng ký rảnh</p></TooltipContent>}
+                                                                                     <TooltipContent>
+                                                                                        {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
+                                                                                        {shiftCount > 1 && <p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p>}
+                                                                                    </TooltipContent>
                                                                                 </Tooltip>
                                                                             )
                                                                         })}
