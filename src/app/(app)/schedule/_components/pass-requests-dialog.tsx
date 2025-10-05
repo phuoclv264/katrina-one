@@ -33,30 +33,18 @@ import { useAuth } from '@/hooks/use-auth';
 import { isUserAvailable } from '@/lib/schedule-utils';
 import { cn } from '@/lib/utils';
 
-type PassRequestsDialogProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  notifications: Notification[];
-  allUsers: ManagedUser[];
-  weekInterval: { start: Date; end: Date };
-  onAccept: (notification: Notification) => void;
-  onDecline: (notification: Notification) => void;
-  onCancel: (notificationId: string) => void;
-  onRevert: (notification: Notification) => void;
-  onAssign?: (notification: Notification) => void;
-  onApprove: (notification: Notification) => void;
-  onRejectApproval: (notificationId: string) => void;
-  isProcessing: boolean;
-  schedule: Schedule | null;
-};
-
-const ManagerReviewContent = ({ notification }: { notification: Notification }) => {
+const ManagerReviewContent = ({ notification, schedule }: { notification: Notification, schedule: Schedule | null }) => {
     const { payload } = notification;
-    
-    // This is for a swap request review
+
     if (payload.isSwapRequest) {
+        // Find the shift that the 'takenBy' user is giving up
+        const swapForShift = schedule?.shifts.find(s => 
+            s.date === payload.shiftDate && 
+            s.assignedUsers.some(u => u.userId === payload.takenBy?.userId)
+        );
+
         return (
-             <div className="text-center space-y-2 py-2">
+            <div className="text-center space-y-2 py-2">
                 <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
                 <div className="flex flex-col items-center gap-1">
                     <p className="font-semibold">{payload.requestingUser.userName}</p>
@@ -65,8 +53,8 @@ const ManagerReviewContent = ({ notification }: { notification: Notification }) 
                 <Replace className="h-5 w-5 text-muted-foreground mx-auto" />
                 <div className="flex flex-col items-center gap-1">
                     <p className="font-semibold">{payload.takenBy?.userName}</p>
-                    {payload.swapForShift ? (
-                         <p className="text-sm text-muted-foreground">{payload.swapForShift?.label} ({payload.swapForShift?.timeSlot.start} - {payload.swapForShift?.timeSlot.end})</p>
+                    {swapForShift ? (
+                         <p className="text-sm text-muted-foreground">{swapForShift.label} ({swapForShift.timeSlot.start} - {swapForShift.timeSlot.end})</p>
                     ) : (
                         <p className="text-sm text-red-500">Lỗi: không tìm thấy ca để đổi</p>
                     )}
@@ -285,7 +273,7 @@ export default function PassRequestsDialog({
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromHistory(notification.id)}>Xóa vĩnh viễn</AlertDialogAction></AlertDialogFooter>
+                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromHistory(notification.id)}>Xóa vĩnh viễn</AlertDialogAction></AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
                 )}
@@ -351,7 +339,7 @@ export default function PassRequestsDialog({
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
                                         <div className="space-y-2">
                                            {isManagerReviewing ? (
-                                                <ManagerReviewContent notification={notification} />
+                                                <ManagerReviewContent notification={notification} schedule={schedule} />
                                             ) : (
                                                 <>
                                                     <p className="font-bold text-lg">{payload.shiftLabel}</p>
