@@ -279,7 +279,7 @@ export default function PassRequestsDialog({
         const isDirectRequest = !!payload.targetUserId;
         return (
             <div className="flex gap-2 self-end sm:self-center">
-                 {!isDirectRequest && currentUser?.role === 'Chủ nhà hàng' && (
+                 {currentUser?.role === 'Chủ nhà hàng' && !isDirectRequest && (
                     <Button variant="secondary" size="sm" onClick={() => onAssign && onAssign(notification)} disabled={isProcessing}>
                         <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
                     </Button>
@@ -297,11 +297,11 @@ export default function PassRequestsDialog({
         );
     }
 
-    // Priority 4: Manager actions on historical requests
+    // Priority 4: Manager/Owner actions on historical requests
     if (isManagerOrOwner && (notification.status === 'resolved' || notification.status === 'cancelled')) {
         return (
             <div className="flex gap-2 self-end sm:self-center">
-                {notification.status === 'resolved' && (
+                {notification.status === 'resolved' && currentUser!.role === 'Chủ nhà hàng' && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                             <Button variant="outline" size="sm" disabled={isProcessing}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
@@ -312,7 +312,7 @@ export default function PassRequestsDialog({
                         </AlertDialogContent>
                     </AlertDialog>
                 )}
-                {currentUser!.role === 'Chủ nhà hàng' && (
+                 {currentUser!.role === 'Chủ nhà hàng' && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button>
