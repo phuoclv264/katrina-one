@@ -64,19 +64,62 @@ import { isUserAvailable } from '@/lib/schedule-utils';
 
 
 // Helper function to abbreviate names
-const abbreviateName = (name: string): string => {
-  if (!name) return '';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length <= 1) {
-    return name;
-  }
-  const lastWord = parts[parts.length - 1];
-  const initials = parts
-    .slice(0, -1)
-    .map(part => `${part.charAt(0).toUpperCase()}.`)
-    .join('');
-  return `${initials}${lastWord}`;
+const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> => {
+    const abbreviations = new Map<string, string>();
+    const usersByLastName = new Map<string, ManagedUser[]>();
+
+    // Group users by their last name (first name in Vietnamese context)
+    users.forEach(user => {
+        const nameParts = user.displayName.trim().split(/\s+/);
+        if (nameParts.length > 0) {
+            const lastName = nameParts[nameParts.length - 1];
+            if (!usersByLastName.has(lastName)) {
+                usersByLastName.set(lastName, []);
+            }
+            usersByLastName.get(lastName)!.push(user);
+        }
+    });
+
+    for (const [lastName, userGroup] of usersByLastName.entries()) {
+        if (userGroup.length === 1) {
+            // If the last name is unique across all users, just use the last name
+            abbreviations.set(userGroup[0].uid, lastName);
+        } else {
+            // If last names are duplicated, generate abbreviations
+            const tempAbbrs = new Map<string, string[]>(); // abbr -> [userId, userId]
+
+            userGroup.forEach(user => {
+                const nameParts = user.displayName.trim().split(/\s+/);
+                // Start with just the last name
+                let currentAbbr = lastName;
+                // Iterate backwards from the second to last part of the name
+                for (let i = nameParts.length - 2; i >= 0; i--) {
+                    const candidateAbbr = `${nameParts[i].charAt(0).toUpperCase()}.${currentAbbr}`;
+                    
+                    // Check if this new abbreviation already exists for another user in the group
+                    const existingUsersWithCandidate = userGroup.filter(u => {
+                        if (u.uid === user.uid) return false; // Don't compare with self
+                        const otherParts = u.displayName.trim().split(/\s+/);
+                        let otherAbbr = otherParts[otherParts.length - 1];
+                        for (let j = otherParts.length - 2; j >= i; j--) {
+                           otherAbbr = `${otherParts[j].charAt(0).toUpperCase()}.${otherAbbr}`;
+                        }
+                        return otherAbbr === candidateAbbr;
+                    });
+                    
+                    currentAbbr = candidateAbbr;
+                    if (existingUsersWithCandidate.length === 0) {
+                        break; // This abbreviation is unique within the group, we can stop
+                    }
+                }
+                 abbreviations.set(user.uid, currentAbbr);
+            });
+        }
+    }
+
+    return abbreviations;
 };
+
 
 const roleOrder: Record<UserRole, number> = {
   'Phục vụ': 1,
@@ -558,7 +601,6 @@ export default function ScheduleView() {
             shiftsOnDay.forEach(shift => {
                 shift.assignedUsers.forEach(assignedUser => {
                     const userRole = allUsers.find(u => u.uid === assignedUser.userId)?.role;
-                    // Only count for non-manager roles
                     if (userRole && userRole !== 'Quản lý' && userRole !== 'Chủ nhà hàng') {
                        dailyCounts.set(assignedUser.userId, (dailyCounts.get(assignedUser.userId) || 0) + 1);
                     }
@@ -569,6 +611,7 @@ export default function ScheduleView() {
         return counts;
     }, [localSchedule, daysOfWeek, allUsers]);
 
+    const userAbbreviations = useMemo(() => generateSmartAbbreviations(allUsers), [allUsers]);
 
     if (isLoading) {
         return (
@@ -614,27 +657,28 @@ export default function ScheduleView() {
         const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
         const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
         const hasMultipleShifts = shiftCount >= 2;
+        const nameToShow = userAbbreviations.get(assignedUser.userId) || assignedUser.userName;
 
         const badgeContent = (
-            <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
+             <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
                 {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
                 )}
-                {abbreviateName(assignedUser.userName)}
+                {nameToShow}
             </Badge>
         );
 
-        const hasTooltipContent = isBusy || hasMultipleShifts;
+        const tooltipContent = [
+            isBusy && "Nhân viên này không đăng ký rảnh.",
+            hasMultipleShifts && `Nhân viên này được xếp ${shiftCount} ca hôm nay.`
+        ].filter(Boolean).join(' ');
 
-        if (hasTooltipContent) {
+        if (tooltipContent) {
             return (
                 <Tooltip delayDuration={100}>
                     <TooltipTrigger asChild>{badgeContent}</TooltipTrigger>
-                    <TooltipContent>
-                        {isBusy && <p>Nhân viên này không đăng ký rảnh.</p>}
-                        {hasMultipleShifts && <p>Nhân viên này được xếp {shiftCount} ca hôm nay.</p>}
-                    </TooltipContent>
+                    <TooltipContent><p>{tooltipContent}</p></TooltipContent>
                 </Tooltip>
             );
         }
