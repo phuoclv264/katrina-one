@@ -1122,6 +1122,7 @@ export const dataStore = {
                     userId: requestingUser.uid,
                     userName: requestingUser.displayName
                 },
+                isSwapRequest: false, // Explicitly set for public pass requests
                 declinedBy: [],
             }
         };
@@ -1159,7 +1160,7 @@ export const dataStore = {
                     userName: requestingUser.displayName
                 },
                 targetUserId: targetUser.uid,
-                isSwapRequest: isSwap, // Set based on the parameter
+                isSwapRequest: isSwap,
                 declinedBy: [],
             }
         };
