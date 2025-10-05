@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, CheckCircle, AlertTriangle } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
@@ -83,14 +83,16 @@ export default function ShiftAssignmentDialog({
   const sortedUsers = useMemo(() => {
     const shiftRole = shift.role;
     
-    let roleFilteredUsers = allUsers;
+    let roleFilteredUsers: ManagedUser[];
 
-    // Filter out test users and owner for managers
     if (currentUserRole === 'Quản lý') {
       roleFilteredUsers = allUsers.filter(user => 
         user.role !== 'Chủ nhà hàng' && !user.displayName.includes('Không chọn')
       );
+    } else {
+        roleFilteredUsers = allUsers;
     }
+
 
     // Further filter by the role required for the shift
     roleFilteredUsers = roleFilteredUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole || user.secondaryRoles?.includes(shiftRole));
