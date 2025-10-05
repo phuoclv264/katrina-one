@@ -32,6 +32,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { isUserAvailable } from '@/lib/schedule-utils';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const ManagerReviewContent = ({ notification, schedule }: { notification: Notification, schedule: Schedule | null }) => {
     const { payload } = notification;
@@ -251,11 +252,14 @@ export default function PassRequestsDialog({
 
     // Priority 3: Handle manager's actions on pending public requests
     if (isManagerOrOwner && notification.status === 'pending') {
+        const isDirectRequest = !!payload.targetUserId;
         return (
             <div className="flex gap-2 self-end sm:self-center">
-                <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing}>
-                    <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
-                </Button>
+                 {!isDirectRequest && (
+                    <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing}>
+                        <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
+                    </Button>
+                 )}
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={isProcessing}><Trash2 className="mr-2 h-4 w-4"/> Hủy</Button>
@@ -378,13 +382,9 @@ export default function PassRequestsDialog({
                                                         ) : (
                                                             <>
                                                                 <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
-                                                                {isManagerViewingPendingSwap ? (
+                                                                {(isManagerViewingPendingSwap || (payload.targetUserId === currentUser!.uid)) && (
                                                                     <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
-                                                                        Yêu cầu đổi ca tới: {targetUser?.displayName || 'Không rõ'}
-                                                                    </p>
-                                                                ) : payload.targetUserId === currentUser!.uid && (
-                                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
-                                                                        {payload.isSwapRequest ? 'Yêu cầu ĐỔI CA với bạn.' : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
+                                                                        {payload.isSwapRequest ? `Yêu cầu ĐỔI CA ${isManagerViewingPendingSwap ? `tới: ${targetUser?.displayName || 'Không rõ'}` : 'với bạn.'}` : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
                                                                     </p>
                                                                 )}
 
@@ -418,16 +418,45 @@ export default function PassRequestsDialog({
                         {historicalRequests.map(notification => {
                             const payload = notification.payload;
                             const timeToShow = (notification.resolvedAt || notification.createdAt) as string;
+                            
+                            const isSwap = payload.isSwapRequest && notification.status === 'resolved' && payload.takenBy;
+                            let swapForShiftLabel: string | null = null;
+                            if (isSwap) {
+                                const swapShift = schedule?.shifts.find(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === payload.requestingUser.userId));
+                                if (swapShift) {
+                                     swapForShiftLabel = `${swapShift.label} (${swapShift.timeSlot.start}-${swapShift.timeSlot.end})`;
+                                }
+                            }
+
                             return (
                                 <Card key={notification.id}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
                                         <div className="space-y-2">
-                                            <p className="font-medium">{payload.shiftLabel} <span className="text-sm text-muted-foreground">({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</span></p>
+                                            {isSwap ? (
+                                                 <div className="text-sm space-y-1">
+                                                     <div className="flex items-center gap-2">
+                                                        <span className="font-semibold">{payload.requestingUser.userName}</span>
+                                                        <span className="text-muted-foreground">({payload.shiftLabel})</span>
+                                                     </div>
+                                                    <div className="flex items-center gap-2 pl-2">
+                                                        <Replace className="h-4 w-4 text-muted-foreground"/>
+                                                        <span>đổi với</span>
+                                                    </div>
+                                                     <div className="flex items-center gap-2">
+                                                        <span className="font-semibold">{payload.takenBy!.userName}</span>
+                                                        <span className="text-muted-foreground">({swapForShiftLabel || 'ca đã đổi'})</span>
+                                                     </div>
+                                                 </div>
+                                            ) : (
+                                                 <p className="font-medium">{payload.shiftLabel} <span className="text-sm text-muted-foreground">({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</span></p>
+                                            )}
+                                            
                                             <div className="text-sm text-muted-foreground space-y-1">
-                                                 <p className="flex items-center gap-2"><UserIcon />{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
+                                                 {!isSwap && <p className="flex items-center gap-2"><UserIcon />{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>}
                                                  {notification.resolvedBy && (<p className="flex items-center gap-2"><UserCog className="h-4 w-4"/><span>Xử lý bởi: {notification.resolvedBy.userName}</span></p>)}
                                             </div>
-                                            {notification.status === 'resolved' && payload.takenBy && (<Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Đã nhận bởi {payload.takenBy.userName}</Badge>)}
+
+                                            {notification.status === 'resolved' && payload.takenBy && !isSwap && (<Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Đã nhận bởi {payload.takenBy.userName}</Badge>)}
                                             {notification.status === 'cancelled' && (<div className="flex flex-col items-start gap-1 mt-1"><Badge variant="destructive">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>{payload.cancellationReason && (<p className="text-xs italic text-destructive">{payload.cancellationReason}</p>)}</div>)}
                                         </div>
                                         <div className="flex items-end">
