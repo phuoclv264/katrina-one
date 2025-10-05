@@ -658,7 +658,7 @@ export default function ScheduleView() {
         const nameToShow = userAbbreviations.get(assignedUser.userId) || assignedUser.userName;
 
         const badgeContent = (
-             <Badge className={cn("block w-full h-auto py-0.5 whitespace-normal text-xs", getRoleColor(userRole))}>
+            <Badge className={cn("whitespace-nowrap h-auto py-0.5 text-xs", getRoleColor(userRole))}>
                 {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
@@ -767,7 +767,7 @@ export default function ScheduleView() {
                                                                         <span className="text-xs mt-1">Thêm</span>
                                                                     </div>
                                                                 ) : (
-                                                                     <div className="flex-grow flex flex-col items-center justify-center space-y-1 py-1 w-full">
+                                                                     <div className="flex-grow w-full flex flex-row flex-wrap items-center justify-center content-center gap-1 py-1">
                                                                         {sortedAssignedUsers.map(assignedUser => (
                                                                           <React.Fragment key={assignedUser.userId}>
                                                                             {renderUserBadge(assignedUser, dateKey, shiftObject)}
@@ -817,13 +817,15 @@ export default function ScheduleView() {
                                                                 return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
                                                             });
                                                             return (
-                                                                <div key={shiftObject.id} className="flex items-center gap-2 flex-wrap text-sm font-normal">
+                                                                <div key={shiftObject.id} className="flex items-start gap-2 flex-wrap text-sm font-normal">
                                                                     <span className="font-semibold">{shiftObject.label}:</span>
-                                                                    {sortedAssignedUsers.map(assignedUser => (
-                                                                      <React.Fragment key={assignedUser.userId}>
-                                                                        {renderUserBadge(assignedUser, dateKey, shiftObject)}
-                                                                      </React.Fragment>
-                                                                    ))}
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {sortedAssignedUsers.map(assignedUser => (
+                                                                        <React.Fragment key={assignedUser.userId}>
+                                                                            {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                        </React.Fragment>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
                                                             )
                                                         })}
