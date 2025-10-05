@@ -220,7 +220,7 @@ export default function ScheduleView() {
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
             
-            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser);
+            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
 
             // Optimistically update UI
             setNotifications(prevNotifs => prevNotifs.map(n => {
@@ -287,7 +287,15 @@ export default function ScheduleView() {
             toast.success('Đã phê duyệt yêu cầu đổi ca.');
         } catch (error: any) {
             console.error(error);
-            toast.error(`Không thể phê duyệt: ${error.message}`);
+            let errorMessage = 'Không thể phê duyệt yêu cầu.';
+            if (error instanceof Error) {
+                if (error.message.includes('SHIFT_CONFLICT:')) {
+                    errorMessage = error.message.replace('SHIFT_CONFLICT:', '').trim();
+                } else if (error.message.includes('ALREADY_RESOLVED:')) {
+                    errorMessage = error.message.replace('ALREADY_RESOLVED:', '').trim();
+                }
+            }
+            toast.error(errorMessage);
         } finally {
             setIsProcessing(false);
             delete (window as any).processingNotificationId;
@@ -358,7 +366,7 @@ export default function ScheduleView() {
                     const isPublicRequest = !payload.targetUserId;
                     
                     if (isTargetedToMe || isPublicRequest) {
-                        const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole;
+                        const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole && !(user.secondaryRoles || []).includes(payload.shiftRole as UserRole);
                         const hasDeclined = (payload.declinedBy || []).includes(user.uid);
                         if (!isDifferentRole && !hasDeclined) {
                             return true;
@@ -576,7 +584,6 @@ export default function ScheduleView() {
                 isOpen={isPassRequestsDialogOpen}
                 onClose={() => setIsPassRequestsDialogOpen(false)}
                 notifications={notifications}
-                currentUser={user}
                 allUsers={allUsers}
                 weekInterval={weekInterval}
                 onAccept={handleTakeShift}
@@ -605,15 +612,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
-
-
-
-
-
-
-
-
-
-
-    
