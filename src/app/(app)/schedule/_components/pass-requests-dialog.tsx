@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,45 +29,51 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { dataStore } from '@/lib/data-store';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { isUserAvailable } from '@/lib/schedule-utils';
+import { cn } from '@/lib/utils';
 
 type PassRequestsDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   notifications: Notification[];
-  currentUser: AuthUser;
   allUsers: ManagedUser[];
   weekInterval: { start: Date; end: Date };
   onAccept: (notification: Notification) => void;
   onDecline: (notification: Notification) => void;
   onCancel: (notificationId: string) => void;
   onRevert: (notification: Notification) => void;
-  onAssign: (notification: Notification) => void;
+  onAssign?: (notification: Notification) => void;
   onApprove: (notification: Notification) => void;
   onRejectApproval: (notificationId: string) => void;
   isProcessing: boolean;
-  schedule: Schedule | null; // Pass the whole schedule
+  schedule: Schedule | null;
 };
 
 export default function PassRequestsDialog({
   isOpen,
   onClose,
   notifications,
-  currentUser,
   allUsers,
   weekInterval,
   onAccept,
   onDecline,
   onCancel,
   onRevert,
-  onAssign,
+  onAssign = () => {}, // No-op for staff view
   onApprove,
   onRejectApproval,
   isProcessing,
   schedule,
 }: PassRequestsDialogProps) {
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  
+
+  const isManagerOrOwner = currentUser?.role === 'Quản lý' || currentUser?.role === 'Chủ nhà hàng';
+
   const { pendingRequests, historicalRequests } = useMemo(() => {
+    if (!currentUser) return { pendingRequests: [], historicalRequests: [] };
+    
     const pending: Notification[] = [];
     const historical: Notification[] = [];
 
@@ -83,50 +89,56 @@ export default function PassRequestsDialog({
       const didITakeTheShift = payload.takenBy?.userId === currentUser.uid;
 
       if (notification.status === 'pending' || notification.status === 'pending_approval') {
-         if (isMyRequest) { // I can see my own requests
-            pending.push(notification);
-            return;
-         }
-         // If I am a manager/owner, I can see all pending approvals
-         if(notification.status === 'pending_approval' && (currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng')) {
-             const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
-             if (currentUser.role === 'Chủ nhà hàng' || !isRequestInvolvingManager) {
-                pending.push(notification);
-                return;
-             }
-         }
-         // If status is 'pending', check if I am eligible to see it
-         if (notification.status === 'pending') {
-            const isTargetedToMe = payload.targetUserId === currentUser.uid;
-            const isPublicRequest = !payload.targetUserId;
-            
-            if (isTargetedToMe || isPublicRequest) {
-                const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole && !currentUser.secondaryRoles?.includes(payload.shiftRole as UserRole);
-                const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
-                if (!isDifferentRole && !hasDeclined) {
-                    pending.push(notification);
-                }
+        // Manager/Owner specific logic from shift-scheduling dialog
+        if (isManagerOrOwner) {
+          const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
+          if (currentUser.role === 'Chủ nhà hàng' || !isRequestInvolvingManager) {
+            // A request specifically targeted to the manager should be treated as a staff action first.
+            if(payload.targetUserId === currentUser.uid && notification.status === 'pending') {
+               pending.push(notification);
+            } else {
+               pending.push(notification);
             }
-         }
-         // A user who took a shift should see it while it's pending approval
-         if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser.uid) {
-             pending.push(notification);
-         }
+            return;
+          }
+        }
+        
+        // Staff logic
+        if (isMyRequest) {
+           pending.push(notification);
+           return;
+        }
+
+        if (notification.status === 'pending_approval' && didITakeTheShift) {
+           pending.push(notification);
+           return;
+        }
+
+        if (notification.status === 'pending') {
+           const isTargetedToMe = payload.targetUserId === currentUser.uid;
+           const isPublicRequest = !payload.targetUserId;
+           
+           if (isTargetedToMe || isPublicRequest) {
+               const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && currentUser.role !== payload.shiftRole && !currentUser.secondaryRoles?.includes(payload.shiftRole as UserRole);
+               const hasDeclined = (payload.declinedBy || []).includes(currentUser.uid);
+               if (!isDifferentRole && !hasDeclined) {
+                   pending.push(notification);
+               }
+           }
+        }
       } else { // 'resolved' or 'cancelled'
-        if(isMyRequest || didITakeTheShift || currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý') {
+        if(isMyRequest || didITakeTheShift || isManagerOrOwner) {
             historical.push(notification);
         }
       }
     });
 
-    // Sort pending requests by shift time (earliest first)
     pending.sort((a,b) => {
         const dateA = new Date(`${a.payload.shiftDate}T${a.payload.shiftTimeSlot.start}`);
         const dateB = new Date(`${b.payload.shiftDate}T${b.payload.shiftTimeSlot.end}`);
         return dateA.getTime() - dateB.getTime();
     });
 
-    // Sort historical requests by when they were created/resolved (newest first)
     historical.sort((a,b) => {
         const timeA = a.resolvedAt || a.createdAt;
         const timeB = b.resolvedAt || b.createdAt;
@@ -135,10 +147,10 @@ export default function PassRequestsDialog({
 
 
     return { pendingRequests: pending, historicalRequests: historical };
-  }, [notifications, currentUser, allUsers, weekInterval]);
+  }, [notifications, currentUser, allUsers, weekInterval, isManagerOrOwner]);
   
   const handleDeleteFromHistory = async (notificationId: string) => {
-    if (currentUser.role !== 'Chủ nhà hàng') return;
+    if (currentUser?.role !== 'Chủ nhà hàng') return;
     try {
         await dataStore.deleteNotification(notificationId);
         toast({
@@ -155,110 +167,146 @@ export default function PassRequestsDialog({
   }
 
   const renderRequestActions = (notification: Notification) => {
-      const payload = notification.payload;
-      const isMyRequest = payload.requestingUser.userId === currentUser.uid;
-      const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
-      const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
-      const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestInvolvingManager;
-      
-      const isProcessingThis = isProcessing && (window as any).processingNotificationId === notification.id;
+    const payload = notification.payload;
+    const isMyRequest = payload.requestingUser.userId === currentUser!.uid;
+    const isSwap = payload.isSwapRequest;
+    
+    const isManagerReviewing = isManagerOrOwner && notification.status === 'pending_approval';
 
+    // Check if this request is a direct request to the current user (who might be a manager)
+    const isDirectRequestToMe = notification.status === 'pending' && payload.targetUserId === currentUser!.uid;
 
-      // --- Manager / Owner Actions ---
-      if (notification.status === 'pending_approval' && (canOwnerApprove || canManagerApprove)) {
-         return (
-             <div className="flex gap-2 self-end sm:self-center">
-                 <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessingThis}>
-                     {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>} Từ chối
-                 </Button>
-                 <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessingThis}>
-                     {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>} Phê duyệt
-                 </Button>
-             </div>
-         )
-      }
+    if (isDirectRequestToMe) {
+      // Show staff actions first for direct requests, even for managers
+      return (
+        <div className="flex gap-2 self-end sm:self-center">
+          <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
+          <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing}>
+              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : (isSwap ? <Replace className="mr-2 h-4 w-4"/> : <CheckCircle className="mr-2 h-4 w-4"/>)}
+              {isSwap ? 'Đổi ca' : 'Nhận ca'}
+          </Button>
+        </div>
+      );
+    }
+    
+    if (isManagerReviewing) {
+        const canOwnerApprove = currentUser!.role === 'Chủ nhà hàng';
+        const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
+        const canManagerApprove = currentUser!.role === 'Quản lý' && !isRequestInvolvingManager;
 
-      if (notification.status === 'pending' && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
-          return (
-             <div className="flex gap-2 self-end sm:self-center">
-                 <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessingThis}>
+        if (canOwnerApprove || canManagerApprove) {
+            return (
+                <div className="flex gap-2 self-end sm:self-center">
+                    <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing}>
+                        <XCircle className="mr-2 h-4 w-4"/> Từ chối
+                    </Button>
+                    <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessing}>
+                        <CheckCircle className="mr-2 h-4 w-4"/> Phê duyệt
+                    </Button>
+                </div>
+            );
+        }
+    }
+
+    if (isManagerOrOwner && notification.status === 'pending') {
+        return (
+            <div className="flex gap-2 self-end sm:self-center">
+                <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing}>
                     <UserCheck className="mr-2 h-4 w-4"/> Chỉ định
                 </Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                         <Button variant="destructive" size="sm" disabled={isProcessingThis}>
-                            <Trash2 className="mr-2 h-4 w-4"/> Hủy
-                        </Button>
+                        <Button variant="destructive" size="sm" disabled={isProcessing}><Trash2 className="mr-2 h-4 w-4"/> Hủy</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                         <AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ hủy yêu cầu của {payload.requestingUser.userName}. Nhân viên này sẽ tiếp tục chịu trách nhiệm cho ca làm việc.</AlertDialogDescription></AlertDialogHeader>
-                         <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
+                        <AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ hủy yêu cầu của {payload.requestingUser.userName}.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             </div>
-          )
-      }
-      
-      if ((notification.status === 'resolved' || notification.status === 'cancelled') && (currentUser.role === 'Chủ nhà hàng' || currentUser.role === 'Quản lý')) {
-         return (
+        );
+    }
+
+    if (isManagerOrOwner && (notification.status === 'resolved' || notification.status === 'cancelled')) {
+        return (
             <div className="flex gap-2 self-end sm:self-center">
                 {notification.status === 'resolved' && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={isProcessingThis}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
+                            <Button variant="outline" size="sm" disabled={isProcessing}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán ca làm việc trở lại cho nhân viên ban đầu ({payload.requestingUser.userName}) và đặt lại trạng thái yêu cầu này.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận Hoàn tác</AlertDialogAction></AlertDialogFooter>
+                            <AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gán lại ca cho nhân viên ban đầu ({payload.requestingUser.userName}).</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
                 )}
-                 {currentUser.role === 'Chủ nhà hàng' && (
+                {currentUser!.role === 'Chủ nhà hàng' && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive h-9 w-9">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button>
                         </AlertDialogTrigger>
-                         <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn yêu cầu này khỏi hệ thống. Chỉ nên dùng để dọn dẹp các mục cũ. Không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
                             <AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteFromHistory(notification.id)}>Xóa vĩnh viễn</AlertDialogAction></AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
                 )}
             </div>
-           );
-      }
-      
-      // --- Staff Actions ---
-      if (isMyRequest) {
-          if (notification.status === 'pending') {
-              return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessingThis}>Hủy yêu cầu</Button>
-          }
-          if (notification.status === 'pending_approval') {
-              return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>
-          }
-      } else { // It's someone else's request
-           if (notification.status === 'pending') {
-              const isSwap = payload.isSwapRequest;
-              return (
-                 <div className="flex gap-2 self-end sm:self-center">
-                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessingThis}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
-                    <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessingThis}>
-                        {isProcessingThis ? <Loader2 className="h-4 w-4 animate-spin"/> : (isSwap ? <Replace className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4"/>)}
+        );
+    }
+
+    // Default Staff Actions
+    if (isMyRequest) {
+        if (notification.status === 'pending') return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessing}>Hủy yêu cầu</Button>;
+        if (notification.status === 'pending_approval') return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>;
+    } else {
+        if (notification.status === 'pending') {
+            return (
+                <div className="flex gap-2 self-end sm:self-center">
+                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing}><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
+                    <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing}>
+                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : (isSwap ? <Replace className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4"/>)}
                         {isSwap ? 'Đổi ca' : 'Nhận ca'}
                     </Button>
                 </div>
-             );
-           }
-            if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser.uid) {
-                return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>
-            }
-      }
-      
-      return null;
-  }
+            );
+        }
+        if (notification.status === 'pending_approval' && payload.takenBy?.userId === currentUser!.uid) {
+            return <Badge variant="secondary" className="p-2">Chờ duyệt</Badge>;
+        }
+    }
+    
+    return null;
+  };
   
+  const ManagerReviewContent = ({ notification }: { notification: Notification }) => {
+    const { payload } = notification;
+    if (!payload.isSwapRequest) {
+        return (
+            <p className="flex items-center gap-2 font-medium text-amber-600">
+                <Send />
+                {payload.requestingUser.userName} pass ca, được nhận bởi {payload.takenBy?.userName}
+            </p>
+        );
+    }
+    
+    return (
+        <div className="text-center space-y-2">
+            <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
+            <div className="flex flex-col items-center gap-1">
+                <p className="font-semibold">{payload.requestingUser.userName}</p>
+                <p className="text-sm text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
+            </div>
+            <Replace className="h-5 w-5 text-muted-foreground mx-auto" />
+            <div className="flex flex-col items-center gap-1">
+                <p className="font-semibold">{payload.takenBy?.userName}</p>
+                <p className="text-sm text-muted-foreground">{payload.swapForShift?.label} ({payload.swapForShift?.timeSlot.start} - {payload.swapForShift?.timeSlot.end})</p>
+            </div>
+        </div>
+    );
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -270,56 +318,64 @@ export default function PassRequestsDialog({
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] -mx-6 px-6">
             <div className="space-y-6">
-                
-                 {/* All Pending Requests */}
                 <div>
                     <h3 className="font-semibold mb-2">Yêu cầu đang chờ xử lý</h3>
                     {pendingRequests.length > 0 ? (
                         <div className="space-y-3">
                         {pendingRequests.map(notification => {
                             const payload = notification.payload;
-                            const isMyRequest = payload.requestingUser.userId === currentUser.uid;
+                            const isMyRequest = payload.requestingUser.userId === currentUser!.uid;
                             const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId) : null;
-                            const isSwap = payload.isSwapRequest;
+                            
+                            const isManagerReviewingSwap = isManagerOrOwner && notification.status === 'pending_approval' && payload.isSwapRequest;
 
-                            const myCurrentShiftLabel = schedule?.shifts
-                                .filter(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === currentUser.uid))
-                                .map(s => s.label)
-                                .join(', ') || 'Không có';
+                            let myCurrentShiftLabel = "Không có";
+                             if (schedule && !isManagerOrOwner) {
+                                myCurrentShiftLabel = schedule.shifts
+                                    .filter(s => s.date === payload.shiftDate && s.assignedUsers.some(u => u.userId === currentUser!.uid))
+                                    .map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`)
+                                    .join(', ') || 'Không có';
+                            }
 
                             return (
                                 <Card key={notification.id} className={notification.status === 'pending_approval' ? "border-amber-500 border-2" : "border-primary border-2"}>
                                     <CardContent className="p-3 flex flex-col sm:flex-row justify-between gap-3">
                                         <div className="space-y-2">
-                                            <p className="font-bold text-lg">{payload.shiftLabel}</p>
-                                            <div className="text-sm text-muted-foreground space-y-1">
-                                                <p className="flex items-center gap-2"><Clock />{payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end}</p>
-                                                <p className="flex items-center gap-2"><Calendar />{format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-                                                
-                                                {isMyRequest ? (
-                                                    targetUser ? (
-                                                        <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
-                                                            {isSwap ? 'Đã gửi yêu cầu ĐỔI CA tới:' : 'Đã gửi yêu cầu PASS CA tới:'} {targetUser.displayName}
-                                                        </p>
-                                                    ) : (
-                                                        <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Yêu cầu công khai của bạn</p>
-                                                    )
-                                                ) : (
-                                                    <>
-                                                        <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
-                                                        {payload.targetUserId && payload.targetUserId === currentUser.uid &&
-                                                            <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
-                                                                {isSwap ? 'Yêu cầu ĐỔI CA với bạn.' : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
-                                                            </p>
+                                           {isManagerReviewingSwap ? (
+                                                <ManagerReviewContent notification={notification} />
+                                            ) : (
+                                                <>
+                                                    <p className="font-bold text-lg">{payload.shiftLabel}</p>
+                                                    <div className="text-sm text-muted-foreground space-y-1">
+                                                        <p className="flex items-center gap-2"><Clock />{payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end}</p>
+                                                        <p className="flex items-center gap-2"><Calendar />{format(new Date(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+                                                        
+                                                        {isMyRequest ? (
+                                                            targetUser ? (
+                                                                <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                                    {payload.isSwapRequest ? 'Đã gửi yêu cầu ĐỔI CA tới:' : 'Đã gửi yêu cầu PASS CA tới:'} {targetUser.displayName}
+                                                                </p>
+                                                            ) : (
+                                                                <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Yêu cầu công khai của bạn</p>
+                                                            )
+                                                        ) : (
+                                                            <>
+                                                                <p className="flex items-center gap-2 font-medium text-foreground"><UserIcon />Từ {payload.requestingUser.userName}</p>
+                                                                {payload.targetUserId === currentUser!.uid &&
+                                                                    <p className="flex items-center gap-2 font-medium text-blue-600"><Send />
+                                                                        {payload.isSwapRequest ? 'Yêu cầu ĐỔI CA với bạn.' : 'Yêu cầu PASS CA trực tiếp cho bạn.'}
+                                                                    </p>
+                                                                }
+                                                                {payload.isSwapRequest && <p className="font-semibold text-primary">Ca của bạn: {myCurrentShiftLabel}</p>}
+                                                            </>
+                                                        )}
+                                                        
+                                                        {notification.status === 'pending_approval' && payload.takenBy &&
+                                                            <p className="flex items-center gap-2 font-medium text-amber-600"><Send />Được nhận bởi: {payload.takenBy.userName}</p>
                                                         }
-                                                        {isSwap && <p className="font-semibold text-primary">Ca của bạn: {myCurrentShiftLabel}</p>}
-                                                    </>
-                                                )}
-                                                
-                                                {notification.status === 'pending_approval' && payload.takenBy &&
-                                                    <p className="flex items-center gap-2 font-medium text-amber-600"><Send />Được nhận bởi: {payload.takenBy.userName}</p>
-                                                }
-                                            </div>
+                                                    </div>
+                                                </>
+                                           )}
                                         </div>
                                         <div className="flex items-end">
                                             {renderRequestActions(notification)}
@@ -330,14 +386,9 @@ export default function PassRequestsDialog({
                         })}
                         </div>
                     ) : (
-                        <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
-                            <Info className="h-4 w-4"/>
-                            <span>Không có yêu cầu nào đang chờ trong tuần này.</span>
-                        </div>
+                        <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2"><Info className="h-4 w-4"/><span>Không có yêu cầu nào đang chờ.</span></div>
                     )}
                 </div>
-
-                 {/* Historical Requests */}
                 <div>
                     <h3 className="font-semibold mb-2">Lịch sử yêu cầu</h3>
                     {historicalRequests.length > 0 ? (
@@ -352,26 +403,10 @@ export default function PassRequestsDialog({
                                             <p className="font-medium">{payload.shiftLabel} <span className="text-sm text-muted-foreground">({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</span></p>
                                             <div className="text-sm text-muted-foreground space-y-1">
                                                  <p className="flex items-center gap-2"><UserIcon />{payload.requestingUser.userName} - {format(new Date(payload.shiftDate), 'dd/MM', { locale: vi })}</p>
-                                                 {notification.resolvedBy && (
-                                                    <p className="flex items-center gap-2">
-                                                        <UserCog className="h-4 w-4"/>
-                                                        <span>Xử lý bởi: {notification.resolvedBy.userName}</span>
-                                                    </p>
-                                                 )}
+                                                 {notification.resolvedBy && (<p className="flex items-center gap-2"><UserCog className="h-4 w-4"/><span>Xử lý bởi: {notification.resolvedBy.userName}</span></p>)}
                                             </div>
-                                            {notification.status === 'resolved' && payload.takenBy && (
-                                                <Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                                    Đã được nhận bởi {payload.takenBy.userName}
-                                                </Badge>
-                                            )}
-                                            {notification.status === 'cancelled' && (
-                                                <div className="flex flex-col items-start gap-1 mt-1">
-                                                    <Badge variant="destructive">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>
-                                                    {payload.cancellationReason && (
-                                                        <p className="text-xs italic text-destructive">{payload.cancellationReason}</p>
-                                                    )}
-                                                </div>
-                                            )}
+                                            {notification.status === 'resolved' && payload.takenBy && (<Badge className="mt-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Đã nhận bởi {payload.takenBy.userName}</Badge>)}
+                                            {notification.status === 'cancelled' && (<div className="flex flex-col items-start gap-1 mt-1"><Badge variant="destructive">Đã hủy lúc {format(new Date(timeToShow), "HH:mm")}</Badge>{payload.cancellationReason && (<p className="text-xs italic text-destructive">{payload.cancellationReason}</p>)}</div>)}
                                         </div>
                                         <div className="flex items-end">
                                             {renderRequestActions(notification)}
@@ -382,10 +417,7 @@ export default function PassRequestsDialog({
                         })}
                         </div>
                     ) : (
-                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4"/>
-                            <span>Không có lịch sử yêu cầu nào cho tuần này.</span>
-                         </div>
+                         <div className="text-sm text-muted-foreground text-left py-4 flex items-center gap-2"><AlertCircle className="h-4 w-4"/><span>Không có lịch sử yêu cầu nào.</span></div>
                     )}
                 </div>
             </div>
