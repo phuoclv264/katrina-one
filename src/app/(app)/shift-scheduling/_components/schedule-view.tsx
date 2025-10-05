@@ -60,7 +60,7 @@ import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 import UserDetailsDialog from './user-details-dialog';
-import { isUserAvailable } from '@/lib/schedule-utils';
+import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 
 
 // Helper function to abbreviate names
@@ -86,8 +86,6 @@ const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> =
             abbreviations.set(userGroup[0].uid, lastName);
         } else {
             // If last names are duplicated, generate abbreviations
-            const tempAbbrs = new Map<string, string[]>(); // abbr -> [userId, userId]
-
             userGroup.forEach(user => {
                 const nameParts = user.displayName.trim().split(/\s+/);
                 // Start with just the last name
@@ -97,18 +95,18 @@ const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> =
                     const candidateAbbr = `${nameParts[i].charAt(0).toUpperCase()}.${currentAbbr}`;
                     
                     // Check if this new abbreviation already exists for another user in the group
-                    const existingUsersWithCandidate = userGroup.filter(u => {
-                        if (u.uid === user.uid) return false; // Don't compare with self
-                        const otherParts = u.displayName.trim().split(/\s+/);
-                        let otherAbbr = otherParts[otherParts.length - 1];
-                        for (let j = otherParts.length - 2; j >= i; j--) {
-                           otherAbbr = `${otherParts[j].charAt(0).toUpperCase()}.${otherAbbr}`;
-                        }
-                        return otherAbbr === candidateAbbr;
+                    const isDuplicate = userGroup.some(otherUser => {
+                         if (otherUser.uid === user.uid) return false; // Don't compare with self
+                         const otherParts = otherUser.displayName.trim().split(/\s+/);
+                         let otherAbbr = otherParts[otherParts.length - 1];
+                         for(let j = otherParts.length - 2; j >= i; j--) {
+                            otherAbbr = `${otherParts[j].charAt(0).toUpperCase()}.${otherAbbr}`;
+                         }
+                         return otherAbbr === candidateAbbr;
                     });
                     
                     currentAbbr = candidateAbbr;
-                    if (existingUsersWithCandidate.length === 0) {
+                    if (!isDuplicate) {
                         break; // This abbreviation is unique within the group, we can stop
                     }
                 }
