@@ -64,6 +64,7 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
         return (
             <div className="text-center space-y-2 py-2">
                 <p className="font-bold text-lg text-primary">YÊU CẦU ĐỔI CA</p>
+                <p className="text-sm text-muted-foreground -mt-2">({format(parseISO(payload.shiftDate), 'eeee, dd/MM/yyyy', { locale: vi })})</p>
                 <div className="text-sm border p-3 rounded-md bg-background">
                     <p className="font-semibold">{payload.requestingUser.userName}</p>
                     <p className="text-muted-foreground">{payload.shiftLabel} ({payload.shiftTimeSlot.start} - {payload.shiftTimeSlot.end})</p>
