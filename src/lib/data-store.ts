@@ -1228,9 +1228,10 @@ export const dataStore = {
     },
 
     async approvePassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
-        const scheduleRef = doc(db, "schedules", notification.payload.weekId);
+        const { payload } = notification;
+        const { weekId, shiftId, requestingUser, takenBy, isSwapRequest } = payload;
+        const scheduleRef = doc(db, "schedules", weekId);
         const notificationRef = doc(db, "notifications", notification.id);
-        const takenBy = notification.payload.takenBy;
     
         if (!takenBy) {
             throw new Error("Không có người nhận ca để phê duyệt.");
@@ -1238,36 +1239,36 @@ export const dataStore = {
     
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
-            if (!scheduleDoc.exists()) {
-                throw new Error("Không tìm thấy lịch làm việc để kiểm tra xung đột.");
-            }
-            const scheduleData = scheduleDoc.data() as Schedule;
-            
-            // Check if original requester is still in the shift
-            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
-            if (!shiftToUpdate) {
-                throw new Error("Không tìm thấy ca làm việc này trong lịch.");
-            }
-            const isRequesterStillAssigned = shiftToUpdate.assignedUsers.some(u => u.userId === notification.payload.requestingUser.userId);
-            
-            if (!isRequesterStillAssigned) {
-                // The shift was already taken by someone else and approved.
-                // Cancel this now-redundant notification.
-                transaction.update(notificationRef, {
-                    status: 'cancelled',
-                    'payload.cancellationReason': 'Ca làm việc này đã được người khác đảm nhận.',
-                    resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
-                    resolvedAt: serverTimestamp(),
-                });
-                throw new Error("ALREADY_RESOLVED: Ca làm việc này đã được người khác đảm nhận.");
-            }
+            if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
     
-            // Check for time conflicts for the accepting user
-            const allShiftsOnDay = scheduleData.shifts.filter(s => s.date === notification.payload.shiftDate);
-            const shiftToTake: AssignedShift = { ...shiftToUpdate, assignedUsers: [] };
-            
-            if (!notification.payload.isSwapRequest) {
-                const conflict = hasTimeConflict(takenBy.userId, shiftToTake, allShiftsOnDay);
+            const scheduleData = scheduleDoc.data() as Schedule;
+            let updatedShifts = [...scheduleData.shifts];
+    
+            const shiftA_Index = updatedShifts.findIndex(s => s.id === shiftId);
+            if (shiftA_Index === -1) throw new Error("Không tìm thấy ca làm việc gốc.");
+    
+            const shiftA = { ...updatedShifts[shiftA_Index] };
+    
+            if (isSwapRequest) {
+                // Logic for SWAP
+                const shiftB_Index = updatedShifts.findIndex(s => s.date === shiftA.date && s.assignedUsers.some(u => u.userId === takenBy.userId));
+                if (shiftB_Index === -1) throw new Error("Không tìm thấy ca của người nhận để hoán đổi.");
+                
+                const shiftB = { ...updatedShifts[shiftB_Index] };
+    
+                // Swap users
+                shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
+                shiftA.assignedUsers.push(takenBy);
+    
+                shiftB.assignedUsers = shiftB.assignedUsers.filter(u => u.userId !== takenBy.userId);
+                shiftB.assignedUsers.push(requestingUser);
+    
+                updatedShifts[shiftA_Index] = shiftA;
+                updatedShifts[shiftB_Index] = shiftB;
+    
+            } else {
+                // Logic for simple PASS
+                const conflict = hasTimeConflict(takenBy.userId, shiftA, updatedShifts.filter(s => s.date === shiftA.date));
                 if (conflict) {
                     transaction.update(notificationRef, {
                         status: 'cancelled',
@@ -1278,42 +1279,34 @@ export const dataStore = {
                     });
                     throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
                 }
+                
+                shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
+                shiftA.assignedUsers.push(takenBy);
+                updatedShifts[shiftA_Index] = shiftA;
             }
     
-            // Update Schedule
-            const updatedShifts = scheduleData.shifts.map(s => {
-                if (s.id === shiftToUpdate.id) {
-                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
-                    if (!newAssignedUsers.some(u => u.userId === takenBy.userId)) {
-                        newAssignedUsers.push(takenBy);
-                    }
-                    return { ...s, assignedUsers: newAssignedUsers };
-                }
-                return s;
-            });
+            // Commit shift changes
             transaction.update(scheduleRef, { shifts: updatedShifts });
-            
-            // Update the approved Notification
+    
+            // Resolve the current notification
             transaction.update(notificationRef, {
                 status: 'resolved',
                 resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
             });
-
-            // Find and cancel all other related pending requests for this shift
+    
+            // Find and cancel all other related pending requests for the original shift
             const otherRequestsQuery = query(
                 collection(db, 'notifications'),
                 and(
                     where('type', '==', 'pass_request'),
-                    where('payload.shiftId', '==', notification.payload.shiftId),
-                    where('payload.requestingUser.userId', '==', notification.payload.requestingUser.userId),
+                    where('payload.shiftId', '==', shiftId),
                     or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
                 )
             );
-
+    
             const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
             otherRequestsSnapshot.forEach(doc => {
-                // Don't cancel the one we are currently approving
                 if (doc.id !== notification.id) {
                     transaction.update(doc.ref, {
                         status: 'cancelled',
@@ -2264,7 +2257,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+          const timeB = a.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -2520,3 +2513,6 @@ export const dataStore = {
 
     
 
+
+
+    
