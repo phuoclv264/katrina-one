@@ -14,6 +14,7 @@ type TotalHoursTrackerProps = {
   schedule: Schedule | null;
   allUsers: ManagedUser[];
   onUserClick: (user: ManagedUser) => void;
+  currentUserRole: UserRole;
 };
 
 const roleOrder: Record<UserRole, number> = {
@@ -24,7 +25,7 @@ const roleOrder: Record<UserRole, number> = {
 };
 
 
-export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: TotalHoursTrackerProps) {
+export default function TotalHoursTracker({ schedule, allUsers, onUserClick, currentUserRole }: TotalHoursTrackerProps) {
 
   const totalHoursByUser = useMemo(() => {
     if (!schedule) return new Map<string, number>();
@@ -51,7 +52,12 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
   }, [schedule?.availability]);
   
   const sortedUsers = useMemo(() => {
-    const activeUsers = allUsers.filter(u => u.role !== 'Chủ nhà hàng');
+    let activeUsers = allUsers;
+
+    if (currentUserRole === 'Quản lý') {
+        activeUsers = allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'));
+    }
+
     return activeUsers.sort((a,b) => {
         const roleA = roleOrder[a.role] || 99;
         const roleB = roleOrder[b.role] || 99;
@@ -60,7 +66,7 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
         }
         return a.displayName.localeCompare(b.displayName);
     })
-  }, [allUsers]);
+  }, [allUsers, currentUserRole]);
 
   if (!schedule) {
       return (

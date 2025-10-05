@@ -667,7 +667,7 @@ export default function ScheduleView() {
         const nameToShow = userAbbreviations.get(assignedUser.userId) || assignedUser.userName;
 
         const badgeContent = (
-            <Badge className={cn("whitespace-nowrap h-auto py-0.5 text-xs", getRoleColor(userRole))}>
+            <Badge className={cn("h-auto py-0.5 text-xs", getRoleColor(userRole))}>
                 {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
@@ -778,9 +778,9 @@ export default function ScheduleView() {
                                                                 ) : (
                                                                      <div className="flex-grow w-full flex flex-row flex-wrap items-center justify-center content-center gap-1 py-1">
                                                                         {sortedAssignedUsers.map(assignedUser => (
-                                                                          <React.Fragment key={assignedUser.userId}>
-                                                                            {renderUserBadge(assignedUser, dateKey, shiftObject)}
-                                                                          </React.Fragment>
+                                                                            <React.Fragment key={assignedUser.userId}>
+                                                                                {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                            </React.Fragment>
                                                                         ))}
                                                                     </div>
                                                                 )}
@@ -984,6 +984,7 @@ export default function ScheduleView() {
                         schedule={localSchedule} 
                         allUsers={allUsers}
                         onUserClick={handleUserClick}
+                        currentUserRole={user.role}
                     />
                 </div>
             </div>
