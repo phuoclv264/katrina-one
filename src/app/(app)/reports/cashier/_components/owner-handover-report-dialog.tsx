@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -304,34 +302,38 @@ export default function OwnerHandoverReportDialog({
                                 </Button>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {handoverFieldOrder.map((key) => {
-                                    if (!(key in (handoverData || {}))) return null;
-                                    return (
-                                        <InputField
-                                            key={`ho-${key}`}
-                                            id={`ho-${key}`}
-                                            label={handoverFieldLabels[key]}
-                                            value={handoverData[key] as number}
-                                            onChange={(val) => handleHandoverDataChange(key as any, val)}
-                                            originalValue={aiOriginalData?.[key as keyof typeof aiOriginalData]}
-                                        />
-                                    )
-                                })}
+                                {handoverData &&
+                                    handoverFieldOrder.map((key) => {
+                                        if (!(key in handoverData)) return null;
+                                        return (
+                                            <InputField
+                                                key={`ho-${key}`}
+                                                id={`ho-${key}`}
+                                                label={handoverFieldLabels[key]}
+                                                value={handoverData[key] as number}
+                                                onChange={(val) => handleHandoverDataChange(key as any, val)}
+                                                originalValue={aiOriginalData?.[key as keyof typeof aiOriginalData]}
+                                            />
+                                        )
+                                    })
+                                }
                                 <Separator />
                                 <h4 className="font-medium text-center text-sm text-muted-foreground">Doanh thu khác</h4>
-                                {cardRevenueFieldOrder.map((cardKey) => {
-                                    if (!(cardKey in (handoverData?.revenueByCard || {}))) return null;
-                                    return (
-                                        <InputField
-                                            key={`ho-card-${cardKey}`}
-                                            id={`ho-card-${cardKey}`}
-                                            label={handoverFieldLabels[cardKey]}
-                                            value={handoverData.revenueByCard[cardKey] as number}
-                                            onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
-                                            originalValue={aiOriginalData?.revenueByCard?.[cardKey as keyof any]}
-                                        />
-                                    );
-                                })}
+                                {handoverData?.revenueByCard &&
+                                    cardRevenueFieldOrder.map((cardKey) => {
+                                        if (!(cardKey in handoverData.revenueByCard)) return null;
+                                        return (
+                                            <InputField
+                                                key={`ho-card-${cardKey}`}
+                                                id={`ho-card-${cardKey}`}
+                                                label={handoverFieldLabels[cardKey]}
+                                                value={handoverData.revenueByCard[cardKey] as number}
+                                                onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
+                                                originalValue={aiOriginalData?.revenueByCard?.[cardKey as keyof any]}
+                                            />
+                                        );
+                                    })
+                                }
                             </CardContent>
                         </Card>
                     </div>
