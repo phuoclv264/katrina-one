@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -62,7 +61,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         switch (status) {
             case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'bg-yellow-500 text-white', cardBorder: 'border-yellow-500' };
             case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'bg-amber-500 text-white', cardBorder: 'border-amber-500' };
-            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'bg-green-600 text-green-50', cardBorder: 'border-green-500' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'bg-green-600 text-green-50', cardBorder: 'border-green-600' };
             case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'bg-red-600 text-red-50', cardBorder: 'border-red-500' };
             default: return { text: 'Không rõ', icon: Info, className: 'bg-gray-500 text-white', cardBorder: 'border-gray-500' };
         }
@@ -122,7 +121,9 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         }
         if (status === 'cancelled' && payload.cancellationReason) {
             if (payload.cancellationReason === 'Hủy bởi quản lý' && resolvedBy) {
-                return `Hủy bởi Quản lý: ${resolvedBy.userName}`;
+                const resolverDetails = allUsers.find(u => u.uid === resolvedBy.userId);
+                const resolverRole = resolverDetails?.role || 'Nhân viên';
+                return `Hủy bởi ${resolverRole}: ${resolvedBy.userName}`;
             }
             return `Lý do hủy: ${payload.cancellationReason}`;
         }
@@ -133,7 +134,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             return `${payload.declinedBy.length} người đã từ chối.`;
         }
         return `Tạo lúc ${format(parseISO(createdAt as string), 'HH:mm')}`;
-    }, [status, resolvedBy, resolvedAt, payload, createdAt]);
+    }, [status, resolvedBy, resolvedAt, payload, createdAt, allUsers]);
 
     // --- Helper Components ---
      const UserBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => {
