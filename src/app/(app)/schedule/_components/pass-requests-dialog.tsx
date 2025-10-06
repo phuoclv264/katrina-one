@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -59,11 +60,11 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-500/80 bg-yellow-500/10 text-yellow-800 dark:text-yellow-300' };
-            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-500/80 bg-amber-500/10 text-amber-800 dark:text-amber-300' };
-            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-500/80 bg-green-500/10 text-green-800 dark:text-green-300' };
-            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-500/80 bg-red-500/10 text-red-800 dark:text-red-300' };
-            default: return { text: 'Không rõ', icon: Info, className: 'border-gray-500/80 bg-gray-500/10 text-gray-800 dark:text-gray-300' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-500/80 bg-yellow-500 text-white dark:text-yellow-300' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-500/80 bg-amber-500 text-white dark:text-amber-300' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-500/80 bg-green-600 text-green-50 dark:text-green-300' };
+            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-500/80 bg-red-600 text-red-50 dark:text-red-300' };
+            default: return { text: 'Không rõ', icon: Info, className: 'border-gray-500/80 bg-gray-500 text-white dark:text-gray-300' };
         }
     };
     
@@ -85,26 +86,27 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         shiftA,
         shiftB
     } = useMemo(() => {
-        let shiftB: AssignedShift | { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         
         let recUser: ManagedUser | undefined;
+        let shiftB: AssignedShift | { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
         
-        const recipientId = payload.takenBy?.userId || payload.targetUserId;
+        const recipientId = (status === 'pending_approval' && payload.takenBy?.userId) 
+                            || (status === 'resolved' && payload.takenBy?.userId) 
+                            || payload.targetUserId;
+
         if (recipientId) {
             recUser = allUsers.find(u => u.uid === recipientId);
         }
 
-        if (payload.isSwapRequest && schedule) {
-            if(recipientId) {
-                const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-                const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientId));
-                if (foundShiftB) {
-                    shiftB = foundShiftB;
-                }
+        if (payload.isSwapRequest && schedule && recipientId) {
+            const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+            const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientId));
+            if (foundShiftB) {
+                shiftB = foundShiftB;
             }
         }
-
+        
         const sA = {
             label: payload.shiftLabel,
             timeSlot: payload.shiftTimeSlot,
@@ -112,13 +114,14 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         };
         
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
-    }, [payload, allUsers, schedule]);
+    }, [payload, allUsers, schedule, status]);
+
 
     // --- Text Summaries ---
     const summaryText = useMemo(() => {
         if (!requester) return 'Yêu cầu không xác định';
         if (payload.isSwapRequest) {
-            return `${requester.displayName} muốn đổi ca`;
+            return `${requester.displayName} muốn đổi ca với ${recipient?.displayName || '...'}`;
         }
         if (payload.targetUserId) {
             return `${requester.displayName} nhờ ${recipient?.displayName || '...'}`;
@@ -143,10 +146,20 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     }, [status, resolvedBy, resolvedAt, payload, createdAt]);
 
     // --- Helper Components ---
-     const UserShiftBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => {
-        if (!user) return <div className="flex-1" />;
+     const UserBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => {
+        if (!user) {
+            return (
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">?</div>
+                    <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate text-muted-foreground">{label}</div>
+                        <div className="text-xs text-muted-foreground truncate">Chưa có người nhận</div>
+                    </div>
+                </div>
+            )
+        };
         const initials = user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2);
-        const shiftInfoText = shift ? `${shift.label} • ${shift.timeSlot.start} - ${shift.timeSlot.end} • ${format(parseISO(shift.date), 'dd/MM')}` : 'Không có ca';
+        const shiftInfoText = shift ? `${shift.label} • ${shift.timeSlot.start} - ${shift.timeSlot.end}` : 'Không có ca';
         
         return (
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -245,44 +258,47 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
 
     return (
        <Card className={cn("rounded-lg shadow-sm border", status === 'pending_approval' && 'border-amber-400')}>
-            <div className="flex items-center justify-between p-3">
-                <div className="flex items-center gap-2 min-w-0">
-                    <Badge variant="outline" className={typeConfig.className}>{typeConfig.text}</Badge>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild><h4 className="text-sm font-semibold truncate">{summaryText}</h4></TooltipTrigger>
-                            <TooltipContent><p>{summaryText}</p></TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+            <div className="flex items-start justify-between p-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={typeConfig.className}>
+                    <TypeIcon className="mr-1 h-3 w-3" />
+                    {typeConfig.text}
+                  </Badge>
+                  <Badge variant="outline" className={cn('text-xs', statusConfig.className)}>
+                    <StatusIcon className="mr-1 h-3 w-3" />
+                    {statusConfig.text}
+                  </Badge>
                 </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span className="whitespace-nowrap">{format(parseISO(createdAt as string), 'HH:mm · dd/MM')}</span>
-                    <Badge variant="outline" className={cn('text-xs', statusConfig.className)}>{statusConfig.text}</Badge>
-                </div>
-            </div>
-
-            <Separator />
-
-            <div className="p-3 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-2 items-center">
-                <UserShiftBlock user={requester} shift={shiftA} label="Người yêu cầu" />
-                <div className="self-center shrink-0 mx-auto md:mx-2 my-2 md:my-0">
-                    {payload.isSwapRequest ? <Replace className="h-6 w-6 text-muted-foreground" /> : <ArrowRight className="h-6 w-6 text-muted-foreground" />}
-                </div>
-                <div className="md:text-right">
-                    <UserShiftBlock user={recipient} shift={shiftB} label={payload.isSwapRequest ? "Muốn đổi với" : "Người nhận"}/>
+                 <div className="text-xs text-muted-foreground text-right shrink-0">
+                  {format(parseISO(createdAt as string), 'HH:mm · dd/MM')}
                 </div>
             </div>
 
             <Separator />
-            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
-                <p className="truncate" title={metadataText}>{metadataText}</p>
-                {/* Placeholder for future attachments */}
+            
+             <div className="p-3">
+                <div className="flex flex-col md:flex-row gap-3 items-center">
+                    <UserBlock user={requester} shift={shiftA} label="Người yêu cầu" />
+                    {payload.isSwapRequest 
+                        ? <Replace className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto transform md:rotate-0 rotate-90" /> 
+                        : <ArrowRight className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />
+                    }
+                    <UserBlock user={recipient} shift={shiftB} label={payload.isSwapRequest ? "Muốn đổi với" : "Người nhận"} />
+                </div>
+                <div className="px-1 pt-2 text-xs text-muted-foreground flex items-center justify-between">
+                    <p className="truncate" title={metadataText}>{metadataText}</p>
+                    {/* Placeholder for future attachments */}
+                </div>
             </div>
+
 
             {actions && (
-                <div className="px-3 pb-3 flex flex-col md:flex-row md:justify-end gap-2">
+                <>
+                <Separator />
+                <div className="p-3 flex flex-col md:flex-row md:justify-end gap-2">
                     {actions}
                 </div>
+                </>
             )}
        </Card>
     );
