@@ -84,10 +84,11 @@ const ManagerReviewContent = ({ notification, schedule }: { notification: Notifi
     }
 
     // Fallback for simple pass request review (should not be commonly hit for manager review)
+    const passPayload = payload as import('@/lib/types').PassRequestPayload;
     return (
         <p className="flex items-center gap-2 font-medium text-amber-600">
             <Send />
-            {payload.requestingUser.userName} pass ca, được nhận bởi {payload.takenBy?.userName}
+            {(passPayload.requestingUser?.userName || "Người gửi không xác định")} pass ca, được nhận bởi {(passPayload.takenBy?.userName || "Người nhận không xác định")}
         </p>
     );
 };

@@ -41,6 +41,7 @@ type GroupedBySupplier = {
         items: ExpenseItem[];
       };
     };
+    total?: number;
   };
 };
 
