@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -10,6 +9,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/bartender': 'Danh mục Báo cáo Pha chế',
     '/bartender/hygiene-report': 'Báo cáo Vệ sinh quầy',
     '/bartender/inventory': 'Kiểm kê Tồn kho',
+    '/cashier': 'Báo cáo Thu ngân',
     '/manager': 'Bảng điều khiển Quản lý',
     '/manager/comprehensive-report': 'Phiếu kiểm tra toàn diện',
     '/manager/hygiene-report': 'Xem Báo cáo Vệ sinh',
@@ -19,13 +19,16 @@ const pathToTitleMap: { [key: string]: string } = {
     '/reports/hygiene': 'Báo cáo Vệ sinh',
     '/reports/inventory': 'Báo cáo Tồn kho',
     '/reports/comprehensive': 'Báo cáo Toàn diện',
-    '/reports/error-log': 'Nhật ký lỗi',
+    '/reports/cashier': 'Báo cáo Thu ngân',
+    '/financial-report': 'Báo cáo Tài chính',
     '/users': 'Quản lý Người dùng',
     '/task-lists': 'QL Công việc Phục vụ',
     '/bartender-tasks': 'QL Công việc Pha chế',
     '/comprehensive-checklist': 'QL Kiểm tra Toàn diện',
     '/inventory-management': 'QL Hàng tồn kho',
-    '/violations': 'Ghi nhận Vi phạm',
+    '/product-management': 'QL Mặt hàng & Công thức',
+    '/inventory-history': 'Lịch sử Kho',
+    '/violations': 'Danh sách Vi phạm',
     '/schedule': 'Lịch làm việc',
     '/shift-scheduling': 'Xếp lịch & Phê duyệt',
 };

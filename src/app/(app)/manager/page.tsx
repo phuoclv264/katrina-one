@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays } from 'lucide-react';
+import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, Banknote } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -15,7 +16,7 @@ export default function ManagerDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && (!user || (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng'))) {
+    if (!loading && user && (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng' && !user.secondaryRoles?.includes('Quản lý'))) {
       router.replace('/');
     }
   }, [user, loading, router]);
@@ -27,6 +28,10 @@ export default function ManagerDashboardPage() {
       </div>
     )
   }
+
+  const hasServerSecondaryRole = user.secondaryRoles?.includes('Phục vụ');
+  const hasBartenderSecondaryRole = user.secondaryRoles?.includes('Pha chế');
+  const hasCashierSecondaryRole = user.secondaryRoles?.includes('Thu ngân');
 
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
@@ -43,15 +48,9 @@ export default function ManagerDashboardPage() {
             </Link>
           </Button>
            <Button asChild size="lg" variant="outline">
-            <Link href="/manager/hygiene-report">
-              <ClipboardList className="mr-2" />
-              Xem Báo cáo Vệ sinh
-            </Link>
-          </Button>
-           <Button asChild size="lg" variant="outline">
-            <Link href="/manager/inventory-report">
-              <Archive className="mr-2" />
-              Xem Báo cáo Tồn kho
+            <Link href="/reports">
+              <CheckSquare className="mr-2" />
+              Xem Báo cáo
             </Link>
           </Button>
           <Separator className="my-2" />
@@ -73,6 +72,51 @@ export default function ManagerDashboardPage() {
                 Ghi nhận Vi phạm
             </Link>
           </Button>
+
+            {(hasServerSecondaryRole || hasBartenderSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
+
+            {hasServerSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/shifts">
+                    <CheckSquare className="mr-2" />
+                    Checklist Công việc
+                  </Link>
+                </Button>
+              </>
+            )}
+
+            {hasBartenderSecondaryRole && (
+                <>
+                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
+                 <Button asChild size="lg" variant="outline">
+                    <Link href="/bartender/hygiene-report">
+                        <ClipboardList className="mr-2" />
+                        Báo cáo Vệ sinh quầy
+                    </Link>
+                 </Button>
+                 <Button asChild size="lg" variant="outline">
+                    <Link href="/bartender/inventory">
+                        <Archive className="mr-2" />
+                        Kiểm kê Tồn kho
+                    </Link>
+                 </Button>
+                </>
+            )}
+            
+            {hasCashierSecondaryRole && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
+                 <Button asChild size="lg" variant="outline">
+                  <Link href="/cashier">
+                    <Banknote className="mr-2" />
+                    Báo cáo Thu ngân
+                  </Link>
+                </Button>
+              </>
+            )}
+
         </CardContent>
       </Card>
     </div>

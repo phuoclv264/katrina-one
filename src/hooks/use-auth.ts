@@ -5,17 +5,17 @@ import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { useToast } from './use-toast';
+import { toast } from 'react-hot-toast';
 
-export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng';
+export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  secondaryRoles?: UserRole[];
 }
 
 export const useAuth = () => {
-  const { toast } = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -32,6 +32,7 @@ export const useAuth = () => {
             ...firebaseUser,
             displayName: userData.displayName,
             role: userRole,
+            secondaryRoles: userData.secondaryRoles || [],
           } as AuthUser;
           setUser(authUser);
 
@@ -45,6 +46,8 @@ export const useAuth = () => {
                 router.replace('/manager');
             } else if (userRole === 'Chủ nhà hàng') {
                 router.replace('/reports');
+            } else if (userRole === 'Thu ngân') {
+                router.replace('/cashier');
             }
           }
 
@@ -71,7 +74,7 @@ export const useAuth = () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will handle the redirect
-      toast({ title: 'Đăng nhập thành công!' });
+      toast.success('Đăng nhập thành công!');
       return true;
     } catch (error: any) {
       console.error(error);
@@ -79,14 +82,10 @@ export const useAuth = () => {
       if (error.code === 'auth/invalid-credential') {
         description = 'Email hoặc mật khẩu không chính xác.';
       }
-      toast({
-        variant: 'destructive',
-        title: 'Lỗi đăng nhập',
-        description: description,
-      });
+      toast.error(description);
       return false;
     }
-  }, [toast]);
+  }, []);
 
   const register = useCallback(async (email: string, password: string, displayName: string, role: UserRole): Promise<boolean> => {
     try {
@@ -99,36 +98,33 @@ export const useAuth = () => {
         email,
         displayName,
         role,
+        secondaryRoles: [],
       });
 
       // onAuthStateChanged will handle the user state update and redirect
-       toast({ title: 'Đăng ký thành công!', description: 'Đang chuyển hướng bạn...' });
+       toast.success('Đăng ký thành công! Đang chuyển hướng bạn...');
        return true;
     } catch (error: any) {
        console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Lỗi đăng ký',
-        description: error.message,
-      });
+      let errorMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Email này đã được sử dụng.';
+      }
+      toast.error(errorMessage);
       return false;
     }
-  }, [toast]);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
         await signOut(auth);
         router.replace('/');
-        toast({ title: 'Đã đăng xuất.' });
+        toast.success('Đã đăng xuất.');
     } catch (error: any) {
          console.error(error);
-         toast({
-            variant: 'destructive',
-            title: 'Lỗi',
-            description: 'Không thể đăng xuất. Vui lòng thử lại.',
-        });
+         toast.error('Không thể đăng xuất. Vui lòng thử lại.');
     }
-  }, [toast, router]);
+  }, [router]);
   
   return { 
       user, 

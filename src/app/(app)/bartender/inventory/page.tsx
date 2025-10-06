@@ -9,18 +9,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord } from '@/lib/types';
+import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Star, Camera, X, RefreshCw } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Camera, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-import { generateInventoryOrderSuggestion } from '@/ai/flows/generate-inventory-order-suggestion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
+import { InventoryItemRow } from './_components/inventory-item-row';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -32,9 +34,7 @@ type CategorizedList = {
 export default function InventoryPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
-  const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
   const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -50,8 +50,12 @@ export default function InventoryPage() {
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
+  const [showUncheckedWarning, setShowUncheckedWarning] = useState(false);
+  const [uncheckedItems, setUncheckedItems] = useState<InventoryItem[]>([]);
+  const [openUncheckedCategories, setOpenUncheckedCategories] = useState<string[]>([]);
+
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Pha chế')) {
+    if (!authLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
       router.replace('/');
     }
   }, [user, authLoading, router]);
@@ -91,22 +95,25 @@ export default function InventoryPage() {
   
   const fetchLocalPhotos = useCallback(async (currentReport: InventoryReport | null) => {
     if (!currentReport) return;
-    const allPhotoIds = new Set<string>();
+    
+    const allPhotoIdsInReport = new Set<string>();
     for (const itemId in currentReport.stockLevels) {
         const record = currentReport.stockLevels[itemId];
         if (record.photoIds) {
-            record.photoIds.forEach(id => {
-                if (!localPhotoUrls.has(id)) {
-                    allPhotoIds.add(id);
-                }
-            });
+            record.photoIds.forEach(id => allPhotoIdsInReport.add(id));
         }
     }
-    if (allPhotoIds.size > 0) {
-        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIds));
-        setLocalPhotoUrls(prev => new Map([...prev, ...urls]));
+
+    if (allPhotoIdsInReport.size > 0) {
+        const urls = await photoStore.getPhotosAsUrls(Array.from(allPhotoIdsInReport));
+        setLocalPhotoUrls(prev => {
+            const newMap = new Map(prev);
+            urls.forEach((url, id) => newMap.set(id, url));
+            return newMap;
+        });
     }
-  }, [localPhotoUrls]);
+  }, []);
+
 
   useEffect(() => {
     if (!user) return;
@@ -128,7 +135,9 @@ export default function InventoryPage() {
     };
 
     loadReport();
-  }, [user, fetchLocalPhotos]);
+  // The dependency array is correct. We only want this to run when the user changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
   
   const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport) => InventoryReport) => {
     setReport(prevReport => {
@@ -144,19 +153,29 @@ export default function InventoryPage() {
     });
   }, []);
 
-  const handleStockChange = (itemId: string, value: string) => {
-    const isNumeric = value.trim() !== '' && !isNaN(Number(value));
-    const stockValue = isNumeric ? Number(value) : value;
-
+  const handleStockChange = useCallback((itemId: string, value: string) => {
     handleLocalSave(prevReport => {
         const newReport = { ...prevReport };
         const newStockLevels = { ...newReport.stockLevels };
+        
+        const itemDefinition = inventoryList.find(i => i.id === itemId);
+        let stockValue: string | number = value;
+
+        if (itemDefinition?.dataType === 'number') {
+            if (value.trim() === '') {
+                stockValue = ''; 
+            } else {
+                const numValue = parseFloat(value);
+                stockValue = isNaN(numValue) ? '' : numValue;
+            }
+        }
+
         const existingRecord = newStockLevels[itemId] || {};
         newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
         newReport.stockLevels = newStockLevels;
         return newReport;
     });
-  };
+}, [handleLocalSave, inventoryList]);
   
   const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
     if (!activeItemId || photoIds.length === 0) return;
@@ -215,28 +234,66 @@ export default function InventoryPage() {
         });
     };
 
-  const handleGenerateSuggestions = async () => {
-      if(!report || !user) return null;
+    const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+        if (stockValue === undefined || stockValue === '') return 'ok'; 
+        if (item.dataType === 'number') {
+            const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+            if (isNaN(stock)) return 'ok';
+            if (stock < item.minStock * 0.3) return 'out';
+            if (stock < item.minStock) return 'low';
+            return 'ok';
+        } else { // 'list' type
+            const stockString = String(stockValue).toLowerCase();
+            if (stockString.includes('hết')) return 'out';
+            if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+            if (stockString.includes('dư')) return 'ok';
+            return 'ok';
+        }
+    };
+
+    const generateSuggestionsFromLogic = (): InventoryOrderSuggestion => {
+        if (!report) return { summary: 'Không có báo cáo để xử lý.', ordersBySupplier: [] };
+
+        const ordersBySupplier: { [supplier: string]: OrderItem[] } = {};
+
+        inventoryList.forEach(item => {
+            const stockRecord = report.stockLevels[item.id];
+            const status = getItemStatus(item, stockRecord?.stock);
+
+            if (status === 'low' || status === 'out') {
+                if (!ordersBySupplier[item.supplier]) {
+                    ordersBySupplier[item.supplier] = [];
+                }
+                ordersBySupplier[item.supplier].push({
+                    itemId: item.id,
+                    quantityToOrder: item.orderSuggestion,
+                });
+            }
+        });
+        
+        const finalOrders: OrderBySupplier[] = Object.entries(ordersBySupplier).map(([supplier, itemsToOrder]) => ({
+            supplier,
+            itemsToOrder,
+        }));
+        
+        const totalItemsToOrder = finalOrders.reduce((acc, curr) => acc + curr.itemsToOrder.length, 0);
+        const totalSuppliers = finalOrders.length;
+        
+        const summary = totalItemsToOrder > 0
+            ? `Cần đặt ${totalItemsToOrder} mặt hàng từ ${totalSuppliers} nhà cung cấp.`
+            : 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.';
+
+        return { summary, ordersBySupplier: finalOrders };
+    };
+
+    const handleGenerateSuggestions = async () => {
       setIsGenerating(true);
       
       try {
-        toast({
-            title: "Đang phân tích tồn kho...",
-            description: "AI đang tính toán các mặt hàng cần đặt. Vui lòng đợi trong giây lát."
-        });
+        toast.loading("Đang tính toán đề xuất...");
 
-        const itemsWithCurrentStock = inventoryList
-            .map(item => ({ item, stockRecord: report.stockLevels[item.id] }))
-            .filter(({ stockRecord }) => stockRecord && (stockRecord.stock !== undefined && String(stockRecord.stock).trim() !== ''))
-            .map(({ item, stockRecord }) => ({ ...item, currentStock: stockRecord! }));
-
-        if (itemsWithCurrentStock.length === 0) {
-            const noItemsSuggestion = { summary: 'Chưa có mặt hàng nào được kiểm kê hợp lệ.', ordersBySupplier: [] };
-            setSuggestions(noItemsSuggestion);
-            return noItemsSuggestion;
-        }
-        
-        const result = await generateInventoryOrderSuggestion({ items: itemsWithCurrentStock });
+        // Use the local logic function instead of an AI call
+        const result = generateSuggestionsFromLogic();
         
         setSuggestions(result);
         
@@ -248,62 +305,19 @@ export default function InventoryPage() {
 
       } catch (error) {
           console.error("Error generating suggestions:", error);
-          toast({
-              title: "Lỗi",
-              description: "Không thể tạo đề xuất đặt hàng. Vui lòng thử lại.",
-              variant: "destructive"
-          });
+          toast.error("Lỗi: Không thể tạo đề xuất đặt hàng.");
           return null;
       } finally {
           setIsGenerating(false);
+          toast.dismiss();
       }
   }
 
-  const handleSubmit = async () => {
+  const proceedToSubmit = async () => {
     if (!report || !user) return;
-    
-    // --- Validation for required fields and photos ---
-    for (const item of inventoryList) {
-        if (item.requiresPhoto) {
-            const record = report.stockLevels[item.id];
-            const stockValue = record?.stock;
-            const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
-            
-            if (!hasStockValue) {
-                 toast({
-                    title: "Thiếu thông tin tồn kho",
-                    description: `Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
-                const element = itemRowRefs.current.get(item.id);
-                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element?.focus();
-                return;
-            }
-
-            const hasLocalPhoto = record.photoIds && record.photoIds.length > 0;
-            const hasServerPhoto = record.photos && record.photos.length > 0;
-            if (!hasLocalPhoto && !hasServerPhoto) {
-                 toast({
-                    title: "Thiếu ảnh bằng chứng",
-                    description: `Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`,
-                    variant: "destructive",
-                });
-                const element = itemRowRefs.current.get(item.id);
-                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element?.focus();
-                return;
-            }
-        }
-    }
-    // --- End Validation ---
-
     const startTime = Date.now();
     setIsSubmitting(true);
-    toast({
-        title: "Đang gửi báo cáo tồn kho...",
-        description: "Vui lòng đợi trong giây lát."
-    });
+    const toastId = toast.loading("Đang gửi báo cáo tồn kho...");
 
     try {
         const generatedSuggestions = await handleGenerateSuggestions();
@@ -312,51 +326,70 @@ export default function InventoryPage() {
             ...report, 
             suggestions: generatedSuggestions,
             status: 'submitted' as const, 
-            submittedAt: new Date().toISOString() 
         };
         
         await dataStore.saveInventoryReport(finalReport);
-        setReport(finalReport);
+        setReport(prev => prev ? { ...prev, ...finalReport, submittedAt: new Date().toISOString() } : null);
         setHasUnsubmittedChanges(false);
 
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
-        toast({
-            title: "Gửi và đề xuất thành công!",
-            description: `Quá trình hoàn tất trong ${duration} giây.`
-        });
+        toast.success(`Gửi và đề xuất thành công! (${duration} giây)`, { id: toastId });
         
     } catch (error) {
          console.error("Error submitting inventory report:", error);
-         toast({
-              title: "Lỗi",
-              description: "Không thể gửi báo cáo. Vui lòng thử lại.",
-              variant: "destructive"
-          });
+         toast.error("Lỗi: Không thể gửi báo cáo.", { id: toastId });
     } finally {
         setIsSubmitting(false);
     }
   }
   
-  const getItemStatus = (itemId: string, minStock: number): ItemStatus => {
-      const stockValue = report?.stockLevels[itemId]?.stock;
+  const handleSubmit = async () => {
+    if (!report) return;
 
-      if (typeof stockValue !== 'number') {
-        return 'ok';
-      }
+    const unEnteredItems: InventoryItem[] = [];
+    
+    // --- Validation for required fields and photos ---
+    for (const item of inventoryList) {
+        const record = report.stockLevels[item.id];
+        const stockValue = record?.stock;
+        const hasStockValue = stockValue !== undefined && String(stockValue).trim() !== '';
 
-      if (stockValue <= 0) return 'out';
-      if (stockValue < minStock) return 'low';
-      return 'ok';
+        if (item.isImportant && !hasStockValue) {
+            toast.error(`Vui lòng nhập số lượng tồn kho cho mặt hàng "${item.name}".`);
+            const element = itemRowRefs.current.get(item.id);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element?.focus();
+            return;
+        }
+
+        if (item.requiresPhoto) {
+            const hasLocalPhoto = record?.photoIds && record.photoIds.length > 0;
+            const hasServerPhoto = record?.photos && record.photos.length > 0;
+            if (!hasLocalPhoto && !hasServerPhoto) {
+                toast.error(`Vui lòng chụp ảnh bằng chứng cho mặt hàng "${item.name}".`);
+                const element = itemRowRefs.current.get(item.id);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element?.focus();
+                return;
+            }
+        }
+
+        if (!hasStockValue) {
+            unEnteredItems.push(item);
+        }
+    }
+    // --- End Validation ---
+    
+    if (unEnteredItems.length > 0) {
+        setUncheckedItems(unEnteredItems);
+        setShowUncheckedWarning(true);
+    } else {
+        await proceedToSubmit();
+    }
   }
-  const getStatusColorClass = (status: ItemStatus) => {
-      switch(status) {
-          case 'low': return 'bg-yellow-100/50 dark:bg-yellow-900/30';
-          case 'out': return 'bg-red-100/50 dark:bg-red-900/30';
-          default: return 'bg-transparent';
-      }
-  }
-  
+
+
   const handleToggleAll = () => {
     if (openCategories.length === categorizedList.length) {
       setOpenCategories([]);
@@ -382,19 +415,34 @@ export default function InventoryPage() {
             .join('\n\n');
             
         navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({
-                title: "Thành công",
-                description: "Đã sao chép danh sách đặt hàng vào bộ nhớ tạm."
-            });
+            toast.success("Đã sao chép danh sách đặt hàng.");
         }, (err) => {
             console.error('Could not copy text: ', err);
-            toast({
-                title: "Lỗi",
-                description: "Không thể sao chép danh sách.",
-                variant: "destructive"
-            });
+            toast.error("Không thể sao chép danh sách.");
         });
     };
+
+    const categorizedUncheckedItems = useMemo((): CategorizedList => {
+        if (uncheckedItems.length === 0) return [];
+        const grouped: { [key: string]: InventoryItem[] } = {};
+        uncheckedItems.forEach(item => {
+            const category = item.category || 'CHƯA PHÂN LOẠI';
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(item);
+        });
+        return Object.entries(grouped).map(([category, items]) => ({ category, items }));
+    }, [uncheckedItems]);
+
+    const handleToggleAllUnchecked = () => {
+        if (openUncheckedCategories.length === categorizedUncheckedItems.length) {
+            setOpenUncheckedCategories([]);
+        } else {
+            setOpenUncheckedCategories(categorizedUncheckedItems.map(c => c.category));
+        }
+    };
+
 
   if (isLoading || authLoading || !report) {
     return (
@@ -416,6 +464,8 @@ export default function InventoryPage() {
   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
   const isProcessing = isSubmitting || isGenerating;
   const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
+  const areAllUncheckedOpen = categorizedUncheckedItems.length > 0 && openUncheckedCategories.length === categorizedUncheckedItems.length;
+
 
   return (
     <TooltipProvider>
@@ -442,7 +492,7 @@ export default function InventoryPage() {
                     <div>
                         <CardTitle>Danh sách nguyên vật liệu</CardTitle>
                         <CardDescription>
-                            Trạng thái sẽ tự động cập nhật khi bạn nhập số lượng tồn kho.
+                            Nhập số lượng tồn kho thực tế của các mặt hàng.
                         </CardDescription>
                     </div>
                     {categorizedList.length > 0 && (
@@ -461,67 +511,19 @@ export default function InventoryPage() {
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 border-t">
                                      <div className="space-y-3">
-                                        {items.map(item => {
-                                            const status = getItemStatus(item.id, item.minStock);
-                                            const record = report.stockLevels[item.id];
-                                            const stockValue = record?.stock ?? '';
-                                            const photoIds = record?.photoIds || [];
-                                            const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
-                                            return (
-                                                <div 
-                                                    key={item.id} 
-                                                    ref={(el) => itemRowRefs.current.set(item.id, el)}
-                                                    tabIndex={-1}
-                                                    className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${getStatusColorClass(status)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
-                                                    onClick={() => inputRefs.current.get(item.id)?.focus()}
-                                                >
-                                                    <div className="col-span-1">
-                                                        <p className="font-semibold flex items-center gap-2">
-                                                            {item.requiresPhoto && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                                            {item.name}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">Đơn vị: {item.unit}</p>
-                                                        {item.requiresPhoto && (
-                                                            <div className="flex gap-2 items-center flex-wrap mt-2">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    className="h-9 w-9"
-                                                                    onClick={(e) => { e.stopPropagation(); setActiveItemId(item.id); setIsCameraOpen(true); }}
-                                                                    disabled={isProcessing}
-                                                                >
-                                                                    <Camera className="h-4 w-4" />
-                                                                </Button>
-                                                                 {photoUrls.map((photoUrl, index) => (
-                                                                    <div key={`${item.id}-photo-${index}`} className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
-                                                                        <Image src={photoUrl} alt="Inventory photo" fill className="object-cover" />
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            size="icon"
-                                                                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full z-10 p-0"
-                                                                            onClick={(e) => { e.stopPropagation(); handleDeletePhoto(item.id, photoIds[index], true);}}
-                                                                        >
-                                                                            <X className="h-2 w-2" />
-                                                                        </Button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                         )}
-                                                    </div>
-                                                    <div className="col-span-1 flex flex-col items-end gap-2">
-                                                        <Input
-                                                            ref={el => inputRefs.current.set(item.id, el)}
-                                                            type="text"
-                                                            value={stockValue}
-                                                            onChange={e => handleStockChange(item.id, e.target.value)}
-                                                            className="text-center h-9 w-24"
-                                                            placeholder="Tồn kho..."
-                                                            disabled={isProcessing}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
+                                        {items.map(item => (
+                                            <InventoryItemRow
+                                                key={item.id}
+                                                item={item}
+                                                record={report.stockLevels[item.id]}
+                                                localPhotoUrls={localPhotoUrls}
+                                                isProcessing={isProcessing}
+                                                onStockChange={handleStockChange}
+                                                onOpenCamera={(itemId) => { setActiveItemId(itemId); setIsCameraOpen(true); }}
+                                                onDeletePhoto={handleDeletePhoto}
+                                                rowRef={(el) => itemRowRefs.current.set(item.id, el)}
+                                            />
+                                        ))}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -536,13 +538,13 @@ export default function InventoryPage() {
                     <CardTitle className="flex items-center gap-2"><ShoppingCart/> Đề xuất Đặt hàng</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isProcessing && !suggestions && (
+                    {isGenerating && !suggestions && (
                         <div className="space-y-2 p-4 text-center">
                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground"/>
-                            <p className="text-sm text-muted-foreground">AI đang phân tích...</p>
+                            <p className="text-sm text-muted-foreground">Đang tính toán...</p>
                         </div>
                     )}
-                    {!isProcessing && hasSuggestions && (
+                    {!isGenerating && hasSuggestions && (
                         <div className="space-y-4">
                              <div className="flex justify-between items-center">
                                 <p className="text-sm font-semibold text-primary">{suggestions.summary}</p>
@@ -578,12 +580,12 @@ export default function InventoryPage() {
                             </Accordion>
                         </div>
                     )}
-                    {!isProcessing && suggestions && !hasSuggestions && (
+                    {!isGenerating && suggestions && !hasSuggestions && (
                         <p className="text-center text-sm text-muted-foreground py-4">{suggestions.summary || 'Tất cả hàng hoá đã đủ. Không cần đặt thêm.'}</p>
                     )}
-                    {!isProcessing && !suggestions &&(
+                    {!isGenerating && !suggestions &&(
                         <div className="text-center space-y-4 py-4">
-                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất từ AI.</p>
+                            <p className="text-sm text-muted-foreground">Sau khi nhập xong tồn kho, nhấn nút bên dưới để gửi báo cáo và nhận đề xuất.</p>
                         </div>
                     )}
                 </CardContent>
@@ -615,8 +617,82 @@ export default function InventoryPage() {
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
       />
+    <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
+    <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">
+        <AlertDialogHeader className="flex flex-row items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+            <AlertTriangle className="h-6 w-6" />
+        </div>
+        <div>
+            <AlertDialogTitle className="text-lg font-bold text-amber-600 dark:text-amber-400">
+            Cảnh báo: Còn mặt hàng chưa kiểm kê
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+            Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. 
+            Bạn vẫn muốn tiếp tục gửi báo cáo?
+            </AlertDialogDescription>
+        </div>
+        </AlertDialogHeader>
+
+        {/* Một nút điều khiển mở/thu gọn tất cả */}
+        <div className="flex justify-end -mb-2">
+        <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToggleAllUnchecked}
+        >
+            <ChevronsDownUp className="mr-2 h-4 w-4" />
+            {areAllUncheckedOpen ? "Thu gọn tất cả" : "Mở rộng tất cả"}
+        </Button>
+        </div>
+
+        <ScrollArea className="max-h-60 w-full rounded-md border bg-muted/30">
+        <div className="p-3">
+            <Accordion 
+                type="multiple" 
+                value={openUncheckedCategories} 
+                onValueChange={setOpenUncheckedCategories} 
+                className="w-full space-y-2"
+            >
+                {categorizedUncheckedItems.map(({ category, items }) => (
+                <AccordionItem value={category} key={category} className="rounded-lg border bg-card shadow-sm">
+                    <AccordionTrigger className="px-3 py-2 text-base font-semibold hover:no-underline hover:bg-accent rounded-lg">
+                    {category} ({items.length})
+                    </AccordionTrigger>
+                    <AccordionContent className="p-2 space-y-2">
+                    {items.map(item => (
+                        <button
+                        key={item.id}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition"
+                        onClick={() => {
+                            const element = itemRowRefs.current.get(item.id)
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            element?.focus()
+                            setShowUncheckedWarning(false)
+                        }}
+                        >
+                        {item.name}
+                        </button>
+                    ))}
+                    </AccordionContent>
+                </AccordionItem>
+                ))}
+            </Accordion>
+        </div>
+        </ScrollArea>
+
+        <AlertDialogFooter>
+        <AlertDialogCancel className="rounded-lg">Hủy</AlertDialogCancel>
+        <AlertDialogAction 
+            onClick={proceedToSubmit} 
+            className="bg-amber-600 text-white hover:bg-amber-700 rounded-lg"
+        >
+            Bỏ qua và gửi
+        </AlertDialogAction>
+        </AlertDialogFooter>
+    </AlertDialogContent>
+    </AlertDialog>
     </div>
     </TooltipProvider>
   );
 }
-

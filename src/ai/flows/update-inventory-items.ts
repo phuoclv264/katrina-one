@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A flow for updating a list of inventory items based on a user's natural language instruction.
@@ -10,15 +9,22 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { UnitDefinition } from '@/lib/types';
 
 const InventoryItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  shortName: z.string().describe("A short, unique abbreviation for the item name."),
   category: z.string(),
   supplier: z.string(),
-  unit: z.string(),
+  baseUnit: z.string().describe("The base unit for stock tracking."),
+  units: z.custom<UnitDefinition[]>().describe("An array of all possible units for this item, each with a name and conversion rate to the base unit."),
   minStock: z.number(),
   orderSuggestion: z.string(),
+  isImportant: z.boolean().optional(),
+  requiresPhoto: z.boolean().optional(),
+  dataType: z.enum(['number', 'list']).optional(),
+  listOptions: z.array(z.string()).optional(),
 });
 
 const UpdateInventoryItemsInputSchema = z.object({
@@ -45,20 +51,20 @@ const prompt = ai.definePrompt({
 Your task is to modify a given JSON list of inventory items based on a specific instruction from the user.
 
 IMPORTANT RULES:
-1.  You MUST return the **entire list** of items, including the ones that were not changed.
-2.  You MUST NOT add or remove any items from the list. The number of items in the output array must be exactly the same as in the input array.
-3.  You MUST preserve the original 'id' of every item. Do not change, add, or remove 'id' fields.
-4.  Only modify the fields ('name', 'category', 'supplier', 'unit', 'minStock', 'orderSuggestion') as specified in the user's instruction. If the instruction does not mention a field, do not change it.
-5.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with 'category: "TOPPING"' and add 2 to their existing 'minStock'.
-6.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' field (like 'SIRO', 'TRÁI CÂY', etc.) and apply the change *only* to those items.
-7.  If the user provides a block of text where each line represents an item, you must treat this as a batch update instruction. The format is likely 'CATEGORY-NAME-SUPPLIER-UNIT-MINSTOCK-ORDERSUGGESTION'. For each line, find the corresponding item in the JSON list by its 'name' and update ALL of its fields to match the information in that line.
+1.  You MUST return the **entire list** of items. The number of items in the output array must be exactly the same as in the input array.
+2.  You MUST preserve the original 'id' of every item. Do not change, add, or remove 'id' fields.
+3.  Only modify the fields as specified in the user's instruction. If the instruction does not mention a field, do not change it.
+4.  Perform the instruction accurately. For example, if asked to "increase minStock by 2 for all toppings", find all items with 'category: "TOPPING"' and add 2 to their existing 'minStock'.
+5.  To change a value for a specific *type* of item (e.g., "đổi nhà cung cấp của tất cả siro thành ABC"), you must identify all items that logically belong to that type by looking for the keyword in the 'category' or 'name' field and apply the change *only* to those items.
+6.  When asked to generate a 'tên viết tắt' (shortName), your main goal is to create a **short, unique, and recognizable abbreviation** for each item name. You MUST check your own output to ensure uniqueness before returning it.
+7.  When asked to change units, you must update the 'baseUnit' and the 'units' array accordingly. For example, if asked "đổi đơn vị của sữa thành ml", you should set 'baseUnit: "ml"' and ensure the 'units' array has an entry for "ml" with a conversionRate of 1. If other units exist (like "hộp"), you must recalculate their conversion rates relative to the new base unit.
 
 User's Instruction: "{{{instruction}}}"
 
 Current list of items to modify:
 {{{json items}}}
 
-Now, apply the instruction to the list and return the complete, modified list of items as a JSON object matching the prescribed output schema.
+Now, apply the instruction to the list and return the complete, modified list of items as a JSON object matching the prescribed output schema. Ensure the number of items in your output is exactly the same as the input.
 `,
 });
 
@@ -73,4 +79,3 @@ const updateInventoryItemsFlow = ai.defineFlow(
         return output!;
     }
 );
-

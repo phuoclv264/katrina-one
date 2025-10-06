@@ -19,7 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
-import type { ManagedUser } from "@/lib/types"
+import type { ManagedUser, UserRole } from "@/lib/types"
 
 type UserMultiSelectProps = {
   users: ManagedUser[]
@@ -28,6 +28,14 @@ type UserMultiSelectProps = {
   disabled?: boolean
   className?: string
 }
+
+const roleOrder: Record<UserRole, number> = {
+  'Phục vụ': 1,
+  'Pha chế': 2,
+  'Quản lý': 3,
+  'Chủ nhà hàng': 4,
+};
+
 
 export function UserMultiSelect({
   users,
@@ -51,7 +59,23 @@ export function UserMultiSelect({
     onChange(selectedUsers.filter((selected) => selected.uid !== user.uid))
   }
   
-  const selectableUsers = users.filter(u => u.role !== 'Chủ nhà hàng');
+  const selectableUsers = React.useMemo(() => {
+      return (users || [])
+          .filter(u => u.role !== 'Chủ nhà hàng')
+          .sort((a, b) => {
+              const aIsSelected = selectedUsers.some(su => su.uid === a.uid);
+              const bIsSelected = selectedUsers.some(su => su.uid === b.uid);
+
+              if (aIsSelected && !bIsSelected) return -1;
+              if (!aIsSelected && bIsSelected) return 1;
+
+              const roleComparison = (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+              if (roleComparison !== 0) {
+                  return roleComparison;
+              }
+              return a.displayName.localeCompare(b.displayName, 'vi');
+          });
+  }, [users, selectedUsers]);
 
 
   return (
@@ -62,8 +86,8 @@ export function UserMultiSelect({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between h-auto"
-            onClick={() => setOpen(!open)}
+            className={cn("w-full justify-between h-auto min-h-10", className)}
+            onClick={() => !disabled && setOpen(!open)}
             disabled={disabled}
           >
             <div className="flex gap-1 flex-wrap">
@@ -78,19 +102,19 @@ export function UserMultiSelect({
                   </Badge>
                 ))
               ) : (
-                <span className="text-muted-foreground">Chọn nhân viên...</span>
+                <span className="font-normal">Chọn nhân viên...</span>
               )}
             </div>
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper"  onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput placeholder="Tìm nhân viên..." />
           <CommandList>
             <CommandEmpty>Không tìm thấy nhân viên.</CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className="max-h-48 overflow-y-auto">
               {selectableUsers.map((user) => {
                 const isSelected = selectedUsers.some(
                   (selected) => selected.uid === user.uid

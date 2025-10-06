@@ -23,6 +23,20 @@
       ]
     },
     {
+      "collectionGroup": "revenue_stats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "violations",
       "queryScope": "COLLECTION",
       "fields": [
@@ -47,11 +61,15 @@
       ]
     },
     {
-      "collectionGroup": "errors",
+      "collectionGroup": "expense_slips",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "timestamp",
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]

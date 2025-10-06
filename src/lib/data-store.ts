@@ -22,13 +22,17 @@ import {
   writeBatch,
   runTransaction,
   or,
+  arrayUnion,
+  arrayRemove,
+  and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, AppError, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, comprehensiveTasks as initialComprehensiveTasks, suppliers as initialSuppliers, initialViolationCategories } from './data';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload } from './types';
+import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
+import { hasTimeConflict } from './schedule-utils';
 
 
 const getTodaysDateKey = () => {
@@ -52,28 +56,752 @@ const cleanupOldLocalStorage = () => {
 
 // Run cleanup when the app loads
 cleanupOldLocalStorage();
+
+
 // Also clean up old photos from IndexedDB
+// This will run when the app first loads the dataStore file.
 photoStore.cleanupOldPhotos();
 
 
 export const dataStore = {
+    // --- Global Units ---
+    subscribeToGlobalUnits(callback: (units: GlobalUnit[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'unitDefinitions');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().units as GlobalUnit[]);
+            } else {
+                try {
+                    await setDoc(docRef, { units: initialGlobalUnits });
+                    callback(initialGlobalUnits);
+                } catch(e) {
+                    console.error("Permission denied to create default global units.", e);
+                    callback(initialGlobalUnits);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read global units: ${error.code}`);
+            callback(initialGlobalUnits);
+        });
+        return unsubscribe;
+    },
+
+    async updateGlobalUnits(newUnits: GlobalUnit[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'unitDefinitions');
+        await setDoc(docRef, { units: newUnits });
+    },
+
+    // --- Products ---
+    subscribeToProducts(callback: (products: Product[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'products');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().list as Product[]);
+            } else {
+                try {
+                    await setDoc(docRef, { list: initialProducts });
+                    callback(initialProducts);
+                } catch(e) {
+                    console.error("Permission denied to create default products.", e);
+                    callback(initialProducts);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read products: ${error.code}`);
+            callback(initialProducts);
+        });
+        return unsubscribe;
+    },
+
+    async updateProducts(newProducts: Product[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'products');
+        await setDoc(docRef, { list: newProducts });
+    },
+
+     // --- Cashier ---
+
+    subscribeToHandoverReport(date: string, callback: (report: HandoverReport | null) => void): () => void {
+        const docRef = doc(db, 'handover_reports', date);
+        return onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                 const data = docSnap.data();
+                 callback({
+                     ...data,
+                     id: docSnap.id,
+                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                 } as HandoverReport);
+            } else {
+                callback(null);
+            }
+        });
+    },
+
+    subscribeToAllHandoverReports(callback: (reports: HandoverReport[]) => void): () => void {
+        const q = query(collection(db, 'handover_reports'), orderBy('date', 'desc'));
+        return onSnapshot(q, (snapshot) => {
+            const reports = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...doc.data(),
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                } as HandoverReport;
+            });
+            callback(reports);
+        });
+    },
+
+     async getHandoverReport(date: string): Promise<HandoverReport | null> {
+        const docRef = doc(db, 'handover_reports', date);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+             const data = docSnap.data();
+             return {
+                 ...data,
+                 id: docSnap.id,
+                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+             } as HandoverReport;
+        }
+        return null;
+    },
+
+    async addHandoverReport(data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
+        const date = format(new Date(), 'yyyy-MM-dd');
+        const handoverReportRef = doc(db, 'handover_reports', date);
+        
+        let handoverImageUrl: string | null = null;
+        if (data.imageDataUri && data.imageDataUri.startsWith('data:')) {
+            const blob = await (await fetch(data.imageDataUri)).blob();
+            const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            handoverImageUrl = await getDownloadURL(storageRef);
+        }
+        
+        let discrepancyProofPhotos: string[] = [];
+        if (data.discrepancyProofPhotos && data.discrepancyProofPhotos.length > 0) {
+            const uploadPromises = data.discrepancyProofPhotos.map(async (photoId) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `handover-reports/${date}/discrepancy/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            discrepancyProofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(data.discrepancyProofPhotos);
+        }
+
+        const finalHandoverData = {
+            ...data,
+            date,
+            handoverImageUrl: handoverImageUrl, // Use the variable which is guaranteed to be string or null
+            discrepancyProofPhotos,
+            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            createdAt: serverTimestamp(),
+            isVerified: false,
+        };
+        // The imageDataUri from AI flow is large, don't save it to firestore.
+        if (finalHandoverData.handoverData) {
+            delete finalHandoverData.handoverData.imageDataUri;
+        }
+         delete (finalHandoverData as any).imageDataUri;
+        await setDoc(handoverReportRef, finalHandoverData);
+
+        const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
+        if (deliveryPayout > 0) {
+            let categories = await this.getOtherCostCategories();
+            let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
+            if (!payoutCategory) {
+                payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
+                const newCategories = [...categories, payoutCategory];
+                await this.updateOtherCostCategories(newCategories);
+            }
+
+            const slipData: Omit<ExpenseSlip, 'id'> = {
+                date,
+                expenseType: 'other_cost',
+                items: [{
+                    itemId: 'other_cost',
+                    name: payoutCategory.name,
+                    otherCostCategoryId: payoutCategory.id,
+                    quantity: 1,
+                    unitPrice: deliveryPayout,
+                    unit: 'lần',
+                }],
+                totalAmount: deliveryPayout,
+                paymentMethod: 'bank_transfer',
+                notes: `Tự động tạo từ báo cáo bàn giao cuối ca.`,
+                createdBy: { userId: user.uid, userName: user.displayName },
+                createdAt: serverTimestamp(),
+                associatedHandoverReportId: handoverReportRef.id,
+                paymentStatus: 'unpaid'
+            };
+            await this.addOrUpdateExpenseSlip(slipData);
+        }
+    },
+    
+    async updateHandoverReport(id: string, data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
+        const handoverReportRef = doc(db, 'handover_reports', id);
+        
+        const { newDiscrepancyPhotos, photosToDelete, ...restData } = data as any;
+
+        const finalUpdateData: any = {
+            ...restData,
+            lastModifiedBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+            lastModifiedAt: serverTimestamp(),
+        };
+
+        // Handle photo deletions
+        if (photosToDelete && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
+        }
+        
+        // Handle new photo uploads
+        let newPhotoUrls: string[] = [];
+        if (newDiscrepancyPhotos && newDiscrepancyPhotos.length > 0) {
+            const uploadPromises = newDiscrepancyPhotos.map(async (photoId: string) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `handover-reports/${id}/discrepancy/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(newDiscrepancyPhotos);
+        }
+
+        if (photosToDelete || newPhotoUrls.length > 0) {
+             const currentDoc = await getDoc(handoverReportRef);
+             const existingPhotos = currentDoc.exists() ? (currentDoc.data().discrepancyProofPhotos || []) : [];
+             const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
+             finalUpdateData.discrepancyProofPhotos = [...remainingPhotos, ...newPhotoUrls];
+        }
+
+        await updateDoc(handoverReportRef, finalUpdateData);
+    },
+
+    async deleteHandoverReport(id: string): Promise<void> {
+        const handoverReportRef = doc(db, 'handover_reports', id);
+        const docSnap = await getDoc(handoverReportRef);
+        if (!docSnap.exists()) return;
+
+        const data = docSnap.data() as HandoverReport;
+        
+        const photoDeletionPromises: Promise<void>[] = [];
+        if(data.handoverImageUrl) {
+            photoDeletionPromises.push(this.deletePhotoFromStorage(data.handoverImageUrl));
+        }
+        if(data.discrepancyProofPhotos) {
+            data.discrepancyProofPhotos.forEach(url => photoDeletionPromises.push(this.deletePhotoFromStorage(url)));
+        }
+        
+        await Promise.all(photoDeletionPromises);
+        
+        const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedHandoverReportId", "==", id));
+        const slipsSnapshot = await getDocs(associatedSlipQuery);
+        if(!slipsSnapshot.empty) {
+            const slipDoc = slipsSnapshot.docs[0];
+            await deleteDoc(doc(db, "expense_slips", slipDoc.id));
+        }
+
+        await deleteDoc(handoverReportRef);
+    },
+
+    async addOrUpdateIncident(
+        data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] },
+        id: string | undefined,
+        user: AuthUser
+    ): Promise<void> {
+        const { photoIds, photosToDelete, ...incidentData } = data;
+
+        // 1. Handle photo deletions for existing incidents
+        if (id && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map(url => this.deletePhotoFromStorage(url)));
+        }
+
+        // 2. Handle new photo uploads
+        const newPhotoUrls = await Promise.all(
+            photoIds.map(async (photoId) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `incidents/${format(new Date(), 'yyyy-MM')}/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            })
+        );
+        const validNewUrls = newPhotoUrls.filter((url): url is string => !!url);
+        await photoStore.deletePhotos(photoIds);
+        
+        // 3. Prepare data for Firestore
+        const finalData: Partial<IncidentReport> = { ...incidentData };
+        const creatorInfo = { userId: user.uid, userName: user.displayName || 'N/A' };
+
+
+        if (id) {
+            // Updating existing incident
+            const docRef = doc(db, 'incidents', id);
+            const currentDoc = await getDoc(docRef);
+            const existingPhotos = currentDoc.exists() ? currentDoc.data().photos || [] : [];
+            const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
+            finalData.photos = [...remainingPhotos, ...validNewUrls];
+            await updateDoc(docRef, finalData);
+        } else {
+            // Creating new incident
+            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            finalData.createdBy = creatorInfo;
+            finalData.createdAt = serverTimestamp();
+            finalData.photos = validNewUrls;
+            const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
+            id = incidentRef.id;
+        }
+
+        // 4. Handle associated expense slip
+        const cost = data.cost || 0;
+        const paymentMethod = data.paymentMethod || 'cash';
+        const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", id));
+        const existingSlips = await getDocs(associatedSlipQuery);
+
+        if (cost > 0 && paymentMethod !== 'intangible_cost') {
+            const slipData = {
+                date: finalData.date || format(new Date(), 'yyyy-MM-dd'),
+                expenseType: 'other_cost' as ExpenseType,
+                items: [{
+                    itemId: 'other_cost',
+                    name: `Chi phí sự cố (${data.category})`,
+                    description: data.content,
+                    quantity: 1,
+                    unitPrice: cost,
+                    unit: 'lần',
+                }],
+                totalAmount: cost,
+                paymentMethod: paymentMethod,
+                notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
+                createdBy: creatorInfo,
+                associatedIncidentId: id,
+            };
+            if (!existingSlips.empty) {
+                // Update existing slip
+                const slipToUpdateId = existingSlips.docs[0].id;
+                await this.addOrUpdateExpenseSlip(slipData, slipToUpdateId);
+            } else {
+                // Create new slip
+                await this.addOrUpdateExpenseSlip(slipData);
+            }
+        } else if (!existingSlips.empty) {
+            // If cost is 0 or intangible, delete the associated expense slip
+            const slipToDeleteId = existingSlips.docs[0].id;
+            await deleteDoc(doc(db, "expense_slips", slipToDeleteId));
+        }
+    },
+
+
+    subscribeToIncidentCategories(callback: (categories: IncidentCategory[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'incidentCategories');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().list as IncidentCategory[]);
+            } else {
+                try {
+                    await setDoc(docRef, { list: initialIncidentCategories });
+                    callback(initialIncidentCategories);
+                } catch (e) {
+                    console.error("Permission denied to create default incident categories.", e);
+                    callback(initialIncidentCategories);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read incident categories: ${error.code}`);
+            callback(initialIncidentCategories);
+        });
+        return unsubscribe;
+    },
+
+    async getIncidentCategories(): Promise<IncidentCategory[]> {
+        const docRef = doc(db, 'app-data', 'incidentCategories');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data().list as IncidentCategory[];
+        }
+        return initialIncidentCategories;
+    },
+
+    async updateIncidentCategories(newCategories: IncidentCategory[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'incidentCategories');
+        await setDoc(docRef, { list: newCategories });
+    },
+    
+    subscribeToOtherCostCategories(callback: (categories: OtherCostCategory[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'otherCostCategories');
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                callback(docSnap.data().list as OtherCostCategory[]);
+            } else {
+                try {
+                    await setDoc(docRef, { list: initialOtherCostCategories });
+                    callback(initialOtherCostCategories);
+                } catch (e) {
+                    console.error("Permission denied to create default other cost categories.", e);
+                    callback(initialOtherCostCategories);
+                }
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read other cost categories: ${error.code}`);
+            callback(initialOtherCostCategories);
+        });
+        return unsubscribe;
+    },
+
+    async getOtherCostCategories(): Promise<OtherCostCategory[]> {
+        const docRef = doc(db, 'app-data', 'otherCostCategories');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data().list as OtherCostCategory[];
+        }
+        return initialOtherCostCategories;
+    },
+
+    async updateOtherCostCategories(newCategories: OtherCostCategory[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'otherCostCategories');
+        await setDoc(docRef, { list: newCategories });
+    },
+    
+    subscribeToDailyRevenueStats(date: string, callback: (stats: RevenueStats[]) => void): () => void {
+        const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, (snapshot) => {
+            const stats = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as RevenueStats));
+            callback(stats);
+        }, (error) => {
+            console.error(`[Firestore Read Error] Could not read daily revenue stats: ${error.code}`);
+            callback([]);
+        });
+    },
+
+    async getDailyRevenueStats(date: string): Promise<RevenueStats[]> {
+         const slipsCollection = collection(db, 'revenue_stats');
+        const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as RevenueStats));
+    },
+    
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
+        const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
+        
+        let finalData: Partial<RevenueStats> = {
+            ...data,
+            isEdited: isEdited,
+        };
+
+        if (data.invoiceImageUrl && data.invoiceImageUrl.startsWith('data:')) {
+            const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
+            const blob = await (await fetch(data.invoiceImageUrl)).blob();
+            const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            finalData.invoiceImageUrl = await getDownloadURL(storageRef);
+        } else if (data.invoiceImageUrl === null) {
+             finalData.invoiceImageUrl = null;
+        } else if (data.invoiceImageUrl === undefined) {
+             delete finalData.invoiceImageUrl;
+        }
+        
+        if (documentId) {
+            finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName || 'N/A' };
+            await updateDoc(docRef, finalData);
+        } else {
+            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
+            finalData.createdAt = serverTimestamp();
+            await setDoc(docRef, finalData);
+        }
+    },
+
+    async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
+        const docRef = doc(db, 'revenue_stats', id);
+        if (!docRef) return;
+        await deleteDoc(docRef);
+    },
+
+
+    subscribeToDailyExpenseSlips(date: string, callback: (slips: ExpenseSlip[]) => void): () => void {
+        const slipsCollection = collection(db, 'expense_slips');
+        const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+        
+        return onSnapshot(q, (snapshot) => {
+            const slips = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                lastModified: (doc.data().lastModified as Timestamp)?.toDate()?.toISOString(),
+            } as ExpenseSlip));
+            callback(slips);
+        }, (error) => {
+            console.error(`[Firestore Read Error] Could not read daily expense slips: ${error.code}`);
+            callback([]);
+        });
+    },
+
+    async getDailyExpenseSlips(date: string): Promise<ExpenseSlip[]> {
+         const slipsCollection = collection(db, 'expense_slips');
+        const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as ExpenseSlip));
+    },
+
+    async addOrUpdateExpenseSlip(data: any, id?: string): Promise<void> {
+        const docRef = id ? doc(db, 'expense_slips', id) : doc(collection(db, 'expense_slips'));
+        const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
+    
+        if (photosToDelete && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
+        }
+        let newPhotoUrls: string[] = [];
+        if (newPhotoIds && newPhotoIds.length > 0) {
+            const uploadPromises = newPhotoIds.map(async (photoId: string) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(newPhotoIds);
+        }
+        const finalPhotos = [...(existingPhotos || []), ...newPhotoUrls];
+
+        const inventoryList = await this.getInventoryList();
+        const itemsWithSupplier = slipData.items.map((item: ExpenseItem) => {
+            if (item.itemId === 'other_cost') return item;
+            const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+            return {
+                ...item,
+                supplier: inventoryItem?.supplier || 'Không rõ',
+            };
+        });
+
+        slipData.items = itemsWithSupplier;
+        slipData.totalAmount = itemsWithSupplier.reduce((sum: number, item: ExpenseItem) => sum + (item.quantity * item.unitPrice), 0) - (slipData.discount || 0);
+       
+        const finalData: Partial<ExpenseSlip> = { ...slipData, attachmentPhotos: finalPhotos };
+        
+        if (slipData.paymentMethod !== 'cash') {
+            delete finalData.actualPaidAmount;
+        }
+        
+        if (id) {
+            finalData.lastModified = serverTimestamp();
+            if (slipData.lastModifiedBy) {
+                 finalData.lastModifiedBy = { userId: slipData.lastModifiedBy.userId, userName: slipData.lastModifiedBy.userName };
+            }
+        } else {
+            finalData.createdAt = serverTimestamp();
+            if (!finalData.date) {
+                finalData.date = format(new Date(), 'yyyy-MM-dd');
+            }
+             if (!slipData.createdBy || !slipData.createdBy.userId) {
+                console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
+                throw new Error(`Cannot create expense slip: createdBy information is missing or invalid. ${slipData.createdBy}`);
+            }
+            if (slipData.paymentMethod === 'bank_transfer') {
+                finalData.paymentStatus = 'unpaid';
+            }
+
+            finalData.createdBy = { userId: slipData.createdBy.userId, userName: slipData.createdBy.userName };
+            delete finalData.lastModifiedBy;
+        }
+
+        await setDoc(docRef, finalData, { merge: true });
+    },
+    
+    async deleteExpenseSlip(slip: ExpenseSlip): Promise<void> {
+        if (slip.attachmentPhotos && slip.attachmentPhotos.length > 0) {
+            await Promise.all(slip.attachmentPhotos.map(url => this.deletePhotoFromStorage(url)));
+        }
+        await deleteDoc(doc(db, 'expense_slips', slip.id));
+    },
+    
+    subscribeToAllExpenseSlips(callback: (slips: ExpenseSlip[]) => void): () => void {
+        const q = query(collection(db, 'expense_slips'), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, async (snapshot) => {
+            const inventoryItems: InventoryItem[] = await dataStore.getInventoryList();
+            const slips = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const items = (data.items || []).map((item: ExpenseItem) => {
+                    const inventoryItem = inventoryItems.find(i => i.id === item.itemId);
+                    let quantityInBaseUnit = item.quantity;
+                    if (inventoryItem && inventoryItem.units) {
+                        const unitDef = inventoryItem.units.find(u => u.name === item.unit);
+                        if(unitDef && unitDef.conversionRate) {
+                           quantityInBaseUnit *= unitDef.conversionRate;
+                        }
+                    }
+                    return { ...item, quantityInBaseUnit, supplier: inventoryItem?.supplier || 'Không rõ' };
+                });
+                return {
+                    id: doc.id,
+                    ...data,
+                    items,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    lastModified: (data.lastModified as Timestamp)?.toDate()?.toISOString(),
+                } as ExpenseSlip;
+            });
+            callback(slips);
+        });
+    },
+
+    async markSupplierDebtsAsPaid(debts: { slipId: string, supplier: string }[]): Promise<void> {
+        const slipUpdatePromises = debts.map(({ slipId, supplier }) => 
+            runTransaction(db, async (transaction) => {
+                const slipRef = doc(db, 'expense_slips', slipId);
+                const slipDoc = await transaction.get(slipRef);
+                if (!slipDoc.exists()) return;
+
+                const slip = slipDoc.data() as ExpenseSlip;
+                const updatedItems = slip.items.map(item => {
+                    if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
+                        return { ...item, isPaid: true };
+                    }
+                    return item;
+                });
+
+                const allItemsPaid = updatedItems.every(item => item.isPaid);
+                transaction.update(slipRef, { 
+                    items: updatedItems,
+                    paymentStatus: allItemsPaid ? 'paid' : 'unpaid'
+                });
+            })
+        );
+        await Promise.all(slipUpdatePromises);
+    },
+
+    async undoSupplierDebtPayment(slipId: string, supplier: string): Promise<void> {
+        await runTransaction(db, async (transaction) => {
+            const slipRef = doc(db, 'expense_slips', slipId);
+            const slipDoc = await transaction.get(slipRef);
+            if (!slipDoc.exists()) throw new Error("Không tìm thấy phiếu chi.");
+
+            const slip = slipDoc.data() as ExpenseSlip;
+            const updatedItems = slip.items.map(item => {
+                if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
+                    // Create a new object without the isPaid property
+                    const { isPaid, ...rest } = item;
+                    return rest;
+                }
+                return item;
+            });
+
+            transaction.update(slipRef, { 
+                items: updatedItems,
+                paymentStatus: 'unpaid' // Always becomes unpaid when one part is undone
+            });
+        });
+    },
+
+    subscribeToAllIncidents(callback: (incidents: IncidentReport[]) => void): () => void {
+        const q = query(collection(db, 'incidents'), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, snapshot => {
+            const incidents = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as IncidentReport));
+            callback(incidents);
+        });
+    },
+
+    async deleteIncident(incident: IncidentReport): Promise<void> {
+        const incidentRef = doc(db, 'incidents', incident.id);
+        
+        // Delete associated photos
+        if (incident.photos && incident.photos.length > 0) {
+            await Promise.all(incident.photos.map(url => this.deletePhotoFromStorage(url)));
+        }
+
+        // Delete the incident itself
+        await deleteDoc(incidentRef);
+        
+        // Find and delete the associated expense slip if it exists
+        if(incident.cost > 0) {
+            const slipsQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", incident.id));
+            const slipsSnapshot = await getDocs(slipsQuery);
+            if (!slipsSnapshot.empty) {
+                const slipDoc = slipsSnapshot.docs[0];
+                await deleteDoc(doc(db, 'expense_slips', slipDoc.id));
+            }
+        }
+    },
+
+    subscribeToAllRevenueStats(callback: (stats: RevenueStats[]) => void): () => void {
+        const q = query(collection(db, 'revenue_stats'), orderBy('date', 'desc'));
+        return onSnapshot(q, snapshot => {
+            const stats = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...doc.data(),
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                } as RevenueStats
+            });
+            callback(stats);
+        });
+    },
+
+
+     // --- End Cashier ---
      // --- Notifications ---
     subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
         const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const notifications: Notification[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            notifications.push({
-            id: doc.id,
-            ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-            resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
-            } as Notification);
-        });
-        callback(notifications);
+            const now = new Date();
+            const expiredRequests: Notification[] = [];
+
+            const notifications: Notification[] = querySnapshot.docs.map(doc => {
+                 const data = doc.data();
+                const notification = {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+                } as Notification;
+                
+                // Identify expired pass requests
+                if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        expiredRequests.push(notification);
+                    }
+                }
+                
+                return notification;
+            });
+            
+            // Automatically cancel expired requests
+            if (expiredRequests.length > 0) {
+                const batch = writeBatch(db);
+                expiredRequests.forEach(req => {
+                    const docRef = doc(db, 'notifications', req.id);
+                    batch.update(docRef, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                        resolvedAt: serverTimestamp(),
+                    });
+                });
+                batch.commit().catch(e => console.error("Failed to auto-cancel expired pass requests:", e));
+            }
+
+            callback(notifications);
+
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
             callback([]);
@@ -85,29 +813,53 @@ export const dataStore = {
     subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
         const notificationsCollection = collection(db, 'notifications');
         
-        // Query for user's own requests
         const myRequestsQuery = query(
             notificationsCollection,
-            where('payload.requestingUser.userId', '==', userId),
-            orderBy('createdAt', 'desc')
+            or(
+                where('payload.requestingUser.userId', '==', userId),
+                where('payload.targetUserId', '==', userId),
+                where('payload.takenBy.userId', '==', userId)
+            )
         );
 
-        // Query for pending requests from others
         const otherRequestsQuery = query(
             notificationsCollection,
-            where('status', '==', 'pending'),
-             where('payload.requestingUser.userId', '!=', userId)
+            and(
+                where('type', '==', 'pass_request'),
+                where('status', '==', 'pending'),
+                where('payload.requestingUser.userId', '!=', userId)
+            )
         );
 
         const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
             const combined = new Map<string, Notification>();
+            
+            myRequests.forEach(n => {
+                 if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
+                    const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        // Cancel my own expired request
+                        const docRef = doc(db, 'notifications', n.id);
+                        updateDoc(docRef, {
+                            status: 'cancelled',
+                            'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                            resolvedAt: serverTimestamp(),
+                        }).catch(e => console.error("Failed to auto-cancel own expired request:", e));
+                        return; // Don't show it in the UI immediately
+                    }
+                }
+                combined.set(n.id, n);
+            });
 
-            // Add my requests first
-            myRequests.forEach(n => combined.set(n.id, n));
-
-            // Add other eligible requests
             otherRequests.forEach(n => {
                 const payload = n.payload;
+                if (n.type === 'pass_request' && n.status === 'pending') {
+                    const shiftDateTime = parseISO(`${payload.shiftDate}T${payload.shiftTimeSlot.start}`);
+                    if (isPast(shiftDateTime)) {
+                        return; // Don't show expired requests from others
+                    }
+                }
+                if (payload.targetUserId) return;
                 const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && userRole !== payload.shiftRole;
                 const hasDeclined = (payload.declinedBy || []).includes(userId);
                 if (!isDifferentRole && !hasDeclined) {
@@ -150,9 +902,21 @@ export const dataStore = {
         };
     },
 
-    async updateNotificationStatus(notificationId: string, status: Notification['status']): Promise<void> {
+    async updateNotificationStatus(notificationId: string, status: Notification['status'], resolver?: AuthUser): Promise<void> {
         const docRef = doc(db, 'notifications', notificationId);
-        await updateDoc(docRef, { status, resolvedAt: serverTimestamp() });
+        const updateData: any = { status, resolvedAt: serverTimestamp() };
+        if (resolver) {
+            updateData.resolvedBy = { userId: resolver.uid, userName: resolver.displayName };
+        }
+        if (status === 'cancelled') {
+            updateData['payload.cancellationReason'] = 'Hủy bởi quản lý';
+        }
+        await updateDoc(docRef, updateData);
+    },
+
+    async deleteNotification(notificationId: string): Promise<void> {
+        const docRef = doc(db, 'notifications', notificationId);
+        await deleteDoc(docRef);
     },
 
     // --- Schedule ---
@@ -160,7 +924,46 @@ export const dataStore = {
         const docRef = doc(db, 'schedules', weekId);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
-                callback(docSnap.data() as Schedule);
+                const scheduleData = docSnap.data() as Schedule;
+
+                // Merge overlapping/adjacent availability slots upon loading
+                if (scheduleData.availability) {
+                    const availabilityByUser = new Map<string, Availability>();
+                    scheduleData.availability.forEach(avail => {
+                        const key = `${avail.userId}-${avail.date}`;
+                        if (!availabilityByUser.has(key)) {
+                            availabilityByUser.set(key, { ...avail, availableSlots: [] });
+                        }
+                        // This logic has a potential issue. If a user registers [8-12, 13-17], and then separately [12-13],
+                        // they will all be added here.
+                        availabilityByUser.get(key)!.availableSlots.push(...avail.availableSlots);
+                    });
+                    
+                    const mergedAvailability: Availability[] = [];
+                    availabilityByUser.forEach((userAvail) => {
+                         if (userAvail.availableSlots.length > 1) {
+                            const sortedSlots = [...userAvail.availableSlots].sort((a, b) => a.start.localeCompare(b.start));
+                            const result: TimeSlot[] = [sortedSlots[0]];
+                            
+                            for (let i = 1; i < sortedSlots.length; i++) {
+                                const lastMerged = result[result.length - 1];
+                                const current = sortedSlots[i];
+                                // Merge if current slot starts before or at the same time the last one ends
+                                if (current.start <= lastMerged.end) {
+                                    // Extend the end time if the current slot ends later
+                                    lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
+                                } else {
+                                    result.push(current);
+                                }
+                            }
+                            userAvail.availableSlots = result;
+                        }
+                        mergedAvailability.push(userAvail);
+                    });
+                    scheduleData.availability = mergedAvailability;
+                }
+
+                callback(scheduleData);
             } else {
                 callback(null);
             }
@@ -206,6 +1009,61 @@ export const dataStore = {
         const docRef = doc(db, 'schedules', weekId);
         await setDoc(docRef, data, { merge: true });
     },
+
+    async createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
+        const nextWeekDate = addDays(currentDate, 7);
+        const nextWeekId = `${nextWeekDate.getFullYear()}-W${getISOWeek(nextWeekDate)}`;
+    
+        const scheduleRef = doc(db, 'schedules', nextWeekId);
+        const scheduleSnap = await getDoc(scheduleRef);
+    
+        if (scheduleSnap.exists()) {
+            const scheduleData = scheduleSnap.data() as Schedule;
+            const validStatus: Schedule['status'][] = ['draft', 'proposed', 'published'];
+            if (!scheduleData.status || !validStatus.includes(scheduleData.status)) {
+                await updateDoc(scheduleRef, { status: 'draft' });
+            }
+            return;
+        }
+    
+        const startOfNextWeek = startOfWeek(nextWeekDate, { weekStartsOn: 1 });
+        const endOfNextWeek = endOfWeek(nextWeekDate, { weekStartsOn: 1 });
+        const daysInNextWeek = eachDayOfInterval({ start: startOfNextWeek, end: endOfNextWeek });
+    
+        const newShifts: AssignedShift[] = [];
+        daysInNextWeek.forEach(day => {
+            const dayOfWeek = getDay(day);
+            const dateKey = format(day, 'yyyy-MM-dd');
+    
+            shiftTemplates.forEach(template => {
+                if ((template.applicableDays || []).includes(dayOfWeek)) {
+                    newShifts.push({
+                        id: `shift_${dateKey}_${template.id}`,
+                        templateId: template.id,
+                        date: dateKey,
+                        label: template.label,
+                        role: template.role,
+                        timeSlot: template.timeSlot,
+                        minUsers: template.minUsers ?? 0,
+                        assignedUsers: [],
+                    });
+                }
+            });
+        });
+    
+        const newSchedule: Schedule = {
+            weekId: nextWeekId,
+            status: 'draft',
+            availability: [],
+            shifts: newShifts.sort((a, b) => {
+                if (a.date < b.date) return -1;
+                if (a.date > b.date) return 1;
+                return a.timeSlot.start.localeCompare(b.timeSlot.start);
+            }),
+        };
+    
+        await setDoc(scheduleRef, newSchedule);
+    },
     
     subscribeToShiftTemplates(callback: (templates: ShiftTemplate[]) => void): () => void {
         const docRef = doc(db, 'app-data', 'shiftTemplates');
@@ -234,6 +1092,20 @@ export const dataStore = {
     },
     
     async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
+        const existingRequestQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.shiftId', '==', shiftToPass.id),
+            where('payload.requestingUser.userId', '==', requestingUser.uid),
+            where('status', 'in', ['pending', 'pending_approval'])
+        );
+
+        const existingRequestsSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestsSnapshot.empty) {
+            throw new Error('Bạn đã có một yêu cầu pass ca đang chờ cho ca làm việc này.');
+        }
+
+
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
         const newNotification: Omit<Notification, 'id'> = {
             type: 'pass_request',
@@ -250,13 +1122,52 @@ export const dataStore = {
                     userId: requestingUser.uid,
                     userName: requestingUser.displayName
                 },
+                isSwapRequest: false,
                 declinedBy: [],
             }
         };
         await addDoc(collection(db, "notifications"), newNotification);
     },
 
-    async revertPassRequest(notification: Notification): Promise<void> {
+    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean): Promise<void> {
+        const existingRequestQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.shiftId', '==', shiftToPass.id),
+            where('payload.requestingUser.userId', '==', requestingUser.uid),
+            where('payload.targetUserId', '==', targetUser.uid),
+            where('status', 'in', ['pending', 'pending_approval'])
+        );
+        const existingRequestsSnapshot = await getDocs(existingRequestQuery);
+        if (!existingRequestsSnapshot.empty) {
+            throw new Error(`Bạn đã gửi yêu cầu cho ${targetUser.displayName} rồi.`);
+        }
+
+        const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+        const newNotification: Omit<Notification, 'id'> = {
+            type: 'pass_request',
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            payload: {
+                weekId: weekId,
+                shiftId: shiftToPass.id,
+                shiftLabel: shiftToPass.label,
+                shiftDate: shiftToPass.date,
+                shiftTimeSlot: shiftToPass.timeSlot,
+                shiftRole: shiftToPass.role,
+                requestingUser: {
+                    userId: requestingUser.uid,
+                    userName: requestingUser.displayName
+                },
+                targetUserId: targetUser.uid,
+                isSwapRequest: isSwap,
+                declinedBy: [],
+            }
+        };
+        await addDoc(collection(db, "notifications"), newNotification);
+    },
+
+    async revertPassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
         const { payload } = notification;
         const scheduleRef = doc(db, "schedules", payload.weekId);
 
@@ -285,73 +1196,160 @@ export const dataStore = {
             const notificationRef = doc(db, "notifications", notification.id);
             transaction.update(notificationRef, {
                 status: 'pending',
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                resolvedAt: serverTimestamp(),
                 'payload.takenBy': null,
-                resolvedAt: null,
+                 cancellationReason: null, // Clear cancellation reason
             });
         });
     },
 
-    async acceptPassShift(notification: Notification, acceptingUser: AssignedUser): Promise<void> {
-        const scheduleRef = doc(db, "schedules", notification.payload.weekId);
-        const notificationRef = doc(db, "notifications", notification.id);
+    async acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: AssignedUser, schedule: Schedule): Promise<void> {
+        const notificationRef = doc(db, "notifications", notificationId);
 
+        // For swap requests, the conflict check is bypassed.
+        if (!payload.isSwapRequest) {
+            const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+            const shiftToTake: AssignedShift = { ...schedule.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
+            
+            const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
+            if (conflict) {
+                throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
+            }
+        }
+        
+        await updateDoc(notificationRef, {
+            status: 'pending_approval',
+            'payload.takenBy': acceptingUser
+        });
+    },
+
+    async approvePassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
+        const { payload } = notification;
+        const { weekId, shiftId, requestingUser, takenBy, isSwapRequest } = payload;
+        const scheduleRef = doc(db, "schedules", weekId);
+        const notificationRef = doc(db, "notifications", notification.id);
+    
+        if (!takenBy) {
+            throw new Error("Không có người nhận ca để phê duyệt.");
+        }
+    
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
             if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
-            
+    
             const scheduleData = scheduleDoc.data() as Schedule;
-            const shiftToUpdate = scheduleData.shifts.find(s => s.id === notification.payload.shiftId);
-            if (!shiftToUpdate) throw new Error("Không tìm thấy ca làm việc này.");
-
-            // --- Conflict Check ---
-            const shiftStartTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.start}:00`);
-            const shiftEndTime = new Date(`${shiftToUpdate.date}T${shiftToUpdate.timeSlot.end}:00`);
-            const hasConflict = scheduleData.shifts.some(existingShift => {
-                if (existingShift.id === shiftToUpdate.id || existingShift.date !== shiftToUpdate.date) return false;
-                const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === acceptingUser.userId);
-                if (!isUserAssigned) return false;
-                const existingStartTime = new Date(`${existingShift.date}T${existingShift.timeSlot.start}:00`);
-                const existingEndTime = new Date(`${existingShift.date}T${existingShift.timeSlot.end}:00`);
-                return shiftStartTime < existingEndTime && shiftEndTime > existingStartTime;
-            });
-
-            if (hasConflict) throw new Error("Không thể nhận ca. Bạn đã có một ca làm việc khác bị trùng giờ.");
-            // --- End Conflict Check ---
-
-            // 1. Update Schedule
-            const updatedShifts = scheduleData.shifts.map(s => {
-                if (s.id === shiftToUpdate.id) {
-                    const newAssignedUsers = s.assignedUsers.filter(u => u.userId !== notification.payload.requestingUser.userId);
-                    if (!newAssignedUsers.some(u => u.userId === acceptingUser.userId)) {
-                        newAssignedUsers.push(acceptingUser);
-                    }
-                    return { ...s, assignedUsers: newAssignedUsers };
+            let updatedShifts = [...scheduleData.shifts];
+    
+            const shiftA_Index = updatedShifts.findIndex(s => s.id === shiftId);
+            if (shiftA_Index === -1) throw new Error("Không tìm thấy ca làm việc gốc.");
+    
+            const shiftA = { ...updatedShifts[shiftA_Index] };
+    
+            if (isSwapRequest) {
+                // Logic for SWAP
+                const shiftB_Index = updatedShifts.findIndex(s => s.date === shiftA.date && s.assignedUsers.some(u => u.userId === takenBy.userId));
+                if (shiftB_Index === -1) throw new Error("Không tìm thấy ca của người nhận để hoán đổi.");
+                
+                const shiftB = { ...updatedShifts[shiftB_Index] };
+    
+                // Swap users
+                shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
+                shiftA.assignedUsers.push(takenBy);
+    
+                shiftB.assignedUsers = shiftB.assignedUsers.filter(u => u.userId !== takenBy.userId);
+                shiftB.assignedUsers.push(requestingUser);
+    
+                updatedShifts[shiftA_Index] = shiftA;
+                updatedShifts[shiftB_Index] = shiftB;
+    
+            } else {
+                // Logic for simple PASS
+                const conflict = hasTimeConflict(takenBy.userId, shiftA, updatedShifts.filter(s => s.date === shiftA.date));
+                if (conflict) {
+                    transaction.update(notificationRef, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
+                        'payload.takenBy': null,
+                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                        resolvedAt: serverTimestamp(),
+                    });
+                    throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
                 }
-                return s;
-            });
-             transaction.update(scheduleRef, { shifts: updatedShifts });
-            
-            // 2. Update Notification
+                
+                shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
+                shiftA.assignedUsers.push(takenBy);
+                updatedShifts[shiftA_Index] = shiftA;
+            }
+    
+            // Commit shift changes
+            transaction.update(scheduleRef, { shifts: updatedShifts });
+    
+            // Resolve the current notification
             transaction.update(notificationRef, {
                 status: 'resolved',
-                'payload.takenBy': acceptingUser,
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
+            });
+    
+            // Find and cancel all other related pending requests for the original shift
+            const otherRequestsQuery = query(
+                collection(db, 'notifications'),
+                and(
+                    where('type', '==', 'pass_request'),
+                    where('payload.shiftId', '==', shiftId),
+                    or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+                )
+            );
+    
+            const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
+            otherRequestsSnapshot.forEach(doc => {
+                if (doc.id !== notification.id) {
+                    transaction.update(doc.ref, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Đã có người khác nhận và được phê duyệt.',
+                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+                        resolvedAt: serverTimestamp(),
+                    });
+                }
             });
         });
     },
-
-    async declinePassShift(notificationId: string, decliningUserId: string): Promise<void> {
+    
+    async rejectPassRequestApproval(notificationId: string, resolver: AuthUser): Promise<void> {
         const notificationRef = doc(db, "notifications", notificationId);
-        await runTransaction(db, async (transaction) => {
-            const notificationDoc = await transaction.get(notificationRef);
-            if (!notificationDoc.exists()) throw new Error("Notification not found");
-            const existingDeclined = notificationDoc.data().payload.declinedBy || [];
-            const newDeclined = Array.from(new Set([...existingDeclined, decliningUserId]));
-            transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
+        await updateDoc(notificationRef, {
+            status: 'pending',
+            resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
+            resolvedAt: serverTimestamp(),
+            'payload.takenBy': null
         });
     },
 
-    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser): Promise<void> {
+    async declinePassShift(notification: Notification, decliningUser: { uid: string, displayName: string }): Promise<void> {
+        const notificationRef = doc(db, "notifications", notification.id);
+
+        if (notification.payload.targetUserId === decliningUser.uid) {
+            // It's a direct request, so declining means cancelling it.
+            await updateDoc(notificationRef, {
+                status: 'cancelled',
+                'payload.cancellationReason': `Bị từ chối bởi ${decliningUser.displayName}`,
+                resolvedBy: { userId: decliningUser.uid, userName: decliningUser.displayName },
+                resolvedAt: serverTimestamp(),
+            });
+        } else {
+            // It's a public request, just add to the declined list.
+            await runTransaction(db, async (transaction) => {
+                const notificationDoc = await transaction.get(notificationRef);
+                if (!notificationDoc.exists()) throw new Error("Notification not found");
+                const existingDeclined = notificationDoc.data().payload.declinedBy || [];
+                const newDeclined = Array.from(new Set([...existingDeclined, decliningUser.uid]));
+                transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
+            });
+        }
+    },
+
+    async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser, resolver: AuthUser): Promise<void> {
         const scheduleRef = doc(db, "schedules", notification.payload.weekId);
         const notificationRef = doc(db, "notifications", notification.id);
 
@@ -380,6 +1378,7 @@ export const dataStore = {
             transaction.update(notificationRef, {
                 status: 'resolved',
                 'payload.takenBy': assignedUser,
+                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
                 resolvedAt: serverTimestamp(),
             });
         });
@@ -484,41 +1483,6 @@ export const dataStore = {
         const docRef = doc(db, 'app-data', 'settings');
         await updateDoc(docRef, newSettings);
     },
-
-  async logErrorToServer(error: AppError) {
-    try {
-      const errorCollection = collection(db, 'errors');
-      await addDoc(errorCollection, {
-        ...error,
-        timestamp: serverTimestamp(),
-      });
-    } catch (loggingError) {
-      console.error("FATAL: Could not log error to server.", loggingError);
-    }
-  },
-
-  subscribeToErrorLog(callback: (errors: AppError[]) => void): () => void {
-    const errorsCollection = collection(db, 'errors');
-    const q = query(errorsCollection, orderBy('timestamp', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const errors: AppError[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        errors.push({
-          id: doc.id,
-          ...data,
-          timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-        } as AppError);
-      });
-      callback(errors);
-    }, (error) => {
-        console.warn(`[Firestore Read Error] Could not read error log: ${error.code}`);
-        callback([]); // Return empty array on permission error
-    });
-
-    return unsubscribe;
-  },
   
   subscribeToUsers(callback: (users: ManagedUser[]) => void): () => void {
     const usersCollection = collection(db, 'users');
@@ -656,16 +1620,16 @@ export const dataStore = {
         callback(docSnap.data().tasks as ComprehensiveTaskSection[]);
       } else {
         try {
-            await setDoc(docRef, { tasks: initialComprehensiveTasks });
-            callback(initialComprehensiveTasks);
+            await setDoc(docRef, { tasks: [] });
+            callback([]);
         } catch(e) {
             console.error("Permission denied to create default comprehensive tasks.", e);
-            callback(initialComprehensiveTasks);
+            callback([]);
         }
       }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read comprehensive tasks: ${error.code}`);
-        callback(initialComprehensiveTasks);
+        callback([]);
     });
     return unsubscribe;
   },
@@ -675,17 +1639,50 @@ export const dataStore = {
     await setDoc(docRef, { tasks: newTasks });
   },
 
+  async getInventoryList(): Promise<InventoryItem[]> {
+    const docRef = doc(db, 'app-data', 'inventoryList');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        const items = docSnap.data().items as InventoryItem[];
+        return items.map(item => ({
+            ...item,
+            supplier: item.supplier ?? 'Chưa xác định',
+            category: item.category ?? 'CHƯA PHÂN LOẠI',
+            dataType: item.dataType || 'number',
+            listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+            baseUnit: item.baseUnit || (item as any).unit || 'cái',
+            units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }]
+        }));
+    }
+    return initialInventoryList;
+  },
+
   subscribeToInventoryList(callback: (items: InventoryItem[]) => void): () => void {
     const docRef = doc(db, 'app-data', 'inventoryList');
-     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        const items = docSnap.data().items as InventoryItem[];
-        // Data sanitization step to ensure data consistency
-        const sanitizedItems = items.map(item => ({
-          ...item,
-          supplier: item.supplier ?? 'Chưa xác định',
-          category: item.category ?? 'CHƯA PHÂN LOẠI',
-        }));
+        let items = (docSnap.data().items || []) as InventoryItem[];
+        // If the list is empty, restore from default
+        if (items.length === 0) {
+            console.warn("Inventory list is empty. Restoring from default.");
+            await setDoc(docRef, { items: initialInventoryList });
+            items = initialInventoryList;
+        }
+
+        const sanitizedItems = items.map(item => {
+          const baseUnit = item.baseUnit || (item as any).unit || 'cái';
+          const units = (item.units && item.units.length > 0) ? item.units : [{ name: baseUnit, isBaseUnit: true, conversionRate: 1 }];
+          return {
+            ...item,
+            shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
+            baseUnit,
+            units,
+            supplier: item.supplier ?? 'Chưa xác định',
+            category: item.category ?? 'CHƯA PHÂN LOẠI',
+            dataType: item.dataType || 'number',
+            listOptions: item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài'],
+          };
+        });
         callback(sanitizedItems);
       } else {
         try {
@@ -728,6 +1725,14 @@ export const dataStore = {
     });
     return unsubscribe;
   },
+  async getSuppliers(): Promise<string[]> {
+    const docRef = doc(db, 'app-data', 'suppliers');
+    const docSnap = await getDoc(docRef);
+    if(docSnap.exists()){
+      return docSnap.data().list as string[];
+    }
+    return initialSuppliers;
+  },
 
   async updateSuppliers(newSuppliers: string[]) {
     const docRef = doc(db, 'app-data', 'suppliers');
@@ -769,9 +1774,10 @@ export const dataStore = {
 
   async saveInventoryReport(report: InventoryReport): Promise<void> {
     if (typeof window === 'undefined') return;
-    
+
     const reportToSubmit = JSON.parse(JSON.stringify(report));
 
+    // Handle photo uploads
     const photoIdsToUpload = new Set<string>();
     for (const itemId in reportToSubmit.stockLevels) {
         const record = reportToSubmit.stockLevels[itemId];
@@ -779,56 +1785,48 @@ export const dataStore = {
             record.photoIds.forEach((id: string) => photoIdsToUpload.add(id));
         }
     }
-
     const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
         const photoBlob = await photoStore.getPhoto(photoId);
-        if (!photoBlob) {
-            console.warn(`Photo with ID ${photoId} not found in local store.`);
-            return { photoId, downloadURL: null };
-        }
+        if (!photoBlob) return { photoId, downloadURL: null };
         const storageRef = ref(storage, `inventory-reports/${report.date}/${report.staffName}/${photoId}.jpg`);
         await uploadBytes(storageRef, photoBlob);
-        const downloadURL = await getDownloadURL(storageRef);
-        return { photoId, downloadURL };
+        return { photoId, downloadURL: await getDownloadURL(storageRef) };
     });
-
     const uploadResults = await Promise.all(uploadPromises);
-    const photoIdToUrlMap = new Map<string, string>();
-    uploadResults.forEach(result => {
-        if (result.downloadURL) {
-            photoIdToUrlMap.set(result.photoId, result.downloadURL);
-        }
-    });
+    const photoIdToUrlMap = new Map(uploadResults.map(r => [r.photoId, r.downloadURL]).filter(r => r[1]));
 
     for (const itemId in reportToSubmit.stockLevels) {
         const record = reportToSubmit.stockLevels[itemId];
         if (record.photoIds) {
-            const finalUrls = record.photoIds
-                .map((id: string) => photoIdToUrlMap.get(id))
-                .filter((url: string | undefined): url is string => !!url);
-            
+            const finalUrls = record.photoIds.map((id: string) => photoIdToUrlMap.get(id)).filter(Boolean);
             record.photos = Array.from(new Set([...(record.photos || []), ...finalUrls]));
             delete record.photoIds;
         }
     }
 
+    // Finalize report data
     reportToSubmit.lastUpdated = serverTimestamp();
-    
-    if (report.status === 'submitted') {
-        reportToSubmit.submittedAt = serverTimestamp();
-    } else {
-        delete reportToSubmit.submittedAt;
-    }
-    
+    reportToSubmit.submittedAt = serverTimestamp();
     delete reportToSubmit.id;
 
+    // Commit all changes
     const firestoreRef = doc(db, 'inventory-reports', report.id);
     await setDoc(firestoreRef, reportToSubmit, { merge: true });
 
+    // Cleanup local data
     await photoStore.deletePhotos(Array.from(photoIdsToUpload));
-     if (typeof window !== 'undefined') {
-       localStorage.removeItem(report.id);
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem(report.id);
     }
+  },
+
+
+  async updateInventoryReportSuggestions(reportId: string, suggestions: InventoryOrderSuggestion): Promise<void> {
+    const reportRef = doc(db, 'inventory-reports', reportId);
+    await updateDoc(reportRef, {
+        suggestions: suggestions,
+        lastUpdated: serverTimestamp(),
+    });
   },
 
   async deleteInventoryReport(reportId: string): Promise<void> {
@@ -890,7 +1888,7 @@ export const dataStore = {
         }
 
         if (!localReport && serverDoc.exists()) {
-             const serverReport = await this.overwriteLocalReport(reportId);
+             const serverReport = await this.overwriteLocalReport(userId, shiftKey);
              return { report: serverReport, status: 'synced' };
         }
         
@@ -996,17 +1994,17 @@ export const dataStore = {
 
     // Delete associated photos
     if (reportData.completedTasks) {
-      const deletePromises: Promise<void>[] = [];
+      const deletePhotoPromises: Promise<void>[] = [];
       for (const taskId in reportData.completedTasks) {
         for (const completion of reportData.completedTasks[taskId]) {
           if (completion.photos) {
             for (const photoUrl of completion.photos) {
-              deletePromises.push(this.deletePhotoFromStorage(photoUrl));
+              deletePhotoPromises.push(this.deletePhotoFromStorage(photoUrl));
             }
           }
         }
       }
-      await Promise.all(deletePromises);
+      await Promise.all(deletePhotoPromises);
     }
 
     // Delete the report document
@@ -1069,25 +2067,19 @@ export const dataStore = {
     await setDoc(firestoreRef, reportToSubmit);
   
     await photoStore.deletePhotos(Array.from(photoIdsToUpload));
-    
-    const savedDoc = await getDoc(firestoreRef);
-    const savedData = savedDoc.data();
-    if(savedData) {
-        const finalReport: ShiftReport = {
-            ...report, 
-            ...savedData,
-            id: savedDoc.id,
-            startedAt: (savedData.startedAt as Timestamp).toDate().toISOString(),
-            submittedAt: (savedData.submittedAt as Timestamp).toDate().toISOString(),
-            lastUpdated: (savedData.lastUpdated as Timestamp).toDate().toISOString(),
-        } as ShiftReport;
-    
-        await this.saveLocalReport(finalReport);
-    }
   },
-
-  async overwriteLocalReport(reportId: string): Promise<ShiftReport> {
+  
+  async overwriteLocalReport(arg1: string, arg2?: string): Promise<ShiftReport> {
     if (typeof window === 'undefined') throw new Error("Cannot overwrite local report from server.");
+    
+    let reportId: string;
+    if (arg2) {
+      const date = getTodaysDateKey();
+      reportId = `report-${arg1}-${arg2}-${date}`;
+    } else {
+      reportId = arg1;
+    }
+    
     const firestoreRef = doc(db, 'reports', reportId);
     const serverDoc = await getDoc(firestoreRef);
 
@@ -1198,7 +2190,7 @@ export const dataStore = {
        });
        reports.sort((a, b) => {
          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-         const timeB = new Date(b.submittedAt as string).getTime();
+         const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
          return timeA - timeB;
        });
        callback(reports);
@@ -1225,7 +2217,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = new Date(b.submittedAt as string).getTime();
+          const timeB = a.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -1274,7 +2266,7 @@ export const dataStore = {
         });
         reports.sort((a, b) => {
           const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-          const timeB = new Date(b.submittedAt as string).getTime();
+          const timeB = a.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
           return timeB - timeA;
         });
         return reports;
@@ -1296,7 +2288,7 @@ export const dataStore = {
           id: doc.id,
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate().toISOString(),
+          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
         } as Violation);
       });
       callback(violations);
@@ -1379,15 +2371,122 @@ export const dataStore = {
     await photoStore.deletePhotos(photosToUpload);
   },
   
-  async deleteViolation(violationId: string, photoUrls: string[]): Promise<void> {
-    if (photoUrls && photoUrls.length > 0) {
-      const deletePhotoPromises = photoUrls.map(url => this.deletePhotoFromStorage(url));
+  async deleteViolation(violation: Violation): Promise<void> {
+    const allPhotoUrls: string[] = [];
+    if (violation.photos) {
+      allPhotoUrls.push(...violation.photos);
+    }
+    if (violation.penaltyPhotos) {
+      allPhotoUrls.push(...violation.penaltyPhotos);
+    }
+    if (violation.comments) {
+      violation.comments.forEach(comment => {
+        if (comment.photos) {
+          allPhotoUrls.push(...comment.photos);
+        }
+      });
+    }
+
+    if (allPhotoUrls.length > 0) {
+      const deletePhotoPromises = allPhotoUrls.map(url => this.deletePhotoFromStorage(url));
       await Promise.all(deletePhotoPromises);
     }
     
-    const violationRef = doc(db, 'violations', violationId);
+    const violationRef = doc(db, 'violations', violation.id);
     await deleteDoc(violationRef);
   },
+
+  async toggleViolationFlag(violationId: string, currentState: boolean): Promise<void> {
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      isFlagged: !currentState
+    });
+  },
+
+  async toggleViolationPenaltyWaived(violationId: string, currentState: boolean): Promise<void> {
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      isPenaltyWaived: !currentState
+    });
+  },
+
+  async addCommentToViolation(violationId: string, comment: Omit<ViolationComment, 'id' | 'createdAt' | 'photos'>, photoIds: string[]): Promise<void> {
+    // 1. Upload photos
+    const uploadPromises = photoIds.map(async (photoId) => {
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) return null;
+        const storageRef = ref(storage, `violations/${violationId}/comments/${uuidv4()}.jpg`);
+        await uploadBytes(storageRef, photoBlob);
+        return getDownloadURL(storageRef);
+    });
+    const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+
+    // 2. Create the full comment object
+    const newComment: ViolationComment = {
+      ...comment,
+      id: uuidv4(),
+      photos: photoUrls,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 3. Update the violation document
+    const violationRef = doc(db, 'violations', violationId);
+    await updateDoc(violationRef, {
+      comments: arrayUnion(newComment)
+    });
+    
+    // 4. Clean up local photos
+    await photoStore.deletePhotos(photoIds);
+  },
+
+    async editCommentInViolation(violationId: string, commentId: string, newText: string): Promise<void> {
+        const violationRef = doc(db, 'violations', violationId);
+        await runTransaction(db, async (transaction) => {
+            const violationDoc = await transaction.get(violationRef);
+            if (!violationDoc.exists()) {
+                throw new Error("Violation not found.");
+            }
+            const violation = violationDoc.data() as Violation;
+            const comments = violation.comments || [];
+            const commentIndex = comments.findIndex(c => c.id === commentId);
+
+            if (commentIndex === -1) {
+                throw new Error("Comment not found.");
+            }
+            
+            const updatedComments = [...comments];
+            updatedComments[commentIndex].text = newText;
+
+            transaction.update(violationRef, { comments: updatedComments });
+        });
+    },
+
+    async deleteCommentInViolation(violationId: string, commentId: string): Promise<void> {
+        const violationRef = doc(db, 'violations', violationId);
+        await runTransaction(db, async (transaction) => {
+            const violationDoc = await transaction.get(violationRef);
+            if (!violationDoc.exists()) {
+                throw new Error("Violation not found.");
+            }
+            const violation = violationDoc.data() as Violation;
+            const comments = violation.comments || [];
+            const commentToDelete = comments.find(c => c.id === commentId);
+
+            if (!commentToDelete) {
+                // Comment might have already been deleted.
+                return;
+            }
+
+            // Delete associated photos from storage first
+            if (commentToDelete.photos && commentToDelete.photos.length > 0) {
+                await Promise.all(commentToDelete.photos.map(url => this.deletePhotoFromStorage(url)));
+            }
+
+            // Update the comments array in Firestore
+            const updatedComments = comments.filter(c => c.id !== commentId);
+            transaction.update(violationRef, { comments: updatedComments });
+        });
+    },
   
   async submitPenaltyProof(violationId: string, photoIds: string[]): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {
@@ -1421,4 +2520,9 @@ export const dataStore = {
   },
 };
 
-      
+    
+
+
+
+    
+

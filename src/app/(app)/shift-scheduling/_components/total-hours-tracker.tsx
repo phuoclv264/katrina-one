@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Schedule, ManagedUser } from '@/lib/types';
+import type { Schedule, ManagedUser, UserRole } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,18 @@ type TotalHoursTrackerProps = {
   schedule: Schedule | null;
   allUsers: ManagedUser[];
   onUserClick: (user: ManagedUser) => void;
+  currentUserRole: UserRole;
 };
 
-export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: TotalHoursTrackerProps) {
+const roleOrder: Record<UserRole, number> = {
+  'Phục vụ': 1,
+  'Pha chế': 2,
+  'Quản lý': 3,
+  'Chủ nhà hàng': 4,
+};
+
+
+export default function TotalHoursTracker({ schedule, allUsers, onUserClick, currentUserRole }: TotalHoursTrackerProps) {
 
   const totalHoursByUser = useMemo(() => {
     if (!schedule) return new Map<string, number>();
@@ -43,20 +52,21 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
   }, [schedule?.availability]);
   
   const sortedUsers = useMemo(() => {
-    const activeUsers = allUsers.filter(u => u.role !== 'Chủ nhà hàng');
+    let activeUsers = allUsers;
+
+    if (currentUserRole === 'Quản lý') {
+        activeUsers = allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'));
+    }
+
     return activeUsers.sort((a,b) => {
-        const hoursA = totalHoursByUser.get(a.uid) || 0;
-        const hoursB = totalHoursByUser.get(b.uid) || 0;
-        return hoursB - hoursA;
+        const roleA = roleOrder[a.role] || 99;
+        const roleB = roleOrder[b.role] || 99;
+        if (roleA !== roleB) {
+            return roleA - roleB;
+        }
+        return a.displayName.localeCompare(b.displayName);
     })
-  }, [allUsers, totalHoursByUser]);
-
-  const maxHours = useMemo(() => {
-    const allHours = Array.from(totalHoursByUser.values()).concat(Array.from(availableHoursByUser.values()));
-    if (allHours.length === 0) return 40;
-    return Math.max(...allHours, 40);
-  }, [totalHoursByUser, availableHoursByUser]);
-
+  }, [allUsers, currentUserRole]);
 
   if (!schedule) {
       return (
@@ -82,7 +92,7 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
           Số giờ làm dự kiến của mỗi nhân viên dựa trên lịch đã xếp.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-4">
         {sortedUsers.map(user => {
             const workedHours = totalHoursByUser.get(user.uid) || 0;
             const availableHours = availableHoursByUser.get(user.uid) || 0;
@@ -97,12 +107,16 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick }: T
                 >
                     <div className="w-full">
                         <div className="flex justify-between mb-1 text-sm">
-                            <span className="font-medium">{user.displayName}</span>
-                            <span className="text-muted-foreground">
-                                {workedHours.toFixed(1)} / {availableHours.toFixed(1)} giờ
-                            </span>
+                            <span className="font-medium truncate">{user.displayName}</span>
                         </div>
-                        <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
+                        <div className="relative">
+                            <Progress value={progressValue} aria-label={`${user.displayName} total hours`} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xs font-bold drop-shadow-sm">
+                                    {workedHours.toFixed(1)} / {availableHours.toFixed(1)} giờ
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </Button>
             )

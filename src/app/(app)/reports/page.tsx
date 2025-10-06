@@ -6,22 +6,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, Users, Wand2, Loader2, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
+import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
 
 type ReportType = ShiftReport | InventoryReport;
 
@@ -182,7 +180,7 @@ function DailySummaryGenerator({
 
     return (
         <>
-            <Button onClick={handleClick} variant="outline" size="sm">
+            <Button onClick={handleClick} variant="ghost" className="w-full justify-center py-2">
                 <Wand2 className="mr-2 h-4 w-4" />
                 Tóm tắt bằng AI
             </Button>
@@ -228,8 +226,8 @@ function DailySummaryGenerator({
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
-  const [allReports, setAllReports] = useState<ReportType[]>([]);
+  
+  const [allReports, setAllReports] = useState<ReportType[] | null>(null);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
   const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
@@ -237,47 +235,74 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user?.role !== 'Chủ nhà hàng') {
+    if (!authLoading && user?.role !== 'Chủ nhà hàng' && user?.role !== 'Quản lý') {
       router.replace('/shifts');
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user || user.role !== 'Chủ nhà hàng') return;
+    if (!user) return;
 
-    const unsubscribes: (()=>void)[] = [];
-    
-    try {
-        unsubscribes.push(dataStore.subscribeToTasks((tasks) => setTasksByShift(tasks)));
-        unsubscribes.push(dataStore.subscribeToBartenderTasks((tasks) => setBartenderTasks(tasks)));
-        unsubscribes.push(dataStore.subscribeToComprehensiveTasks((tasks) => setComprehensiveTasks(tasks)));
-        unsubscribes.push(dataStore.subscribeToInventoryList((items) => setInventoryList(items)));
-        unsubscribes.push(dataStore.subscribeToReports((reports) => setAllReports(reports)));
-    } catch(error) {
-         console.error("Error subscribing to data:", error);
-         toast({
-            title: "Lỗi tải dữ liệu",
-            description: "Không thể tải được một số cấu hình công việc hoặc báo cáo.",
-            variant: "destructive",
+    let isMounted = true;
+    const subscriptions: (() => void)[] = [];
+    const dataPromises: Promise<void>[] = [];
+
+    const isOwner = user.role === 'Chủ nhà hàng';
+
+    // Helper to create a promise that resolves on the first data snapshot
+    const createDataPromise = <T,>(
+        setter: React.Dispatch<React.SetStateAction<T | null>>,
+        subFunction: (cb: (data: T) => void) => () => void
+    ) => {
+        return new Promise<void>((resolve) => {
+            const unsub = subFunction((data) => {
+                if (isMounted) setter(data);
+                resolve();
+            });
+            subscriptions.push(unsub);
         });
-    }
+    };
+
+    const loadInitialData = async () => {
+        // Create promises for all necessary data fetches
+        dataPromises.push(createDataPromise(setTasksByShift, dataStore.subscribeToTasks));
+        dataPromises.push(createDataPromise(setBartenderTasks, dataStore.subscribeToBartenderTasks));
+        dataPromises.push(createDataPromise(setInventoryList, dataStore.subscribeToInventoryList));
+        if (isOwner) {
+            dataPromises.push(createDataPromise(setComprehensiveTasks, dataStore.subscribeToComprehensiveTasks));
+        }
+
+        // Subscribe to reports in real-time
+        const reportsUnsub = dataStore.subscribeToReports(reports => {
+            if (!isMounted) return;
+            let filteredReports = reports;
+            if (user.role === 'Quản lý') {
+                filteredReports = reports.filter(r => {
+                    if ('shiftKey' in r) return r.shiftKey !== 'manager_comprehensive';
+                    return true;
+                });
+            }
+            setAllReports(filteredReports);
+        });
+        subscriptions.push(reportsUnsub);
+
+        await Promise.all(dataPromises);
+        
+        if (isMounted) setIsLoading(false);
+    };
+
+    loadInitialData();
 
     return () => {
-      unsubscribes.forEach(unsub => unsub());
+        isMounted = false;
+        subscriptions.forEach(unsub => unsub());
     };
-  }, [user, toast]);
-  
-  useEffect(() => {
-      if (tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && allReports) {
-          setIsLoading(false);
-      }
-  }, [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList, allReports]);
+}, [user]);
 
   const getReportKey = (report: ReportType): string => {
     if ('shiftKey' in report) {
       return report.shiftKey;
     }
-    // Simple way to identify inventory reports
     if ('stockLevels' in report) {
       return 'inventory';
     }
@@ -318,6 +343,7 @@ export default function ReportsPage() {
 
 
   const groupedReports: GroupedReports = useMemo(() => {
+    if (!allReports) return {};
     return allReports.reduce((acc, report) => {
       const date = report.date;
       const key = getReportKey(report);
@@ -332,17 +358,10 @@ export default function ReportsPage() {
       return acc;
     }, {} as GroupedReports);
   }, [allReports]);
-
-  const sortedDates = Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   
-  const taskDefinitions = useMemo(() => ({
-      serverTasks: tasksByShift,
-      bartenderTasks,
-      comprehensiveTasks,
-      inventoryItems: inventoryList,
-  }), [tasksByShift, bartenderTasks, comprehensiveTasks, inventoryList]);
+  const sortedDates = useMemo(() => Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedReports]);
 
-  if(isLoading || authLoading || user?.role !== 'Chủ nhà hàng') {
+  if(isLoading || authLoading || !user) {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -367,86 +386,86 @@ export default function ReportsPage() {
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold font-headline">Báo cáo đã nộp</h1>
-        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ngày và ca.</p>
+        <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ngày.</p>
       </header>
 
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Báo cáo gần đây</CardTitle>
-            <CardDescription>
-              Hiển thị {allReports.length} báo cáo đã nộp gần nhất, được nhóm theo ngày.
-            </CardDescription>
+            {allReports && <CardDescription>Hiển thị {allReports.length} báo cáo đã nộp gần nhất.</CardDescription>}
           </div>
-          <CleanupDialog />
+          {user.role === 'Chủ nhà hàng' && <CleanupDialog />}
         </CardHeader>
         <CardContent>
-          {sortedDates.length > 0 ? (
-            <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)}>
-              {sortedDates.map((date) => {
-                const reportsForDate = Object.values(groupedReports[date]).flat();
-                return (
-                  <AccordionItem value={date} key={date}>
-                    <AccordionTrigger className="text-lg font-medium hover:no-underline">
-                        <span>Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        <div className="flex justify-end pr-4">
-                            <DailySummaryGenerator 
-                                date={date} 
-                                reports={reportsForDate}
-                                taskDefinitions={taskDefinitions}
-                            />
-                        </div>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Tên báo cáo</TableHead>
-                              <TableHead>Nhân viên đã nộp</TableHead>
-                              <TableHead className="text-right">Thời gian nộp</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
-                              const reportName = getReportName(key);
-                              const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
-                              const latestSubmission = reportGroup.reduce((latest, current) => {
-                                  if (!latest.submittedAt) return current;
-                                  if (!current.submittedAt) return latest;
-                                  return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
-                              });
-                              const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+           {sortedDates.length === 0 ? (
+               <div className="text-center py-16 text-muted-foreground">Chưa có báo cáo nào được nộp.</div>
+           ) : (
+                <Accordion type="multiple" defaultValue={sortedDates.slice(0, 1)}>
+                    {sortedDates.map((date) => (
+                        <AccordionItem value={date} key={date}>
+                            <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-4">
+                                Ngày {new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="space-y-4">
+                                    {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
+                                        <div className="my-2 border-b pb-4">
+                                            <DailySummaryGenerator 
+                                                date={date} 
+                                                reports={groupedReports[date] ? Object.values(groupedReports[date]).flat() : []}
+                                                taskDefinitions={{
+                                                    serverTasks: tasksByShift,
+                                                    bartenderTasks: bartenderTasks,
+                                                    comprehensiveTasks: comprehensiveTasks,
+                                                    inventoryItems: inventoryList,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Tên báo cáo</TableHead>
+                                                <TableHead>Nhân viên đã nộp</TableHead>
+                                                <TableHead className="text-right">Thời gian nộp</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {Object.entries(groupedReports[date]).map(([key, reportGroup]) => {
+                                                const reportName = getReportName(key);
+                                                const staffNames = [...new Set(reportGroup.map(r => r.staffName))].join(', ');
+                                                const latestSubmission = reportGroup.reduce((latest, current) => {
+                                                    if (!latest.submittedAt) return current;
+                                                    if (!current.submittedAt) return latest;
+                                                    return new Date(current.submittedAt as string) > new Date(latest.submittedAt as string) ? current : latest;
+                                                });
+                                                const submissionTime = latestSubmission.submittedAt ? new Date(latestSubmission.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
 
-                              return (
-                                <TableRow 
-                                  key={`${date}-${key}`} 
-                                  onClick={() => router.push(getReportLink(date, key))}
-                                  className="cursor-pointer select-none"
-                                >
-                                  <TableCell className="font-semibold capitalize">{reportName}</TableCell>
-                                  <TableCell>
-                                    <p className="text-sm text-muted-foreground">{staffNames}</p>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <p className="text-sm text-muted-foreground">{submissionTime}</p>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )
-              })}
-            </Accordion>
-          ) : (
-             <div className="text-center text-muted-foreground py-8">
-                <p>Không có báo cáo nào được nộp.</p>
-             </div>
-          )}
+                                                return (
+                                                    <TableRow
+                                                        key={`${date}-${key}`}
+                                                        onClick={() => router.push(getReportLink(date, key))}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        <TableCell className="font-semibold capitalize">{reportName}</TableCell>
+                                                        <TableCell>
+                                                            <p className="text-sm text-muted-foreground">{staffNames}</p>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <p className="text-sm text-muted-foreground">{submissionTime}</p>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            )}
         </CardContent>
       </Card>
     </div>

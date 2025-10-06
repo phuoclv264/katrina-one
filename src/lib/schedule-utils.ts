@@ -1,4 +1,5 @@
 
+
 import type { TimeSlot, Availability, AssignedShift } from './types';
 
 /**
@@ -45,26 +46,24 @@ export function hasTimeConflict(
 ): AssignedShift | null {
   const startA = parseTime(shiftToAdd.timeSlot.start);
   const endA = parseTime(shiftToAdd.timeSlot.end);
-  
-  // Find a shift that this user is already in, which conflicts with the new shift.
-  const conflictingShift = allShiftsOnDay.find(existingShift => {
-    // Don't compare the shift with itself
-    if (existingShift.id === shiftToAdd.id) return false;
-    
-    // Check if the user is assigned to this existing shift
-    const isUserAssigned = existingShift.assignedUsers.some(u => u.userId === userId);
-    if (!isUserAssigned) return false;
 
-    // Check for time overlap
+  // 1. Get all shifts the user is already assigned to on that day.
+  const existingUserShifts = allShiftsOnDay.filter(s =>
+    s.assignedUsers.some(u => u.userId === userId)
+  );
+
+  // 2. Check for time overlap against each existing shift.
+  for (const existingShift of existingUserShifts) {
     const startB = parseTime(existingShift.timeSlot.start);
     const endB = parseTime(existingShift.timeSlot.end);
 
-    // Overlap exists if one shift starts before the other ends, AND vice versa.
-    // (startA < endB) and (startB < endA)
-    return startA < endB && startB < endA;
-  });
+    // Overlap exists if (StartA < EndB) and (StartB < EndA)
+    if (startA < endB && startB < endA) {
+      return existingShift; // Return the specific shift that conflicts
+    }
+  }
   
-  return conflictingShift || null;
+  return null; // No conflict found
 }
 
 

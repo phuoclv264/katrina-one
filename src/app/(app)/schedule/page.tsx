@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import ScheduleView from './_components/schedule-view';
@@ -16,4 +15,3 @@ export default function SchedulePage() {
         </div>
     );
 }
-

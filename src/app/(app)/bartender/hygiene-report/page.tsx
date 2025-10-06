@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -8,7 +8,7 @@ import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Activity, Loader2, Save, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronDown, ChevronUp, Droplets, UtensilsCrossed, Wind, ChevronsDownUp, FilePlus2, ThumbsUp, ThumbsDown, FilePen } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -17,7 +17,6 @@ import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import SubmissionNotesDialog from '@/components/submission-notes-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -28,14 +27,16 @@ import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TaskItem } from '../../_components/task-item';
+import SubmissionNotesSection from '../../checklist/_components/submission-notes-section';
+import { format } from 'date-fns';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
 export default function HygieneReportPage() {
-  const { toast } = useToast();
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
   const shiftKey = 'bartender_hygiene';
+  const notesSectionRef = useRef<HTMLDivElement>(null);
   
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +45,8 @@ export default function HygieneReportPage() {
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [isSubmissionNotesOpen, setIsSubmissionNotesOpen] = useState(false);
+  const [submissionNotes, setSubmissionNotes] = useState('');
+  const [notesError, setNotesError] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
@@ -60,6 +62,26 @@ export default function HygieneReportPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
+  // --- Back button handling for Lightbox ---
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (isLightboxOpen) {
+        event.preventDefault();
+        setIsLightboxOpen(false);
+      }
+    };
+
+    if (isLightboxOpen) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isLightboxOpen]);
+
+
   // Initialize accordion state to be all open by default
   useEffect(() => {
     if (tasks) {
@@ -69,7 +91,7 @@ export default function HygieneReportPage() {
 
   // --- Data Loading and Initialization ---
   useEffect(() => {
-    if (!isAuthLoading && (!user || user.role !== 'Pha chế')) {
+    if (!isAuthLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
       router.replace('/');
     }
   }, [isAuthLoading, user, router]);
@@ -90,6 +112,7 @@ export default function HygieneReportPage() {
         try {
             const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
             setReport(loadedReport);
+            setSubmissionNotes(loadedReport.issues || '');
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
                 setShowSyncDialog(true);
@@ -100,17 +123,13 @@ export default function HygieneReportPage() {
         } catch (error) {
             console.error("Error loading report:", error);
             setSyncStatus('error');
-            toast({
-                title: "Lỗi tải dữ liệu",
-                description: "Không thể tải hoặc đồng bộ báo cáo. Vui lòng thử lại.",
-                variant: "destructive"
-            });
+            toast.error("Lỗi tải dữ liệu. Không thể tải hoặc đồng bộ báo cáo.");
         }
         setIsLoading(false);
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey, toast]);
+  }, [isAuthLoading, user, shiftKey]);
 
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
@@ -132,6 +151,14 @@ export default function HygieneReportPage() {
         return newReport;
     });
   }, []);
+
+  const handleNotesChange = useCallback((notes: string) => {
+    if (notesError) {
+      setNotesError(false);
+    }
+    setSubmissionNotes(notes);
+     updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
+  }, [updateLocalReport, notesError]);
 
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -157,7 +184,7 @@ export default function HygieneReportPage() {
             const taskCompletions = [...(newCompletedTasks[taskId] || [])];
             
             const newCompletion: CompletionRecord = {
-                timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                timestamp: format(new Date(), 'HH:mm'),
                 value: value,
             };
 
@@ -182,7 +209,7 @@ export default function HygieneReportPage() {
             const taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
             
             const newCompletion: CompletionRecord = {
-                timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                timestamp: format(new Date(), 'HH:mm'),
                 opinion: opinionText.trim() || undefined,
             };
 
@@ -212,7 +239,7 @@ export default function HygieneReportPage() {
                 taskCompletions[completionIndex] = completionToUpdate;
             } else {
                 taskCompletions.unshift({
-                    timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                    timestamp: format(new Date(), 'HH:mm'),
                     photoIds: photoIds,
                     photos: [],
                 });
@@ -298,18 +325,25 @@ export default function HygieneReportPage() {
       });
   }
   
-    const handleSubmitReport = async (notes: string) => {
+    const handleSubmitReport = async () => {
         if (!report) return;
+
+        // --- Validation for notes ---
+        const hasCompletedTask = Object.values(report.completedTasks).some(completions => completions.length > 0);
+        if (hasCompletedTask && (!submissionNotes || submissionNotes.trim() === '')) {
+            toast.error("Vui lòng nhập ghi chú trước khi gửi báo cáo.");
+            setNotesError(true);
+            notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        // --- End Validation ---
+
         const startTime = Date.now();
         setIsSubmitting(true);
         setShowSyncDialog(false);
-        setIsSubmissionNotesOpen(false);
-        toast({
-            title: "Đang gửi báo cáo...",
-            description: "Vui lòng đợi, quá trình này có thể mất vài phút.",
-        });
+        const toastId = toast.loading("Đang gửi báo cáo...");
 
-        const finalReport = { ...report, issues: notes || null };
+        const finalReport = { ...report, issues: submissionNotes || null };
 
         try {
             await dataStore.submitReport(finalReport);
@@ -319,18 +353,11 @@ export default function HygieneReportPage() {
             setHasUnsubmittedChanges(false);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
-            toast({
-                title: "Gửi báo cáo thành công!",
-                description: `Báo cáo đã được đồng bộ. (Thời gian: ${duration} giây)`,
-            });
+            toast.success(`Gửi báo cáo thành công! (Thời gian: ${duration} giây)`, { id: toastId });
         } catch (error) {
             console.error("Failed to submit report:", error);
             setSyncStatus('error');
-            toast({
-                variant: "destructive",
-                title: "Gửi báo cáo thất bại",
-                description: "Đã xảy ra lỗi khi gửi báo cáo của bạn. Vui lòng kiểm tra kết nối mạng và thử lại.",
-            });
+            toast.error("Gửi báo cáo thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.", { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -340,26 +367,18 @@ export default function HygieneReportPage() {
       if (!report) return;
       setIsSubmitting(true);
       setShowSyncDialog(false);
-       toast({
-            title: "Đang tải dữ liệu từ máy chủ...",
-        });
+       const toastId = toast.loading("Đang tải dữ liệu từ máy chủ...");
       try {
         const serverReport = await dataStore.overwriteLocalReport(report.id);
         setReport(serverReport);
+        setSubmissionNotes(serverReport.issues || '');
         setSyncStatus('synced');
         setHasUnsubmittedChanges(false);
-         toast({
-            title: "Tải thành công!",
-            description: "Báo cáo đã được cập nhật với phiên bản mới nhất từ máy chủ.",
-        });
+         toast.success("Tải thành công! Báo cáo đã được cập nhật.", { id: toastId });
       } catch (error) {
          console.error("Failed to download report:", error);
          setSyncStatus('error');
-         toast({
-            variant: "destructive",
-            title: "Tải thất bại",
-            description: "Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.",
-        });
+         toast.error("Tải thất bại. Không thể tải dữ liệu từ máy chủ.", { id: toastId });
       } finally {
         setIsSubmitting(false);
       }
@@ -522,6 +541,13 @@ export default function HygieneReportPage() {
             </Accordion>
           </CardContent>
         </Card>
+         <SubmissionNotesSection 
+            ref={notesSectionRef}
+            initialNotes={submissionNotes}
+            onNotesChange={handleNotesChange}
+            isReadonly={isReadonly}
+            isHighlighted={notesError}
+        />
       </div>
     </div>
     
@@ -530,11 +556,11 @@ export default function HygieneReportPage() {
         <Button
             size="lg"
             className="rounded-full shadow-lg h-16 w-16"
-            onClick={() => setIsSubmissionNotesOpen(true)}
+            onClick={handleSubmitReport}
             disabled={isReadonly || syncStatus === 'server-newer'}
             aria-label="Gửi báo cáo"
         >
-            <Send className="h-6 w-6" />
+            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
         </Button>
         {hasUnsubmittedChanges && (
             <div className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -558,13 +584,6 @@ export default function HygieneReportPage() {
         taskText={activeTask?.text || ''}
     />
     
-    <SubmissionNotesDialog
-        isOpen={isSubmissionNotesOpen}
-        onClose={() => setIsSubmissionNotesOpen(false)}
-        onSubmit={handleSubmitReport}
-        isSubmitting={isSubmitting}
-    />
-
     <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
       <AlertDialogContent>
         {syncStatus === 'local-newer' && (
@@ -577,7 +596,7 @@ export default function HygieneReportPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Để sau</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setIsSubmissionNotesOpen(true)}>Gửi ngay</AlertDialogAction>
+                    <AlertDialogAction onClick={handleSubmitReport}>Gửi ngay</AlertDialogAction>
                 </AlertDialogFooter>
             </>
         )}
@@ -604,6 +623,7 @@ export default function HygieneReportPage() {
         slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
+        carousel={{ finite: true }}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
         captions={{ 
@@ -615,5 +635,3 @@ export default function HygieneReportPage() {
     </TooltipProvider>
   );
 }
-
-    

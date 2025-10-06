@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
@@ -7,10 +8,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { ShiftReport, CompletionRecord, TasksByShift } from '@/lib/types';
+import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule, ManagedUser } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -21,8 +22,299 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { getISOWeek } from 'date-fns';
+
+const mainShiftTimeFrames: { [key: string]: { start: string; end: string } } = {
+  sang: { start: '05:30', end: '12:00' },
+  trua: { start: '12:00', end: '17:00' },
+  toi: { start: '17:00', end: '23:00' },
+};
+
+function ShiftSummaryCard({ 
+    shift,
+    shiftKey,
+    date,
+    reports, 
+    schedule,
+    allUsers,
+    onViewPhotos 
+}: { 
+    shift: Shift,
+    shiftKey: string,
+    date: string,
+    reports: ShiftReport[],
+    schedule: Schedule | null,
+    allUsers: ManagedUser[],
+    onViewPhotos: (photos: {src: string, description: string}[], startIndex: number) => void
+}) {
+    const summary = useMemo(() => {
+        const parseTime = (timeStr: string) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const mainShiftFrame = mainShiftTimeFrames[shiftKey];
+        if (!mainShiftFrame) return { assignedUsers: [], submittedUsers: [], absentUsers: [], uncompletedStartShiftTasks: [], uncompletedInShiftTasks: [], uncompletedEndShiftTasks: [], completedStartShiftTasks: [], completedInShiftTasks: [], completedEndShiftTasks: [], allStartShiftTasksUncompleted: false, allEndShiftTasksUncompleted: false, notes: [] };
+
+        const allShiftsOnDay = schedule?.shifts.filter(s => s.date === date) || [];
+
+        const serverUsers = allUsers.filter(u => u.role === 'Phục vụ');
+        
+        const assignedUsersSet = new Set<string>();
+
+        const mainShiftStartMinutes = parseTime(mainShiftFrame.start);
+        const mainShiftEndMinutes = parseTime(mainShiftFrame.end);
+
+        serverUsers.forEach(user => {
+            const userShiftsOnDay = allShiftsOnDay.filter(s => s.assignedUsers.some(au => au.userId === user.uid));
+            
+            const isInMainShift = userShiftsOnDay.some(userShift => {
+                const shiftStartMinutes = parseTime(userShift.timeSlot.start);
+                const shiftEndMinutes = parseTime(userShift.timeSlot.end);
+                // Check for overlap: (StartA < EndB) and (StartB < EndA)
+                return shiftStartMinutes < mainShiftEndMinutes && mainShiftStartMinutes < shiftEndMinutes;
+            });
+
+            if (isInMainShift) {
+                assignedUsersSet.add(user.displayName);
+            }
+        });
+
+        const assignedUsers = Array.from(assignedUsersSet).sort();
+        const submittedUsers = Array.from(new Set(reports.map(r => r.staffName)));
+        const absentUsers = assignedUsers.filter(u => !submittedUsers.includes(u));
+
+        const allCompletedTasks = new Map<string, { staffName: string; completion: CompletionRecord }[]>();
+        const notes = reports.filter(r => r.issues?.trim()).map(r => ({ staffName: r.staffName, issues: r.issues! }));
+
+        reports.forEach(report => {
+            for (const taskId in report.completedTasks) {
+                if (!allCompletedTasks.has(taskId)) {
+                    allCompletedTasks.set(taskId, []);
+                }
+                const completionsWithStaff = report.completedTasks[taskId].map(comp => ({
+                    staffName: report.staffName,
+                    completion: comp
+                }));
+                allCompletedTasks.get(taskId)!.push(...completionsWithStaff);
+            }
+        });
+        
+        // Sort completions by timestamp
+        allCompletedTasks.forEach((completions) => {
+            completions.sort((a, b) => {
+                return a.completion.timestamp.localeCompare(b.completion.timestamp);
+            });
+        });
+
+        const startShiftSection = shift.sections.find(s => s.title === 'Đầu ca');
+        const endShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
+        const inShiftSection = shift.sections.find(s => s.title === 'Trong ca');
+
+        const uncompletedStartShiftTasks = startShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
+        const uncompletedInShiftTasks = inShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
+        const uncompletedEndShiftTasks = endShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
+        
+        const mapCompletedTasks = (section: typeof startShiftSection) => {
+            if (!section) return [];
+            return section.tasks
+                .map(task => ({
+                    taskText: task.text,
+                    taskType: task.type,
+                    completions: allCompletedTasks.get(task.id) || [],
+                }))
+                .filter(item => item.completions.length > 0);
+        };
+
+        const completedStartShiftTasks = mapCompletedTasks(startShiftSection);
+        const completedInShiftTasks = mapCompletedTasks(inShiftSection);
+        const completedEndShiftTasks = mapCompletedTasks(endShiftSection);
+        
+        const allStartShiftTasksUncompleted = startShiftSection ? uncompletedStartShiftTasks.length === startShiftSection.tasks.length : false;
+        const allEndShiftTasksUncompleted = endShiftSection ? uncompletedEndShiftTasks.length === endShiftSection.tasks.length : false;
+
+        return { 
+            uncompletedStartShiftTasks, 
+            uncompletedInShiftTasks,
+            uncompletedEndShiftTasks, 
+            completedStartShiftTasks,
+            completedInShiftTasks,
+            completedEndShiftTasks,
+            allStartShiftTasksUncompleted,
+            allEndShiftTasksUncompleted,
+            assignedUsers,
+            submittedUsers,
+            absentUsers,
+            notes,
+        };
+    }, [shift, shiftKey, date, reports, schedule, allUsers]);
+
+    const hasUncompleted = summary.uncompletedStartShiftTasks.length > 0 || summary.uncompletedEndShiftTasks.length > 0 || summary.uncompletedInShiftTasks.length > 0;
+    const hasCompleted = summary.completedStartShiftTasks.length > 0 || summary.completedInShiftTasks.length > 0 || summary.completedEndShiftTasks.length > 0;
+
+    const renderCompletedTaskList = (completedTasks: typeof summary.completedStartShiftTasks) => (
+         <div className="space-y-3">
+            {completedTasks.map(item => (
+                <div key={item.taskText} className="p-3 bg-card rounded-md border">
+                    <p className="font-medium mb-2">{item.taskText}</p>
+                    <ul className="space-y-2">
+                        {item.completions.map((comp, index) => (
+                            <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                <UserCheck className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                                <div>
+                                    <span className="font-semibold text-foreground">{comp.staffName}</span>
+                                    <span> lúc </span>
+                                    <span className="font-mono">{comp.completion.timestamp}</span>
+                                    
+                                     {item.taskType === 'boolean' && comp.completion.value !== undefined && (
+                                        <Badge variant={comp.completion.value ? "default" : "destructive"} className="ml-2">
+                                            {comp.completion.value ? <ThumbsUp className="h-3 w-3 mr-1"/> : <ThumbsDown className="h-3 w-3 mr-1"/>}
+                                            {comp.completion.value ? "Đảm bảo" : "Không đảm bảo"}
+                                        </Badge>
+                                    )}
+                                    {item.taskType === 'opinion' && comp.completion.opinion && (
+                                        <p className="text-xs italic bg-muted p-2 rounded-md border mt-1">"{comp.completion.opinion}"</p>
+                                    )}
+                                </div>
+                                {(comp.completion.photos && comp.completion.photos.length > 0) && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 ml-auto shrink-0" 
+                                        onClick={() => {
+                                            const slides = comp.completion.photos!.map(p => ({ 
+                                                src: p, 
+                                                description: `${item.taskText}\nThực hiện bởi: ${comp.staffName}\nLúc: ${comp.completion.timestamp}`
+                                            }));
+                                            onViewPhotos(slides, 0);
+                                        }}>
+                                        <ImageIcon className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </div>
+    );
+
+    return (
+        <Card className="mb-8 border-amber-500/50 bg-amber-50/20 dark:bg-amber-900/10">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <Info className="h-5 w-5" /> Tóm tắt báo cáo ca
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                
+                <div>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2"><Users/> Chuyên cần</h4>
+                    <div className="space-y-3">
+                         <div className="p-3 bg-card rounded-md border">
+                            <p className="font-medium text-sm mb-1 text-muted-foreground">Nhân viên được phân công (Phục vụ):</p>
+                             <p className="text-sm">{summary.assignedUsers.length > 0 ? summary.assignedUsers.join(', ') : 'Không có ai.'}</p>
+                        </div>
+                        {summary.absentUsers.length > 0 && (
+                            <div className="p-3 bg-destructive/10 rounded-md border border-destructive/30">
+                                <p className="font-medium text-sm mb-1 text-destructive">Nhân viên vắng (không nộp báo cáo):</p>
+                                <p className="text-sm font-semibold text-destructive">{summary.absentUsers.join(', ')}</p>
+                            </div>
+                        )}
+                         {reports.length > 0 && summary.absentUsers.length === 0 && summary.assignedUsers.length > 0 && (
+                            <div className="p-3 bg-green-100/60 rounded-md border border-green-200/80">
+                               <p className="font-medium text-sm flex items-center gap-2 text-green-800"><CheckCircle className="h-4 w-4"/>Tất cả nhân viên được phân công đã nộp báo cáo.</p>
+                           </div>
+                        )}
+                    </div>
+                </div>
+
+                {summary.notes.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><MessageSquareWarning/> Ghi chú từ nhân viên</h4>
+                        <div className="space-y-2">
+                            {summary.notes.map((note, index) => (
+                                <div key={index} className="p-3 bg-card rounded-md border text-sm">
+                                    <blockquote className="border-l-4 pl-3 italic">
+                                        {note.issues}
+                                    </blockquote>
+                                    <p className="text-right font-semibold mt-1">- {note.staffName}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {hasUncompleted && (
+                     <div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><ListX/> Công việc chưa hoàn thành</h4>
+                        <div className="space-y-3">
+                        {summary.uncompletedStartShiftTasks.length > 0 && (
+                            <div className="p-3 bg-card rounded-md border">
+                                <p className="font-medium text-sm mb-1 text-muted-foreground">Đầu ca:</p>
+                                {summary.allStartShiftTasksUncompleted ? (
+                                    <p className="text-sm italic">Toàn bộ các công việc đầu ca chưa được thực hiện.</p>
+                                ) : (
+                                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                                        {summary.uncompletedStartShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+                        {summary.uncompletedInShiftTasks.length > 0 && (
+                            <div className="p-3 bg-card rounded-md border">
+                                <p className="font-medium text-sm mb-1 text-muted-foreground">Trong ca:</p>
+                                <ul className="list-disc pl-5 space-y-1 text-sm">
+                                    {summary.uncompletedInShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                        {summary.uncompletedEndShiftTasks.length > 0 && (
+                             <div className="p-3 bg-card rounded-md border">
+                                <p className="font-medium text-sm mb-1 text-muted-foreground">Cuối ca:</p>
+                                {summary.allEndShiftTasksUncompleted ? (
+                                    <p className="text-sm italic">Toàn bộ các công việc cuối ca chưa được thực hiện.</p>
+                                ) : (
+                                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                                        {summary.uncompletedEndShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+                        </div>
+                    </div>
+                )}
+                {hasCompleted && (
+                     <div>
+                        <h4 className="font-semibold flex items-center gap-2 mb-2"><ListTodo/> Công việc đã hoàn thành</h4>
+                        <Accordion type="multiple" defaultValue={['start-shift-completed', 'in-shift-completed', 'end-shift-completed']} className="w-full space-y-2">
+                           {summary.completedStartShiftTasks.length > 0 && (
+                                <AccordionItem value="start-shift-completed" className="border rounded-md bg-card">
+                                    <AccordionTrigger className="p-3 font-medium hover:no-underline text-base">Đầu ca</AccordionTrigger>
+                                    <AccordionContent className="p-3 border-t">{renderCompletedTaskList(summary.completedStartShiftTasks)}</AccordionContent>
+                                </AccordionItem>
+                           )}
+                           {summary.completedInShiftTasks.length > 0 && (
+                                <AccordionItem value="in-shift-completed" className="border rounded-md bg-card">
+                                    <AccordionTrigger className="p-3 font-medium hover:no-underline text-base">Trong ca</AccordionTrigger>
+                                    <AccordionContent className="p-3 border-t">{renderCompletedTaskList(summary.completedInShiftTasks)}</AccordionContent>
+                                </AccordionItem>
+                           )}
+                           {summary.completedEndShiftTasks.length > 0 && (
+                                <AccordionItem value="end-shift-completed" className="border rounded-md bg-card">
+                                    <AccordionTrigger className="p-3 font-medium hover:no-underline text-base">Cuối ca</AccordionTrigger>
+                                    <AccordionContent className="p-3 border-t">{renderCompletedTaskList(summary.completedEndShiftTasks)}</AccordionContent>
+                                </AccordionItem>
+                           )}
+                        </Accordion>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
 
 
 function ReportView() {
@@ -35,11 +327,15 @@ function ReportView() {
 
   const [reports, setReports] = useState<ShiftReport[]>([]);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const [schedule, setSchedule] = useState<Schedule | null>(null);
+  const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string, description?: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // --- Back button handling for Lightbox ---
@@ -63,7 +359,7 @@ function ReportView() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
+    if (!authLoading && (!user || (user.role !== 'Chủ nhà hàng' && user.role !== 'Quản lý'))) {
         router.replace('/shifts');
         return;
     }
@@ -76,15 +372,43 @@ function ReportView() {
     }
 
     let isMounted = true;
-    const unsubscribeTasks = dataStore.subscribeToTasks((tasks) => {
-      if (isMounted) setTasksByShift(tasks);
+    let loadingFlags = { tasks: false, reports: false, schedule: false, users: false };
+
+    const checkAllLoaded = () => {
+      if (Object.values(loadingFlags).every(Boolean) && isMounted) {
+        setIsLoading(false);
+      }
+    };
+
+    const unsubTasks = dataStore.subscribeToTasks((tasks) => {
+      if (isMounted) {
+        setTasksByShift(tasks);
+        loadingFlags.tasks = true;
+        checkAllLoaded();
+      }
     });
 
-    const unsubscribeReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
+    const unsubUsers = dataStore.subscribeToUsers((users) => {
+        if(isMounted) {
+            setAllUsers(users);
+            loadingFlags.users = true;
+            checkAllLoaded();
+        }
+    });
+
+    const weekId = `${new Date(date).getFullYear()}-W${getISOWeek(new Date(date))}`;
+    const unsubSchedule = dataStore.subscribeToSchedule(weekId, (sch) => {
+         if (isMounted) {
+            setSchedule(sch);
+            loadingFlags.schedule = true;
+            checkAllLoaded();
+         }
+    });
+
+    const unsubReports = dataStore.subscribeToReportsForShift(date, shiftKey, (fetchedReports) => {
       if (isMounted) {
         setReports(fetchedReports);
         
-        // If the selected report was deleted, default to summary or null
         if (selectedReportId && !fetchedReports.some(r => r.id === selectedReportId) && selectedReportId !== 'summary') {
             setSelectedReportId(fetchedReports.length > 0 ? 'summary' : null);
         } else if (!selectedReportId && fetchedReports.length > 0) {
@@ -93,14 +417,17 @@ function ReportView() {
             setSelectedReportId(null);
         }
         
-        setIsLoading(false);
+        loadingFlags.reports = true;
+        checkAllLoaded();
       }
     });
 
     return () => {
         isMounted = false;
-        unsubscribeTasks();
-        unsubscribeReports();
+        unsubTasks();
+        unsubReports();
+        unsubSchedule();
+        unsubUsers();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, shiftKey]);
@@ -154,42 +481,10 @@ function ReportView() {
     return tasksByShift && shiftKey ? tasksByShift[shiftKey] : null;
   }, [tasksByShift, shiftKey]);
   
-  const allPagePhotos = useMemo(() => {
-    if (!shift || !reportToView) return [];
-
-    const findTaskText = (taskId: string): string => {
-        for (const section of shift.sections) {
-            const task = section.tasks.find(t => t.id === taskId);
-            if (task) return task.text;
-        }
-        return "Nhiệm vụ không xác định";
-    };
-
-    const photos: { src: string, description: string }[] = [];
-    for (const taskId in reportToView.completedTasks) {
-        const taskText = findTaskText(taskId);
-        const completions = reportToView.completedTasks[taskId] as CompletionRecord[];
-        for (const completion of completions) {
-            if (completion.photos) {
-              for (const photoUrl of completion.photos) {
-                  const staffCredit = (completion as any).staffName ? `Thực hiện bởi: ${(completion as any).staffName}\n` : '';
-                  photos.push({
-                      src: photoUrl,
-                      description: `${taskText}\n${staffCredit}Lúc: ${completion.timestamp}`
-                  });
-              }
-            }
-        }
-    }
-    return photos;
-  }, [shift, reportToView]);
-
-  const openLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+  const openLightbox = (slides: {src: string, description?: string}[], startIndex: number = 0) => {
+      setLightboxSlides(slides);
+      setLightboxIndex(startIndex);
+      setIsLightboxOpen(true);
   };
 
   const getSectionIcon = (title: string) => {
@@ -211,14 +506,16 @@ function ReportView() {
   }
 
   const handleDeleteReport = async () => {
-    if (!reportToView || reportToView.id === 'summary') return;
+    if (!reportToView || reportToView.id === 'summary' || user?.role !== 'Chủ nhà hàng') return;
     setIsProcessing(true);
+    const reportNameToDelete = reportToView.staffName;
     try {
         await dataStore.deleteShiftReport(reportToView.id);
         toast({
             title: "Đã xóa báo cáo",
-            description: `Báo cáo của ${reportToView.staffName} đã được xóa thành công.`,
+            description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
         });
+        // The useEffect will handle the state update and re-selection
     } catch(error) {
         console.error("Error deleting report:", error);
         toast({
@@ -248,8 +545,23 @@ function ReportView() {
     )
   }
 
-  if (!date || !shiftKey || reports.length === 0) {
+  if (!date || !shiftKey) {
     return (
+        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
+            <h1 className="text-2xl font-bold">Lỗi truy cập.</h1>
+            <p className="text-muted-foreground">URL không hợp lệ. Vui lòng quay lại và thử lại.</p>
+             <Button asChild variant="link" className="mt-4 -ml-4">
+                <Link href="/reports">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại tất cả báo cáo
+                </Link>
+            </Button>
+        </div>
+    );
+  }
+
+  if (reports.length === 0 && !schedule) {
+      return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <h1 className="text-2xl font-bold">Không tìm thấy báo cáo.</h1>
             <p className="text-muted-foreground">Không có báo cáo nào được nộp cho ca này vào ngày đã chọn.</p>
@@ -260,7 +572,7 @@ function ReportView() {
                 </Link>
             </Button>
         </div>
-    );
+      )
   }
 
   if (!shift) {
@@ -289,6 +601,7 @@ function ReportView() {
                 Ngày {new Date(date).toLocaleDateString('vi-VN')}
                 </p>
             </div>
+            {reports.length > 0 && (
             <Card className="w-full md:w-auto md:min-w-[250px]">
                 <CardHeader className="p-3">
                      <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4"/>Chế độ xem</CardTitle>
@@ -306,7 +619,7 @@ function ReportView() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        {selectedReportId && selectedReportId !== 'summary' && (
+                        {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" size="icon" disabled={isProcessing}>
@@ -333,8 +646,19 @@ function ReportView() {
                     </div>
                 </CardContent>
             </Card>
+            )}
         </div>
       </header>
+
+      <ShiftSummaryCard 
+        shift={shift} 
+        shiftKey={shiftKey}
+        date={date}
+        reports={reports} 
+        schedule={schedule}
+        allUsers={allUsers} 
+        onViewPhotos={openLightbox}
+        />
 
     {!reportToView ? (
         <div className="text-center py-16 text-muted-foreground">
@@ -342,108 +666,126 @@ function ReportView() {
         </div>
     ) : (
       <div className="space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
-               <CardDescription>
-                {selectedReportId === 'summary' 
-                    ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
-                    : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}.`
-                }
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
-                {shift.sections.map((section) => (
-                  <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
-                    <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
-                      <div className="flex items-center">
-                          {getSectionIcon(section.title)}
-                          {section.title}
-                      </div>
+           <Accordion type="single" collapsible value={isDetailViewOpen ? 'details' : ''} onValueChange={(value) => setIsDetailViewOpen(value === 'details')}>
+              <AccordionItem value="details" className="border-none">
+                  <div className="text-center">
+                    <AccordionTrigger className="inline-flex hover:no-underline text-muted-foreground">
+                       {isDetailViewOpen ? 'Ẩn báo cáo chi tiết' : 'Hiển thị báo cáo chi tiết'}
                     </AccordionTrigger>
-                    <AccordionContent className="border-t p-4">
-                      <div className="space-y-4 pt-2">
-                        {section.tasks.map((task) => {
-                          const completions = (reportToView.completedTasks[task.id] || []) as CompletionRecord[];
-                          const isCompleted = completions.length > 0;
-                          
-                          return (
-                              <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
-                                <div className="flex items-start gap-4">
-                                  <div className="flex-1">
-                                      <div className="flex items-center gap-3">
-                                          <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-green-500/20 text-green-700' : 'bg-muted'}`}>
-                                            {isCompleted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                                          </div>
-                                          <p className={`font-semibold ${!isCompleted ? 'text-muted-foreground' : ''}`}>
-                                            {task.text}
-                                          </p>
-                                      </div>
+                  </div>
+                   <AccordionContent>
+                      <Card className="mt-4">
+                        <CardHeader>
+                          <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
+                           <CardDescription>
+                            {selectedReportId === 'summary' 
+                                ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
+                                : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN', {hour12: false})}.`
+                            }
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Accordion type="multiple" defaultValue={shift.sections.map(s => s.title)} className="w-full space-y-4">
+                            {shift.sections.map((section) => (
+                              <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
+                                <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
+                                  <div className="flex items-center">
+                                      {getSectionIcon(section.title)}
+                                      {section.title}
                                   </div>
-                                </div>
-                                
-                                {isCompleted && (
-                                    <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
-                                    {completions.map((completion, cIndex) => (
-                                    <div key={cIndex} className="rounded-md border bg-card p-3">
-                                        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <Clock className="h-4 w-4 flex-shrink-0" />
-                                                <span>Thực hiện lúc: {completion.timestamp}</span>
+                                </AccordionTrigger>
+                                <AccordionContent className="border-t p-4">
+                                  <div className="space-y-4 pt-2">
+                                    {section.tasks.map((task) => {
+                                      const completions = (reportToView.completedTasks[task.id] || []) as CompletionRecord[];
+                                      const isCompleted = completions.length > 0;
+                                      
+                                      return (
+                                          <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
+                                            <div className="flex items-start gap-4">
+                                              <div className="flex-1">
+                                                  <div className="flex items-center gap-3">
+                                                      <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-green-500/20 text-green-700' : 'bg-muted'}`}>
+                                                        {isCompleted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                                                      </div>
+                                                      <p className={`font-semibold ${!isCompleted ? 'text-muted-foreground' : ''}`}>
+                                                        {task.text}
+                                                      </p>
+                                                  </div>
+                                              </div>
                                             </div>
-                                             {selectedReportId === 'summary' && (
-                                                <Badge variant="secondary" className="font-normal">
-                                                   {(completion as any).staffName}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        
-                                        {task.type === 'photo' && (
-                                            completion.photos && completion.photos.length > 0 ? (
-                                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                                {completion.photos.map((photo, pIndex) => (
-                                                    <button
-                                                      onClick={() => openLightbox(photo)}
-                                                      key={photo.slice(0, 50) + pIndex}
-                                                      className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
-                                                    >
-                                                      <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                                    </button>
+                                            
+                                            {isCompleted && (
+                                                <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
+                                                {completions.map((completion, cIndex) => (
+                                                <div key={cIndex} className="rounded-md border bg-card p-3">
+                                                    <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                            <Clock className="h-4 w-4 flex-shrink-0" />
+                                                            <span>Thực hiện lúc: {completion.timestamp}</span>
+                                                        </div>
+                                                         {selectedReportId === 'summary' && (
+                                                            <Badge variant="secondary" className="font-normal">
+                                                               {(completion as any).staffName}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {task.type === 'photo' && (
+                                                        completion.photos && completion.photos.length > 0 ? (
+                                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                                            {completion.photos.map((photo, pIndex) => (
+                                                                <button
+                                                                  onClick={() => {
+                                                                      const slides = completion.photos!.map(p => ({
+                                                                          src: p,
+                                                                          description: `${task.text}\nThực hiện bởi: ${(completion as any).staffName || reportToView.staffName}\nLúc: ${completion.timestamp}`
+                                                                      }));
+                                                                      const currentPhotoIndex = completion.photos!.findIndex(p => p === photo);
+                                                                      openLightbox(slides, currentPhotoIndex);
+                                                                  }}
+                                                                  key={photo.slice(0, 50) + pIndex}
+                                                                  className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
+                                                                >
+                                                                  <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
+                                                                </button>
+                                                            ))}
+                                                            </div>
+                                                        ): (
+                                                            <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                                        )
+                                                    )}
+
+                                                    {task.type === 'boolean' && completion.value !== undefined && (
+                                                        <Badge variant={completion.value ? 'default' : 'destructive'}>
+                                                            {completion.value ? 'Đảm bảo' : 'Không đảm bảo'}
+                                                        </Badge>
+                                                    )}
+                                                    
+                                                    {task.type === 'opinion' && (
+                                                        completion.opinion ? (
+                                                            <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
+                                                        ) : (
+                                                            <p className="text-xs text-muted-foreground italic">Đã ghi nhận, không có ý kiến chi tiết.</p>
+                                                        )
+                                                    )}
+                                                </div>
                                                 ))}
                                                 </div>
-                                            ): (
-                                                <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
-                                            )
-                                        )}
-
-                                        {task.type === 'boolean' && completion.value !== undefined && (
-                                            <Badge variant={completion.value ? 'default' : 'destructive'}>
-                                                {completion.value ? 'Đảm bảo' : 'Không đảm bảo'}
-                                            </Badge>
-                                        )}
-                                        
-                                        {task.type === 'opinion' && (
-                                            completion.opinion ? (
-                                                <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
-                                            ) : (
-                                                <p className="text-xs text-muted-foreground italic">Đã ghi nhận, không có ý kiến chi tiết.</p>
-                                            )
-                                        )}
-                                    </div>
-                                    ))}
-                                    </div>
-                                )}
-                              </div>
-                          );
-                        })}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
+                                            )}
+                                          </div>
+                                      );
+                                    })}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </CardContent>
+                      </Card>
+                   </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           
           {reportToView.issues && (
             <Card>
@@ -461,9 +803,10 @@ function ReportView() {
      <Lightbox
         open={isLightboxOpen}
         close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
+        slides={lightboxSlides}
         index={lightboxIndex}
         plugins={[Zoom, Counter, Captions]}
+        carousel={{ finite: true }}
         zoom={{ maxZoomPixelRatio: 4 }}
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
         captions={{ 
@@ -483,3 +826,6 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
+
+
+    

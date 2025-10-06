@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
+import { toast } from 'react-hot-toast';
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
@@ -46,8 +47,9 @@ type ShiftAssignmentDialogProps = {
 const roleOrder: Record<UserRole, number> = {
     'Phục vụ': 1,
     'Pha chế': 2,
-    'Quản lý': 3,
-    'Chủ nhà hàng': 4, // Should not be assigned, but included for completeness
+    'Thu ngân': 3,
+    'Quản lý': 4,
+    'Chủ nhà hàng': 5,
 };
 
 export default function ShiftAssignmentDialog({
@@ -80,13 +82,25 @@ export default function ShiftAssignmentDialog({
 
   const sortedUsers = useMemo(() => {
     const shiftRole = shift.role;
-    let roleFilteredUsers = allUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole);
+    
+    let roleFilteredUsers: ManagedUser[];
+
+    if (currentUserRole === 'Quản lý') {
+      roleFilteredUsers = allUsers.filter(user => 
+        user.role !== 'Chủ nhà hàng' && !user.displayName.includes('Không chọn')
+      );
+    } else {
+        roleFilteredUsers = allUsers;
+    }
+
+
+    // Further filter by the role required for the shift
+    roleFilteredUsers = roleFilteredUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole || user.secondaryRoles?.includes(shiftRole));
 
     // In pass assignment mode, filter out the user who is making the request
     if (isPassAssignmentMode && passRequestingUser) {
         roleFilteredUsers = roleFilteredUsers.filter(user => user.uid !== passRequestingUser.userId);
     }
-
 
     const availableUsers: ManagedUser[] = [];
     const busyUsers: ManagedUser[] = [];
@@ -109,17 +123,13 @@ export default function ShiftAssignmentDialog({
     busyUsers.sort(sortFn);
 
     return { availableUsers, busyUsers };
-  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser]);
+  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser, currentUserRole]);
   
   const handleSelectUser = (user: ManagedUser) => {
     // Prevent manager from selecting busy users. Only owner can.
     const isAvailable = isUserAvailable(user.uid, shift.timeSlot, dailyAvailability);
     if (currentUserRole === 'Quản lý' && !isAvailable) {
-        toast({
-            title: "Không thể chọn",
-            description: "Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.",
-            variant: "default",
-        });
+        toast.error("Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.");
         return;
     }
 
