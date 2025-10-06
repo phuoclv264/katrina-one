@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -18,6 +19,7 @@ const OwnerCashierDialogs = React.memo(({
     handleSaveRevenue,
     revenueStatsToEdit,
     otherCostCategories,
+    dateForNewEntry,
 }: {
     inventoryList: InventoryItem[],
     isExpenseDialogOpen: boolean,
@@ -30,6 +32,7 @@ const OwnerCashierDialogs = React.memo(({
     handleSaveRevenue: (data: any, isEdited: boolean) => void,
     revenueStatsToEdit: any,
     otherCostCategories: OtherCostCategory[],
+    dateForNewEntry: string | null,
 }) => {
     return (
         <>
@@ -43,6 +46,7 @@ const OwnerCashierDialogs = React.memo(({
                 reporter={slipToEdit?.createdBy} 
                 otherCostCategories={otherCostCategories}
                 isOwnerView={true}
+                dateForNewEntry={dateForNewEntry}
             />
             <RevenueStatsDialog
                 open={isRevenueDialogOpen}

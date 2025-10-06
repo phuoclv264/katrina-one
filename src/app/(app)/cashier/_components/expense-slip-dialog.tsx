@@ -1,3 +1,4 @@
+
 // Merged from owner-expense-slip-dialog.tsx and expense-slip-dialog.tsx on 2024-07-30 — refactor only
 
 'use client';
@@ -285,6 +286,7 @@ type ExpenseSlipDialogProps = {
     reporter: AuthUser; // Required for Cashier
     otherCostCategories: OtherCostCategory[];
     isOwnerView?: boolean; // Optional prop to control view
+    dateForNewEntry?: string | null;
 };
 
 export default function ExpenseSlipDialog({
@@ -297,6 +299,7 @@ export default function ExpenseSlipDialog({
     reporter,
     otherCostCategories,
     isOwnerView = false,
+    dateForNewEntry = null,
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const attachmentCardRef = useRef<HTMLDivElement>(null);
@@ -380,7 +383,7 @@ export default function ExpenseSlipDialog({
             } else {
                 setOriginalSlip(null);
                 setExpenseType('goods_import');
-                setDate(format(new Date(), 'yyyy-MM-dd'));
+                setDate(dateForNewEntry || format(new Date(), 'yyyy-MM-dd'));
                 setItems([]);
                 setPaymentMethod('cash');
                 setNotes('');
@@ -397,7 +400,7 @@ export default function ExpenseSlipDialog({
             setAiOriginalData(null); // Reset AI data on dialog open
 
         }
-    }, [open, slipToEdit]);
+    }, [open, slipToEdit, dateForNewEntry]);
 
 
     const subTotal = useMemo(() => {
@@ -712,7 +715,7 @@ export default function ExpenseSlipDialog({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" disabled={!isOwnerView} className={cn(!isOwnerView && "bg-muted")}/>
+                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" disabled={!isOwnerView && !!slipToEdit} className={cn((!isOwnerView && !!slipToEdit) && "bg-muted")}/>
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>

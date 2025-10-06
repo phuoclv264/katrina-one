@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion } from '@/components/ui/accordion';
-import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
@@ -60,6 +60,7 @@ export default function CashierReportsPage() {
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
   const [handoverToEdit, setHandoverToEdit] = useState<HandoverReport | null>(null);
+  const [dateForNewEntry, setDateForNewEntry] = useState<string | null>(null);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -154,107 +155,104 @@ export default function CashierReportsPage() {
   const handleMonthChange = (direction: 'prev' | 'next') => setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
   const isNextMonthButtonDisabled = useMemo(() => allMonthsWithData.length > 0 && format(currentMonth, 'yyyy-MM') === allMonthsWithData[0], [currentMonth, allMonthsWithData]);
 
-  const handleEditExpense = useCallback((slip: ExpenseSlip) => { setSlipToEdit(slip); setIsExpenseDialogOpen(true); }, []);
-  const handleEditRevenue = useCallback((stats: RevenueStats) => { setRevenueStatsToEdit(stats); setIsRevenueDialogOpen(true); }, []);
-  const handleEditIncident = useCallback((incident: IncidentReport) => { setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
-  const handleEditHandover = useCallback((handover: HandoverReport) => { setHandoverToEdit(handover); setIsHandoverReportDialogOpen(true); }, []);
+  const handleEditExpense = useCallback((slip: ExpenseSlip) => { setDateForNewEntry(null); setSlipToEdit(slip); setIsExpenseDialogOpen(true); }, []);
+  const handleEditRevenue = useCallback((stats: RevenueStats) => { setDateForNewEntry(null); setRevenueStatsToEdit(stats); setIsRevenueDialogOpen(true); }, []);
+  const handleEditIncident = useCallback((incident: IncidentReport) => { setDateForNewEntry(null); setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
+  const handleEditHandover = useCallback((handover: HandoverReport) => { setDateForNewEntry(null); setHandoverToEdit(handover); setIsHandoverReportDialogOpen(true); }, []);
+
+  const handleAddNewExpense = useCallback((date: string) => { setSlipToEdit(null); setDateForNewEntry(date); setIsExpenseDialogOpen(true); }, []);
+  const handleAddNewRevenue = useCallback((date: string) => { setRevenueStatsToEdit(null); setDateForNewEntry(date); setIsRevenueDialogOpen(true); }, []);
+  const handleAddNewIncident = useCallback((date: string) => { setIncidentToEdit(null); setDateForNewEntry(date); setIsIncidentDialogOpen(true); }, []);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
-    if (!user || !slipToEdit) return;
+    if (!user) return;
+    setProcessingItemId(id || 'new');
     try {
-        await dataStore.addOrUpdateExpenseSlip({ ...data, lastModifiedBy: { userId: user.uid, userName: user.displayName } }, id);
-        toast.success("Đã cập nhật phiếu chi.");
+        const slipDate = dateForNewEntry || slipToEdit?.date;
+        if (!slipDate) throw new Error("Date for slip is not defined.");
+        
+        await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate, [id ? 'lastModifiedBy' : 'createdBy']: { userId: user.uid, userName: user.displayName } }, id);
+        toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
         setIsExpenseDialogOpen(false);
     } catch (error) { toast.error("Không thể lưu phiếu chi."); }
-  }, [user, slipToEdit]);
+    finally { setProcessingItemId(null); }
+  }, [user, slipToEdit, dateForNewEntry]);
 
   const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
-    if (!user || !revenueStatsToEdit) return;
+    if (!user) return;
+    setProcessingItemId(revenueStatsToEdit?.id || 'new');
     try {
-        await dataStore.addOrUpdateRevenueStats(data, user, isEdited, revenueStatsToEdit.id);
-        toast.success("Đã cập nhật doanh thu.");
+        const revenueDate = dateForNewEntry || revenueStatsToEdit?.date;
+        if (!revenueDate) throw new Error("Date for revenue is not defined.");
+
+        await dataStore.addOrUpdateRevenueStats({ ...data, date: revenueDate }, user, isEdited, revenueStatsToEdit?.id);
+        toast.success(`Đã ${revenueStatsToEdit ? 'cập nhật' : 'tạo'} doanh thu.`);
         setIsRevenueDialogOpen(false);
     } catch (error) { toast.error("Không thể lưu doanh thu."); }
-  }, [user, revenueStatsToEdit]);
+    finally { setProcessingItemId(null); }
+  }, [user, revenueStatsToEdit, dateForNewEntry]);
 
   const handleSaveIncident = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setProcessingItemId(id || 'new');
     try {
-        await dataStore.addOrUpdateIncident(data, id, user);
+        const incidentDate = dateForNewEntry || incidentToEdit?.date;
+        if (!incidentDate) throw new Error("Date for incident is not defined.");
+
+        await dataStore.addOrUpdateIncident({ ...data, date: incidentDate }, id, user);
         toast.success(id ? "Đã cập nhật sự cố." : "Đã ghi nhận sự cố.");
         if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
           toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
         }
         setIsIncidentDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu báo cáo sự cố.'); }
-    finally {
-        setProcessingItemId(null);
-    }
-  }, [user]);
+    finally { setProcessingItemId(null); }
+  }, [user, incidentToEdit, dateForNewEntry]);
 
   const handleSaveHandover = useCallback(async (data: any, id: string) => {
     if (!user) return;
+    setProcessingItemId(id);
     try {
         await dataStore.updateHandoverReport(id, data, user);
         toast.success('Đã cập nhật báo cáo bàn giao.');
         setIsHandoverReportDialogOpen(false);
     } catch (error) { toast.error('Không thể cập nhật báo cáo bàn giao.'); }
+    finally { setProcessingItemId(null); }
   }, [user]);
   
   const handleDeleteExpense = useCallback((id: string) => {
     const expense = expenseSlips.find(e => e.id === id);
     if (expense && user) {
         setProcessingItemId(id);
-        dataStore.deleteExpenseSlip(expense).then(() => {
-            toast.success(`Đã xóa phiếu chi.`);
-        }).catch((e) => {
-            console.error(e);
-            toast.error(`Lỗi: Không thể xóa phiếu chi.`);
-        }).finally(() => {
-            setProcessingItemId(null);
-        })
+        dataStore.deleteExpenseSlip(expense).then(() => toast.success(`Đã xóa phiếu chi.`))
+        .catch((e) => toast.error(`Lỗi: Không thể xóa phiếu chi.`))
+        .finally(() => setProcessingItemId(null));
     }
   }, [expenseSlips, user]);
 
   const handleDeleteRevenue = useCallback((id: string) => {
       if (!user) return;
       setProcessingItemId(id);
-      dataStore.deleteRevenueStats(id, user).then(() => {
-          toast.success(`Đã xóa phiếu thống kê.`);
-      }).catch((e) => {
-          console.error(e);
-          toast.error(`Lỗi: Không thể xóa phiếu thống kê.`);
-      }).finally(() => {
-          setProcessingItemId(null);
-      })
+      dataStore.deleteRevenueStats(id, user).then(() => toast.success(`Đã xóa phiếu thống kê.`))
+      .catch((e) => toast.error(`Lỗi: Không thể xóa phiếu thống kê.`))
+      .finally(() => setProcessingItemId(null));
   }, [user]);
   
   const handleDeleteIncident = useCallback((id: string) => {
     const incidentToDelete = incidents.find(i => i.id === id);
     if (!incidentToDelete || !user) return;
     setProcessingItemId(id);
-    dataStore.deleteIncident(incidentToDelete).then(() => {
-        toast.success('Đã xóa báo cáo sự cố.');
-    }).catch((error) => {
-        console.error("Failed to delete incident:", error);
-        toast.error('Không thể xóa báo cáo sự cố.');
-    }).finally(() => {
-        setProcessingItemId(null);
-    });
+    dataStore.deleteIncident(incidentToDelete).then(() => toast.success('Đã xóa báo cáo sự cố.'))
+    .catch(() => toast.error('Không thể xóa báo cáo sự cố.'))
+    .finally(() => setProcessingItemId(null));
   }, [incidents, user]);
 
   const handleDeleteHandover = useCallback((id: string) => {
       if (!user) return;
       setProcessingItemId(id);
-      dataStore.deleteHandoverReport(id).then(() => {
-          toast.success(`Đã xóa báo cáo bàn giao.`);
-      }).catch((e) => {
-          console.error(e);
-          toast.error(`Lỗi: Không thể xóa báo cáo bàn giao.`);
-      }).finally(() => {
-          setProcessingItemId(null);
-      })
+      dataStore.deleteHandoverReport(id).then(() => toast.success(`Đã xóa báo cáo bàn giao.`))
+      .catch(() => toast.error(`Lỗi: Không thể xóa báo cáo bàn giao.`))
+      .finally(() => setProcessingItemId(null));
   }, [user]);
 
   const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
@@ -266,7 +264,6 @@ export default function CashierReportsPage() {
   const handleCategoriesChange = useCallback(async (newCategories: IncidentCategory[]) => {
     await dataStore.updateViolationCategories(newCategories.map(c => c.name));
   }, []);
-
 
   if (isLoading || authLoading || !user) {
     return (
@@ -331,6 +328,9 @@ export default function CashierReportsPage() {
                     onDeleteHandover={handleDeleteHandover}
                     processingItemId={processingItemId}
                     inventoryList={inventoryList}
+                    onAddNewExpense={handleAddNewExpense}
+                    onAddNewRevenue={handleAddNewRevenue}
+                    onAddNewIncident={handleAddNewIncident}
                  />
               ))}
             </Accordion>
@@ -339,7 +339,6 @@ export default function CashierReportsPage() {
       </div>
       
       <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
-
       <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
       
       <UnpaidSlipsDialog 
@@ -361,6 +360,7 @@ export default function CashierReportsPage() {
         handleSaveRevenue={handleSaveRevenue}
         revenueStatsToEdit={revenueStatsToEdit}
         otherCostCategories={otherCostCategories}
+        dateForNewEntry={dateForNewEntry}
       />
 
       {user && (
@@ -370,7 +370,7 @@ export default function CashierReportsPage() {
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
           categories={incidentCategories}
-          onCategoriesChange={() => {}}
+          onCategoriesChange={handleCategoriesChange}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
           violationToEdit={incidentToEdit}
