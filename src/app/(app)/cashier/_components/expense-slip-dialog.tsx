@@ -1,4 +1,5 @@
 
+
 // Merged from owner-expense-slip-dialog.tsx and expense-slip-dialog.tsx on 2024-07-30 — refactor only
 
 'use client';
@@ -144,12 +145,13 @@ function AiPreviewDialog({
             .filter(item => item.status === 'matched' && item.matchedItemId)
             .map(item => {
                 const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId)!;
-                const orderUnit = inventoryItem.units.find(u => !u.isBaseUnit) || inventoryItem.units[0];
+                // Default to baseUnit for consistency, as requested.
+                const finalUnit = inventoryItem.baseUnit || 'cái';
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
                     supplier: inventoryItem.supplier,
-                    unit: orderUnit.name,
+                    unit: finalUnit,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
                 };
