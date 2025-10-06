@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,23 +59,40 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
 
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700' };
-            case 'pending_approval': return { text: 'Chờ duyệt', color: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700' };
-            case 'resolved': return { text: 'Đã giải quyết', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700' };
-            case 'cancelled': return { text: 'Đã huỷ', color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' };
-            default: return { text: 'Không rõ', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+            case 'pending': return { text: 'Đang chờ', icon: Loader2, className: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-200 bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700' };
+            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-200 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700' };
+            default: return { text: 'Không rõ', icon: Info, className: 'bg-gray-100 text-gray-800 border-gray-200' };
         }
     };
 
     const getTypeConfig = () => {
-        if (payload.isSwapRequest) return { text: 'Đổi ca', icon: Replace, color: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' };
-        if (payload.targetUserId) return { text: 'Nhờ nhận ca', icon: Send, color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' };
-        return { text: 'Pass ca công khai', icon: MailQuestion, color: 'bg-gray-100 text-gray-800 border-gray-200' };
+        if (payload.isSwapRequest) return { text: 'Đổi ca', Icon: Replace, className: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' };
+        if (payload.targetUserId) return { text: 'Nhờ nhận ca', Icon: Send, className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' };
+        return { text: 'Pass ca công khai', Icon: MailQuestion, className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500' };
     };
 
     const statusConfig = getStatusConfig();
     const typeConfig = getTypeConfig();
-    const TypeIcon = typeConfig.icon;
+    const StatusIcon = statusConfig.icon;
+    const TypeIcon = typeConfig.Icon;
+
+    const summaryText = useMemo(() => {
+        const reqUser = payload.requestingUser.userName;
+        if (payload.isSwapRequest) {
+            const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId)?.displayName : (payload.takenBy?.userName || '??');
+            return `${reqUser} muốn đổi ca với ${targetUser}.`;
+        }
+        if (payload.targetUserId) {
+            const targetUser = allUsers.find(u => u.uid === payload.targetUserId)?.displayName || '??';
+            return `${reqUser} đã nhờ ${targetUser} nhận ca.`;
+        }
+        if (payload.takenBy) {
+            return `${reqUser} pass ca, ${payload.takenBy.userName} đã nhận.`;
+        }
+        return `${reqUser} đang cần pass ca công khai.`;
+    }, [payload, allUsers]);
 
     const renderShiftInfo = (label: string, timeSlot: { start: string, end: string }, date: string) => (
         <div className="space-y-1 text-sm">
@@ -98,20 +115,18 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const isManagerReviewing = isManagerOrOwner && status === 'pending_approval';
 
     const renderActions = () => {
-        // Priority 1: Direct requests to the current user
         if (isDirectRequestToMe) {
             return (
                 <div className="flex gap-2 w-full sm:w-auto">
                     <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
                     <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
                         {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
-                        {payload.isSwapRequest ? 'Đổi ca' : 'Nhận ca'}
+                        {payload.isSwapRequest ? 'Đồng ý đổi' : 'Nhận ca'}
                     </Button>
                 </div>
             );
         }
         
-        // Priority 2: Manager's approval actions
         if (isManagerReviewing) {
             const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
             const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
@@ -126,7 +141,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             }
         }
         
-        // Priority 3: Public pending requests (for non-requesting staff)
         if (status === 'pending' && !isMyRequest && !payload.targetUserId) {
             return (
                  <div className="flex gap-2 w-full sm:w-auto">
@@ -139,12 +153,10 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             )
         }
         
-        // Priority 4: My own pending request
         if (status === 'pending' && isMyRequest) {
             return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessing}>Hủy yêu cầu</Button>;
         }
 
-        // Priority 5: Manager/Owner actions
         if(isManagerOrOwner) {
             if (status === 'pending') {
                  return (
@@ -178,41 +190,55 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         return null;
     }
 
+    const actions = renderActions();
+
     return (
-        <Card className={cn("shadow-sm", statusConfig.color)}>
-            <CardHeader className="p-3 pb-2 flex-row justify-between items-start">
+      <Card className={cn("shadow-sm", statusConfig.className)}>
+        <CardHeader className="p-3 pb-2 flex-row justify-between items-start">
                  <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={cn("pointer-events-none", typeConfig.color)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
-                        <Badge className={cn("pointer-events-none", statusConfig.color)}>{statusConfig.text}</Badge>
+                        <Badge className={cn("pointer-events-none", typeConfig.className)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
+                        <Badge className={cn("pointer-events-none", statusConfig.className)}><StatusIcon className="h-3 w-3 mr-1.5"/>{statusConfig.text}</Badge>
                     </div>
-                    {payload.isSwapRequest && (
-                        <p className="font-semibold text-sm mt-2">{payload.requestingUser.userName} đổi ca với {payload.takenBy?.userName || payload.targetUserId && allUsers.find(u=>u.uid === payload.targetUserId)?.displayName || '??'}</p>
-                    )}
+                    <CardDescription className="text-xs !mt-2">{summaryText}</CardDescription>
                  </div>
                  <p className="text-xs text-muted-foreground whitespace-nowrap">{format(parseISO(createdAt as string), 'HH:mm, dd/MM')}</p>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
-                <div className="flex flex-col md:flex-row gap-3">
-                   {renderUserBlock(payload.requestingUser, "Người yêu cầu", payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate)}
+        <CardContent className="p-3 pt-2">
+            <div className="flex flex-col md:flex-row gap-3">
+               {renderUserBlock(payload.requestingUser, "Người yêu cầu", payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate)}
+               
+               {payload.isSwapRequest && <Replace className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />}
 
-                   {(payload.isSwapRequest && payload.targetUserShift) && <Replace className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />}
+               {payload.isSwapRequest && payload.targetUserShift && renderUserBlock(payload.takenBy || allUsers.find(u=>u.uid === payload.targetUserId)!, "Đổi với", payload.targetUserShift.label, payload.targetUserShift.timeSlot, payload.targetUserShift.date)}
+               
+               {!payload.isSwapRequest && payload.takenBy && renderUserBlock(payload.takenBy, "Người nhận", payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate)}
+               
+               {status === 'pending' && payload.targetUserId && !payload.isSwapRequest && (
+                  <>
+                     <ArrowRight className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />
+                     <div className="border p-3 rounded-lg bg-background flex-1 min-w-[200px] flex items-center">
+                        <div>
+                           <p className="text-xs text-muted-foreground">Gửi đến</p>
+                           <p className="font-bold text-lg">{allUsers.find(u => u.uid === payload.targetUserId)?.displayName || '??'}</p>
+                        </div>
+                     </div>
+                  </>
+               )}
 
-                   {(payload.isSwapRequest && payload.targetUserShift) && renderUserBlock(payload.takenBy || allUsers.find(u=>u.uid === payload.targetUserId)!, "Đổi với", payload.targetUserShift.label, payload.targetUserShift.timeSlot, payload.targetUserShift.date)}
-                   
-                   {(!payload.isSwapRequest && payload.takenBy) && renderUserBlock(payload.takenBy, "Người nhận", payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate)}
-                </div>
-                {(resolvedBy || payload.cancellationReason) && (
-                    <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                        {resolvedBy && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
-                        {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
-                    </div>
-                )}
-            </CardContent>
+            </div>
+             {(resolvedBy && resolvedAt) && (
+                  <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
+                      <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>
+                  </div>
+              )}
+        </CardContent>
+        {actions && (
             <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-xl">
-                {renderActions()}
+                {actions}
             </CardFooter>
-        </Card>
+        )}
+      </Card>
     );
 };
 
@@ -356,7 +382,7 @@ export default function PassRequestsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card">
+      <DialogContent className="max-w-4xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl">
         <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
