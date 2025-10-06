@@ -71,7 +71,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const getTypeConfig = () => {
         if (payload.isSwapRequest) return { text: 'Đổi ca', Icon: Replace, className: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' };
         if (payload.targetUserId) return { text: 'Nhờ nhận ca', Icon: Send, className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' };
-        return { text: 'Pass ca công khai', Icon: MailQuestion, className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500' };
+        return { text: 'Pass ca công khai', Icon: MailQuestion, className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500' };
     };
 
     const statusConfig = getStatusConfig();
@@ -89,12 +89,18 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         let recUser: ManagedUser | undefined;
 
-        if (status === 'pending' && payload.targetUserId) {
-             recUser = allUsers.find(u => u.uid === payload.targetUserId);
+        if (payload.isSwapRequest) {
+            if (payload.takenBy) {
+                recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
+            } else if (payload.targetUserId) {
+                recUser = allUsers.find(u => u.uid === payload.targetUserId);
+            }
         } else if (payload.takenBy) {
              recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
+        } else if (status === 'pending' && payload.targetUserId) {
+            recUser = allUsers.find(u => u.uid === payload.targetUserId);
         }
-
+        
         const sA = {
             label: payload.shiftLabel,
             timeSlot: payload.shiftTimeSlot,
@@ -102,9 +108,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         };
         
         let sB = null;
-        if (payload.isSwapRequest && recUser && schedule) {
-            const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-            sB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
+        if (payload.isSwapRequest) {
+            const targetUserForShiftLookup = recUser;
+            if (targetUserForShiftLookup && schedule) {
+                 const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+                 sB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === targetUserForShiftLookup!.uid)) || null;
+            }
         }
         
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
@@ -233,7 +242,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     return (
         <Card className={cn("shadow-sm", statusConfig.className)}>
             <CardHeader className="p-3 pb-2">
-                <div>
+                 <div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <Badge className={cn("pointer-events-none", typeConfig.className)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
                         <Badge className={cn("pointer-events-none", statusConfig.className)}><StatusIcon className="h-3 w-3 mr-1.5"/>{statusConfig.text}</Badge>
@@ -252,9 +261,9 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     <div className="flex-1">{shiftB && <ShiftInfoBlock {...shiftB} />}</div>
                 </div>
 
-                {(resolvedBy && resolvedAt || payload.cancellationReason) && (
+                {(resolvedBy || payload.cancellationReason) && (
                     <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                        {resolvedBy && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
+                        {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
                         {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
                     </div>
                 )}
