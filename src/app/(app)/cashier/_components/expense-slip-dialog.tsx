@@ -145,8 +145,13 @@ function AiPreviewDialog({
             .filter(item => item.status === 'matched' && item.matchedItemId)
             .map(item => {
                 const inventoryItem = inventoryList.find(i => i.id === item.matchedItemId)!;
-                // Default to baseUnit for consistency, as requested.
-                const finalUnit = inventoryItem.baseUnit || 'cái';
+                // Find the largest unit by conversion rate
+                const largestUnit = inventoryItem.units?.reduce((largest, current) => 
+                    (current.conversionRate > largest.conversionRate) ? current : largest, 
+                    { name: inventoryItem.baseUnit, conversionRate: 1 }
+                );
+                const finalUnit = largestUnit?.name || inventoryItem.baseUnit || 'cái';
+
                 return {
                     itemId: inventoryItem.id,
                     name: inventoryItem.name,
