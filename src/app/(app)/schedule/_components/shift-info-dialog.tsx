@@ -11,10 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, UserCheck, Send, Loader2, Replace } from 'lucide-react';
-import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification } from '@/lib/types';
+import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification, ShiftTemplate } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
+import { isUserAvailable } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -24,7 +24,7 @@ type ShiftInfoDialogProps = {
   shift: AssignedShift;
   schedule: Schedule;
   allUsers: ManagedUser[];
-  onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean) => void;
+  onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => void;
   isProcessing: boolean;
   notifications: Notification[];
 };
@@ -60,7 +60,6 @@ export default function ShiftInfoDialog({
 
     const colleagueMap = new Map<string, ColleagueInfo>();
 
-    // Find all shifts on the same day that overlap in time
     const overlappingShifts = schedule.shifts.filter(s =>
       s.date === shiftDate &&
       parseTime(s.timeSlot.start) < shiftEnd &&
@@ -80,18 +79,15 @@ export default function ShiftInfoDialog({
 
     const colleagues = Array.from(colleagueMap.values());
 
-    // Find available staff
     const availabilityForDay = (schedule.availability || []).filter(a => a.date === shiftDate);
     const assignedUserIdsInPeriod = new Set(colleagues.map(c => c.user.uid));
     shift.assignedUsers.forEach(u => assignedUserIdsInPeriod.add(u.userId));
 
 
     const availableStaff = allUsers.filter(u => {
-        // Exclude self and anyone already working in the period
         if (assignedUserIdsInPeriod.has(u.uid)) {
             return false;
         }
-        // Check availability
         return isUserAvailable(u.uid, shift.timeSlot, availabilityForDay);
     });
 
@@ -138,7 +134,7 @@ export default function ShiftInfoDialog({
                                         <p className="text-sm text-muted-foreground">{colleagueShift.label} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
                                     </div>
                                     {canSwap && (
-                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user, true)} disabled={isProcessing || alreadyRequested}>
+                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user, true, colleagueShift)} disabled={isProcessing || alreadyRequested}>
                                             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Replace className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
                                         </Button>
@@ -166,7 +162,7 @@ export default function ShiftInfoDialog({
                                             <p className="font-semibold">{user.displayName}</p>
                                             <p className="text-sm text-muted-foreground">{user.role}</p>
                                         </div>
-                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user, false)} disabled={isProcessing || alreadyRequested}>
+                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user, false, null)} disabled={isProcessing || alreadyRequested}>
                                             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận ca'}
                                         </Button>
