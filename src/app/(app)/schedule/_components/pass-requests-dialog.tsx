@@ -32,6 +32,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 type RequestCardProps = {
@@ -58,18 +59,18 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-500/80 text-yellow-800 dark:text-yellow-300' };
-            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-500/80 text-amber-800 dark:text-amber-300' };
-            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-500/80 text-green-800 dark:text-green-300' };
-            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-500/80 text-red-800 dark:text-red-300' };
-            default: return { text: 'Không rõ', icon: Info, className: 'border-gray-500/80 text-gray-800 dark:text-gray-300' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-500/80 bg-yellow-500/10 text-yellow-800 dark:text-yellow-300' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-500/80 bg-amber-500/10 text-amber-800 dark:text-amber-300' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-500/80 bg-green-500/10 text-green-800 dark:text-green-300' };
+            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-500/80 bg-red-500/10 text-red-800 dark:text-red-300' };
+            default: return { text: 'Không rõ', icon: Info, className: 'border-gray-500/80 bg-gray-500/10 text-gray-800 dark:text-gray-300' };
         }
     };
-
+    
     const getTypeConfig = () => {
-        if (payload.isSwapRequest) return { text: 'Đổi ca', Icon: Replace, className: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' };
-        if (payload.targetUserId) return { text: 'Nhờ nhận ca', Icon: Send, className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' };
-        return { text: 'Pass ca công khai', Icon: MailQuestion, className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500' };
+        if (payload.isSwapRequest) return { text: 'ĐỔI CA', Icon: Replace, className: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' };
+        if (payload.targetUserId) return { text: 'NHỜ NHẬN', Icon: Send, className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' };
+        return { text: 'PASS CÔNG KHAI', Icon: MailQuestion, className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500' };
     };
 
     const statusConfig = getStatusConfig();
@@ -84,23 +85,23 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         shiftA,
         shiftB
     } = useMemo(() => {
+        let shiftB: AssignedShift | { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         
         let recUser: ManagedUser | undefined;
-        let shiftB: AssignedShift | null = null;
         
-        // Always determine the recipient's identity first
         const recipientId = payload.takenBy?.userId || payload.targetUserId;
         if (recipientId) {
             recUser = allUsers.find(u => u.uid === recipientId);
         }
 
-        // If it's a swap request, always try to find the recipient's shift
         if (payload.isSwapRequest && schedule) {
-            const recipientUserId = payload.targetUserId || payload.takenBy?.userId;
-            if (recipientUserId) {
+            if(recipientId) {
                 const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-                shiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientUserId)) || null;
+                const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientId));
+                if (foundShiftB) {
+                    shiftB = foundShiftB;
+                }
             }
         }
 
@@ -113,23 +114,50 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
     }, [payload, allUsers, schedule]);
 
+    // --- Text Summaries ---
+    const summaryText = useMemo(() => {
+        if (!requester) return 'Yêu cầu không xác định';
+        if (payload.isSwapRequest) {
+            return `${requester.displayName} muốn đổi ca`;
+        }
+        if (payload.targetUserId) {
+            return `${requester.displayName} nhờ ${recipient?.displayName || '...'}`;
+        }
+        return `${requester.displayName} muốn pass ca`;
+    }, [requester, recipient, payload]);
+
+    const metadataText = useMemo(() => {
+        if (status === 'resolved' && resolvedBy && resolvedAt) {
+            return `Giải quyết bởi ${resolvedBy.userName} lúc ${format(parseISO(resolvedAt), 'HH:mm')}`;
+        }
+        if (status === 'cancelled' && payload.cancellationReason) {
+            return `Lý do hủy: ${payload.cancellationReason}`;
+        }
+        if (status === 'pending_approval' && payload.takenBy) {
+            return `${payload.takenBy.userName} đã nhận và đang chờ duyệt`;
+        }
+        if (payload.declinedBy && payload.declinedBy.length > 0) {
+            return `${payload.declinedBy.length} người đã từ chối.`;
+        }
+        return `Tạo lúc ${format(parseISO(createdAt as string), 'HH:mm')}`;
+    }, [status, resolvedBy, resolvedAt, payload, createdAt]);
 
     // --- Helper Components ---
-     const UserShiftInfo = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => (
-        <div className="flex flex-col space-y-2 p-3 rounded-lg bg-background border flex-1">
-             <p className="text-xs text-muted-foreground">{label}</p>
-             <p className="font-bold text-base">{user?.displayName || '...'}</p>
-             {shift ? (
-                 <div className="text-sm">
-                     <p className="font-semibold">{shift.label} <span className="font-normal text-muted-foreground">({shift.timeSlot.start} - {shift.timeSlot.end})</span></p>
-                     <p className="text-xs text-muted-foreground">{format(parseISO(shift.date), 'dd/MM/yyyy')}</p>
-                 </div>
-             ) : (
-                 <p className="text-sm text-muted-foreground italic">Không có ca</p>
-             )}
-         </div>
-    );
-    
+     const UserShiftBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => {
+        if (!user) return <div className="flex-1" />;
+        const initials = user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2);
+        const shiftInfoText = shift ? `${shift.label} • ${shift.timeSlot.start} - ${shift.timeSlot.end} • ${format(parseISO(shift.date), 'dd/MM')}` : 'Không có ca';
+        
+        return (
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0" title={user.displayName}>{initials}</div>
+                <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate" title={user.displayName}>{user.displayName}</div>
+                    <div className="text-xs text-muted-foreground truncate" title={shiftInfoText}>{shiftInfoText}</div>
+                </div>
+            </div>
+        );
+     };
 
     // --- Action Button Logic ---
     const isMyRequest = payload.requestingUser.userId === currentUser.uid;
@@ -216,42 +244,50 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const actions = renderActions();
 
     return (
-        <Card className={cn("shadow-sm border-2", statusConfig.className)}>
-            <CardHeader className="p-3 pb-2 flex-row justify-between items-start">
-                 <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={cn("pointer-events-none", typeConfig.className)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
-                        <Badge className={cn("pointer-events-none", statusConfig.className)}><StatusIcon className="h-3 w-3 mr-1.5"/>{statusConfig.text}</Badge>
-                    </div>
+       <Card className={cn("rounded-lg shadow-sm border", status === 'pending_approval' && 'border-amber-400')}>
+            <div className="flex items-center justify-between p-3">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant="outline" className={typeConfig.className}>{typeConfig.text}</Badge>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild><h4 className="text-sm font-semibold truncate">{summaryText}</h4></TooltipTrigger>
+                            <TooltipContent><p>{summaryText}</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-                 <div className="flex flex-col md:flex-row gap-3 items-stretch">
-                     <UserShiftInfo user={requester} shift={shiftA} label="Người yêu cầu"/>
-                     <div className="self-center shrink-0 mx-auto md:mx-2">
-                         {payload.isSwapRequest ? <Replace className="h-6 w-6 text-muted-foreground" /> : <ArrowRight className="h-6 w-6 text-muted-foreground" />}
-                     </div>
-                     <UserShiftInfo user={recipient} shift={shiftB} label={payload.isSwapRequest ? "Đổi với ca của" : "Người nhận"}/>
-                 </div>
-              {(resolvedBy && resolvedAt) && (
-                  <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                      <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt), 'HH:mm, dd/MM/yyyy')}</p>
-                  </div>
-              )}
-               {payload.cancellationReason && (
-                   <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                     <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>
-                   </div>
-               )}
-            </CardContent>
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <span className="whitespace-nowrap">{format(parseISO(createdAt as string), 'HH:mm · dd/MM')}</span>
+                    <Badge variant="outline" className={cn('text-xs', statusConfig.className)}>{statusConfig.text}</Badge>
+                </div>
+            </div>
+
+            <Separator />
+
+            <div className="p-3 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                <UserShiftBlock user={requester} shift={shiftA} label="Người yêu cầu" />
+                <div className="self-center shrink-0 mx-auto md:mx-2 my-2 md:my-0">
+                    {payload.isSwapRequest ? <Replace className="h-6 w-6 text-muted-foreground" /> : <ArrowRight className="h-6 w-6 text-muted-foreground" />}
+                </div>
+                <div className="md:text-right">
+                    <UserShiftBlock user={recipient} shift={shiftB} label={payload.isSwapRequest ? "Muốn đổi với" : "Người nhận"}/>
+                </div>
+            </div>
+
+            <Separator />
+            <div className="px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
+                <p className="truncate" title={metadataText}>{metadataText}</p>
+                {/* Placeholder for future attachments */}
+            </div>
+
             {actions && (
-                <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-lg">
+                <div className="px-3 pb-3 flex flex-col md:flex-row md:justify-end gap-2">
                     {actions}
-                </CardFooter>
+                </div>
             )}
-        </Card>
+       </Card>
     );
 };
+
 
 type PassRequestsDialogProps = {
     isOpen: boolean;
@@ -263,7 +299,7 @@ type PassRequestsDialogProps = {
     onDecline: (notification: Notification) => void;
     onCancel: (notificationId: string) => void;
     onRevert: (notification: Notification) => void;
-    onAssign?: (notification: Notification) => void;
+    onAssign: (notification: Notification) => void;
     onApprove: (notification: Notification) => void;
     onRejectApproval: (notificationId: string) => void;
     isProcessing: boolean;
@@ -394,7 +430,7 @@ export default function PassRequestsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl">
+      <DialogContent className="max-w-2xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl">
         <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
