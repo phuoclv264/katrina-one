@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -57,9 +56,10 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const { toast } = useToast();
     const isManagerOrOwner = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
 
+    // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: Loader2, className: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700' };
+            case 'pending': return { text: 'Đang chờ', icon: Loader2, className: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700 animate-spin' };
             case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700' };
             case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-200 bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700' };
             case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-200 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700' };
@@ -78,38 +78,78 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const StatusIcon = statusConfig.icon;
     const TypeIcon = typeConfig.Icon;
 
-    const summaryText = useMemo(() => {
-        const reqUser = payload.requestingUser.userName;
+    // --- Data Derivation for Display ---
+    const { 
+        requester, 
+        recipient, 
+        shiftA, 
+        shiftB 
+    } = useMemo(() => {
+        const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
+        let recUser: ManagedUser | undefined;
+        let sB: any = null;
+
         if (payload.isSwapRequest) {
-            const targetUser = payload.targetUserId ? allUsers.find(u => u.uid === payload.targetUserId)?.displayName : (payload.takenBy?.userName || '??');
-            return `${reqUser} muốn đổi ca với ${targetUser}.`;
+            const targetId = status === 'pending' ? payload.targetUserId : payload.takenBy?.userId;
+            recUser = allUsers.find(u => u.uid === targetId);
+
+            if (recUser && schedule) {
+                const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+                sB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid));
+            }
+        } else if (payload.takenBy) {
+            recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
+        } else if (payload.targetUserId) {
+            recUser = allUsers.find(u => u.uid === payload.targetUserId);
+        }
+
+        const sA = {
+            label: payload.shiftLabel,
+            timeSlot: payload.shiftTimeSlot,
+            date: payload.shiftDate,
+        };
+        
+        return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB: sB };
+    }, [payload, allUsers, schedule, status]);
+
+    // --- Text Summaries ---
+    const summaryText = useMemo(() => {
+        if (payload.isSwapRequest) {
+            return `${requester?.displayName || 'Ai đó'} muốn đổi ca với ${recipient?.displayName || 'ai đó'}.`;
         }
         if (payload.targetUserId) {
-            const targetUser = allUsers.find(u => u.uid === payload.targetUserId)?.displayName || '??';
-            return `${reqUser} đã nhờ ${targetUser} nhận ca.`;
+            if (status === 'pending') {
+                return `${requester?.displayName} đang chờ ${recipient?.displayName} nhận ca.`;
+            }
+            if (payload.takenBy) {
+                 return `${recipient?.displayName} đã đồng ý nhận ca, chờ quản lý duyệt.`;
+            }
+            return `${requester?.displayName} đã nhờ ${recipient?.displayName} nhận ca.`;
         }
         if (payload.takenBy) {
-            return `${reqUser} pass ca, ${payload.takenBy.userName} đã nhận.`;
+            return `${payload.takenBy.userName} đã nhận ca, chờ quản lý duyệt.`;
         }
-        return `${reqUser} đang cần pass ca công khai.`;
-    }, [payload, allUsers]);
+        return `${requester?.displayName} đang cần pass ca công khai.`;
+    }, [payload, requester, recipient, status]);
 
-    const renderShiftInfo = (label: string, timeSlot: { start: string, end: string }, date: string) => (
-        <div className="space-y-1 text-sm">
-            <p className="font-semibold">{label}</p>
-            <p className="text-muted-foreground"><Clock className="inline h-3 w-3 mr-1.5"/>{timeSlot.start} - {timeSlot.end}</p>
+    const details = `Tạo lúc: ${format(parseISO(createdAt as string), 'HH:mm, dd/MM/yyyy')}`;
+
+    // --- Helper Components ---
+    const ShiftInfoBlock = ({ label, timeSlot, date }: { label: string, timeSlot: { start: string, end: string }, date: string }) => (
+        <div className="space-y-1 text-sm mt-2">
             <p className="text-muted-foreground"><Calendar className="inline h-3 w-3 mr-1.5"/>{format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
+            <p className="text-muted-foreground"><Clock className="inline h-3 w-3 mr-1.5"/>{label}: {timeSlot.start} - {timeSlot.end}</p>
         </div>
     );
     
-    const renderUserBlock = (user: AssignedUser, label: string, shiftLabel: string, shiftTime: {start: string, end: string}, shiftDate: string) => (
+    const UserBlock = ({ user, label }: { user?: ManagedUser, label: string }) => (
         <div className="border p-3 rounded-lg bg-background flex-1 min-w-[200px]">
             <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="font-bold text-lg">{user.userName}</p>
-            {renderShiftInfo(shiftLabel, shiftTime, shiftDate)}
+            <p className="font-bold text-lg">{user?.displayName || 'Chưa có'}</p>
         </div>
     );
 
+    // --- Action Button Logic ---
     const isMyRequest = payload.requestingUser.userId === currentUser.uid;
     const isDirectRequestToMe = status === 'pending' && payload.targetUserId === currentUser.uid;
     const isManagerReviewing = isManagerOrOwner && status === 'pending_approval';
@@ -193,52 +233,40 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const actions = renderActions();
 
     return (
-      <Card className={cn("shadow-sm", statusConfig.className)}>
-        <CardHeader className="p-3 pb-2 flex-row justify-between items-start">
-                 <div>
+        <Card className={cn("shadow-sm", statusConfig.className)}>
+            <CardHeader className="p-3 pb-2">
+                <div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <Badge className={cn("pointer-events-none", typeConfig.className)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
                         <Badge className={cn("pointer-events-none", statusConfig.className)}><StatusIcon className="h-3 w-3 mr-1.5"/>{statusConfig.text}</Badge>
                     </div>
                     <CardDescription className="text-xs !mt-2">{summaryText}</CardDescription>
-                 </div>
-                 <p className="text-xs text-muted-foreground whitespace-nowrap">{format(parseISO(createdAt as string), 'HH:mm, dd/MM')}</p>
+                </div>
             </CardHeader>
-        <CardContent className="p-3 pt-2">
-            <div className="flex flex-col md:flex-row gap-3">
-               {renderUserBlock(payload.requestingUser, "Người yêu cầu", payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate)}
-               
-               {payload.isSwapRequest && <Replace className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />}
+            <CardContent className="p-3 pt-2">
+                <div className="flex flex-col md:flex-row gap-3 items-center">
+                    <UserBlock user={requester} label="Người yêu cầu" />
+                    {payload.isSwapRequest ? <Replace className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" /> : <ArrowRight className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />}
+                    <UserBlock user={recipient} label={payload.isSwapRequest ? "Muốn đổi với" : "Người nhận"} />
+                </div>
+                <div className="flex flex-col md:flex-row gap-3 items-start mt-2">
+                    <div className="flex-1">{shiftA && <ShiftInfoBlock {...shiftA} />}</div>
+                    <div className="flex-1">{shiftB && <ShiftInfoBlock {...shiftB} />}</div>
+                </div>
 
-               {payload.isSwapRequest && payload.targetUserShift && renderUserBlock(payload.takenBy || allUsers.find(u=>u.uid === payload.targetUserId)!, "Đổi với", payload.targetUserShift.label, payload.targetUserShift.timeSlot, payload.targetUserShift.date)}
-               
-               {!payload.isSwapRequest && payload.takenBy && renderUserBlock(payload.takenBy, "Người nhận", payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate)}
-               
-               {status === 'pending' && payload.targetUserId && !payload.isSwapRequest && (
-                  <>
-                     <ArrowRight className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />
-                     <div className="border p-3 rounded-lg bg-background flex-1 min-w-[200px] flex items-center">
-                        <div>
-                           <p className="text-xs text-muted-foreground">Gửi đến</p>
-                           <p className="font-bold text-lg">{allUsers.find(u => u.uid === payload.targetUserId)?.displayName || '??'}</p>
-                        </div>
-                     </div>
-                  </>
-               )}
-
-            </div>
-             {(resolvedBy && resolvedAt) && (
-                  <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                      <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>
-                  </div>
-              )}
-        </CardContent>
-        {actions && (
-            <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-xl">
-                {actions}
-            </CardFooter>
-        )}
-      </Card>
+                {(resolvedBy && resolvedAt || payload.cancellationReason) && (
+                    <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
+                        {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
+                        {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
+                    </div>
+                )}
+            </CardContent>
+            {actions && (
+                <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-xl">
+                    {actions}
+                </CardFooter>
+            )}
+        </Card>
     );
 };
 
