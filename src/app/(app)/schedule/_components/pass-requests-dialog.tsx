@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -12,10 +11,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser } from '@/lib/types';
+import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser, ShiftTemplate } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp, ArrowRight } from 'lucide-react';
+import { ArrowRight, AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,19 +85,26 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         shiftA, 
         shiftB 
     } = useMemo(() => {
+        let shiftB: AssignedShift | null = null;
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         let recUser: ManagedUser | undefined;
 
         if (payload.isSwapRequest) {
+            const targetId = payload.takenBy ? payload.takenBy.userId : payload.targetUserId;
+            if (targetId) {
+                recUser = allUsers.find(u => u.uid === targetId);
+                if (recUser && schedule) {
+                    const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+                    const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
+                    shiftB = foundShiftB;
+                }
+            }
+        } else {
             if (payload.takenBy) {
-                recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
-            } else if (payload.targetUserId) {
+                 recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
+            } else if (status === 'pending' && payload.targetUserId) {
                 recUser = allUsers.find(u => u.uid === payload.targetUserId);
             }
-        } else if (payload.takenBy) {
-             recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
-        } else if (status === 'pending' && payload.targetUserId) {
-            recUser = allUsers.find(u => u.uid === payload.targetUserId);
         }
         
         const sA = {
@@ -106,15 +112,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             timeSlot: payload.shiftTimeSlot,
             date: payload.shiftDate,
         };
-        
-        let sB = null;
-        if (payload.isSwapRequest) {
-            const targetUserForShiftLookup = recUser;
-            if (targetUserForShiftLookup && schedule) {
-                 const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-                 sB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === targetUserForShiftLookup!.uid)) || null;
-            }
-        }
         
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
     }, [payload, allUsers, schedule, status]);
