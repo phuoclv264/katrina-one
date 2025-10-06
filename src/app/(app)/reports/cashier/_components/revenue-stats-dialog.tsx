@@ -126,7 +126,7 @@ export default function RevenueStatsDialog({
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
-    const displayImageDataUri = newImageDataUri || (isOwnerView ? existingStats?.invoiceImageUrl : null);
+    const displayImageDataUri = newImageDataUri || (isOwnerView && existingStats?.invoiceImageUrl);
 
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
@@ -208,7 +208,7 @@ export default function RevenueStatsDialog({
     const wasEditedByCashier = existingStats?.isEdited || false;
 
     const handleSave = () => {
-        if (!isOwnerView && !newImageDataUri) {
+        if (!newImageDataUri) {
             setShowMissingImageAlert(true);
             return;
         }
@@ -233,7 +233,7 @@ export default function RevenueStatsDialog({
             netRevenue,
             revenueByPaymentMethod,
             deliveryPartnerPayout,
-            invoiceImageUrl: newImageDataUri || (isOwnerView ? existingStats?.invoiceImageUrl : null),
+            invoiceImageUrl: newImageDataUri,
             reportTimestamp: reportTimestamp,
             isOutdated: isOutdated,
         };
@@ -386,9 +386,8 @@ export default function RevenueStatsDialog({
                     <DialogHeader className="shrink-0 p-6 pb-0">
                         <DialogTitle>{existingStats ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu'}</DialogTitle>
                          <DialogDescription>
-                             {displayDate && `Ngày: ${format(parseISO(displayDate), 'dd/MM/yyyy', { locale: vi })}`}
-                             {displayName && ` - Lập bởi: ${displayName}`}
-                             {!isOwnerView && !existingStats && 'Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.'}
+                            {(displayDate && displayName) && `Ngày: ${format(parseISO(displayDate), 'dd/MM/yyyy', { locale: vi })} - Lập bởi: ${displayName}`}
+                            {!existingStats && 'Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -416,7 +415,7 @@ export default function RevenueStatsDialog({
                                             <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
                                     )}
-                                    {!isOwnerView && (
+                                    {(!existingStats || isOwnerView) && (
                                         <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
                                             <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full">
                                                 {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
