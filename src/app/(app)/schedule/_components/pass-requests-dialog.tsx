@@ -60,11 +60,11 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-500/80 bg-yellow-500 text-white dark:text-yellow-300' };
-            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-500/80 bg-amber-500 text-white dark:text-amber-300' };
-            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-500/80 bg-green-600 text-green-50 dark:text-green-300' };
-            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-500/80 bg-red-600 text-red-50 dark:text-red-300' };
-            default: return { text: 'Không rõ', icon: Info, className: 'border-gray-500/80 bg-gray-500 text-white dark:text-gray-300' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'bg-yellow-500 text-white', cardBorder: 'border-yellow-500' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'bg-amber-500 text-white', cardBorder: 'border-amber-500' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'bg-green-600 text-green-50', cardBorder: 'border-green-500' };
+            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'bg-red-600 text-red-50', cardBorder: 'border-red-500' };
+            default: return { text: 'Không rõ', icon: Info, className: 'bg-gray-500 text-white', cardBorder: 'border-gray-500' };
         }
     };
     
@@ -89,7 +89,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         
         let recUser: ManagedUser | undefined;
-        let shiftB: AssignedShift | { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
+        let shiftB: { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
         
         const recipientId = (status === 'pending_approval' && payload.takenBy?.userId) 
                             || (status === 'resolved' && payload.takenBy?.userId) 
@@ -244,9 +244,9 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const actions = renderActions();
 
     return (
-       <Card className={cn("rounded-lg shadow-sm border", status === 'pending_approval' && 'border-amber-400')}>
+       <Card className={cn("rounded-lg shadow-md border-2", statusConfig.cardBorder)}>
             <div className="flex items-start justify-between p-3">
-                <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className={typeConfig.className}>
                     <TypeIcon className="mr-1 h-3 w-3" />
                     {typeConfig.text}
@@ -518,3 +518,4 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
+
