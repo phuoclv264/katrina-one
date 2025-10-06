@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion } from '@/components/ui/accordion';
 import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
-import { format, isSameMonth, parseISO, addMonths, subMonths } from 'date-fns';
+import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import Lightbox from "yet-another-react-lightbox";
@@ -145,7 +145,12 @@ export default function CashierReportsPage() {
     return reports;
   }, [currentMonth, revenueStats, expenseSlips, incidents, handoverReports]);
 
-  const sortedDatesInMonth = useMemo(() => Object.keys(reportsForCurrentMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [reportsForCurrentMonth]);
+  const sortedDatesInMonth = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    return allDays.map(day => format(day, 'yyyy-MM-dd')).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  }, [currentMonth]);
   
   const monthlyRevenueStats = useMemo(() => revenueStats.filter(stat => isSameMonth(parseISO(stat.date), currentMonth)), [revenueStats, currentMonth]);
   const monthlyExpenseSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth)), [expenseSlips, currentMonth]);
@@ -312,11 +317,13 @@ export default function CashierReportsPage() {
             />
 
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0, 1)} className="space-y-4">
-              {sortedDatesInMonth.map(date => (
+              {sortedDatesInMonth.map(date => {
+                const dayReports = reportsForCurrentMonth[date] || { revenue: [], expenses: [], incidents: [], handover: undefined };
+                return (
                  <DailyReportAccordionItem
                     key={date}
                     date={date}
-                    dayReports={reportsForCurrentMonth[date]}
+                    dayReports={dayReports}
                     onEditRevenue={handleEditRevenue}
                     onDeleteRevenue={handleDeleteRevenue}
                     onEditExpense={handleEditExpense}
@@ -332,7 +339,8 @@ export default function CashierReportsPage() {
                     onAddNewRevenue={handleAddNewRevenue}
                     onAddNewIncident={handleAddNewIncident}
                  />
-              ))}
+                );
+              })}
             </Accordion>
           </div>
         )}
@@ -373,7 +381,7 @@ export default function CashierReportsPage() {
           onCategoriesChange={handleCategoriesChange}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
-          violationToEdit={incidentToEdit}
+          violationToEdit={incidentToEdit as any} // Cast might be needed if type is different
         />
       )}
       
