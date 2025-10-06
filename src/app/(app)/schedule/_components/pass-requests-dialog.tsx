@@ -116,19 +116,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
     }, [payload, allUsers, schedule, status]);
 
-
-    // --- Text Summaries ---
-    const summaryText = useMemo(() => {
-        if (!requester) return 'Yêu cầu không xác định';
-        if (payload.isSwapRequest) {
-            return `${requester.displayName} muốn đổi ca với ${recipient?.displayName || '...'}`;
-        }
-        if (payload.targetUserId) {
-            return `${requester.displayName} nhờ ${recipient?.displayName || '...'}`;
-        }
-        return `${requester.displayName} muốn pass ca`;
-    }, [requester, recipient, payload]);
-
     const metadataText = useMemo(() => {
         if (status === 'resolved' && resolvedBy && resolvedAt) {
             return `Giải quyết bởi ${resolvedBy.userName} lúc ${format(parseISO(resolvedAt), 'HH:mm')}`;
@@ -159,7 +146,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             )
         };
         const initials = user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2);
-        const shiftInfoText = shift ? `${shift.label} • ${shift.timeSlot.start} - ${shift.timeSlot.end}` : 'Không có ca';
+        const shiftInfoText = shift ? `${shift.label} • ${shift.timeSlot.start}-${shift.timeSlot.end} • ${format(parseISO(shift.date), 'eee, dd/MM', { locale: vi })}` : 'Không có ca';
         
         return (
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -333,7 +320,7 @@ export default function PassRequestsDialog({
   onDecline,
   onCancel,
   onRevert,
-  onAssign = () => {},
+  onAssign,
   onApprove,
   onRejectApproval,
   isProcessing,
