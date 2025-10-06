@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp, ArrowRight } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,20 +88,11 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     } = useMemo(() => {
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         let recUser: ManagedUser | undefined;
-        let sB: any = null;
 
-        if (payload.isSwapRequest) {
-            const targetId = status === 'pending' ? payload.targetUserId : payload.takenBy?.userId;
-            recUser = allUsers.find(u => u.uid === targetId);
-
-            if (recUser && schedule) {
-                const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-                sB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid));
-            }
+        if (status === 'pending' && payload.targetUserId) {
+             recUser = allUsers.find(u => u.uid === payload.targetUserId);
         } else if (payload.takenBy) {
-            recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
-        } else if (payload.targetUserId) {
-            recUser = allUsers.find(u => u.uid === payload.targetUserId);
+             recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
         }
 
         const sA = {
@@ -109,7 +101,13 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             date: payload.shiftDate,
         };
         
-        return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB: sB };
+        let sB = null;
+        if (payload.isSwapRequest && recUser && schedule) {
+            const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+            sB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
+        }
+        
+        return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
     }, [payload, allUsers, schedule, status]);
 
     // --- Text Summaries ---
@@ -256,7 +254,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
 
                 {(resolvedBy && resolvedAt || payload.cancellationReason) && (
                     <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                        {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
+                        {resolvedBy && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
                         {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
                     </div>
                 )}
