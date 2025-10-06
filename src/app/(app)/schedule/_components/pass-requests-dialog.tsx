@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -59,11 +58,11 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-200 text-yellow-800 dark:text-yellow-300 dark:border-yellow-700' };
-            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-200 text-amber-800 dark:text-amber-300 dark:border-amber-700' };
-            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-200 text-green-800 dark:text-green-300 dark:border-green-700' };
-            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-200 text-red-800 dark:text-red-300 dark:border-red-700' };
-            default: return { text: 'Không rõ', icon: Info, className: 'bg-gray-100 text-gray-800 border-gray-200' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-500/80 text-yellow-800 dark:text-yellow-300' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-500/80 text-amber-800 dark:text-amber-300' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-500/80 text-green-800 dark:text-green-300' };
+            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-500/80 text-red-800 dark:text-red-300' };
+            default: return { text: 'Không rõ', icon: Info, className: 'border-gray-500/80 text-gray-800 dark:text-gray-300' };
         }
     };
 
@@ -79,7 +78,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const TypeIcon = typeConfig.Icon;
 
     // --- Data Derivation for Display ---
-     const {
+    const {
         requester,
         recipient,
         shiftA,
@@ -90,14 +89,19 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         let recUser: ManagedUser | undefined;
         let shiftB: AssignedShift | null = null;
         
-        const targetId = payload.takenBy?.userId || payload.targetUserId;
-        if (targetId) {
-            recUser = allUsers.find(u => u.uid === targetId);
+        // Always determine the recipient's identity first
+        const recipientId = payload.takenBy?.userId || payload.targetUserId;
+        if (recipientId) {
+            recUser = allUsers.find(u => u.uid === recipientId);
         }
 
-        if (payload.isSwapRequest && schedule && recUser) {
-            const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-            shiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
+        // If it's a swap request, always try to find the recipient's shift
+        if (payload.isSwapRequest && schedule) {
+            const recipientUserId = payload.targetUserId || payload.takenBy?.userId;
+            if (recipientUserId) {
+                const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+                shiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientUserId)) || null;
+            }
         }
 
         const sA = {
@@ -111,19 +115,21 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
 
 
     // --- Helper Components ---
-    const ShiftInfoBlock = ({ label, timeSlot, date }: { label: string, timeSlot: { start: string, end: string }, date: string }) => (
-        <div className="space-y-1 text-sm mt-2">
-            <p className="text-muted-foreground"><Calendar className="inline h-3 w-3 mr-1.5"/>{format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}</p>
-            <p className="text-muted-foreground"><Clock className="inline h-3 w-3 mr-1.5"/>{label}: {timeSlot.start} - {timeSlot.end}</p>
-        </div>
+     const UserShiftInfo = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => (
+        <div className="flex flex-col space-y-2 p-3 rounded-lg bg-background border flex-1">
+             <p className="text-xs text-muted-foreground">{label}</p>
+             <p className="font-bold text-base">{user?.displayName || '...'}</p>
+             {shift ? (
+                 <div className="text-sm">
+                     <p className="font-semibold">{shift.label} <span className="font-normal text-muted-foreground">({shift.timeSlot.start} - {shift.timeSlot.end})</span></p>
+                     <p className="text-xs text-muted-foreground">{format(parseISO(shift.date), 'dd/MM/yyyy')}</p>
+                 </div>
+             ) : (
+                 <p className="text-sm text-muted-foreground italic">Không có ca</p>
+             )}
+         </div>
     );
     
-    const UserBlock = ({ user, label }: { user?: ManagedUser, label: string }) => (
-        <div className="border p-3 rounded-lg bg-background flex-1 min-w-[200px]">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="font-bold text-lg">{user?.displayName || 'Chưa có'}</p>
-        </div>
-    );
 
     // --- Action Button Logic ---
     const isMyRequest = payload.requestingUser.userId === currentUser.uid;
@@ -210,8 +216,8 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const actions = renderActions();
 
     return (
-        <Card className={cn("shadow-sm", statusConfig.className)}>
-            <CardHeader className="p-3 pb-2">
+        <Card className={cn("shadow-sm border-2", statusConfig.className)}>
+            <CardHeader className="p-3 pb-2 flex-row justify-between items-start">
                  <div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <Badge className={cn("pointer-events-none", typeConfig.className)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
@@ -220,25 +226,26 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                 </div>
             </CardHeader>
             <CardContent className="p-3 pt-2">
-                <div className="flex flex-col md:flex-row gap-3 items-center">
-                    <UserBlock user={requester} label="Người yêu cầu" />
-                    {payload.isSwapRequest ? <Replace className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" /> : <ArrowRight className="h-6 w-6 text-muted-foreground mx-auto my-2 md:my-auto" />}
-                    <UserBlock user={recipient} label={payload.isSwapRequest ? "Muốn đổi với" : "Người nhận"} />
-                </div>
-                <div className="flex flex-col md:flex-row gap-3 items-start mt-2">
-                    <div className="flex-1">{shiftA && <ShiftInfoBlock {...shiftA} />}</div>
-                    <div className="flex-1">{shiftB && <ShiftInfoBlock {...shiftB} />}</div>
-                </div>
-
-              {(resolvedBy || payload.cancellationReason) && (
+                 <div className="flex flex-col md:flex-row gap-3 items-stretch">
+                     <UserShiftInfo user={requester} shift={shiftA} label="Người yêu cầu"/>
+                     <div className="self-center shrink-0 mx-auto md:mx-2">
+                         {payload.isSwapRequest ? <Replace className="h-6 w-6 text-muted-foreground" /> : <ArrowRight className="h-6 w-6 text-muted-foreground" />}
+                     </div>
+                     <UserShiftInfo user={recipient} shift={shiftB} label={payload.isSwapRequest ? "Đổi với ca của" : "Người nhận"}/>
+                 </div>
+              {(resolvedBy && resolvedAt) && (
                   <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                      {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
-                      {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
+                      <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt), 'HH:mm, dd/MM/yyyy')}</p>
                   </div>
               )}
+               {payload.cancellationReason && (
+                   <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
+                     <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>
+                   </div>
+               )}
             </CardContent>
             {actions && (
-                <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-xl">
+                <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-lg">
                     {actions}
                 </CardFooter>
             )}
@@ -387,7 +394,7 @@ export default function PassRequestsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl">
+      <DialogContent className="max-w-xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl">
         <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
