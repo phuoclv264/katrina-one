@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -12,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion } from '@/components/ui/accordion';
 import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
-import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import Lightbox from "yet-another-react-lightbox";
@@ -146,9 +145,14 @@ export default function CashierReportsPage() {
   }, [currentMonth, revenueStats, expenseSlips, incidents, handoverReports]);
 
   const sortedDatesInMonth = useMemo(() => {
+    const today = new Date();
     const monthStart = startOfMonth(currentMonth);
+    
     const monthEnd = endOfMonth(currentMonth);
-    const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const effectiveEndDate = isSameMonth(currentMonth, today) && isBefore(today, monthEnd) ? today : monthEnd;
+
+    const allDays = eachDayOfInterval({ start: monthStart, end: effectiveEndDate });
+    
     return allDays.map(day => format(day, 'yyyy-MM-dd')).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   }, [currentMonth]);
   
@@ -377,11 +381,11 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories}
-          onCategoriesChange={handleCategoriesChange}
+          categories={incidentCategories.map(c => c.name)}
+          onCategoriesChange={() => {}}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
-          violationToEdit={incidentToEdit as any} // Cast might be needed if type is different
+          violationToEdit={incidentToEdit as any}
         />
       )}
       
