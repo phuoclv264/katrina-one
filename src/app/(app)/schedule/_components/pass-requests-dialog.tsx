@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsUpDown, MailQuestion } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -355,7 +356,7 @@ export default function PassRequestsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-full md:h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-4xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card">
         <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
