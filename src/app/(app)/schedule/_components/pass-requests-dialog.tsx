@@ -153,7 +153,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                 <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0" title={user.displayName}>{initials}</div>
                 <div className="min-w-0">
                     <div className="text-sm font-semibold truncate" title={user.displayName}>{user.displayName}</div>
-                    <div className="text-xs text-muted-foreground truncate" title={shiftInfoText}>{shiftInfoText}</div>
+                    <div className="text-xs text-muted-foreground" title={shiftInfoText}>{shiftInfoText}</div>
                 </div>
             </div>
         );
@@ -433,7 +433,7 @@ export default function PassRequestsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl">
+      <DialogContent className="max-w-2xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg">
         <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>
