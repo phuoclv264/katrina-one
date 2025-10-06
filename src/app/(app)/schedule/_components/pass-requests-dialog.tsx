@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -9,9 +10,8 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser, ShiftTemplate, AssignedShift } from '@/lib/types';
+import type { Schedule, ManagedUser, Notification, AuthUser, UserRole, AssignedShift } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ArrowRight, AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp } from 'lucide-react';
@@ -59,10 +59,10 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700' };
-            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700' };
-            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-200 bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700' };
-            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-200 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-200 text-yellow-800 dark:text-yellow-300 dark:border-yellow-700' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-200 text-amber-800 dark:text-amber-300 dark:border-amber-700' };
+            case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-200 text-green-800 dark:text-green-300 dark:border-green-700' };
+            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-200 text-red-800 dark:text-red-300 dark:border-red-700' };
             default: return { text: 'Không rõ', icon: Info, className: 'bg-gray-100 text-gray-800 border-gray-200' };
         }
     };
@@ -79,16 +79,17 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const TypeIcon = typeConfig.Icon;
 
     // --- Data Derivation for Display ---
-    const {
+     const {
         requester,
         recipient,
         shiftA,
         shiftB
     } = useMemo(() => {
-        let shiftB: AssignedShift | null = null;
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
+        
         let recUser: ManagedUser | undefined;
-
+        let shiftB: AssignedShift | null = null;
+        
         const targetId = payload.takenBy?.userId || payload.targetUserId;
         if (targetId) {
             recUser = allUsers.find(u => u.uid === targetId);
@@ -96,8 +97,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
 
         if (payload.isSwapRequest && schedule && recUser) {
             const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-            const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
-            shiftB = foundShiftB;
+            shiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
         }
 
         const sA = {
@@ -109,31 +109,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
     }, [payload, allUsers, schedule]);
 
-    // --- Text Summaries ---
-    const summaryText = useMemo(() => {
-        if (payload.isSwapRequest) {
-            if (status === 'pending') {
-                return `${requester?.displayName} đang chờ ${recipient?.displayName} đồng ý đổi ca.`;
-            }
-             if (status === 'pending_approval') {
-                return `${requester?.displayName} và ${recipient?.displayName} đã đồng ý đổi ca, chờ quản lý duyệt.`;
-            }
-            if (status === 'resolved') {
-                return `Yêu cầu đổi ca giữa ${requester?.displayName} và ${recipient?.displayName} đã được giải quyết.`;
-            }
-        }
-        if (payload.targetUserId) {
-            if (status === 'pending') {
-                return `${requester?.displayName} đang chờ ${recipient?.displayName} nhận ca.`;
-            }
-        }
-        if (payload.takenBy) {
-             return `${payload.takenBy.userName} đã nhận ca, chờ quản lý duyệt.`;
-        }
-        return `${requester?.displayName} đang cần pass ca công khai.`;
-    }, [payload, requester, recipient, status]);
-
-    const details = `Tạo lúc: ${format(parseISO(createdAt as string), 'HH:mm, dd/MM/yyyy')}`;
 
     // --- Helper Components ---
     const ShiftInfoBlock = ({ label, timeSlot, date }: { label: string, timeSlot: { start: string, end: string }, date: string }) => (
@@ -168,10 +143,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         }
         
         if (isManagerOrOwner && status === 'pending_approval') {
+            const isRequestByManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý';
+            const isTakenByManager = payload.takenBy && allUsers.find(u => u.uid === payload.takenBy.userId)?.role === 'Quản lý';
             const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
-            const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
-            const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestInvolvingManager;
-            if (canOwnerApprove || canManagerApprove) {
+            const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestByManager && !isTakenByManager;
+
+            if(canOwnerApprove || canManagerApprove) {
                  return (
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
@@ -240,7 +217,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                         <Badge className={cn("pointer-events-none", typeConfig.className)}><TypeIcon className="h-3 w-3 mr-1.5"/>{typeConfig.text}</Badge>
                         <Badge className={cn("pointer-events-none", statusConfig.className)}><StatusIcon className="h-3 w-3 mr-1.5"/>{statusConfig.text}</Badge>
                     </div>
-                    <CardDescription className="text-xs !mt-2">{summaryText}</CardDescription>
                 </div>
             </CardHeader>
             <CardContent className="p-3 pt-2">
@@ -254,16 +230,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     <div className="flex-1">{shiftB && <ShiftInfoBlock {...shiftB} />}</div>
                 </div>
 
-                {(resolvedBy && resolvedAt) && (
-                    <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                        {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
-                    </div>
-                )}
-                 {payload.cancellationReason && (
-                    <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
-                         <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>
-                    </div>
-                )}
+              {(resolvedBy || payload.cancellationReason) && (
+                  <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
+                      {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
+                      {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
+                  </div>
+              )}
             </CardContent>
             {actions && (
                 <CardFooter className="p-3 bg-muted/30 dark:bg-card/30 rounded-b-xl">
@@ -332,7 +304,8 @@ export default function PassRequestsDialog({
       const wasTargetedToMe = payload.targetUserId === currentUser.uid;
 
       if (notification.status === 'pending' || notification.status === 'pending_approval') {
-        const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
+        const isRequestByManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý';
+        const isTakenByManager = payload.takenBy && allUsers.find(u => u.uid === payload.takenBy.userId)?.role === 'Quản lý';
 
         if (notification.status === 'pending' && wasTargetedToMe) {
             pending.push(notification);
@@ -340,7 +313,7 @@ export default function PassRequestsDialog({
         }
 
         if (isManagerOrOwner) {
-            if (currentUser.role === 'Chủ nhà hàng' || !isRequestInvolvingManager) {
+            if (currentUser.role === 'Chủ nhà hàng' || (!isRequestByManager && !isTakenByManager)) {
                 pending.push(notification);
                 return;
             }
