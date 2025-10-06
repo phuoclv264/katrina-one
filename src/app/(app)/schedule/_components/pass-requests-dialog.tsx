@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser, ShiftTemplate } from '@/lib/types';
+import type { Schedule, ManagedUser, Notification, PassRequestPayload, AuthUser, UserRole, AssignedUser, ShiftTemplate, AssignedShift } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ArrowRight, AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp } from 'lucide-react';
@@ -59,7 +59,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: Loader2, className: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700 animate-spin' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700' };
             case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700' };
             case 'resolved': return { text: 'Đã giải quyết', icon: CheckCircle, className: 'border-green-200 bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700' };
             case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'border-red-200 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700' };
@@ -79,34 +79,27 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     const TypeIcon = typeConfig.Icon;
 
     // --- Data Derivation for Display ---
-    const { 
-        requester, 
-        recipient, 
-        shiftA, 
-        shiftB 
+    const {
+        requester,
+        recipient,
+        shiftA,
+        shiftB
     } = useMemo(() => {
         let shiftB: AssignedShift | null = null;
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
         let recUser: ManagedUser | undefined;
 
-        if (payload.isSwapRequest) {
-            const targetId = payload.takenBy ? payload.takenBy.userId : payload.targetUserId;
-            if (targetId) {
-                recUser = allUsers.find(u => u.uid === targetId);
-                if (recUser && schedule) {
-                    const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-                    const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
-                    shiftB = foundShiftB;
-                }
-            }
-        } else {
-            if (payload.takenBy) {
-                 recUser = allUsers.find(u => u.uid === payload.takenBy!.userId);
-            } else if (status === 'pending' && payload.targetUserId) {
-                recUser = allUsers.find(u => u.uid === payload.targetUserId);
-            }
+        const targetId = payload.takenBy?.userId || payload.targetUserId;
+        if (targetId) {
+            recUser = allUsers.find(u => u.uid === targetId);
         }
-        
+
+        if (payload.isSwapRequest && schedule && recUser) {
+            const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+            const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recUser!.uid)) || null;
+            shiftB = foundShiftB;
+        }
+
         const sA = {
             label: payload.shiftLabel,
             timeSlot: payload.shiftTimeSlot,
@@ -114,24 +107,28 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         };
         
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
-    }, [payload, allUsers, schedule, status]);
+    }, [payload, allUsers, schedule]);
 
     // --- Text Summaries ---
     const summaryText = useMemo(() => {
         if (payload.isSwapRequest) {
-            return `${requester?.displayName || 'Ai đó'} muốn đổi ca với ${recipient?.displayName || 'ai đó'}.`;
+            if (status === 'pending') {
+                return `${requester?.displayName} đang chờ ${recipient?.displayName} đồng ý đổi ca.`;
+            }
+             if (status === 'pending_approval') {
+                return `${requester?.displayName} và ${recipient?.displayName} đã đồng ý đổi ca, chờ quản lý duyệt.`;
+            }
+            if (status === 'resolved') {
+                return `Yêu cầu đổi ca giữa ${requester?.displayName} và ${recipient?.displayName} đã được giải quyết.`;
+            }
         }
         if (payload.targetUserId) {
             if (status === 'pending') {
                 return `${requester?.displayName} đang chờ ${recipient?.displayName} nhận ca.`;
             }
-            if (payload.takenBy) {
-                 return `${recipient?.displayName} đã đồng ý nhận ca, chờ quản lý duyệt.`;
-            }
-            return `${requester?.displayName} đã nhờ ${recipient?.displayName} nhận ca.`;
         }
         if (payload.takenBy) {
-            return `${payload.takenBy.userName} đã nhận ca, chờ quản lý duyệt.`;
+             return `${payload.takenBy.userName} đã nhận ca, chờ quản lý duyệt.`;
         }
         return `${requester?.displayName} đang cần pass ca công khai.`;
     }, [payload, requester, recipient, status]);
@@ -156,8 +153,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
     // --- Action Button Logic ---
     const isMyRequest = payload.requestingUser.userId === currentUser.uid;
     const isDirectRequestToMe = status === 'pending' && payload.targetUserId === currentUser.uid;
-    const isManagerReviewing = isManagerOrOwner && status === 'pending_approval';
-
+    
     const renderActions = () => {
         if (isDirectRequestToMe) {
             return (
@@ -171,7 +167,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             );
         }
         
-        if (isManagerReviewing) {
+        if (isManagerOrOwner && status === 'pending_approval') {
             const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
             const isRequestInvolvingManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý' || (payload.takenBy && allUsers.find(u => u.uid === payload.takenBy?.userId)?.role === 'Quản lý');
             const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestInvolvingManager;
@@ -258,10 +254,14 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     <div className="flex-1">{shiftB && <ShiftInfoBlock {...shiftB} />}</div>
                 </div>
 
-                {(resolvedBy || payload.cancellationReason) && (
+                {(resolvedBy && resolvedAt) && (
                     <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
                         {resolvedBy && resolvedAt && <p>Xử lý bởi: <span className="font-medium">{resolvedBy.userName}</span> lúc {format(parseISO(resolvedAt as string), 'HH:mm, dd/MM/yyyy')}</p>}
-                        {payload.cancellationReason && <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>}
+                    </div>
+                )}
+                 {payload.cancellationReason && (
+                    <div className="mt-2 text-xs text-muted-foreground border-t pt-2">
+                         <p>Lý do hủy: <span className="italic">{payload.cancellationReason}</span></p>
                     </div>
                 )}
             </CardContent>
