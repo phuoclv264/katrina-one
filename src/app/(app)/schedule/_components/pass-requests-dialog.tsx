@@ -121,6 +121,9 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             return `Giải quyết bởi ${resolvedBy.userName} lúc ${format(parseISO(resolvedAt), 'HH:mm')}`;
         }
         if (status === 'cancelled' && payload.cancellationReason) {
+            if (payload.cancellationReason === 'Hủy bởi quản lý' && resolvedBy) {
+                return `Hủy bởi Quản lý: ${resolvedBy.userName}`;
+            }
             return `Lý do hủy: ${payload.cancellationReason}`;
         }
         if (status === 'pending_approval' && payload.takenBy) {
@@ -518,4 +521,3 @@ export default function PassRequestsDialog({
     </Dialog>
   );
 }
-
