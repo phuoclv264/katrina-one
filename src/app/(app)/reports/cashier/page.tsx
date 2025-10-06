@@ -16,7 +16,6 @@ import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
-import Image from 'next/image';
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -147,7 +146,6 @@ export default function CashierReportsPage() {
   const sortedDatesInMonth = useMemo(() => {
     const today = new Date();
     const monthStart = startOfMonth(currentMonth);
-    
     const monthEnd = endOfMonth(currentMonth);
     const effectiveEndDate = isSameMonth(currentMonth, today) && isBefore(today, monthEnd) ? today : monthEnd;
 
@@ -373,6 +371,7 @@ export default function CashierReportsPage() {
         revenueStatsToEdit={revenueStatsToEdit}
         otherCostCategories={otherCostCategories}
         dateForNewEntry={dateForNewEntry}
+        reporter={user}
       />
 
       {user && (
@@ -381,8 +380,8 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories.map(c => c.name)}
-          onCategoriesChange={() => {}}
+          categories={incidentCategories}
+          onCategoriesChange={handleCategoriesChange}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
           violationToEdit={incidentToEdit as any}
