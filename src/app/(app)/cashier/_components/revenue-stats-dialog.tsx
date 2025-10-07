@@ -21,7 +21,7 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { format, isToday, isBefore, startOfDay, parseISO } from 'date-fns';
+import { format, isToday, isBefore, startOfDay, parseISO, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -133,7 +133,6 @@ export default function RevenueStatsDialog({
 
     const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
     
-    // Determine if the user has editing permissions
     const canEdit = useMemo(() => {
         if (isOwnerView) return true; // Owner can always edit or create.
         if (existingStats) {
@@ -292,12 +291,12 @@ export default function RevenueStatsDialog({
             const reportDate = parseISO(result.reportTimestamp);
             const targetDate = dateForNewEntry ? parseISO(dateForNewEntry) : startOfDay(new Date());
 
-            if (!isOwnerView && !isSameDay(reportDate, targetDate)) {
+            if (!isOwnerView && !isToday(reportDate)) {
                  toast.error(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
                  return;
             }
-             if (isOwnerView && dateForNewEntry && !isSameDay(reportDate, targetDate)) {
-                 toast.error(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thêm (${format(targetDate, 'dd/MM/yyyy')}).`);
+             if (isOwnerView && !isSameDay(reportDate, targetDate)) {
+                 toast.error(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
                  return;
             }
             
@@ -392,6 +391,25 @@ export default function RevenueStatsDialog({
         }
     }
     
+    const handleRescan = async () => {
+        if (!displayImageDataUri) return;
+        
+        // If it's a firebase URL, we need to proxy it to get a data URI
+        if (displayImageDataUri.startsWith('https://')) {
+             try {
+                const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(displayImageDataUri)}`);
+                if (!response.ok) throw new Error('Proxy failed');
+                const { dataUri } = await response.json();
+                await processImage(dataUri);
+            } catch (error) {
+                toast.error("Không thể tải lại ảnh để quét. Vui lòng tải lên lại.");
+            }
+        } else {
+             // It's already a data URI (from a new upload)
+            await processImage(displayImageDataUri);
+        }
+    }
+
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>

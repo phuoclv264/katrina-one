@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import type { RevenueStats } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const ChangeIndicator = ({ value, isRevenue = true }: { value: number, isRevenue?: boolean }) => {
@@ -33,10 +33,14 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                 const prevStat = stats[index + 1];
                 const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                 const isProcessing = processingItemId === stat.id;
+                const displayTime = stat.reportTimestamp 
+                    ? format(parseISO(stat.reportTimestamp), 'HH:mm')
+                    : format(new Date(stat.createdAt as string), 'HH:mm');
+
                 return (
                     <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
                         <div className="flex justify-between items-start">
-                            <p className="text-sm text-muted-foreground">Lúc {format(new Date(stat.createdAt as string), 'HH:mm')} bởi {stat.createdBy.userName}</p>
+                            <p className="text-sm text-muted-foreground">Lúc {displayTime} bởi {stat.createdBy.userName}</p>
                             <div className="flex items-center gap-2">
                                 {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                                 {stat.isOutdated && <Badge variant="destructive" className="text-xs">Phiếu cũ</Badge>}

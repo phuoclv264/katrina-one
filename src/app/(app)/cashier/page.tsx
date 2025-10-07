@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -181,7 +182,7 @@ export default function CashierDashboardPage() {
     const handlePopState = (event: PopStateEvent) => {
         if (isLightboxOpen) {
             event.preventDefault();
-            setIsLightboxOpen(false);
+            setLightboxOpen(false);
         }
     };
 
@@ -581,6 +582,10 @@ export default function CashierDashboardPage() {
                                     const isLatest = index === 0;
                                     const prevStat = dailyRevenueStats[index + 1];
                                     const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
+                                    const displayTime = stat.reportTimestamp 
+                                        ? format(parseISO(stat.reportTimestamp), 'HH:mm')
+                                        : format(new Date(stat.createdAt as string), 'HH:mm');
+
                                     return (
                                         <Card key={stat.id} className={cn("bg-background", isLatest && "border-primary")}>
                                             <CardContent className="p-3">
@@ -591,7 +596,7 @@ export default function CashierDashboardPage() {
                                                             {isLatest && <Badge>Mới nhất</Badge>}
                                                          </div>
                                                          <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                                            <span>{format(new Date(stat.createdAt as string), 'HH:mm')}</span>
+                                                            <span>Lúc {displayTime}</span>
                                                             {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                                                          </div>
                                                     </div>
@@ -631,10 +636,13 @@ export default function CashierDashboardPage() {
                                         const isLatest = index === 0;
                                         const prevStat = dailyRevenueStats[index + 1];
                                         const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
+                                         const displayTime = stat.reportTimestamp 
+                                            ? format(parseISO(stat.reportTimestamp), 'HH:mm')
+                                            : format(new Date(stat.createdAt as string), 'HH:mm');
                                         return (
                                             <TableRow key={stat.id} className={cn(isLatest && "bg-primary/5")}>
                                                 <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">{format(new Date(stat.createdAt as string), 'HH:mm')}</TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">{displayTime}</TableCell>
                                                 <TableCell className="text-right font-bold text-lg text-green-600">
                                                     <div className="flex items-center justify-end gap-2">
                                                         {(stat.netRevenue || 0).toLocaleString('vi-VN')}đ 
@@ -903,7 +911,7 @@ export default function CashierDashboardPage() {
     )}
      <Lightbox
         open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
+        close={() => setLightboxOpen(false)}
         slides={lightboxSlides}
         carousel={{ finite: true }}
     />
