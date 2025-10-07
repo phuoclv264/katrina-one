@@ -688,11 +688,11 @@ export default function ExpenseSlipDialog({
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent 
-                    className="max-w-4xl" 
+                    className="max-w-4xl p-0 h-[90vh] flex flex-col" 
                     onInteractOutside={(e) => e.preventDefault()}
                 >
                     <div id="expense-slip-lightbox-container"></div>
-                    <DialogHeader>
+                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>
                          <DialogDescription>
                             {isOwnerView && slipToEdit ? (
@@ -709,7 +709,7 @@ export default function ExpenseSlipDialog({
                             ) : 'Nhập thông tin chi tiết cho các khoản chi.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[70vh] -mx-6 px-6 bg-card">
+                    <ScrollArea className="flex-grow -mx-6 px-6">
                         <div className="grid gap-6 py-4 px-1">
                              <div className="space-y-2">
                                 <Label>Loại chi phí</Label>
@@ -755,6 +755,13 @@ export default function ExpenseSlipDialog({
                                             <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
                                         </Button>
                                     </div>
+                                    {aiError && (
+                                        <Alert variant="destructive" className="mb-4">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertTitle>Lỗi AI</AlertTitle>
+                                            <AlertDescription>{aiError}</AlertDescription>
+                                        </Alert>
+                                    )}
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                         {existingPhotos.map(photo => (
                                             <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
@@ -781,13 +788,6 @@ export default function ExpenseSlipDialog({
                         
                            {expenseType === 'goods_import' ? (
                                 <div className="space-y-4">
-                                     {aiError && (
-                                        <Alert variant="destructive">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertTitle>Lỗi AI</AlertTitle>
-                                            <AlertDescription>{aiError}</AlertDescription>
-                                        </Alert>
-                                    )}
                                     <div className="space-y-2">
                                         <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
                                             {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
@@ -796,7 +796,7 @@ export default function ExpenseSlipDialog({
                                     </div>
                                     <div className="relative text-center my-4">
                                         <Separator />
-                                        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-sm text-muted-foreground">Hoặc</span>
+                                        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-muted/30 px-2 text-sm text-muted-foreground backdrop-blur-sm">Hoặc</span>
                                     </div>
                                     <div className="space-y-2">
                                         <ItemMultiSelect
@@ -953,7 +953,7 @@ export default function ExpenseSlipDialog({
                             </div>
                         </div>
                     </ScrollArea>
-                    <DialogFooter>
+                    <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing}>
                             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -194,9 +195,9 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-card flex flex-col h-[90vh]" onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}>
+                <DialogContent className="sm:max-w-md bg-white dark:bg-card flex flex-col h-[90vh] p-0" onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}>
                     <div id="incident-lightbox-container"></div>
-                    <DialogHeader className="shrink-0">
+                    <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>
                             Ghi nhận lại các sự cố như hư hỏng thiết bị, làm vỡ tài sản...
@@ -304,7 +305,7 @@ export default function IncidentReportDialog({
                             </div>
                         </div>
                     </ScrollArea>
-                    <DialogFooter className="shrink-0">
+                    <DialogFooter className="shrink-0 p-6 pt-4 border-t bg-muted/30">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing}>
                             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}

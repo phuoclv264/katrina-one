@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -397,6 +398,8 @@ export default function RevenueStatsDialog({
     const handleRescan = async () => {
         if (!displayImageDataUri) return;
         
+        setIsOcrLoading(true);
+
         // If it's a firebase URL, we need to proxy it to get a data URI
         if (displayImageDataUri.startsWith('https://')) {
              try {
@@ -406,6 +409,7 @@ export default function RevenueStatsDialog({
                 await processImage(dataUri);
             } catch (error) {
                 setAiError("Không thể tải lại ảnh để quét. Vui lòng tải lên lại.");
+                setIsOcrLoading(false);
             }
         } else {
              // It's already a data URI (from a new upload)
@@ -418,7 +422,7 @@ export default function RevenueStatsDialog({
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onPointerDownOutside={(e) => { if (!isLightboxOpen) { e.preventDefault(); }}}>
                     <div id="revenue-stats-lightbox-container"></div>
-                    <DialogHeader className="shrink-0 p-6 pb-0">
+                    <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                          <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>
                          <DialogDescription>
                              {isOwnerView && !existingStats
@@ -431,7 +435,7 @@ export default function RevenueStatsDialog({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-grow overflow-y-auto px-6">
+                    <ScrollArea className="flex-grow -mx-6 px-6">
                         <div className="py-4 space-y-6">
                             <Card className="flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
@@ -556,9 +560,9 @@ export default function RevenueStatsDialog({
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </ScrollArea>
 
-                    <DialogFooter className="shrink-0 p-6 pt-0">
+                    <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing || isOcrLoading || !canEdit}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
