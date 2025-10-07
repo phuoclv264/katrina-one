@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -224,17 +222,7 @@ export default function RevenueStatsDialog({
             toast.error("Tổng doanh thu theo phương thức thanh toán phải bằng Doanh thu Net.");
             return;
         }
-        
-        let isOutdated = false;
-        if (reportTimestamp) {
-            const reportTime = parseISO(reportTimestamp);
-            const now = new Date();
-            const oneHour = 60 * 60 * 1000;
-            if (now.getTime() - reportTime.getTime() > oneHour) {
-                isOutdated = true;
-            }
-        }
-        
+
         let isAiFlag = false;
         const currentDataForComparison = { netRevenue, deliveryPartnerPayout, revenueByPaymentMethod };
         
@@ -260,7 +248,6 @@ export default function RevenueStatsDialog({
             deliveryPartnerPayout,
             invoiceImageUrl: newImageDataUri || (isOwnerView ? existingStats?.invoiceImageUrl : null),
             reportTimestamp: reportTimestamp,
-            isOutdated: isOutdated,
             isAiGenerated: isAiFlag,
         };
         
@@ -672,4 +659,3 @@ export default function RevenueStatsDialog({
         </>
     );
 }
-

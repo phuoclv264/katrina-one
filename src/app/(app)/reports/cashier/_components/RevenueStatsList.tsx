@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -43,7 +42,6 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                             <div className="flex items-center gap-2">
                                 {stat.isAiGenerated && <Badge className="bg-blue-100 text-blue-800"><Wand2 className="h-3 w-3 mr-1"/>AI</Badge>}
                                 {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
-                                {stat.isOutdated && <Badge variant="destructive" className="text-xs">Phiếu cũ</Badge>}
                             </div>
                         </div>
                         <div className="flex justify-between items-center mt-1">
