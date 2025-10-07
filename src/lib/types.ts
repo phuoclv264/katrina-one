@@ -426,6 +426,7 @@ export type RevenueStats = {
   invoiceImageUrl: string | null;
   reportTimestamp?: string;
   isOutdated?: boolean;
+  isAiGenerated?: boolean;
   isEdited: boolean;
 
   createdBy: AssignedUser;

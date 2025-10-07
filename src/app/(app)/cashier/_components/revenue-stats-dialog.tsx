@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats, AuthUser } from '@/lib/types';
 import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw, ServerCrash } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
+import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-from-image';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
@@ -26,6 +26,7 @@ import { format, isToday, isBefore, startOfDay, parseISO, isSameDay } from 'date
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import isEqual from 'lodash.isequal';
 
 
 type RevenueStatsDialogProps = {
@@ -233,6 +234,25 @@ export default function RevenueStatsDialog({
                 isOutdated = true;
             }
         }
+        
+        let isAiFlag = false;
+        const currentDataForComparison = { netRevenue, deliveryPartnerPayout, revenueByPaymentMethod };
+        
+        if (aiOriginalData) {
+            const aiDataForComparison = {
+                netRevenue: aiOriginalData.netRevenue || 0,
+                deliveryPartnerPayout: aiOriginalData.deliveryPartnerPayout || 0,
+                revenueByPaymentMethod: aiOriginalData.revenueByPaymentMethod || initialPaymentMethods,
+            };
+            isAiFlag = isEqual(currentDataForComparison, aiDataForComparison);
+        } else if (existingStats?.isAiGenerated) {
+             const existingDataForComparison = {
+                netRevenue: existingStats.netRevenue || 0,
+                deliveryPartnerPayout: existingStats.deliveryPartnerPayout || 0,
+                revenueByPaymentMethod: existingStats.revenueByPaymentMethod || initialPaymentMethods,
+            };
+            isAiFlag = isEqual(currentDataForComparison, existingDataForComparison);
+        }
 
         const dataToSave = {
             netRevenue,
@@ -241,6 +261,7 @@ export default function RevenueStatsDialog({
             invoiceImageUrl: newImageDataUri || (isOwnerView ? existingStats?.invoiceImageUrl : null),
             reportTimestamp: reportTimestamp,
             isOutdated: isOutdated,
+            isAiGenerated: isAiFlag,
         };
         
         let isEditedNow = false;
@@ -420,7 +441,7 @@ export default function RevenueStatsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onPointerDownOutside={(e) => { if (!isLightboxOpen) { e.preventDefault(); }}}>
+                <DialogContent className="max-w-xl h-full md:h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => { if (!isLightboxOpen) { e.preventDefault(); }}}>
                     <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                          <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>

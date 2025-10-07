@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -7,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown } from 'lucide-react';
+import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
@@ -597,6 +598,7 @@ export default function CashierDashboardPage() {
                                                          </div>
                                                          <div className="text-xs text-muted-foreground flex items-center gap-2">
                                                             <span>Lúc {displayTime}</span>
+                                                            {stat.isAiGenerated && <Badge className="bg-blue-100 text-blue-800"><Wand2 className="h-3 w-3 mr-1"/>AI</Badge>}
                                                             {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                                                          </div>
                                                     </div>
@@ -645,8 +647,9 @@ export default function CashierDashboardPage() {
                                                 <TableCell className="text-sm text-muted-foreground">{displayTime}</TableCell>
                                                 <TableCell className="text-right font-bold text-lg text-green-600">
                                                     <div className="flex items-center justify-end gap-2 flex-wrap">
-                                                        {(stat.netRevenue || 0).toLocaleString('vi-VN')}đ 
+                                                        {(stat.netRevenue || 0).toLocaleString('vi-VN')}đ
                                                         {difference !== 0 && <ChangeIndicator value={difference} />}
+                                                        {stat.isAiGenerated && <Badge className="bg-blue-100 text-blue-800"><Wand2 className="h-3 w-3 mr-1"/>AI</Badge>}
                                                         {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}
                                                     </div>
                                                 </TableCell>
