@@ -11,6 +11,8 @@ import { dataStore } from '@/lib/data-store';
 import type { IssueNote } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type GroupedNotes = {
   [date: string]: IssueNote[];
@@ -26,7 +28,15 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true);
-      const unsubNotes = dataStore.subscribeToIssueNotes(setNotes);
+      const q = query(collection(db, 'issue_notes'), orderBy('date', 'desc'));
+      const unsubNotes = onSnapshot(q, (snapshot) => {
+        const notes = snapshot.docs.map(doc => ({
+            ...doc.data(),
+            id: doc.id,
+        } as IssueNote));
+        setNotes(notes);
+      });
+
       dataStore.getAppSettings().then(settings => {
         if (settings.lastIssueNoteScan) {
           setLastScanDate(new Date(settings.lastIssueNoteScan as string).toLocaleString('vi-VN'));
