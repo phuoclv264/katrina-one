@@ -47,6 +47,7 @@ function AddDocumentDialog({
 }) {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     const handleConfirm = () => {
         if (date) {
@@ -67,7 +68,7 @@ function AddDocumentDialog({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                     <div className="space-y-2">
                          <Label>Ngày chứng từ</Label>
-                        <Popover>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
@@ -84,7 +85,10 @@ function AddDocumentDialog({
                                 <Calendar
                                     mode="single"
                                     selected={date}
-                                    onSelect={setDate}
+                                    onSelect={(selectedDate) => {
+                                        setDate(selectedDate);
+                                        setIsCalendarOpen(false);
+                                    }}
                                     initialFocus
                                 />
                             </PopoverContent>
