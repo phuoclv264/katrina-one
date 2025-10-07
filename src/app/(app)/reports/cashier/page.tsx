@@ -41,10 +41,10 @@ function AddDocumentDialog({
 }: {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident') => void;
+    onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => void;
 }) {
     const [date, setDate] = useState<Date | undefined>(new Date());
-    const [action, setAction] = useState<'revenue' | 'expense' | 'incident'>('revenue');
+    const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
 
     const handleConfirm = () => {
         if (date) {
@@ -100,6 +100,10 @@ function AddDocumentDialog({
                          <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
                             <span className="font-semibold">Thêm Sự cố</span>
                             <RadioGroupItem value="incident" id="action-incident" />
+                        </Label>
+                         <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                            <span className="font-semibold">Thêm Phiếu bàn giao</span>
+                            <RadioGroupItem value="handover" id="action-handover" />
                         </Label>
                     </RadioGroup>
                 </div>
@@ -253,7 +257,7 @@ export default function CashierReportsPage() {
   const handleEditIncident = useCallback((incident: IncidentReport) => { setDateForNewEntry(null); setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
   const handleEditHandover = useCallback((handover: HandoverReport) => { setDateForNewEntry(null); setHandoverToEdit(handover); setIsHandoverReportDialogOpen(true); }, []);
 
-   const handleAddDocumentConfirm = (date: Date, action: 'revenue' | 'expense' | 'incident') => {
+   const handleAddDocumentConfirm = (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => {
         setDateForNewEntry(format(date, 'yyyy-MM-dd'));
         switch(action) {
             case 'revenue':
@@ -267,6 +271,10 @@ export default function CashierReportsPage() {
             case 'incident':
                 setIncidentToEdit(null);
                 setIsIncidentDialogOpen(true);
+                break;
+            case 'handover':
+                setHandoverToEdit(null);
+                setIsHandoverReportDialogOpen(true);
                 break;
         }
    };
@@ -317,15 +325,24 @@ export default function CashierReportsPage() {
     finally { setProcessingItemId(null); }
   }, [user, incidentToEdit, dateForNewEntry]);
 
-  const handleSaveHandover = useCallback(async (data: any, id: string) => {
+  const handleSaveHandover = useCallback(async (data: any, id?: string) => {
     if (!user) return;
-    setProcessingItemId(id);
+    setProcessingItemId(id || 'new-handover');
     try {
-        await dataStore.updateHandoverReport(id, data, user);
-        toast.success('Đã cập nhật báo cáo bàn giao.');
+        if (id) {
+            await dataStore.updateHandoverReport(id, data, user);
+            toast.success('Đã cập nhật báo cáo bàn giao.');
+        } else {
+            await dataStore.addHandoverReport(data, user);
+            toast.success('Đã tạo báo cáo bàn giao mới.');
+        }
         setIsHandoverReportDialogOpen(false);
-    } catch (error) { toast.error('Không thể cập nhật báo cáo bàn giao.'); }
-    finally { setProcessingItemId(null); }
+    } catch (error) { 
+        console.error("Failed to save handover report:", error);
+        toast.error('Không thể lưu báo cáo bàn giao.');
+    } finally { 
+        setProcessingItemId(null); 
+    }
   }, [user]);
   
   const handleDeleteExpense = useCallback((id: string) => {
@@ -484,7 +501,7 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories}
+          categories={incidentCategories.map(c => c.name)}
           onCategoriesChange={handleCategoriesChange as any}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
@@ -492,14 +509,15 @@ export default function CashierReportsPage() {
         />
       )}
       
-      {user && handoverToEdit && (
+      {user && (handoverToEdit || (isHandoverReportDialogOpen && !handoverToEdit)) && (
           <OwnerHandoverReportDialog
             open={isHandoverReportDialogOpen}
             onOpenChange={setIsHandoverReportDialogOpen}
             onSave={handleSaveHandover}
             isProcessing={!!processingItemId}
             reportToEdit={handoverToEdit}
-            reporter={handoverToEdit?.createdBy as AuthUser}
+            reporter={user}
+            dateForNewEntry={dateForNewEntry || undefined}
           />
       )}
 
