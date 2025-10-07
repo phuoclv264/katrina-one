@@ -650,10 +650,9 @@ export default function RevenueStatsDialog({
                     open={isLightboxOpen}
                     close={() => setIsLightboxOpen(false)}
                     slides={[{ src: displayImageDataUri }]}
-                    plugins={[Zoom, Counter]}
+                    plugins={[Zoom]}
                     portal={{ root: document.getElementById("revenue-stats-lightbox-container") ?? undefined }}
                     carousel={{ finite: true }}
-                    counter={{ container: { style: { top: "unset", bottom: 0 } } }}
                     zoom={{ maxZoomPixelRatio: 5 }}
                 />
             )}
