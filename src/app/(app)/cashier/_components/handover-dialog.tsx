@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -310,6 +311,9 @@ export default function HandoverDialog({
     
     const handleRescan = async () => {
         if (!displayImageDataUri) return;
+        
+        setIsOcrLoading(true); // Set loading state immediately
+
         if (displayImageDataUri.startsWith('https://')) {
             try {
                 const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(displayImageDataUri)}`);
@@ -318,6 +322,7 @@ export default function HandoverDialog({
                 await processImage(dataUri);
             } catch (error) {
                 setAiError("Không thể tải lại ảnh để quét. Vui lòng tải lên lại ảnh mới.");
+                setIsOcrLoading(false);
             }
         } else {
             await processImage(displayImageDataUri);
@@ -349,8 +354,8 @@ export default function HandoverDialog({
                                 <CardHeader className="pb-4 flex flex-row items-center justify-between">
                                     <CardTitle className="text-base">Ảnh phiếu bàn giao (bắt buộc)</CardTitle>
                                     {displayImageDataUri && (
-                                        <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isAiLoading}>
-                                            {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
+                                        <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isOcrLoading}>
+                                            {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
                                             Quét lại
                                         </Button>
                                     )}
