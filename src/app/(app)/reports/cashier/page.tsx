@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -27,10 +26,12 @@ import IncidentReportDialog from '../../cashier/_components/incident-report-dial
 import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './_components/MonthlySummary';
 import DailyReportAccordionItem from './_components/DailyReportAccordionItem';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 
 function AddDocumentDialog({
@@ -62,13 +63,30 @@ function AddDocumentDialog({
                     <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                    <div className="flex justify-center">
-                         <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={setDate}
-                            className="rounded-md border"
-                        />
+                    <div className="space-y-2">
+                         <Label>Ngày chứng từ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !date && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {date ? format(date, "PPP", { locale: vi }) : <span>Chọn ngày</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={date}
+                                    onSelect={setDate}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
                      <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="space-y-2">
                         <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
