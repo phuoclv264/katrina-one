@@ -9,7 +9,7 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert } from 'lucide-react';
+import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert, FileSignature } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ReactMarkdown from 'react-markdown';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import IssueNotesDialog from './_components/IssueNotesDialog';
 
 type ReportType = ShiftReport | InventoryReport;
 
@@ -223,6 +224,25 @@ function DailySummaryGenerator({
     )
 }
 
+function AdminTools() {
+    const [isIssueNotesOpen, setIsIssueNotesOpen] = useState(false);
+    return (
+         <Card>
+            <CardHeader>
+                <CardTitle>Công cụ Quản lý</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2">
+                <CleanupDialog />
+                 <Button variant="outline" size="sm" onClick={() => setIsIssueNotesOpen(true)}>
+                    <FileSignature className="mr-2 h-4 w-4"/>
+                    Báo cáo Ghi chú
+                </Button>
+            </CardContent>
+            <IssueNotesDialog isOpen={isIssueNotesOpen} onOpenChange={setIsIssueNotesOpen} />
+        </Card>
+    );
+}
+
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -389,13 +409,12 @@ export default function ReportsPage() {
         <p className="text-muted-foreground">Xem lại các báo cáo đã được gửi từ tất cả nhân viên, được nhóm theo ngày.</p>
       </header>
 
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
+      {user.role === 'Chủ nhà hàng' && <AdminTools />}
+
+      <Card className="mt-8">
+        <CardHeader>
             <CardTitle>Báo cáo gần đây</CardTitle>
             {allReports && <CardDescription>Hiển thị {allReports.length} báo cáo đã nộp gần nhất.</CardDescription>}
-          </div>
-          {user.role === 'Chủ nhà hàng' && <CleanupDialog />}
         </CardHeader>
         <CardContent>
            {sortedDates.length === 0 ? (

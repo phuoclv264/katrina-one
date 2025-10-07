@@ -21,6 +21,7 @@ export type ManagedUser = {
 
 export type AppSettings = {
   isRegistrationEnabled: boolean;
+  lastIssueNoteScan?: string | Timestamp;
 };
 
 export type Task = {
@@ -245,6 +246,18 @@ export type DailySummary = {
     summary: string;
     generatedAt: string | Timestamp;
 }
+
+export type IssueNote = {
+  id: string;
+  reportId: string;
+  date: string;
+  shiftKey: string;
+  shiftName: string;
+  staffName: string;
+  note: string;
+  scannedAt: string | Timestamp;
+};
+
 
 // --- Schedule Types ---
 export type TimeSlot = {
