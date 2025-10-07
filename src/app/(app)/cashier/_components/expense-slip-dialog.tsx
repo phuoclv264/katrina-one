@@ -713,6 +713,17 @@ export default function ExpenseSlipDialog({
                     </DialogHeader>
                     <ScrollArea className="flex-grow">
                         <div className="p-6 grid gap-6">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Ngày chứng từ</Label>
+                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" disabled={!isOwnerView} />
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label>Người lập phiếu</Label>
+                                    <Input value={slipToEdit?.createdBy.userName || reporter?.displayName || ''} disabled className="bg-muted"/>
+                                </div>
+                            </div>
+
                              <div className="space-y-2">
                                 <Label>Loại chi phí</Label>
                                 <RadioGroup value={expenseType} onValueChange={(v) => setExpenseType(v as ExpenseType)} className="flex gap-4">
@@ -725,17 +736,6 @@ export default function ExpenseSlipDialog({
                                         <Label htmlFor="et2">Chi phí khác</Label>
                                     </div>
                                 </RadioGroup>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Ngày chứng từ</Label>
-                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label>Người lập phiếu</Label>
-                                    <Input value={slipToEdit?.createdBy.userName || reporter?.displayName || ''} disabled className="bg-muted"/>
-                                </div>
                             </div>
 
                             {/* --- Attachment Section --- */}
