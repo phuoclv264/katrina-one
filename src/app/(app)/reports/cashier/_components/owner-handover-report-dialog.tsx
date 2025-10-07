@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -23,7 +24,7 @@ import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
 import { Separator } from '@/components/ui/separator';
@@ -266,6 +267,13 @@ export default function OwnerHandoverReportDialog({
                 setAiError('AI không thể xác định ngày giờ trên phiếu.');
                 return;
             }
+
+            const reportDate = parseISO(result.shiftEndTime);
+            const targetDate = parseISO(dateForNewEntry || reportToEdit!.date);
+            if (!isSameDay(reportDate, targetDate)) {
+                 setAiError(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
+                 return;
+            }
             
             const aiData = {
                 expectedCash: result.expectedCash ?? 0,
@@ -281,7 +289,7 @@ export default function OwnerHandoverReportDialog({
             toast.success("Đã điền dữ liệu từ phiếu. Vui lòng kiểm tra lại.");
 
         } catch (error: any) {
-             if (error.message && (error.message.includes('503') || error.message.includes('429'))) {
+             if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
                 setServerErrorDialog({ open: true, imageUri: uri });
              } else {
                 console.error('OCR Error:', error);
@@ -297,15 +305,28 @@ export default function OwnerHandoverReportDialog({
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onloadend = () => processImage(reader.result as string);
+        reader.onloadend = () => {
+            const uri = reader.result as string;
+            setNewImageDataUri(uri);
+            processImage(uri);
+        };
         reader.readAsDataURL(file);
     };
 
     const handleRescan = async () => {
         if (!displayImageDataUri) return;
+        // The displayImageDataUri might be a firebase URL, which needs proxying.
         if (displayImageDataUri.startsWith('https://')) {
-            await processImage(displayImageDataUri); // Assuming it can handle proxied URLs now
+            try {
+                const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(displayImageDataUri)}`);
+                if (!response.ok) throw new Error('Proxy failed');
+                const { dataUri } = await response.json();
+                await processImage(dataUri);
+            } catch (error) {
+                setAiError("Không thể tải lại ảnh để quét. Vui lòng tải lên lại ảnh mới.");
+            }
         } else {
+            // It's already a data URI
             await processImage(displayImageDataUri);
         }
     };
