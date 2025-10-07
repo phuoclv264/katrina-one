@@ -47,7 +47,7 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                             </div>
                         </div>
                         <div className="flex justify-between items-center mt-1">
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex items-baseline gap-2 flex-wrap">
                                 <p className="text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
                                 {difference !== 0 && <ChangeIndicator value={difference} />}
                             </div>

@@ -600,7 +600,7 @@ export default function CashierDashboardPage() {
                                                             {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                                                          </div>
                                                     </div>
-                                                    <div className="text-right">
+                                                    <div className="flex flex-col items-end">
                                                         <p className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
                                                         {difference !== 0 && <ChangeIndicator value={difference} />}
                                                     </div>
@@ -644,7 +644,7 @@ export default function CashierDashboardPage() {
                                                 <TableCell className="font-medium">{stat.createdBy.userName} {stat.isEdited && <Badge variant="secondary" className="ml-2 text-xs">Đã sửa</Badge>}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{displayTime}</TableCell>
                                                 <TableCell className="text-right font-bold text-lg text-green-600">
-                                                    <div className="flex items-center justify-end gap-2">
+                                                    <div className="flex items-center justify-end gap-2 flex-wrap">
                                                         {(stat.netRevenue || 0).toLocaleString('vi-VN')}đ 
                                                         {difference !== 0 && <ChangeIndicator value={difference} />}
                                                         {isLatest && <Badge variant="outline" className="ml-2">Mới nhất</Badge>}
@@ -879,7 +879,7 @@ export default function CashierDashboardPage() {
         onSave={handleSaveIncident}
         isProcessing={isProcessing}
         categories={incidentCategories}
-        onCategoriesChange={handleCategoriesChange}
+        onCategoriesChange={handleCategoriesChange as any}
         canManageCategories={user.role === 'Chủ nhà hàng'}
         reporter={user}
         violationToEdit={incidentToEdit}
