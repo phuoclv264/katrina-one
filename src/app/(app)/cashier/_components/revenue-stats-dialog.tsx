@@ -435,8 +435,8 @@ export default function RevenueStatsDialog({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-grow -mx-6 px-6">
-                        <div className="py-4 space-y-6">
+                    <ScrollArea className="flex-grow">
+                        <div className="py-4 space-y-6 px-6">
                             <Card className="flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
                                      <CardTitle className="text-base flex items-center justify-between">

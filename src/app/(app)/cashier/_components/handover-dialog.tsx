@@ -31,6 +31,7 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Separator } from '@/components/ui/separator';
 import isEqual from 'lodash.isequal';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const initialHandoverData = {
@@ -341,15 +342,15 @@ export default function HandoverDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => {if (!isLightboxOpen) e.preventDefault();}}>
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => {if (!isLightboxOpen) e.preventDefault();}}>
                     <div id="handover-lightbox-container"></div>
-                    <DialogHeader className="shrink-0 p-6 pb-0">
+                    <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>{dialogDescription}</DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-grow overflow-y-auto px-6">
-                        <div className="space-y-6 py-4">
+                    <ScrollArea className="flex-grow">
+                        <div className="space-y-6 p-6">
                             <Card>
                                 <CardHeader className="pb-4 flex flex-row items-center justify-between">
                                     <CardTitle className="text-base">Ảnh phiếu bàn giao (bắt buộc)</CardTitle>
@@ -415,9 +416,9 @@ export default function HandoverDialog({
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </ScrollArea>
 
-                    <DialogFooter className="shrink-0 p-6 pt-0">
+                    <DialogFooter className="shrink-0 p-6 pt-0 border-t bg-muted/30">
                          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                          <Button onClick={handleFinalSubmit} disabled={isProcessing || isOcrLoading || !displayImageDataUri}>
                             {(isProcessing || isOcrLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : (isOwnerView ? <FileText className="mr-2 h-4 w-4"/> : <ArrowRight className="mr-2 h-4 w-4"/>)}

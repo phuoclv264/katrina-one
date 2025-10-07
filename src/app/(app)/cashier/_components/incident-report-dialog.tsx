@@ -194,7 +194,7 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-card flex flex-col h-[90vh] p-0" onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}>
+                <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0" onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}>
                     <div id="incident-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
@@ -202,8 +202,8 @@ export default function IncidentReportDialog({
                             Ghi nhận lại các sự cố như hư hỏng thiết bị, làm vỡ tài sản...
                         </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="flex-grow -mx-6 px-6">
-                        <div className="grid gap-4 py-4 px-1">
+                    <ScrollArea className="flex-grow">
+                        <div className="grid gap-4 py-4 px-6">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Người báo cáo</Label>
                                 <div className="col-span-3">

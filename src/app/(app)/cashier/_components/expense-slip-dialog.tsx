@@ -223,47 +223,49 @@ function AiPreviewDialog({
                     <DialogDescription>AI đã phân tích và nhóm các hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh] -mx-6 px-6">
-                    <Accordion type="multiple" defaultValue={extractionResult.results.map(r => r.invoiceTitle)} className="w-full space-y-4 py-4">
-                        {extractionResult.results.map((result, resultIndex) => (
-                           <AccordionItem value={result.invoiceTitle} key={resultIndex}>
-                             <div className="flex items-center">
-                                <AccordionTrigger className="text-lg font-semibold flex-1">
-                                    {result.invoiceTitle}
-                                </AccordionTrigger>
-                                <Button variant="ghost" size="icon" className="ml-2" onClick={() => handleViewImages(result.imageIds)}>
-                                    <Eye className="h-5 w-5" />
-                                </Button>
-                             </div>
-                             <AccordionContent>
-                                {result.totalDiscount !== undefined && (
-                                    <div className={cn("text-sm font-semibold p-2 rounded-md mb-2", result.totalDiscount > 0 ? "text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30" : "text-muted-foreground bg-muted/50")}>
-                                        Tổng chiết khấu hóa đơn: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
-                                    </div>
-                                )}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
-                                    {/* Matched Items */}
-                                    <div className="flex flex-col">
-                                        <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
-                                        <CheckCircle className="h-5 w-5" /> Đã khớp ({result.items.filter(i => i.status === 'matched').length})
-                                        </h4>
-                                        <div className="flex-1 rounded-md space-y-2">
-                                            {result.items.filter(i => i.status === 'matched').map((item, index) => <ItemCard key={`matched-${resultIndex}-${index}`} item={item} isMatched={true} />)}
-                                        </div>
-                                    </div>
-                                    {/* Unmatched Items */}
-                                    <div className="flex flex-col">
-                                        <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
-                                        <XCircle className="h-5 w-5" /> Không khớp ({result.items.filter(i => i.status === 'unmatched').length})
-                                        </h4>
-                                        <div className="flex-1 rounded-md space-y-2">
-                                             {result.items.filter(i => i.status === 'unmatched').map((item, index) => <ItemCard key={`unmatched-${resultIndex}-${index}`} item={item} isMatched={false} />)}
-                                        </div>
-                                    </div>
+                    <div className="p-1">
+                        <Accordion type="multiple" defaultValue={extractionResult.results.map(r => r.invoiceTitle)} className="w-full space-y-4 py-4">
+                            {extractionResult.results.map((result, resultIndex) => (
+                            <AccordionItem value={result.invoiceTitle} key={resultIndex}>
+                                <div className="flex items-center">
+                                    <AccordionTrigger className="text-lg font-semibold flex-1">
+                                        {result.invoiceTitle}
+                                    </AccordionTrigger>
+                                    <Button variant="ghost" size="icon" className="ml-2" onClick={() => handleViewImages(result.imageIds)}>
+                                        <Eye className="h-5 w-5" />
+                                    </Button>
                                 </div>
-                             </AccordionContent>
-                           </AccordionItem>
-                        ))}
-                    </Accordion>
+                                <AccordionContent>
+                                    {result.totalDiscount !== undefined && (
+                                        <div className={cn("text-sm font-semibold p-2 rounded-md mb-2", result.totalDiscount > 0 ? "text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30" : "text-muted-foreground bg-muted/50")}>
+                                            Tổng chiết khấu hóa đơn: {(result.totalDiscount || 0).toLocaleString('vi-VN')}đ
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 py-2">
+                                        {/* Matched Items */}
+                                        <div className="flex flex-col">
+                                            <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400 flex items-center gap-2">
+                                            <CheckCircle className="h-5 w-5" /> Đã khớp ({result.items.filter(i => i.status === 'matched').length})
+                                            </h4>
+                                            <div className="flex-1 rounded-md space-y-2">
+                                                {result.items.filter(i => i.status === 'matched').map((item, index) => <ItemCard key={`matched-${resultIndex}-${index}`} item={item} isMatched={true} />)}
+                                            </div>
+                                        </div>
+                                        {/* Unmatched Items */}
+                                        <div className="flex flex-col">
+                                            <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
+                                            <XCircle className="h-5 w-5" /> Không khớp ({result.items.filter(i => i.status === 'unmatched').length})
+                                            </h4>
+                                            <div className="flex-1 rounded-md space-y-2">
+                                                {result.items.filter(i => i.status === 'unmatched').map((item, index) => <ItemCard key={`unmatched-${resultIndex}-${index}`} item={item} isMatched={false} />)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                            ))}
+                        </Accordion>
+                    </div>
                 </ScrollArea>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
@@ -692,7 +694,7 @@ export default function ExpenseSlipDialog({
                     onInteractOutside={(e) => e.preventDefault()}
                 >
                     <div id="expense-slip-lightbox-container"></div>
-                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
+                    <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>
                          <DialogDescription>
                             {isOwnerView && slipToEdit ? (
@@ -709,8 +711,8 @@ export default function ExpenseSlipDialog({
                             ) : 'Nhập thông tin chi tiết cho các khoản chi.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="flex-grow -mx-6 px-6">
-                        <div className="grid gap-6 py-4 px-1">
+                    <ScrollArea className="flex-grow">
+                        <div className="grid gap-6 py-4 px-6">
                              <div className="space-y-2">
                                 <Label>Loại chi phí</Label>
                                 <RadioGroup value={expenseType} onValueChange={(v) => setExpenseType(v as ExpenseType)} className="flex gap-4">
@@ -796,7 +798,7 @@ export default function ExpenseSlipDialog({
                                     </div>
                                     <div className="relative text-center my-4">
                                         <Separator />
-                                        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-muted/30 px-2 text-sm text-muted-foreground backdrop-blur-sm">Hoặc</span>
+                                        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-sm text-muted-foreground">Hoặc</span>
                                     </div>
                                     <div className="space-y-2">
                                         <ItemMultiSelect
