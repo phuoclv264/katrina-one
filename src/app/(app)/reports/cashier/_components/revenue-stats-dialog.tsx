@@ -130,11 +130,12 @@ export default function RevenueStatsDialog({
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
     const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
-
+    
     const canEdit = useMemo(() => {
         if (isOwnerView) return true;
-        if (!existingStats) return true;
-        return existingStats.createdBy.userId === reporter?.uid && isSameDay(parseISO(existingStats.date), new Date());
+        if (!existingStats) return true; // Creating new for today
+        if (!reporter) return false;
+        return existingStats.createdBy.userId === reporter.uid && isSameDay(parseISO(existingStats.date), new Date());
     }, [isOwnerView, existingStats, reporter]);
 
 
@@ -246,6 +247,7 @@ export default function RevenueStatsDialog({
             invoiceImageUrl: newImageDataUri,
             reportTimestamp: reportTimestamp,
             isOutdated: isOutdated,
+            date: dateForNewEntry || existingStats?.date || format(new Date(), 'yyyy-MM-dd')
         };
         
         let isEditedNow = false;
