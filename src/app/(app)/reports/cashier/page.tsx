@@ -382,7 +382,7 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories.map(c => c.name)}
+          categories={incidentCategories}
           onCategoriesChange={handleCategoriesChange}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}

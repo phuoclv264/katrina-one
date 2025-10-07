@@ -20,6 +20,7 @@ const OwnerCashierDialogs = React.memo(({
     revenueStatsToEdit,
     otherCostCategories,
     dateForNewEntry,
+    reporter,
 }: {
     inventoryList: InventoryItem[],
     isExpenseDialogOpen: boolean,
@@ -33,6 +34,7 @@ const OwnerCashierDialogs = React.memo(({
     revenueStatsToEdit: any,
     otherCostCategories: OtherCostCategory[],
     dateForNewEntry: string | null,
+    reporter: any,
 }) => {
     return (
         <>
@@ -55,6 +57,8 @@ const OwnerCashierDialogs = React.memo(({
                 isProcessing={isProcessing}
                 existingStats={revenueStatsToEdit}
                 isOwnerView={true}
+                reporter={reporter}
+                dateForNewEntry={dateForNewEntry}
             />
         </>
     );
