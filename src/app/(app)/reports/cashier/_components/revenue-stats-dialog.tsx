@@ -133,8 +133,7 @@ export default function RevenueStatsDialog({
 
     const canEdit = useMemo(() => {
         if (isOwnerView) return true;
-        if (!existingStats) return true; // Creating new is always allowed for cashier
-        // Cashier can only edit their own entries from today
+        if (!existingStats) return true;
         return existingStats.createdBy.userId === reporter?.uid && isSameDay(parseISO(existingStats.date), new Date());
     }, [isOwnerView, existingStats, reporter]);
 

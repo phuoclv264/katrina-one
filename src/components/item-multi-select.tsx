@@ -54,8 +54,7 @@ export function ItemMultiSelect({
   }, [open, selectedItems, inventoryItems])
 
   const handleSelect = (inventoryItem: InventoryItem) => {
-    // Allows adding the same item multiple times
-    setTempSelected(prev => [...prev, inventoryItem]);
+    setTempSelected(prev => [...prev, inventoryItem].sort((a,b) => a.name.localeCompare(b.name, 'vi')));
   };
   
   const handleSave = () => {
@@ -128,7 +127,7 @@ export function ItemMultiSelect({
                 </Command>
             </div>
             <div className="col-span-1 border rounded-md p-2">
-                <h4 className="font-semibold text-sm mb-2">Đã chọn ({tempSelected.length})</h4>
+                <h4 className="font-semibold text-sm mb-2">Sẽ thêm ({tempSelected.length})</h4>
                 <div className="space-y-1 max-h-[40vh] overflow-y-auto">
                     {tempSelected.length > 0 ? tempSelected.map((item, index) => (
                         <Badge
@@ -149,7 +148,7 @@ export function ItemMultiSelect({
           <DialogClose asChild>
             <Button variant="outline">Hủy</Button>
           </DialogClose>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={tempSelected.length === 0}>
             <Save className="mr-2 h-4 w-4" />
             Thêm {tempSelected.length} mặt hàng
           </Button>
