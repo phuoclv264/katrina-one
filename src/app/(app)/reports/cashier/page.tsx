@@ -49,6 +49,29 @@ function AddDocumentDialog({
     const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (isOpen) {
+                event.preventDefault();
+                onOpenChange(false);
+            }
+        };
+
+        if (isOpen) {
+            window.history.pushState({ dialogOpen: true }, '');
+            window.addEventListener('popstate', handlePopState);
+        } else {
+             if (window.history.state?.dialogOpen) {
+                window.history.back();
+            }
+        }
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isOpen, onOpenChange]);
+
+
     const handleConfirm = () => {
         if (date) {
             onConfirm(date, action);
@@ -60,7 +83,7 @@ function AddDocumentDialog({
     
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="bg-white dark:bg-card">
                 <DialogHeader>
                     <DialogTitle>Bổ sung chứng từ</DialogTitle>
                     <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
@@ -339,7 +362,8 @@ export default function CashierReportsPage() {
             await dataStore.updateHandoverReport(id, data, user);
             toast.success('Đã cập nhật báo cáo bàn giao.');
         } else {
-            await dataStore.addHandoverReport(data, user);
+            const handoverDate = dateForNewEntry || format(new Date(), 'yyyy-MM-dd');
+            await dataStore.addHandoverReport({ ...data, date: handoverDate }, user);
             toast.success('Đã tạo báo cáo bàn giao mới.');
         }
         setIsHandoverReportDialogOpen(false);
@@ -349,7 +373,7 @@ export default function CashierReportsPage() {
     } finally { 
         setProcessingItemId(null); 
     }
-  }, [user]);
+  }, [user, dateForNewEntry]);
   
   const handleDeleteExpense = useCallback((id: string) => {
     const expense = expenseSlips.find(e => e.id === id);
@@ -507,7 +531,7 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories}
+          categories={incidentCategories.map(c => c.name)}
           onCategoriesChange={handleCategoriesChange as any}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
