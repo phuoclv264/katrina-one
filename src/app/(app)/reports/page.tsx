@@ -66,12 +66,9 @@ function CleanupDialog({ className }: CleanupDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                 <Button variant="outline" size="lg" className={cn("w-full h-16 flex items-center justify-start p-4 border rounded-xl hover:bg-accent transition-all duration-150 text-left font-medium shadow-sm", className)}>
+                 <Button variant="outline" size="lg" className={cn("w-full h-14 flex items-center justify-start p-4 rounded-xl text-left font-medium shadow-sm hover:bg-accent transition-all duration-150", className)}>
                     <Trash2 className="mr-3 h-5 w-5 text-destructive" />
-                    <div className="flex flex-col">
-                        <span className="text-base">Dọn dẹp Báo cáo</span>
-                        <span className="text-xs text-muted-foreground font-normal">Xóa các báo cáo cũ</span>
-                    </div>
+                    <span className="text-base">Dọn dẹp Báo cáo</span>
                 </Button>
             </DialogTrigger>
             <DialogContent>
@@ -247,14 +244,11 @@ function AdminTools() {
             <Button
                 variant="outline"
                 size="lg"
-                className="w-full h-16 flex items-center justify-start p-4 rounded-xl text-left font-medium shadow-sm hover:bg-accent transition-all duration-150"
+                className="w-full h-14 flex items-center justify-start p-4 rounded-xl text-left font-medium shadow-sm hover:bg-accent transition-all duration-150"
                 onClick={() => setIsIssueNotesOpen(true)}
             >
                 <FileSignature className="mr-3 h-5 w-5 text-primary" />
-                <div className="flex flex-col">
-                    <span className="text-base">Báo cáo Ghi chú</span>
-                    <span className="text-xs text-muted-foreground font-normal">Xem tất cả vấn đề</span>
-                </div>
+                <span className="text-base">Báo cáo Ghi chú</span>
             </Button>
         </CardContent>
       
