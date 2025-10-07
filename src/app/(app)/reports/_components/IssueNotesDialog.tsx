@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
-import { Loader2, Wand2, ArrowRight } from 'lucide-react';
+import { Loader2, Wand2, ArrowRight, ChevronsDownUp } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { IssueNote } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
@@ -21,6 +20,7 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanDate, setLastScanDate] = useState<string | null>(null);
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -77,9 +77,26 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
     return parseISO(dateB).getTime() - parseISO(dateA).getTime();
   }), [groupedNotes, notes]);
 
+  useEffect(() => {
+    // Automatically open the first date group when data loads
+    if (sortedDates.length > 0 && openAccordionItems.length === 0) {
+      setOpenAccordionItems([sortedDates[0]]);
+    }
+  }, [sortedDates, openAccordionItems.length]);
+
+  const handleToggleAll = () => {
+    if (openAccordionItems.length === sortedDates.length) {
+      setOpenAccordionItems([]);
+    } else {
+      setOpenAccordionItems(sortedDates);
+    }
+  };
+
+  const areAllOpen = sortedDates.length > 0 && openAccordionItems.length === sortedDates.length;
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-white dark:bg-card">
         <DialogHeader>
           <DialogTitle>Báo cáo Vấn đề & Ghi chú</DialogTitle>
           <DialogDescription>
@@ -87,6 +104,14 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
             {lastScanDate && ` Lần quét cuối: ${lastScanDate}`}
           </DialogDescription>
         </DialogHeader>
+        <div className="flex justify-end -mb-2">
+            {sortedDates.length > 1 && (
+                <Button variant="outline" size="sm" onClick={handleToggleAll}>
+                    <ChevronsDownUp className="mr-2 h-4 w-4" />
+                    {areAllOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+                </Button>
+            )}
+        </div>
         <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 py-4">
           {isLoading ? (
             <div className="space-y-4">
@@ -95,7 +120,7 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
               <Skeleton className="h-24 w-full" />
             </div>
           ) : sortedDates.length > 0 ? (
-            <Accordion type="multiple" defaultValue={sortedDates.slice(0,1)} className="space-y-3">
+            <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="space-y-3">
               {sortedDates.map(date => (
                 <AccordionItem value={date} key={date} className="border rounded-lg">
                   <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
