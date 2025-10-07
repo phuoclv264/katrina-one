@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -132,7 +133,7 @@ export default function RevenueStatsDialog({
 
     const canEdit = useMemo(() => {
         if (isOwnerView) return true;
-        if (!existingStats) return true; // Creating new is always allowed for cashier (on today's date)
+        if (!existingStats) return true; // Creating new is always allowed for cashier
         // Cashier can only edit their own entries from today
         return existingStats.createdBy.userId === reporter?.uid && isSameDay(parseISO(existingStats.date), new Date());
     }, [isOwnerView, existingStats, reporter]);
@@ -204,7 +205,7 @@ export default function RevenueStatsDialog({
     const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1;
     
     const hasBeenEdited = useMemo(() => {
-        if (!existingStats) return false;
+        if (!existingStats) return false; // Not applicable in create mode
         if (netRevenue !== existingStats.netRevenue) return true;
         if (deliveryPartnerPayout !== existingStats.deliveryPartnerPayout) return true;
         for (const key in revenueByPaymentMethod) {
@@ -397,7 +398,6 @@ export default function RevenueStatsDialog({
                         <DialogTitle>{existingStats ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu'}</DialogTitle>
                          <DialogDescription>
                             {(displayDate && displayName) && `Ngày: ${format(parseISO(displayDate), 'dd/MM/yyyy', { locale: vi })} - Lập bởi: ${displayName}`}
-                            {!existingStats && 'Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.'}
                         </DialogDescription>
                     </DialogHeader>
 

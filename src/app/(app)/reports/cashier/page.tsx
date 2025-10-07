@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -178,7 +179,7 @@ export default function CashierReportsPage() {
         const slipDate = dateForNewEntry || slipToEdit?.date;
         if (!slipDate) throw new Error("Date for slip is not defined.");
         
-        await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate, [id ? 'lastModifiedBy' : 'createdBy']: { userId: user.uid, userName: user.displayName } }, id);
+        await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate }, id);
         toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
         setIsExpenseDialogOpen(false);
     } catch (error) { toast.error("Không thể lưu phiếu chi."); }
@@ -187,13 +188,14 @@ export default function CashierReportsPage() {
 
   const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if (!user) return;
-    setProcessingItemId(revenueStatsToEdit?.id || 'new');
+    const docId = revenueStatsToEdit?.id;
+    setProcessingItemId(docId || 'new-revenue');
     try {
         const revenueDate = dateForNewEntry || revenueStatsToEdit?.date;
         if (!revenueDate) throw new Error("Date for revenue is not defined.");
 
-        await dataStore.addOrUpdateRevenueStats({ ...data, date: revenueDate }, user, isEdited, revenueStatsToEdit?.id);
-        toast.success(`Đã ${revenueStatsToEdit ? 'cập nhật' : 'tạo'} doanh thu.`);
+        await dataStore.addOrUpdateRevenueStats({ ...data, date: revenueDate }, user, isEdited, docId);
+        toast.success(`Đã ${docId ? 'cập nhật' : 'tạo'} doanh thu.`);
         setIsRevenueDialogOpen(false);
     } catch (error) { toast.error("Không thể lưu doanh thu."); }
     finally { setProcessingItemId(null); }
