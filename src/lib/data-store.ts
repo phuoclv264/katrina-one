@@ -1429,7 +1429,8 @@ export const dataStore = {
         const q = query(
             collection(db, 'reports'), 
             where('status', '==', 'submitted'),
-            where('submittedAt', '>', lastScanDate)
+            where('submittedAt', '>', lastScanDate),
+            orderBy('submittedAt') 
         );
 
         const querySnapshot = await getDocs(q);
@@ -2551,6 +2552,7 @@ export const dataStore = {
 
 
     
+
 
 
 
