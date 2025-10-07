@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -25,7 +26,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -338,7 +339,7 @@ export const dataStore = {
             const currentDoc = await getDoc(docRef);
             const existingPhotos = currentDoc.exists() ? currentDoc.data().photos || [] : [];
             const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
-            finalData.photos = [...remainingPhotos, ...validNewUrls];
+            finalData.photos = [...remainingPhotos, ...newPhotoUrls];
             await updateDoc(docRef, finalData);
         } else {
             // Creating new incident
@@ -600,9 +601,7 @@ export const dataStore = {
             }
         } else {
             finalData.createdAt = serverTimestamp();
-            if (!finalData.date) {
-                finalData.date = getTodaysDateKey();
-            }
+            finalData.date = slipData.date || getTodaysDateKey();
              if (!slipData.createdBy || !slipData.createdBy.userId) {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
                 throw new Error(`Cannot create expense slip: createdBy information is missing or invalid. ${slipData.createdBy}`);
@@ -1410,6 +1409,60 @@ export const dataStore = {
             generatedAt: serverTimestamp(),
         };
         await setDoc(docRef, data);
+    },
+
+    subscribeToIssueNotes(callback: (notes: IssueNote[]) => void): () => void {
+        const q = query(collection(db, 'issue_notes'), orderBy('date', 'desc'), limit(100));
+        return onSnapshot(q, (snapshot) => {
+            const notes = snapshot.docs.map(doc => ({
+                ...doc.data(),
+                id: doc.id,
+            } as IssueNote));
+            callback(notes);
+        });
+    },
+
+    async scanAndSaveIssueNotes(): Promise<number> {
+        const appSettings = await this.getAppSettings();
+        const lastScanDate = appSettings.lastIssueNoteScan ? new Date(appSettings.lastIssueNoteScan as string) : new Date(0);
+        
+        const q = query(
+            collection(db, 'reports'), 
+            where('status', '==', 'submitted'),
+            where('submittedAt', '>', lastScanDate)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const newNotes: Omit<IssueNote, 'id'>[] = [];
+
+        querySnapshot.forEach(doc => {
+            const report = doc.data() as ShiftReport;
+            if (report.issues && report.issues.trim() !== '') {
+                newNotes.push({
+                    reportId: doc.id,
+                    date: report.date,
+                    shiftKey: report.shiftKey,
+                    shiftName: report.shiftKey, // This is a simplification, may need a map
+                    staffName: report.staffName,
+                    note: report.issues.trim(),
+                    scannedAt: serverTimestamp(),
+                });
+            }
+        });
+
+        if (newNotes.length > 0) {
+            const batch = writeBatch(db);
+            newNotes.forEach(note => {
+                const docRef = doc(collection(db, 'issue_notes'));
+                batch.set(docRef, note);
+            });
+            await batch.commit();
+        }
+
+        // Update the last scan date
+        await this.updateAppSettings({ lastIssueNoteScan: new Date().toISOString() });
+
+        return newNotes.length;
     },
 
     subscribeToAppSettings(callback: (settings: AppSettings) => void): () => void {
@@ -2498,6 +2551,8 @@ export const dataStore = {
 
 
     
+
+
 
 
 
