@@ -490,7 +490,7 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
         
         let finalData: Partial<RevenueStats> = {
@@ -499,7 +499,7 @@ export const dataStore = {
         };
 
         if (data.invoiceImageUrl && data.invoiceImageUrl.startsWith('data:')) {
-            const date = documentId ? (await getDoc(docRef)).data()?.date : format(new Date(), 'yyyy-MM-dd');
+            const date = finalData.date || getTodaysDateKey();
             const blob = await (await fetch(data.invoiceImageUrl)).blob();
             const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, blob);
@@ -514,7 +514,6 @@ export const dataStore = {
             finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             await updateDoc(docRef, finalData);
         } else {
-            finalData.date = format(new Date(), 'yyyy-MM-dd');
             finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             finalData.createdAt = serverTimestamp();
             await setDoc(docRef, finalData);
@@ -1324,29 +1323,6 @@ export const dataStore = {
             resolvedAt: serverTimestamp(),
             'payload.takenBy': null
         });
-    },
-
-    async declinePassShift(notification: Notification, decliningUser: { uid: string, displayName: string }): Promise<void> {
-        const notificationRef = doc(db, "notifications", notification.id);
-
-        if (notification.payload.targetUserId === decliningUser.uid) {
-            // It's a direct request, so declining means cancelling it.
-            await updateDoc(notificationRef, {
-                status: 'cancelled',
-                'payload.cancellationReason': `Bị từ chối bởi ${decliningUser.displayName}`,
-                resolvedBy: { userId: decliningUser.uid, userName: decliningUser.displayName },
-                resolvedAt: serverTimestamp(),
-            });
-        } else {
-            // It's a public request, just add to the declined list.
-            await runTransaction(db, async (transaction) => {
-                const notificationDoc = await transaction.get(notificationRef);
-                if (!notificationDoc.exists()) throw new Error("Notification not found");
-                const existingDeclined = notificationDoc.data().payload.declinedBy || [];
-                const newDeclined = Array.from(new Set([...existingDeclined, decliningUser.uid]));
-                transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
-            });
-        }
     },
 
     async resolvePassRequestByAssignment(notification: Notification, assignedUser: AssignedUser, resolver: AuthUser): Promise<void> {
@@ -2525,4 +2501,5 @@ export const dataStore = {
 
 
     
+
 

@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -293,7 +295,7 @@ export default function CashierReportsPage() {
     finally { setProcessingItemId(null); }
   }, [user, slipToEdit, dateForNewEntry]);
 
-  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if (!user) return;
     const docId = revenueStatsToEdit?.id;
     setProcessingItemId(docId || 'new-revenue');
