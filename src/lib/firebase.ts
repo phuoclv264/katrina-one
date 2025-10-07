@@ -4,7 +4,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
-import { getMessaging, type Messaging } from 'firebase/messaging';
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyDo4AmEEV-O0AhLJi0hnVHwGiApNl3j9sE",
@@ -20,7 +20,7 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
-let messaging: Messaging | null = null;
+
 
 // This function ensures that we initialize Firebase only once.
 function initializeFirebase() {
@@ -33,11 +33,11 @@ function initializeFirebase() {
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
-    messaging = getMessaging(app);
+    
   }
 }
 
 // Call the function to initialize Firebase.
 initializeFirebase();
 
-export { app, auth, db, storage, messaging };
+export { app, auth, db, storage };

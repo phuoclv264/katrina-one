@@ -117,12 +117,6 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
-        // Before signing out, we might want to delete the FCM token from the user's document
-        // to prevent sending notifications to a logged-out device.
-        if (user) {
-            const userDocRef = doc(db, 'users', user.uid);
-            await setDoc(userDocRef, { fcmToken: null }, { merge: true });
-        }
         await signOut(auth);
         router.replace('/');
         toast.success('Đã đăng xuất.');
@@ -130,7 +124,7 @@ export const useAuth = () => {
          console.error(error);
          toast.error('Không thể đăng xuất. Vui lòng thử lại.');
     }
-  }, [router, user]);
+  }, [router]);
   
   return { 
       user, 
