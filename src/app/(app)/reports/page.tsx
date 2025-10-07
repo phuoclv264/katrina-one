@@ -2,13 +2,14 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert, FileSignature } from 'lucide-react';
+import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert, FileSignature, Settings } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +30,11 @@ type GroupedReports = {
   };
 };
 
-function CleanupDialog() {
+type CleanupDialogProps = {
+    className?: string; // 👈 thêm để cho phép custom từ ngoài
+};
+
+function CleanupDialog({ className }: CleanupDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [daysToKeep, setDaysToKeep] = useState(30);
@@ -61,7 +66,7 @@ function CleanupDialog() {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                 <Button variant="outline" size="sm" className="w-full">
+                 <Button variant="outline" size="sm" className={cn("w-full h-16 flex flex-col items-center justify-center border rounded-xl hover:bg-accent transition-all duration-150 text-center text-sm font-medium shadow-sm", className)}>
                     <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                     Dọn dẹp Báo cáo
                 </Button>
@@ -226,19 +231,32 @@ function DailySummaryGenerator({
 function AdminTools() {
     const [isIssueNotesOpen, setIsIssueNotesOpen] = useState(false);
     return (
-         <Card>
-            <CardHeader>
-                <CardTitle>Công cụ Quản lý</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <CleanupDialog />
-                 <Button variant="outline" size="sm" className="w-full" onClick={() => setIsIssueNotesOpen(true)}>
-                    <FileSignature className="mr-2 h-4 w-4"/>
-                    Báo cáo Ghi chú
-                </Button>
-            </CardContent>
-            <IssueNotesDialog isOpen={isIssueNotesOpen} onOpenChange={setIsIssueNotesOpen} />
-        </Card>
+      <Card className="shadow-sm border rounded-2xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Settings className="h-5 w-5 text-muted-foreground" />
+            Công cụ Quản lý
+          </CardTitle>
+        </CardHeader>
+      
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+          <CleanupDialog className="w-full h-16 flex flex-col items-center justify-center border rounded-xl hover:bg-accent transition-all duration-150 text-center text-sm font-medium shadow-sm" />
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full h-16 flex flex-col items-center justify-center rounded-xl text-sm font-medium shadow-sm hover:bg-accent transition-all duration-150"
+            onClick={() => setIsIssueNotesOpen(true)}
+          >
+            <FileSignature className="h-6 w-6 mb-1 text-primary" />
+            Báo cáo Ghi chú
+          </Button>
+        </CardContent>
+      
+        <IssueNotesDialog
+          isOpen={isIssueNotesOpen}
+          onOpenChange={setIsIssueNotesOpen}
+        />
+      </Card>                
     );
 }
 
