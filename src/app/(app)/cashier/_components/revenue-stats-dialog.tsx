@@ -134,12 +134,11 @@ export default function RevenueStatsDialog({
     const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
     
     const canEdit = useMemo(() => {
-        if (isOwnerView) return true; // Owner can always edit or create.
+        if (isOwnerView) return true;
         if (existingStats) {
-            // Cashier editing existing: only if it's their own.
             return reporter?.uid === existingStats.createdBy.userId;
         }
-        // Cashier creating new: always allowed (date check happens later).
+        // Cashier creating new: always allowed.
         return true;
     }, [isOwnerView, existingStats, reporter]);
 
@@ -418,7 +417,7 @@ export default function RevenueStatsDialog({
                     <DialogHeader className="shrink-0 p-6 pb-0">
                          <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>
                          <DialogDescription>
-                            {isOwnerView && !existingStats
+                             {isOwnerView && !existingStats
                                 ? `Ngày: ${dateForNewEntry ? format(parseISO(dateForNewEntry), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${reporter?.displayName || 'N/A'}`
                                 : (isOwnerView
                                     ? `Ngày: ${existingStats ? format(parseISO(existingStats.date), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${existingStats?.createdBy.userName || 'N/A'}`
