@@ -33,8 +33,9 @@ type RevenueStatsDialogProps = {
     onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => void;
     isProcessing: boolean;
     existingStats: RevenueStats | null;
-    isOwnerView?: boolean; // Prop to differentiate view
-    reporter?: AuthUser; // Only for cashier view, but optional here
+    isOwnerView?: boolean;
+    reporter?: AuthUser;
+    dateForNewEntry?: string | null;
 };
 
 const initialPaymentMethods = {
@@ -53,8 +54,7 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
     bankTransfer: "Chuyển Khoản",
 };
 
-// Merged from owner-revenue-stats-dialog.tsx and revenue-stats-dialog.tsx on 2024-07-31 — refactor only
-const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant, isSubtle, inputClassName }: {
+const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant, isSubtle, inputClassName, disabled }: {
     id: string;
     label: string;
     value: number;
@@ -63,6 +63,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
     isImportant?: boolean;
     isSubtle?: boolean;
     inputClassName?: string;
+    disabled?: boolean;
 }) => {
     const [localValue, setLocalValue] = useState(String(value));
     
@@ -93,6 +94,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
               onFocus={(e) => e.target.select()}
               placeholder="0" 
               className={cn(isImportant ? "h-11" : "h-9", "text-right", inputClassName)} 
+              disabled={disabled}
             />
         </div>
     );
@@ -107,6 +109,8 @@ export default function RevenueStatsDialog({
     isProcessing,
     existingStats,
     isOwnerView = false,
+    reporter,
+    dateForNewEntry,
 }: RevenueStatsDialogProps) {
     // Form state
     const [netRevenue, setNetRevenue] = useState(0);
@@ -127,7 +131,18 @@ export default function RevenueStatsDialog({
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
 
-    const displayImageDataUri = newImageDataUri || (isOwnerView ? existingStats?.invoiceImageUrl : null);
+    const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
+    
+    // Determine if the user has editing permissions
+    const canEdit = useMemo(() => {
+        if (isOwnerView) return true; // Owner can always edit or create.
+        if (existingStats) {
+            // Cashier editing existing: only if it's their own.
+            return reporter?.uid === existingStats.createdBy.userId;
+        }
+        // Cashier creating new: always allowed (date check happens later).
+        return true;
+    }, [isOwnerView, existingStats, reporter]);
 
     // --- Back button handling for Lightbox ---
     useEffect(() => {
@@ -156,10 +171,7 @@ export default function RevenueStatsDialog({
             setRevenueByPaymentMethod(statsToLoad.revenueByPaymentMethod || initialPaymentMethods);
             setReportTimestamp(statsToLoad.reportTimestamp || null);
             setNewImageDataUri(statsToLoad.invoiceImageUrl || null);
-            // If it's the owner view, we can treat the existing data as the "original" for edit tracking
-            if (isOwnerView) {
-                setAiOriginalData(statsToLoad);
-            }
+            setAiOriginalData(statsToLoad);
         } else {
             setNetRevenue(0);
             setDeliveryPartnerPayout(0);
@@ -169,7 +181,7 @@ export default function RevenueStatsDialog({
             setAiOriginalData(null); 
         }
         setServerErrorDialog({ open: false, imageUri: null });
-    }, [isOwnerView]);
+    }, []);
 
     useEffect(() => {
         if (open) {
@@ -197,22 +209,10 @@ export default function RevenueStatsDialog({
 
     const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1; // Allow for rounding errors
     
-    const hasBeenEdited = useMemo(() => {
-        if (!existingStats) return false; // Not applicable in create mode
-        if (netRevenue !== existingStats.netRevenue) return true;
-        if (deliveryPartnerPayout !== existingStats.deliveryPartnerPayout) return true;
-        for (const key in revenueByPaymentMethod) {
-            if (revenueByPaymentMethod[key as keyof typeof revenueByPaymentMethod] !== existingStats.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]) {
-                return true;
-            }
-        }
-        return false;
-    }, [existingStats, netRevenue, deliveryPartnerPayout, revenueByPaymentMethod]);
-    
     const wasEditedByCashier = existingStats?.isEdited || false;
 
     const handleSave = () => {
-        if (!isOwnerView && !newImageDataUri) {
+        if (!displayImageDataUri) {
             setShowMissingImageAlert(true);
             return;
         }
@@ -232,7 +232,6 @@ export default function RevenueStatsDialog({
             }
         }
 
-
         const dataToSave = {
             netRevenue,
             revenueByPaymentMethod,
@@ -242,9 +241,8 @@ export default function RevenueStatsDialog({
             isOutdated: isOutdated,
         };
         
-        // Determine if there are new edits compared to the currently saved state.
         let isEditedNow = false;
-        if (aiOriginalData) { // If AI scan was performed
+        if (aiOriginalData) {
              if (netRevenue !== aiOriginalData.netRevenue) isEditedNow = true;
              if (deliveryPartnerPayout !== aiOriginalData.deliveryPartnerPayout) isEditedNow = true;
              if (!isEditedNow) {
@@ -255,10 +253,20 @@ export default function RevenueStatsDialog({
                     }
                 }
              }
-        } else if (existingStats) { // If manual edit was performed on existing data
+        } else if (existingStats) {
+            const hasBeenEdited = useMemo(() => {
+                if (!existingStats) return false;
+                if (netRevenue !== existingStats.netRevenue) return true;
+                if (deliveryPartnerPayout !== existingStats.deliveryPartnerPayout) return true;
+                for (const key in revenueByPaymentMethod) {
+                    if (revenueByPaymentMethod[key as keyof typeof revenueByPaymentMethod] !== existingStats.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]) {
+                        return true;
+                    }
+                }
+                return false;
+            }, [existingStats, netRevenue, deliveryPartnerPayout, revenueByPaymentMethod]);
             isEditedNow = hasBeenEdited;
         }
-
 
         onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEditedNow || wasEditedByCashier);
     }
@@ -273,16 +281,24 @@ export default function RevenueStatsDialog({
 
             if (!result.isReceipt) {
                 toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
             }
 
             if (!result.reportTimestamp) {
                 toast.error('AI không thể xác định ngày giờ trên phiếu.');
-                setIsOcrLoading(false);
-                toast.dismiss(toastId);
                 return;
+            }
+
+            const reportDate = parseISO(result.reportTimestamp);
+            const targetDate = dateForNewEntry ? parseISO(dateForNewEntry) : startOfDay(new Date());
+
+            if (!isOwnerView && !isSameDay(reportDate, targetDate)) {
+                 toast.error(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
+                 return;
+            }
+             if (isOwnerView && dateForNewEntry && !isSameDay(reportDate, targetDate)) {
+                 toast.error(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thêm (${format(targetDate, 'dd/MM/yyyy')}).`);
+                 return;
             }
             
             setNewImageDataUri(imageUri);
@@ -382,11 +398,14 @@ export default function RevenueStatsDialog({
                 <DialogContent className="max-w-xl h-[95svh] flex flex-col p-0" onPointerDownOutside={(e) => { if (!isLightboxOpen) { e.preventDefault(); }}}>
                     <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="shrink-0 p-6 pb-0">
-                        <DialogTitle>{isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu'}</DialogTitle>
+                         <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>
                          <DialogDescription>
-                            {isOwnerView
-                                ? `Ngày: ${existingStats ? format(parseISO(existingStats.date), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${existingStats?.createdBy.userName || 'N/A'}`
-                                : 'Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.'
+                            {isOwnerView && !existingStats
+                                ? `Ngày: ${dateForNewEntry ? format(parseISO(dateForNewEntry), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${reporter?.displayName || 'N/A'}`
+                                : (isOwnerView
+                                    ? `Ngày: ${existingStats ? format(parseISO(existingStats.date), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${existingStats?.createdBy.userName || 'N/A'}`
+                                    : 'Tải hoặc chụp ảnh phiếu thống kê để AI điền tự động. Cần có ảnh mới cho mỗi lần lưu.'
+                                )
                             }
                         </DialogDescription>
                     </DialogHeader>
@@ -397,10 +416,10 @@ export default function RevenueStatsDialog({
                                 <CardHeader className="pb-2">
                                      <CardTitle className="text-base flex items-center justify-between">
                                         <span className="flex items-center gap-2"><ImageIcon/> Ảnh phiếu thống kê</span>
-                                        {isOwnerView && displayImageDataUri &&
-                                            <Button variant="secondary" size="sm" onClick={() => processImage(displayImageDataUri)} disabled={isOcrLoading || isProcessing}>
+                                        {canEdit && isOwnerView && displayImageDataUri &&
+                                            <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isOcrLoading || isProcessing}>
                                                 {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
-                                                Dùng AI quét lại
+                                                Quét lại
                                             </Button>
                                         }
                                     </CardTitle>
@@ -415,7 +434,7 @@ export default function RevenueStatsDialog({
                                             <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
                                     )}
-                                    {!isOwnerView && (
+                                    {canEdit && (
                                         <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
                                             <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full">
                                                 {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
@@ -451,6 +470,7 @@ export default function RevenueStatsDialog({
                                                 originalValue={aiOriginalData?.netRevenue}
                                                 isImportant={true}
                                                 inputClassName="text-base"
+                                                disabled={!canEdit}
                                             />
                                         </CardContent>
                                     </Card>
@@ -469,6 +489,7 @@ export default function RevenueStatsDialog({
                                                     onChange={(val) => handlePaymentMethodChange(key as any, val)}
                                                     originalValue={aiOriginalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
                                                     isSubtle={true}
+                                                    disabled={!canEdit}
                                                 />
                                             )}
                                              <div className={cn("text-right pt-2 mt-2 border-t font-semibold rounded-b-lg p-2 -mx-4 -mb-3", isRevenueMismatch ? "bg-destructive/10 text-destructive" : "bg-muted/50 text-muted-foreground")}>
@@ -486,6 +507,7 @@ export default function RevenueStatsDialog({
                                                 value={deliveryPartnerPayout}
                                                 onChange={(val) => setDeliveryPartnerPayout(Number(val))}
                                                 originalValue={aiOriginalData?.deliveryPartnerPayout}
+                                                disabled={!canEdit}
                                             />
                                             <p className="text-xs text-muted-foreground flex items-start gap-1.5 pt-1 pl-2">
                                                 <Info className="h-3 w-3 mt-0.5 shrink-0" />
@@ -510,7 +532,7 @@ export default function RevenueStatsDialog({
 
                     <DialogFooter className="shrink-0 p-6 pt-0">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                        <Button onClick={handleSave} disabled={isProcessing || isOcrLoading}>
+                        <Button onClick={handleSave} disabled={isProcessing || isOcrLoading || !canEdit}>
                             {(isProcessing || isOcrLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Lưu
                         </Button>
