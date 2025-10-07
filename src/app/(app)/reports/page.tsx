@@ -230,7 +230,7 @@ function AdminTools() {
             <CardHeader>
                 <CardTitle>Công cụ Quản lý</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2">
+            <CardContent className="flex flex-wrap gap-2">
                 <CleanupDialog />
                  <Button variant="outline" size="sm" onClick={() => setIsIssueNotesOpen(true)}>
                     <FileSignature className="mr-2 h-4 w-4"/>
