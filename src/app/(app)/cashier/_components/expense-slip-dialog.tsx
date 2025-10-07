@@ -38,6 +38,7 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 function EditItemPopover({ item, onSave, children, inventoryItem }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode, inventoryItem: InventoryItem | undefined }) {
@@ -328,6 +329,7 @@ export default function ExpenseSlipDialog({
     const [isAttachmentCameraOpen, setIsAttachmentCameraOpen] = useState(false);
 
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
     const [extractionResult, setExtractionResult] = useState<InvoiceExtractionResult | null>(null);
     const [showAiPreview, setShowAiPreview] = useState(false);
     
@@ -405,6 +407,7 @@ export default function ExpenseSlipDialog({
             setPhotosToDelete([]);
             setShowMissingAttachmentAlert(false);
             setAiOriginalData(null); // Reset AI data on dialog open
+            setAiError(null);
 
         }
     }, [open, slipToEdit, dateForNewEntry]);
@@ -537,15 +540,16 @@ export default function ExpenseSlipDialog({
     }, [existingPhotos, localPhotos]);
 
     const handleAiScan = async () => {
+        setAiError(null);
         setShowMissingAttachmentAlert(false);
         if(allAttachmentPhotos.length === 0) {
-            toast.error("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
+            setAiError("Vui lòng tải lên ít nhất 1 ảnh hóa đơn để dùng tính năng này.");
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             setShowMissingAttachmentAlert(true);
             return;
         }
         if (expenseType !== 'goods_import') {
-            toast.error("Quét hóa đơn chỉ khả dụng cho loại chi 'Nhập hàng'.");
+            setAiError("Quét hóa đơn chỉ khả dụng cho loại chi 'Nhập hàng'.");
             return;
         }
 
@@ -571,14 +575,14 @@ export default function ExpenseSlipDialog({
                         const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
                         if (!response.ok) {
                             console.error(`Proxy request failed for ${photo.url} with status: ${response.status}. Error: ${response.statusText}`);
-                            toast.error(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}.`);
+                            setAiError(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}.`);
                             return null;
                         }
                         const data = await response.json();
                         uri = data.dataUri;
                     } catch (proxyError) {
                         console.error(`Proxy request failed for ${photo.url}`, proxyError);
-                        toast.error(`Lỗi khi tải ảnh qua proxy.`);
+                        setAiError(`Lỗi khi tải ảnh qua proxy.`);
                         return null;
                     }
                 }
@@ -589,7 +593,7 @@ export default function ExpenseSlipDialog({
                 .filter((img): img is { id: string; uri: string } => !!img);
 
             if (processableImages.length === 0) {
-                 toast.error("Không thể xử lý bất kỳ ảnh nào. Vui lòng thử lại hoặc kiểm tra console để biết chi tiết.");
+                 setAiError("Không thể xử lý bất kỳ ảnh nào. Vui lòng thử lại hoặc kiểm tra console để biết chi tiết.");
                  setIsAiLoading(false);
                  toast.dismiss(toastId);
                  return;
@@ -601,14 +605,14 @@ export default function ExpenseSlipDialog({
             });
 
             if (!result.isInvoiceFound || result.results.length === 0) {
-                toast.error(result.rejectionReason || 'AI không nhận diện được mặt hàng nào từ các ảnh hóa đơn đã cung cấp.');
+                setAiError(result.rejectionReason || 'AI không nhận diện được mặt hàng nào từ các ảnh hóa đơn đã cung cấp.');
             } else {
                 setExtractionResult(result);
                 setShowAiPreview(true);
             }
         } catch (error) {
             console.error("AI invoice processing failed:", error);
-            toast.error("Lỗi AI: Không thể xử lý hóa đơn.");
+            setAiError("Lỗi AI: Không thể xử lý hóa đơn.");
         } finally {
             toast.dismiss(toastId);
             setIsAiLoading(false);
@@ -623,6 +627,7 @@ export default function ExpenseSlipDialog({
     };
 
     const handleAttachmentPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        setAiError(null);
         setShowMissingAttachmentAlert(false);
         const files = event.target.files;
         if (!files) return;
@@ -640,6 +645,7 @@ export default function ExpenseSlipDialog({
     };
     
     const handleAttachmentPhotoCapture = async (capturedPhotoIds: string[]) => {
+        setAiError(null);
         setShowMissingAttachmentAlert(false);
         setIsAttachmentCameraOpen(false);
         for (const photoId of capturedPhotoIds) {
@@ -775,6 +781,13 @@ export default function ExpenseSlipDialog({
                         
                            {expenseType === 'goods_import' ? (
                                 <div className="space-y-4">
+                                     {aiError && (
+                                        <Alert variant="destructive">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertTitle>Lỗi AI</AlertTitle>
+                                            <AlertDescription>{aiError}</AlertDescription>
+                                        </Alert>
+                                    )}
                                     <div className="space-y-2">
                                         <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
                                             {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}

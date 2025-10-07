@@ -124,6 +124,7 @@ export default function RevenueStatsDialog({
     // UI & Flow state
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dataSectionRef = useRef<HTMLDivElement>(null);
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
@@ -134,11 +135,12 @@ export default function RevenueStatsDialog({
     const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
     
     const canEdit = useMemo(() => {
-        if (isOwnerView) return true;
+        if (isOwnerView) return true; // Owner can always edit
         if (existingStats) {
+            // Cashier can only edit their own entries
             return reporter?.uid === existingStats.createdBy.userId;
         }
-        // Cashier creating new: always allowed.
+        // Cashier creating new entry is always allowed.
         return true;
     }, [isOwnerView, existingStats, reporter]);
 
@@ -178,6 +180,7 @@ export default function RevenueStatsDialog({
             setNewImageDataUri(null);
             setAiOriginalData(null); 
         }
+        setAiError(null);
         setServerErrorDialog({ open: false, imageUri: null });
     }, []);
 
@@ -271,6 +274,7 @@ export default function RevenueStatsDialog({
     
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
+        setAiError(null);
         const toastId = toast.loading('AI đang phân tích phiếu...');
         setServerErrorDialog({ open: false, imageUri: null });
 
@@ -278,12 +282,12 @@ export default function RevenueStatsDialog({
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
 
             if (!result.isReceipt) {
-                toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
+                setAiError(result.rejectionReason || 'Ảnh không hợp lệ.');
                 return;
             }
 
             if (!result.reportTimestamp) {
-                toast.error('AI không thể xác định ngày giờ trên phiếu.');
+                setAiError('AI không thể xác định ngày giờ trên phiếu.');
                 return;
             }
 
@@ -291,11 +295,11 @@ export default function RevenueStatsDialog({
             const targetDate = dateForNewEntry ? parseISO(dateForNewEntry) : startOfDay(new Date());
 
             if (!isOwnerView && !isToday(reportDate)) {
-                 toast.error(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
+                 setAiError(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
                  return;
             }
              if (isOwnerView && !isSameDay(reportDate, targetDate)) {
-                 toast.error(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
+                 setAiError(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
                  return;
             }
             
@@ -322,7 +326,7 @@ export default function RevenueStatsDialog({
                 setServerErrorDialog({ open: true, imageUri });
              } else {
                 console.error('OCR Error:', error);
-                toast.error('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
+                setAiError('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
              }
         } finally {
             setIsOcrLoading(false);
@@ -384,7 +388,7 @@ export default function RevenueStatsDialog({
             reader.readAsDataURL(photoBlob);
         } catch(error) {
              console.error('OCR Error:', error);
-             toast.error('Lỗi AI: Không thể đọc dữ liệu.');
+             setAiError('Lỗi AI: Không thể đọc dữ liệu.');
         } finally {
             await photoStore.deletePhoto(photoId);
         }
@@ -401,7 +405,7 @@ export default function RevenueStatsDialog({
                 const { dataUri } = await response.json();
                 await processImage(dataUri);
             } catch (error) {
-                toast.error("Không thể tải lại ảnh để quét. Vui lòng tải lên lại.");
+                setAiError("Không thể tải lại ảnh để quét. Vui lòng tải lên lại.");
             }
         } else {
              // It's already a data URI (from a new upload)
@@ -451,6 +455,13 @@ export default function RevenueStatsDialog({
                                             <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
                                     )}
+                                    {aiError && (
+                                        <Alert variant="destructive" className="w-full">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertTitle>Lỗi</AlertTitle>
+                                            <AlertDescription>{aiError}</AlertDescription>
+                                        </Alert>
+                                     )}
                                     {canEdit && (
                                         <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
                                             <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full">

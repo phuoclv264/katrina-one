@@ -106,6 +106,7 @@ type HandoverDialogProps = {
 export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcessing }: HandoverDialogProps) {
     const dataSectionRef = useRef<HTMLDivElement>(null);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
     
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,6 +122,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
 
     const resetState = useCallback(() => {
         setIsOcrLoading(false);
+        setAiError(null);
         setImageDataUri(null);
         setShiftEndTime(null);
         setHandoverData(initialHandoverData);
@@ -150,6 +152,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
 
     const processImage = async (uri: string) => {
         setIsOcrLoading(true);
+        setAiError(null);
         const toastId = toast.loading('AI đang phân tích phiếu bàn giao...');
         setServerErrorDialog({ open: false, imageUri: null });
 
@@ -157,22 +160,20 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
             const result = await extractHandoverData({ imageDataUri: uri });
 
             if (!result.isReceipt) {
-                toast.error(result.rejectionReason || 'Ảnh không hợp lệ.');
+                setAiError(result.rejectionReason || 'Ảnh không hợp lệ.');
                 return;
             }
             if (!result.shiftEndTime) {
-                toast.error('AI không thể xác định ngày giờ trên phiếu.');
+                setAiError('AI không thể xác định ngày giờ trên phiếu.');
                 return;
             }
             
-            // Comment out date check for testing
-            /*
             const reportTime = parseISO(result.shiftEndTime);
             if (!isToday(reportTime)) {
-                toast.error(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
+                setAiError(`Phiếu này từ ngày ${format(reportTime, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
                 return;
             }
-            */
+            
 
             const aiData = {
                 expectedCash: result.expectedCash ?? 0,
@@ -198,7 +199,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                 setServerErrorDialog({ open: true, imageUri: uri });
              } else {
                 console.error('OCR Error:', error);
-                toast.error('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
+                setAiError('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
              }
         } finally {
             setIsOcrLoading(false);
@@ -227,7 +228,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
             reader.readAsDataURL(photoBlob);
         } catch (error) {
             console.error('Error processing captured photo:', error);
-            toast.error('Lỗi xử lý ảnh đã chụp.');
+            setAiError('Lỗi xử lý ảnh đã chụp.');
         } finally {
             await photoStore.deletePhoto(photoId);
         }
@@ -263,7 +264,7 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
 
     const handleFinalSubmit = () => {
         if (!imageDataUri) {
-            toast.error("Vui lòng cung cấp ảnh phiếu bàn giao.");
+            setAiError("Vui lòng cung cấp ảnh phiếu bàn giao.");
             return;
         }
 
@@ -305,6 +306,13 @@ export default function HandoverDialog({ open, onOpenChange, onSubmit, isProcess
                                         <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
                                             <p className="text-sm text-muted-foreground">Tải ảnh lên để tiếp tục</p>
                                         </div>
+                                    )}
+                                    {aiError && (
+                                        <Alert variant="destructive" className="mt-4">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertTitle>Lỗi AI</AlertTitle>
+                                            <AlertDescription>{aiError}</AlertDescription>
+                                        </Alert>
                                     )}
                                     <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm mx-auto mt-4">
                                         <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
