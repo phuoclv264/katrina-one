@@ -314,7 +314,9 @@ export default function RevenueStatsDialog({
             }
 
             const reportDate = parseISO(result.reportTimestamp);
-            const targetDate = dateForNewEntry ? parseISO(dateForNewEntry) : startOfDay(new Date());
+            const targetDateString = existingStats?.date || dateForNewEntry;
+            const targetDate = targetDateString ? parseISO(targetDateString) : startOfDay(new Date());
+
 
             if (!isOwnerView && !isToday(reportDate)) {
                  setAiError(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
@@ -670,3 +672,4 @@ export default function RevenueStatsDialog({
         </>
     );
 }
+
