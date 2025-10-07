@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -357,14 +356,9 @@ export default function CashierReportsPage() {
     if (!user) return;
     setProcessingItemId(id || 'new-handover');
     try {
-        if (id) {
-            await dataStore.updateHandoverReport(id, data, user);
-            toast.success('Đã cập nhật báo cáo bàn giao.');
-        } else {
-            const handoverDate = dateForNewEntry || format(new Date(), 'yyyy-MM-dd');
-            await dataStore.addHandoverReport({ ...data, date: handoverDate }, user);
-            toast.success('Đã tạo báo cáo bàn giao mới.');
-        }
+        const handoverDate = dateForNewEntry || format(new Date(), 'yyyy-MM-dd');
+        await dataStore.addHandoverReport({ ...data, date: handoverDate }, user);
+        toast.success('Đã tạo báo cáo bàn giao mới.');
         setIsHandoverReportDialogOpen(false);
     } catch (error) { 
         console.error("Failed to save handover report:", error);
@@ -531,7 +525,7 @@ export default function CashierReportsPage() {
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
           categories={incidentCategories}
-          onCategoriesChange={handleCategoriesChange}
+          onCategoriesChange={handleCategoriesChange as any}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
           violationToEdit={incidentToEdit as any}

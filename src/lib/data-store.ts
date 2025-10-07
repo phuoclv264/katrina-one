@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -166,7 +164,7 @@ export const dataStore = {
     },
 
     async addHandoverReport(data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
-        const date = format(new Date(), 'yyyy-MM-dd');
+        const date = data.date || getTodaysDateKey();
         const handoverReportRef = doc(db, 'handover_reports', date);
         
         let handoverImageUrl: string | null = null;
@@ -307,7 +305,7 @@ export const dataStore = {
     },
 
     async addOrUpdateIncident(
-        data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] },
+        data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'> & { photoIds: string[], photosToDelete: string[] },
         id: string | undefined,
         user: AuthUser
     ): Promise<void> {
@@ -319,16 +317,14 @@ export const dataStore = {
         }
 
         // 2. Handle new photo uploads
-        const newPhotoUrls = await Promise.all(
-            photoIds.map(async (photoId) => {
-                const photoBlob = await photoStore.getPhoto(photoId);
-                if (!photoBlob) return null;
-                const storageRef = ref(storage, `incidents/${format(new Date(), 'yyyy-MM')}/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
-                return getDownloadURL(storageRef);
-            })
-        );
-        const validNewUrls = newPhotoUrls.filter((url): url is string => !!url);
+        const uploadPromises = photoIds.map(async (photoId) => {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (!photoBlob) return null;
+            const storageRef = ref(storage, `incidents/${incidentData.date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, photoBlob);
+            return getDownloadURL(storageRef);
+        });
+        const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
         await photoStore.deletePhotos(photoIds);
         
         // 3. Prepare data for Firestore
@@ -346,10 +342,10 @@ export const dataStore = {
             await updateDoc(docRef, finalData);
         } else {
             // Creating new incident
-            finalData.date = format(new Date(), 'yyyy-MM-dd');
+            finalData.date = incidentData.date;
             finalData.createdBy = creatorInfo;
             finalData.createdAt = serverTimestamp();
-            finalData.photos = validNewUrls;
+            finalData.photos = newPhotoUrls;
             const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
             id = incidentRef.id;
         }
@@ -362,7 +358,7 @@ export const dataStore = {
 
         if (cost > 0 && paymentMethod !== 'intangible_cost') {
             const slipData = {
-                date: finalData.date || format(new Date(), 'yyyy-MM-dd'),
+                date: finalData.date,
                 expenseType: 'other_cost' as ExpenseType,
                 items: [{
                     itemId: 'other_cost',
@@ -514,6 +510,7 @@ export const dataStore = {
             finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             await updateDoc(docRef, finalData);
         } else {
+            finalData.date = data.date;
             finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             finalData.createdAt = serverTimestamp();
             await setDoc(docRef, finalData);
@@ -568,7 +565,7 @@ export const dataStore = {
             const uploadPromises = newPhotoIds.map(async (photoId: string) => {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
-                const storageRef = ref(storage, `expense-slips/${slipData.date || format(new Date(), 'yyyy-MM-dd')}/${uuidv4()}.jpg`);
+                const storageRef = ref(storage, `expense-slips/${slipData.date || getTodaysDateKey()}/${uuidv4()}.jpg`);
                 await uploadBytes(storageRef, photoBlob);
                 return getDownloadURL(storageRef);
             });
@@ -604,7 +601,7 @@ export const dataStore = {
         } else {
             finalData.createdAt = serverTimestamp();
             if (!finalData.date) {
-                finalData.date = format(new Date(), 'yyyy-MM-dd');
+                finalData.date = getTodaysDateKey();
             }
              if (!slipData.createdBy || !slipData.createdBy.userId) {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
@@ -2501,5 +2498,6 @@ export const dataStore = {
 
 
     
+
 
 
