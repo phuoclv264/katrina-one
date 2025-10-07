@@ -614,7 +614,7 @@ export default function CashierDashboardPage() {
                                                 </div>
                                                  {canEdit && (
                                                     <div className="flex justify-end gap-2 mt-2 border-t pt-2">
-                                                        <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Chi tiết</Button>
+                                                        <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
                                                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
@@ -890,7 +890,7 @@ export default function CashierDashboardPage() {
         onCategoriesChange={handleCategoriesChange as any}
         canManageCategories={user.role === 'Chủ nhà hàng'}
         reporter={user}
-        violationToEdit={incidentToEdit}
+        violationToEdit={incidentToEdit as any}
     />
      <RevenueStatsDialog
         open={isRevenueDialogOpen}
@@ -898,6 +898,7 @@ export default function CashierDashboardPage() {
         onSave={handleSaveRevenue}
         isProcessing={isProcessing}
         existingStats={revenueStatsToEdit}
+        reporter={user}
     />
     <HandoverDialog
         open={isHandoverDialogOpen}
