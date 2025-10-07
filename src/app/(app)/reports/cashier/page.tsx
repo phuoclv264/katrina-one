@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -313,10 +314,12 @@ export default function CashierReportsPage() {
         const slipDate = dateForNewEntry || slipToEdit?.date;
         if (!slipDate) throw new Error("Date for slip is not defined.");
         
-        await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate }, id);
+        const createdBy = id ? slipToEdit?.createdBy : { userId: user.uid, userName: user.displayName };
+
+        await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate, createdBy }, id);
         toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
         setIsExpenseDialogOpen(false);
-    } catch (error) { toast.error("Không thể lưu phiếu chi."); }
+    } catch (error) { toast.error("Không thể lưu phiếu chi."); console.error(error) }
     finally { setProcessingItemId(null); }
   }, [user, slipToEdit, dateForNewEntry]);
 
