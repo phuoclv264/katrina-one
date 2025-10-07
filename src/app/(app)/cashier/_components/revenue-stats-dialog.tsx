@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats, AuthUser } from '@/lib/types';
 import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw, ServerCrash } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-from-image';
+import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
@@ -457,7 +457,7 @@ export default function RevenueStatsDialog({
                     </DialogHeader>
 
                     <ScrollArea className="flex-grow">
-                        <div className="py-4 space-y-6 px-6">
+                        <div className="space-y-6 p-6">
                             <Card className="flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
                                      <CardTitle className="text-base flex items-center justify-between">
