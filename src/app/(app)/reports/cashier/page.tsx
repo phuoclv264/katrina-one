@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -417,7 +416,7 @@ export default function CashierReportsPage() {
   }, []);
   
   const handleCategoriesChange = useCallback(async (newCategories: IncidentCategory[]) => {
-    await dataStore.updateViolationCategories(newCategories.map(c => c.name));
+    await dataStore.updateIncidentCategories(newCategories);
   }, []);
 
   if (isLoading || authLoading || !user) {
@@ -531,8 +530,8 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories.map(c => c.name)}
-          onCategoriesChange={handleCategoriesChange as any}
+          categories={incidentCategories}
+          onCategoriesChange={handleCategoriesChange}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
           violationToEdit={incidentToEdit as any}

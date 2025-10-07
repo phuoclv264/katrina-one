@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -73,7 +74,10 @@ export function IncidentCategoryCombobox({
 
   const displayValue = value ? categories.find((cat) => cat.name === value)?.name || placeholder : placeholder;
   
-  const sortedCategories = React.useMemo(() => [...categories].sort((a,b) => a.name.localeCompare(b.name, 'vi')), [categories]);
+  const sortedCategories = React.useMemo(() => 
+    [...categories].filter(Boolean).sort((a,b) => a.name.localeCompare(b.name, 'vi')), 
+  [categories]);
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
