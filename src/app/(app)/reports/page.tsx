@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -384,7 +383,7 @@ export default function ReportsPage() {
   if(isLoading || authLoading || !user) {
       return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
-            <header className="mb-8">
+             <header className="mb-8">
                 <Skeleton className="h-10 w-1/2" />
                 <Skeleton className="h-4 w-1/3 mt-2" />
             </header>
