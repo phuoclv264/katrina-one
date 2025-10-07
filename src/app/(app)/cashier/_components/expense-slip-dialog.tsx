@@ -712,7 +712,7 @@ export default function ExpenseSlipDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="flex-grow">
-                        <div className="grid gap-6 py-4 px-6">
+                        <div className="p-6 grid gap-6">
                              <div className="space-y-2">
                                 <Label>Loại chi phí</Label>
                                 <RadioGroup value={expenseType} onValueChange={(v) => setExpenseType(v as ExpenseType)} className="flex gap-4">
@@ -730,7 +730,7 @@ export default function ExpenseSlipDialog({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Ngày chứng từ</Label>
-                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" disabled={!isOwnerView && !!slipToEdit} className={cn((!isOwnerView && !!slipToEdit) && "bg-muted")}/>
+                                    <Input value={date} onChange={e => setDate(e.target.value)} type="date" />
                                 </div>
                                  <div className="space-y-2">
                                     <Label>Người lập phiếu</Label>
