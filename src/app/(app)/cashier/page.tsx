@@ -352,11 +352,16 @@ export default function CashierDashboardPage() {
     await dataStore.updateIncidentCategories(newCategories);
   };
   
- const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+ const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
     setIsProcessing(true);
     try {
-        await dataStore.addOrUpdateRevenueStats(data, user, isEdited, revenueStatsToEdit?.id);
+        const dataToSave = { ...data };
+        if (!revenueStatsToEdit) {
+            (dataToSave as any).date = format(new Date(), 'yyyy-MM-dd');
+        }
+
+        await dataStore.addOrUpdateRevenueStats(dataToSave, user, isEdited, revenueStatsToEdit?.id);
         toast.success(`Đã ${revenueStatsToEdit ? 'cập nhật' : 'tạo'} phiếu thống kê.`);
         setIsRevenueDialogOpen(false);
         setRevenueStatsToEdit(null);
