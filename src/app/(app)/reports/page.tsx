@@ -61,7 +61,7 @@ function CleanupDialog() {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                 <Button variant="outline" size="sm">
+                 <Button variant="outline" size="sm" className="w-full">
                     <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                     Dọn dẹp Báo cáo
                 </Button>
@@ -230,9 +230,9 @@ function AdminTools() {
             <CardHeader>
                 <CardTitle>Công cụ Quản lý</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
+            <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <CleanupDialog />
-                 <Button variant="outline" size="sm" onClick={() => setIsIssueNotesOpen(true)}>
+                 <Button variant="outline" size="sm" className="w-full" onClick={() => setIsIssueNotesOpen(true)}>
                     <FileSignature className="mr-2 h-4 w-4"/>
                     Báo cáo Ghi chú
                 </Button>
