@@ -203,7 +203,7 @@ export default function IncidentReportDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="flex-grow -mx-6 px-6">
-                        <div className="grid gap-4 py-4">
+                        <div className="grid gap-4 py-4 px-1">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Người báo cáo</Label>
                                 <div className="col-span-3">
