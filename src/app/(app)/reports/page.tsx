@@ -66,9 +66,12 @@ function CleanupDialog({ className }: CleanupDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                 <Button variant="outline" size="sm" className={cn("w-full h-16 flex flex-col items-center justify-center border rounded-xl hover:bg-accent transition-all duration-150 text-center text-sm font-medium shadow-sm", className)}>
-                    <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                    Dọn dẹp Báo cáo
+                 <Button variant="outline" size="lg" className={cn("w-full h-16 flex items-center justify-start p-4 border rounded-xl hover:bg-accent transition-all duration-150 text-left font-medium shadow-sm", className)}>
+                    <Trash2 className="mr-3 h-5 w-5 text-destructive" />
+                    <div className="flex flex-col">
+                        <span className="text-base">Dọn dẹp Báo cáo</span>
+                        <span className="text-xs text-muted-foreground font-normal">Xóa các báo cáo cũ</span>
+                    </div>
                 </Button>
             </DialogTrigger>
             <DialogContent>
@@ -240,16 +243,19 @@ function AdminTools() {
         </CardHeader>
       
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-          <CleanupDialog className="w-full h-16 flex flex-col items-center justify-center border rounded-xl hover:bg-accent transition-all duration-150 text-center text-sm font-medium shadow-sm" />
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full h-16 flex flex-col items-center justify-center rounded-xl text-sm font-medium shadow-sm hover:bg-accent transition-all duration-150"
-            onClick={() => setIsIssueNotesOpen(true)}
-          >
-            <FileSignature className="h-6 w-6 mb-1 text-primary" />
-            Báo cáo Ghi chú
-          </Button>
+            <CleanupDialog className="w-full" />
+            <Button
+                variant="outline"
+                size="lg"
+                className="w-full h-16 flex items-center justify-start p-4 rounded-xl text-left font-medium shadow-sm hover:bg-accent transition-all duration-150"
+                onClick={() => setIsIssueNotesOpen(true)}
+            >
+                <FileSignature className="mr-3 h-5 w-5 text-primary" />
+                <div className="flex flex-col">
+                    <span className="text-base">Báo cáo Ghi chú</span>
+                    <span className="text-xs text-muted-foreground font-normal">Xem tất cả vấn đề</span>
+                </div>
+            </Button>
         </CardContent>
       
         <IssueNotesDialog
