@@ -19,7 +19,7 @@ import "yet-another-react-lightbox/styles.css";
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
-import OwnerHandoverReportDialog from './_components/owner-handover-report-dialog';
+import HandoverDialog from '../../cashier/_components/handover-dialog';
 import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
@@ -501,7 +501,7 @@ export default function CashierReportsPage() {
           onOpenChange={setIsIncidentDialogOpen}
           onSave={handleSaveIncident}
           isProcessing={!!processingItemId}
-          categories={incidentCategories.map(c => c.name)}
+          categories={incidentCategories}
           onCategoriesChange={handleCategoriesChange as any}
           canManageCategories={user.role === 'Chủ nhà hàng'}
           reporter={incidentToEdit?.createdBy as AuthUser ?? user}
@@ -510,14 +510,15 @@ export default function CashierReportsPage() {
       )}
       
       {user && (handoverToEdit || (isHandoverReportDialogOpen && !handoverToEdit)) && (
-          <OwnerHandoverReportDialog
+          <HandoverDialog
             open={isHandoverReportDialogOpen}
             onOpenChange={setIsHandoverReportDialogOpen}
-            onSave={handleSaveHandover}
+            onSubmit={handleSaveHandover}
             isProcessing={!!processingItemId}
             reportToEdit={handoverToEdit}
             reporter={user}
             dateForNewEntry={dateForNewEntry || undefined}
+            isOwnerView={true}
           />
       )}
 
