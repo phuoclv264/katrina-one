@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion } from '@/components/ui/accordion';
-import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
@@ -27,6 +27,72 @@ import IncidentReportDialog from '../../cashier/_components/incident-report-dial
 import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './_components/MonthlySummary';
 import DailyReportAccordionItem from './_components/DailyReportAccordionItem';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+
+
+function AddDocumentDialog({
+    isOpen,
+    onOpenChange,
+    onConfirm
+}: {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident') => void;
+}) {
+    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [action, setAction] = useState<'revenue' | 'expense' | 'incident'>('revenue');
+
+    const handleConfirm = () => {
+        if (date) {
+            onConfirm(date, action);
+            onOpenChange(false);
+        } else {
+            toast.error("Vui lòng chọn một ngày.");
+        }
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Bổ sung chứng từ</DialogTitle>
+                    <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    <div className="flex justify-center">
+                         <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={setDate}
+                            className="rounded-md border"
+                        />
+                    </div>
+                     <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="space-y-2">
+                        <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                            <span className="font-semibold">Thêm Doanh thu</span>
+                            <RadioGroupItem value="revenue" id="action-revenue" />
+                        </Label>
+                         <Label htmlFor="action-expense" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                             <span className="font-semibold">Thêm Phiếu chi</span>
+                             <RadioGroupItem value="expense" id="action-expense" />
+                        </Label>
+                         <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
+                            <span className="font-semibold">Thêm Sự cố</span>
+                            <RadioGroupItem value="incident" id="action-incident" />
+                        </Label>
+                    </RadioGroup>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                    <Button onClick={handleConfirm} disabled={!date}>Xác nhận</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 
 export default function CashierReportsPage() {
@@ -54,6 +120,7 @@ export default function CashierReportsPage() {
   const [isHandoverReportDialogOpen, setIsHandoverReportDialogOpen] = useState(false);
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   const [isIncidentDetailsDialogOpen, setIsIncidentDetailsDialogOpen] = useState(false);
+  const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false);
   
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
@@ -168,9 +235,23 @@ export default function CashierReportsPage() {
   const handleEditIncident = useCallback((incident: IncidentReport) => { setDateForNewEntry(null); setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
   const handleEditHandover = useCallback((handover: HandoverReport) => { setDateForNewEntry(null); setHandoverToEdit(handover); setIsHandoverReportDialogOpen(true); }, []);
 
-  const handleAddNewExpense = useCallback((date: string) => { setSlipToEdit(null); setDateForNewEntry(date); setIsExpenseDialogOpen(true); }, []);
-  const handleAddNewRevenue = useCallback((date: string) => { setRevenueStatsToEdit(null); setDateForNewEntry(date); setIsRevenueDialogOpen(true); }, []);
-  const handleAddNewIncident = useCallback((date: string) => { setIncidentToEdit(null); setDateForNewEntry(date); setIsIncidentDialogOpen(true); }, []);
+   const handleAddDocumentConfirm = (date: Date, action: 'revenue' | 'expense' | 'incident') => {
+        setDateForNewEntry(format(date, 'yyyy-MM-dd'));
+        switch(action) {
+            case 'revenue':
+                setRevenueStatsToEdit(null);
+                setIsRevenueDialogOpen(true);
+                break;
+            case 'expense':
+                setSlipToEdit(null);
+                setIsExpenseDialogOpen(true);
+                break;
+            case 'incident':
+                setIncidentToEdit(null);
+                setIsIncidentDialogOpen(true);
+                break;
+        }
+   };
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -301,6 +382,7 @@ export default function CashierReportsPage() {
             <Card>
               <CardHeader className="p-3 pb-2"><CardTitle className="text-base flex items-center gap-2"><Settings className="h-4 w-4"/>Cài đặt</CardTitle></CardHeader>
               <CardContent className="p-3 pt-0 flex flex-col gap-2">
+                <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)}><FilePlus className="mr-2 h-4 w-4"/>Bổ sung chứng từ</Button>
                 <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)}>Quản lý Loại chi phí khác</Button>
                 <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)}>Quản lý Loại sự cố</Button>
               </CardContent>
@@ -339,9 +421,6 @@ export default function CashierReportsPage() {
                     onDeleteHandover={handleDeleteHandover}
                     processingItemId={processingItemId}
                     inventoryList={inventoryList}
-                    onAddNewExpense={handleAddNewExpense}
-                    onAddNewRevenue={handleAddNewRevenue}
-                    onAddNewIncident={handleAddNewIncident}
                  />
                 );
               })}
@@ -352,6 +431,11 @@ export default function CashierReportsPage() {
       
       <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
       <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
+      <AddDocumentDialog 
+        isOpen={isAddDocumentDialogOpen}
+        onOpenChange={setIsAddDocumentDialogOpen}
+        onConfirm={handleAddDocumentConfirm}
+      />
       
       <UnpaidSlipsDialog 
         isOpen={isUnpaidSlipsDialogOpen}
@@ -413,3 +497,132 @@ export default function CashierReportsPage() {
     </>
   );
 }
+
+```
+  </change>
+  <change>
+    <file>/src/app/(app)/reports/cashier/_components/DailyReportAccordionItem.tsx</file>
+    <content><![CDATA[
+'use client';
+
+import React from 'react';
+import { AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { format, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { ClipboardCheck, ClipboardX, Receipt, Wallet, AlertTriangle, PlusCircle } from 'lucide-react';
+import type { RevenueStats, ExpenseSlip, IncidentReport, HandoverReport, InventoryItem } from '@/lib/types';
+import RevenueStatsList from './RevenueStatsList';
+import ExpenseList from './ExpenseList';
+import IncidentList from './IncidentList';
+import HandoverReportCard from './HandoverReportCard';
+import { Button } from '@/components/ui/button';
+
+type DailyReportAccordionItemProps = {
+  date: string;
+  dayReports: {
+    revenue: RevenueStats[];
+    expenses: ExpenseSlip[];
+    incidents: IncidentReport[];
+    handover?: HandoverReport;
+  };
+  onEditRevenue: (stats: RevenueStats) => void;
+  onDeleteRevenue: (id: string) => void;
+  onEditExpense: (slip: ExpenseSlip) => void;
+  onDeleteExpense: (id: string) => void;
+  onEditIncident: (incident: IncidentReport) => void;
+  onDeleteIncident: (id: string) => void;
+  onOpenLightbox: (photos: string[], index?: number) => void;
+  onEditHandover: (handover: HandoverReport) => void;
+  onDeleteHandover: (id: string) => void;
+  processingItemId: string | null;
+  inventoryList: InventoryItem[];
+};
+
+const DailyReportAccordionItem = React.memo(({
+  date,
+  dayReports,
+  onEditRevenue,
+  onDeleteRevenue,
+  onEditExpense,
+  onDeleteExpense,
+  onEditIncident,
+  onDeleteIncident,
+  onOpenLightbox,
+  onEditHandover,
+  onDeleteHandover,
+  processingItemId,
+  inventoryList,
+}: DailyReportAccordionItemProps) => {
+
+  const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
+  const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
+
+  const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
+
+  return (
+    <AccordionItem value={date} key={date} className="border rounded-xl shadow-md bg-white dark:bg-card">
+      <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline rounded-t-xl">
+        <div className="w-full flex justify-between items-center gap-4">
+          <div className="flex flex-col text-left">
+            <div className="text-lg font-bold flex items-center gap-2">
+              {dayReports.handover ? <ClipboardCheck className="h-5 w-5 text-green-500" /> : <ClipboardX className="h-5 w-5 text-destructive" />}
+              {format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}
+            </div>
+            <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1">
+              <span>Thu: <span className="font-semibold text-green-600">{totalDailyRevenue.toLocaleString('vi-VN')}đ</span></span>
+              <span>Chi: <span className="font-semibold text-red-600">{totalDailyExpense.toLocaleString('vi-VN')}đ</span></span>
+            </div>
+          </div>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="p-4 bg-muted/20 rounded-b-xl">
+        <div className="space-y-6">
+          <Card className="border-green-500/50 rounded-lg shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
+                <Receipt /> Doanh thu
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <RevenueStatsList stats={dayReports.revenue || []} onEdit={onEditRevenue} onDelete={onDeleteRevenue} processingItemId={processingItemId} />
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/50 rounded-lg shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                <Wallet /> Phiếu chi
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <ExpenseList 
+                expenses={dayReports.expenses || []} 
+                onEdit={onEditExpense} 
+                onDelete={onDeleteExpense} 
+                processingItemId={processingItemId} 
+                inventoryList={inventoryList} 
+              />
+            </CardContent>
+          </Card>
+          <Card className="border-amber-500/50 rounded-lg shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                <AlertTriangle /> Sự cố
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <IncidentList incidents={dayReports.incidents || []} onEdit={onEditIncident} onDelete={onDeleteIncident} onOpenLightbox={onOpenLightbox} processingItemId={processingItemId} />
+            </CardContent>
+          </Card>
+          {dayReports.handover && (
+            <HandoverReportCard handover={dayReports.handover} onEdit={onEditHandover} onDelete={onDeleteHandover} processingItemId={processingItemId} />
+          )}
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+});
+
+DailyReportAccordionItem.displayName = 'DailyReportAccordionItem';
+export default DailyReportAccordionItem;

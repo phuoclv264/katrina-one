@@ -34,9 +34,6 @@ type DailyReportAccordionItemProps = {
   onDeleteHandover: (id: string) => void;
   processingItemId: string | null;
   inventoryList: InventoryItem[];
-  onAddNewExpense: (date: string) => void;
-  onAddNewRevenue: (date: string) => void;
-  onAddNewIncident: (date: string) => void;
 };
 
 const DailyReportAccordionItem = React.memo(({
@@ -53,9 +50,6 @@ const DailyReportAccordionItem = React.memo(({
   onDeleteHandover,
   processingItemId,
   inventoryList,
-  onAddNewExpense,
-  onAddNewRevenue,
-  onAddNewIncident,
 }: DailyReportAccordionItemProps) => {
 
   const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
@@ -81,11 +75,6 @@ const DailyReportAccordionItem = React.memo(({
       </AccordionTrigger>
       <AccordionContent className="p-4 bg-muted/20 rounded-b-xl">
         <div className="space-y-6">
-            <div className="flex justify-end gap-2">
-                <Button size="sm" variant="outline" onClick={() => onAddNewRevenue(date)}><PlusCircle className="mr-2 h-4 w-4"/>Thêm Doanh thu</Button>
-                <Button size="sm" variant="outline" onClick={() => onAddNewExpense(date)}><PlusCircle className="mr-2 h-4 w-4"/>Thêm Phiếu chi</Button>
-                <Button size="sm" variant="outline" onClick={() => onAddNewIncident(date)}><PlusCircle className="mr-2 h-4 w-4"/>Thêm Sự cố</Button>
-            </div>
           <Card className="border-green-500/50 rounded-lg shadow-sm">
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
