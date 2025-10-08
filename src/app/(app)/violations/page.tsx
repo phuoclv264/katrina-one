@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -209,7 +208,7 @@ function ViolationDialog({
                             value={unitCount || ''}
                             onChange={(e) => setUnitCount(Number(e.target.value))}
                             className="w-full"
-                            placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'}...`}
+                            placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'} ${selectedCategory.name.toLowerCase()}`}
                         />
                         <span className="font-semibold text-muted-foreground">{selectedCategory.unitLabel || 'đơn vị'}</span>
                     </div>
@@ -769,7 +768,7 @@ export default function ViolationsPage() {
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
                                 const canSubmitPenalty = canManage || (v.users && v.users.some(vu => vu.id === user.uid));
-                                const userNames = v.users ? v.users.map(u => u.name).join(', ') : '';
+                                const userNames = v.users ? v.users.map(u => u.displayName).join(', ') : '';
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
                                 const isWaived = v.isPenaltyWaived === true;
