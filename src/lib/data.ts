@@ -225,11 +225,12 @@ export const suppliers: Suppliers = [
 ];
 
 export const initialViolationCategories: ViolationCategory[] = [
-    "Đi trễ",
-    "Nói tục",
-    "Đùa giỡn lớn tiếng",
-    "Pha chế sai công thức",
-    "Khác"
+    { id: uuidv4(), name: "Đi trễ", severity: 'low', fineAmount: 50000 },
+    { id: uuidv4(), name: "Nói tục", severity: 'low', fineAmount: 20000 },
+    { id: uuidv4(), name: "Đùa giỡn lớn tiếng", severity: 'medium', fineAmount: 50000 },
+    { id: uuidv4(), name: "Pha chế sai công thức", severity: 'medium', fineAmount: 100000 },
+    { id: uuidv4(), name: "Làm vỡ tài sản", severity: 'high', fineAmount: 200000 },
+    { id: uuidv4(), name: "Khác", severity: 'low', fineAmount: 0 },
 ];
 
 export const initialOtherCostCategories: OtherCostCategory[] = [

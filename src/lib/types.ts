@@ -206,7 +206,12 @@ export type ParsedProduct = Omit<Product, 'id'>;
 
 
 // --- Violation Logging Types ---
-export type ViolationCategory = string;
+export type ViolationCategory = {
+  id: string;
+  name: string;
+  severity: 'low' | 'medium' | 'high';
+  fineAmount: number;
+};
 
 export type ViolationUser = {
   id: string;
@@ -225,7 +230,7 @@ export type ViolationComment = {
 export type Violation = {
   id: string;
   content: string;
-  category: ViolationCategory;
+  category: string; // The name of the category
   users: ViolationUser[]; // User who committed the violation
   reporterId: string; // User who reported the violation
   reporterName: string;
@@ -237,6 +242,8 @@ export type Violation = {
   isFlagged?: boolean;
   isPenaltyWaived?: boolean; // New field for penalty waiver
   comments?: ViolationComment[];
+  cost?: number; // The fine amount at the time of creation
+  severity?: 'low' | 'medium' | 'high';
 };
 
 // --- Summary Types ---
