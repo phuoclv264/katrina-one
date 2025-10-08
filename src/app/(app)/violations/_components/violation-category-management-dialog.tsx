@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -83,7 +84,7 @@ function RuleEditor({ rule, onUpdate, onDelete }: { rule: FineRule, onUpdate: (u
 
 
 export default function ViolationCategoryManagementDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [], generalNote: ''});
+  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [], generalNote: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
@@ -96,9 +97,9 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     if (isOpen) {
       setIsLoading(true);
       const unsub = dataStore.subscribeToViolationCategories((data) => {
-        if (data) {
-          const sortedList = (data.list || []).sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-          setCategoryData({ list: sortedList, generalNote: data.generalNote || '', generalRules: data.generalRules || [] });
+        if (data && Array.isArray(data.list)) {
+          const sortedList = data.list.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
+          setCategoryData({ list: sortedList, generalNote: data.generalNote, generalRules: data.generalRules || [] });
         }
         setIsLoading(false);
       });
@@ -175,10 +176,13 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
   
     const handleCancelEdit = () => {
         const originalItem = categoryData.list.find(c => c.id === editingCategoryId);
-        if (originalItem && originalItem.name === 'Loại vi phạm mới') {
-             setCategoryData(prev => ({...prev, list: prev.list.filter(t => t.id !== editingCategoryId)}));
-        }
+        // This logic is flawed if name is changed and then cancelled.
+        // It's better to just cancel the edit state.
         setEditingCategoryId(null);
+    };
+    
+    const handleEditingValueChange = (field: keyof typeof currentEditingValues, value: any) => {
+        setCurrentEditingValues(prev => ({...prev, [field]: value}));
     };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -231,16 +235,6 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] -mx-6 px-6">
         <div className="py-4 space-y-4">
-          <div className="space-y-2">
-            <Label>Ghi chú chung cho Chính sách phạt</Label>
-            <Textarea
-              placeholder="Nhập các quy định chung hoặc lưu ý..."
-              value={categoryData.generalNote}
-              onChange={(e) => setCategoryData(prev => ({ ...prev, generalNote: e.target.value }))}
-              onBlur={() => handleSave(categoryData)}
-              rows={3}
-            />
-          </div>
           <div className="pt-4 border-t">
             <h4 className="font-semibold mb-2">Quy tắc phạt chung</h4>
             <div className="space-y-3">
@@ -350,7 +344,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                         <div className="flex-1">
                           <p className="font-semibold">{category.name}</p>
                           <div className="flex items-center gap-2 text-sm mt-1">
-                            <Badge className={getSeverityBadgeClass(category.severity)}>{category.severity}</Badge>
+                            <Badge className={getSeverityBadgeClass(category.severity)}>{category.severity === 'low' ? 'Nhẹ' : category.severity === 'medium' ? 'TB' : 'Nặng'}</Badge>
                             {category.calculationType === 'perUnit' ? (
                                 <span className="text-muted-foreground">{(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / {category.unitLabel || 'đơn vị'}</span>
                             ) : (
