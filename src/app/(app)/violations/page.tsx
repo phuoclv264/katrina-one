@@ -853,8 +853,8 @@ export default function ViolationsPage() {
                                     </p>
                                     <p className="mt-2 text-sm whitespace-pre-wrap">{v.content}</p>
                                     <p className="mt-1 font-bold text-destructive">
-                                        {v.cost > 0 && `Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}
-                                        {v.cost > 0 && v.unitCount && currentCategory && currentCategory.calculationType === 'perUnit' && (
+                                        {v.cost > 0 && `Phạt: ${Math.round(v.cost).toLocaleString('vi-VN')}đ`}
+                                        {v.cost > 0 && v.unitCount != null && v.unitCount > 0 && currentCategory && currentCategory.calculationType === 'perUnit' && (
                                             <span className="text-xs font-normal text-muted-foreground ml-1">
                                                 ({categoryDisplayName} {v.unitCount} {unitLabel})
                                             </span>
