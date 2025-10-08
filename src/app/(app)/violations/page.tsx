@@ -788,14 +788,20 @@ export default function ViolationsPage() {
                                 const categoryDisplayName = currentCategory ? currentCategory.name : v.categoryName;
                                 const unitLabel = currentCategory?.unitLabel || 'đơn vị';
 
-                                let borderClass = "border-primary/50";
-                                let bgClass = "bg-card";
-                                if (v.isFlagged) {
-                                    borderClass = "border-red-500/30";
-                                    bgClass = "bg-red-500/10";
-                                } else if (isWaived) {
-                                    borderClass = "border-green-500/30";
-                                    bgClass = "bg-green-500/10";
+                                let borderClass: string;
+                                let bgClass: string;
+                                if(isWaived) {
+                                  borderClass = "border-green-500/30";
+                                  bgClass = "bg-green-500/10";
+                                } else if (v.isFlagged || v.severity === 'high') {
+                                  borderClass = "border-red-500/30";
+                                  bgClass = "bg-red-500/10";
+                                } else if (v.severity === 'medium') {
+                                  borderClass = "border-amber-500/30";
+                                  bgClass = "bg-amber-500/10";
+                                } else {
+                                  borderClass = "border-primary/50";
+                                  bgClass = "bg-card";
                                 }
 
 
