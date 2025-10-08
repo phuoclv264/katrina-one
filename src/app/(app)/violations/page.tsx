@@ -490,7 +490,7 @@ export default function ViolationsPage() {
 
   const displayUsers = useMemo(() => {
     if (!user || !users) return [];
-    if (user.role === 'Chủ nhà hàng') {
+    if (user.role === 'Chủ nhà hàng' || user.displayName.includes("Không chọn")) {
       return users;
     }
     // For manager, filter out Owner and "Không chọn"
