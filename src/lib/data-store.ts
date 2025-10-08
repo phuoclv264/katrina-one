@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -26,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTask, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -310,30 +311,20 @@ export const dataStore = {
       id: string | undefined,
       user: AuthUser
     ): Promise<void> {
-        const { photosToUpload, category, ...incidentData } = data;
+        const { photosToUpload, ...incidentData } = data;
     
-        const allCategories = await this.getViolationCategories();
-        const categoryData = allCategories.find(c => c.name === category);
-
         // 1. Handle photo uploads
         const uploadPromises = photosToUpload.map(async (photoId) => {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
-            const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, blob);
+            const storageRef = ref(storage, `incidents/${data.reporterId}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, photoBlob);
             return getDownloadURL(storageRef);
         });
         const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
     
         // 2. Prepare data for Firestore
-        const finalData: Partial<Violation> = { 
-            ...incidentData,
-            category: category,
-            cost: categoryData?.fineAmount || data.cost || 0,
-            severity: categoryData?.severity || 'low',
-        };
-    
-        const creatorInfo = { userId: user.uid, userName: user.displayName || 'N/A' };
+        const finalData: Partial<Violation> = { ...incidentData };
     
         if (id) {
             const docRef = doc(db, 'violations', id);
@@ -353,7 +344,7 @@ export const dataStore = {
         }
     
         await photoStore.deletePhotos(photosToUpload);
-    },
+  },
 
 
     subscribeToIncidentCategories(callback: (categories: IncidentCategory[]) => void): () => void {
@@ -2325,16 +2316,26 @@ export const dataStore = {
   async updateViolationCategories(newCategories: ViolationCategory[]) {
     const docRef = doc(db, 'app-data', 'violationCategories');
     
-    // Sanitize data before sending to Firestore
     const sanitizedCategories = newCategories.map(category => {
-      const sanitized = { ...category };
+      const sanitized: Partial<ViolationCategory> = { ...category };
+      
       if (sanitized.calculationType === 'fixed') {
-        sanitized.finePerUnit = 0;
-        sanitized.unitLabel = null;
+        sanitized.finePerUnit = sanitized.finePerUnit ?? 0;
+        sanitized.unitLabel = sanitized.unitLabel ?? null;
       } else { // perUnit
-        sanitized.fineAmount = 0;
+        sanitized.fineAmount = sanitized.fineAmount ?? 0;
       }
-      return sanitized;
+      
+      // Ensure all fields are present to avoid 'undefined'
+      return {
+        id: sanitized.id!,
+        name: sanitized.name!,
+        severity: sanitized.severity || 'low',
+        calculationType: sanitized.calculationType || 'fixed',
+        fineAmount: sanitized.fineAmount || 0,
+        finePerUnit: sanitized.finePerUnit || 0,
+        unitLabel: sanitized.unitLabel || null,
+      };
     });
 
     await setDoc(docRef, { list: sanitizedCategories });
@@ -2344,11 +2345,8 @@ export const dataStore = {
         data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
         id?: string
     ): Promise<void> {
-        const { photosToUpload, category, ...incidentData } = data;
-        
-        const allCategories = await this.getViolationCategories();
-        const categoryData = allCategories.find(c => c.name === category);
-
+        const { photosToUpload, ...violationData } = data;
+    
         // 1. Upload photos if any
         const uploadPromises = photosToUpload.map(async (photoId) => {
             const photoBlob = await photoStore.getPhoto(photoId);
@@ -2359,16 +2357,9 @@ export const dataStore = {
         });
         
         const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-        
-        // 2. Prepare data for Firestore
-        const finalData: Partial<Violation> = { 
-            ...incidentData,
-            category: category,
-            cost: categoryData?.fineAmount || data.cost || 0,
-            severity: categoryData?.severity || 'low',
-        };
     
-        const creatorInfo = { userId: data.reporterId, userName: data.reporterName };
+        // 2. Prepare data for Firestore
+        const finalData: Partial<Violation> = { ...violationData };
     
         if (id) {
             const docRef = doc(db, 'violations', id);
@@ -2383,8 +2374,8 @@ export const dataStore = {
         } else {
             finalData.createdAt = serverTimestamp();
             finalData.photos = photoUrls;
-            const incidentRef = await addDoc(collection(db, 'violations'), finalData);
-            id = incidentRef.id;
+            const violationRef = await addDoc(collection(db, 'violations'), finalData);
+            id = violationRef.id;
         }
     
         await photoStore.deletePhotos(photosToUpload);
@@ -2544,6 +2535,7 @@ export const dataStore = {
 
 
     
+
 
 
 

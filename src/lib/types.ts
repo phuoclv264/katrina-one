@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
@@ -211,9 +212,9 @@ export type ViolationCategory = {
   name: string;
   severity: 'low' | 'medium' | 'high';
   calculationType: 'fixed' | 'perUnit';
-  fineAmount: number; // For 'fixed' type
-  finePerUnit?: number; // For 'perUnit' type
-  unitLabel?: string; // e.g., "phút", "lần"
+  fineAmount: number;
+  finePerUnit: number | null;
+  unitLabel: string | null;
 };
 
 export type ViolationUser = {
@@ -233,9 +234,8 @@ export type ViolationComment = {
 export type Violation = {
   id: string;
   content: string;
-  category: string; // The name of the category
-  users: ViolationUser[]; // User who committed the violation
-  reporterId: string; // User who reported the violation
+  users: ViolationUser[];
+  reporterId: string;
   reporterName: string;
   photos: string[];
   createdAt: string | Timestamp;
@@ -243,12 +243,17 @@ export type Violation = {
   penaltyPhotos?: string[];
   penaltySubmittedAt?: string | Timestamp;
   isFlagged?: boolean;
-  isPenaltyWaived?: boolean; // New field for penalty waiver
+  isPenaltyWaived?: boolean;
   comments?: ViolationComment[];
-  cost?: number; // The fine amount at the time of creation
-  severity?: 'low' | 'medium' | 'high';
-  unitCount?: number; // For 'perUnit' calculation, e.g., number of minutes late
+
+  // Snapshot of the category at the time of violation
+  categoryId: string;
+  categoryName: string;
+  severity: 'low' | 'medium' | 'high';
+  cost: number;
+  unitCount?: number;
 };
+
 
 // --- Summary Types ---
 export type DailySummary = {

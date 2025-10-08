@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -15,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send, Settings, Check } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, IncidentCategory } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -77,7 +78,7 @@ function ViolationDialog({
               ? users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid))
               : [];
             setSelectedUsers(initialUsers);
-            setSelectedCategoryName(violationToEdit.category);
+            setSelectedCategoryName(violationToEdit.categoryName);
             setUnitCount(violationToEdit.unitCount);
             setPhotoIds([]);
         } else if (isSelfConfession) {
@@ -99,33 +100,35 @@ function ViolationDialog({
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
   const handleSave = () => {
-    if (!content || selectedUsers.length === 0 || !selectedCategoryName) {
+    if (!content || selectedUsers.length === 0 || !selectedCategory) {
       toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
     
     let calculatedCost = 0;
-    if (selectedCategory) {
-        if (selectedCategory.calculationType === 'perUnit' && selectedCategory.finePerUnit) {
-            if (!unitCount || unitCount <= 0) {
-                toast.error(`Vui lòng nhập số ${selectedCategory.unitLabel || 'đơn vị'}.`);
-                return;
-            }
-            calculatedCost = (selectedCategory.finePerUnit || 0) * (unitCount || 0);
-        } else {
-            calculatedCost = selectedCategory.fineAmount || 0;
-        }
+    if (selectedCategory.calculationType === 'perUnit') {
+      if (!unitCount || unitCount <= 0) {
+        toast.error(`Vui lòng nhập số ${selectedCategory.unitLabel || 'đơn vị'}.`);
+        return;
+      }
+      calculatedCost = (selectedCategory.finePerUnit || 0) * (unitCount || 0);
+    } else {
+      calculatedCost = selectedCategory.fineAmount || 0;
     }
     
     const data = {
-        content: content,
-        category: selectedCategoryName,
-        users: selectedUsers.map(u => ({ id: u.uid, name: u.displayName })),
-        reporterId: reporter.uid,
-        reporterName: reporter.displayName,
-        photosToUpload: photoIds,
-        cost: calculatedCost,
-        unitCount: selectedCategory?.calculationType === 'perUnit' ? unitCount : undefined,
+      content: content,
+      users: selectedUsers.map(u => ({ id: u.uid, name: u.displayName })),
+      reporterId: reporter.uid,
+      reporterName: reporter.displayName,
+      photosToUpload: photoIds,
+      
+      // Snapshot of category details
+      categoryId: selectedCategory.id,
+      categoryName: selectedCategory.name,
+      severity: selectedCategory.severity,
+      cost: calculatedCost,
+      unitCount: selectedCategory.calculationType === 'perUnit' ? unitCount : undefined,
     };
     
     onSave(data, violationToEdit?.id);
@@ -636,7 +639,7 @@ export default function ViolationsPage() {
         result = result.filter(v => v.users.some(vu => vu.id === filterUserId));
       }
       if(filterCategory) {
-          result = result.filter(v => v.category === filterCategory);
+          result = result.filter(v => v.categoryName === filterCategory);
       }
       return result;
   }, [violations, filterUserId, filterCategory]);
@@ -767,7 +770,6 @@ export default function ViolationsPage() {
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
-                                const canSubmitPenalty = canManage || (v.users && v.users.some(vu => vu.id === user.uid));
                                 const userNames = v.users ? v.users.map(u => u.displayName).join(', ') : '';
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
@@ -789,7 +791,7 @@ export default function ViolationsPage() {
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
-                                            <Badge className={getSeverityBadgeClass(v.severity)}>{v.category || 'Khác'}</Badge>
+                                            <Badge className={getSeverityBadgeClass(v.severity)}>{v.categoryName || 'Khác'}</Badge>
                                             {v.users && v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
@@ -863,7 +865,7 @@ export default function ViolationsPage() {
                                                           <Eye className="mr-2 h-4 w-4" />
                                                           Xem ({v.penaltyPhotos.length})
                                                       </Button>
-                                                      {canSubmitPenalty && (
+                                                      {canManage && (
                                                           <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
                                                               <FilePlus2 className="mr-2 h-4 w-4" />
                                                               Bổ sung
@@ -872,9 +874,9 @@ export default function ViolationsPage() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                canSubmitPenalty && (
+                                                canManage && (
                                                     <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                        Nộp phạt
+                                                        Xác nhận đã nộp phạt
                                                     </Button>
                                                 )
                                             )}
