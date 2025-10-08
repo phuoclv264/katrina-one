@@ -229,7 +229,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                                 <div className="grid grid-cols-2 gap-4">
                                      <div className="space-y-2">
                                         <Label className="text-xs">Tiền phạt/đơn vị</Label>
-                                        <Input type="number" value={currentEditingValues.finePerUnit ?? 0} onChange={(e) => handleEditingValueChange('finePerUnit', parseInt(e.target.value, 10) || 0)} />
+                                        <Input type="number" value={currentEditingValues.finePerUnit ?? 0} onChange={(e) => handleEditingValueChange('finePerUnit', parseInt(e.target.value, 10) || 0)} onFocus={(e) => e.target.select()} />
                                     </div>
                                      <div className="space-y-2">
                                         <Label className="text-xs">Tên đơn vị</Label>
@@ -239,7 +239,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                             ) : (
                                 <div className="space-y-2">
                                     <Label className="text-xs">Mức phạt (VNĐ)</Label>
-                                    <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} />
+                                    <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} onFocus={(e) => e.target.select()} />
                                 </div>
                             )}
 
