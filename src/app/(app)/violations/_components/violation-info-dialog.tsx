@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Pencil, Save, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'react-hot-toast';
@@ -156,3 +157,4 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
     </Dialog>
   );
 }
+

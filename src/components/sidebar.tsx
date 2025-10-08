@@ -153,12 +153,12 @@ export function AppSidebar() {
          <div className="p-2 flex items-center justify-center gap-2">
             <div className="w-full group-data-[collapsible=icon]:hidden">
                 <Link href={homeLink} className="flex justify-center" onClick={handleLinkClick}>
-                  <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-32" />
+                  <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=2d84d1e1-b65f-47fd-bb66-e96cde25aa0d" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-32" />
                 </Link>
             </div>
              <div className="w-full hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
                  <Link href={homeLink} className="flex justify-center" onClick={handleLinkClick}>
-                    <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=d32a3b76-55ff-41f4-984f-a2c2742b6532" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-10" />
+                    <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=2d84d1e1-b65f-47fd-bb66-e96cde25aa0d" alt="Katrina One Logo" width={1419} height={304} className="h-auto w-10" />
                  </Link>
             </div>
          </div>
