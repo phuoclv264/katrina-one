@@ -972,7 +972,7 @@ export default function ViolationsPage() {
         />
       )}
 
-      {!canManage && (
+      {!isOwner && (
          <ViolationInfoDialog
             isOpen={isInfoDialogOpen}
             onClose={() => setIsInfoDialogOpen(false)}
