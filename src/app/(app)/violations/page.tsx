@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import ViolationCategoryManagementDialog from './_components/violation-category-management-dialog';
 
 function ViolationDialog({
   open,
@@ -939,3 +940,4 @@ export default function ViolationsPage() {
     </>
   );
 }
+
