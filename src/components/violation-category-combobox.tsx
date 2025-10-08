@@ -19,13 +19,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import type { IncidentCategory } from "@/lib/types"
+import type { ViolationCategory } from "@/lib/types"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog"
 
 type ViolationCategoryComboboxProps = {
-    categories: string[];
+    categories: ViolationCategory[];
     value: string;
     onChange: (newValue: string) => void;
-    onCategoriesChange: (newCategories: string[]) => void;
+    onCategoriesChange: (newCategories: ViolationCategory[]) => void;
     canManage: boolean;
     disabled?: boolean;
     placeholder?: string;
@@ -43,7 +44,7 @@ export function ViolationCategoryCombobox({
     className
 }: ViolationCategoryComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [inputValue, setInputValue] = React.useState(value || "")
+  const [inputValue, setInputValue] = React.useState("")
 
   React.useEffect(() => {
     if (!open) {
@@ -53,39 +54,43 @@ export function ViolationCategoryCombobox({
     }
   }, [open, value])
 
-  const handleSelect = (currentValue: string) => {
-    onChange(currentValue)
-    setInputValue(currentValue)
+  const handleSelect = (categoryName: string) => {
+    onChange(categoryName)
+    setInputValue(categoryName)
     setOpen(false)
   }
 
   const handleAddNew = () => {
-    if (inputValue && !categories.find(c => c.toLowerCase() === inputValue.toLowerCase())) {
-        const newCategories = [...categories, inputValue].sort((a, b) => a.localeCompare(b, 'vi'));
+    if (inputValue && !categories.find(c => c.name.toLowerCase() === inputValue.toLowerCase())) {
+        const newCategory: ViolationCategory = { id: `cat-${Date.now()}`, name: inputValue, severity: 'low', fineAmount: 0 };
+        const newCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
         onCategoriesChange(newCategories);
-        onChange(inputValue);
+        onChange(newCategory.name);
     }
     setInputValue("")
     setOpen(false);
   }
   
-  const handleDelete = (e: React.MouseEvent, categoryToDelete: string) => {
+  const handleDelete = (e: React.MouseEvent, categoryId: string) => {
       e.stopPropagation();
-      const newCategories = categories.filter(c => c !== categoryToDelete);
+      const categoryToDelete = categories.find(c => c.id === categoryId);
+      if (!categoryToDelete) return;
+
+      const newCategories = categories.filter(c => c.id !== categoryId);
       onCategoriesChange(newCategories);
-      if(value === categoryToDelete) {
+      if(value === categoryToDelete.name) {
           onChange('');
       }
   }
 
-  const displayValue = value ? categories.find((cat) => cat === value) || placeholder : placeholder;
+  const displayValue = value ? categories.find((cat) => cat.name === value)?.name || placeholder : placeholder;
   
   const sortedCategories = React.useMemo(() => 
-    [...categories].filter(Boolean).sort((a,b) => a.localeCompare(b, 'vi')), 
+    [...categories].filter(Boolean).sort((a,b) => a.name.localeCompare(b, 'vi')), 
   [categories]);
 
   const hasExactMatch = React.useMemo(() => 
-    sortedCategories.some(cat => cat && cat.toLowerCase() === inputValue.toLowerCase()),
+    sortedCategories.some(cat => cat.name.toLowerCase() === inputValue.toLowerCase()),
     [sortedCategories, inputValue]
   );
   
@@ -132,24 +137,38 @@ export function ViolationCategoryCombobox({
                 </CommandItem>
               {sortedCategories.map((category) => (
                 <CommandItem
-                  key={category}
-                  value={category}
-                  onSelect={() => handleSelect(category)}
+                  key={category.id}
+                  value={category.name}
+                  onSelect={() => handleSelect(category.name)}
                   className="flex justify-between"
                 >
                   <div className="flex items-center">
                     <Check
                         className={cn(
                         "mr-2 h-4 w-4",
-                        value === category ? "opacity-100" : "opacity-0"
+                        value === category.name ? "opacity-100" : "opacity-0"
                         )}
                     />
-                    {category}
+                    {category.name}
                   </div>
-                  {canManage && category !== "Khác" && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => handleDelete(e, category)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                  {canManage && category.name !== "Khác" && (
+                     <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                           <Trash2 className="h-4 w-4 text-destructive" />
+                         </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                           <AlertDialogTitle>Xóa loại vi phạm "{category.name}"?</AlertDialogTitle>
+                          <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn danh mục này. Bạn có chắc không?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Hủy</AlertDialogCancel>
+                          <AlertDialogAction onClick={(e) => handleDelete(e, category.id)}>Xóa</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                     </AlertDialog>
                   )}
                 </CommandItem>
               ))}

@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send } from 'lucide-react';
+import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send, Settings } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, IncidentCategory } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
@@ -28,6 +28,7 @@ import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
+import ViolationCategoryManagementDialog from './_components/violation-category-management-dialog';
 
 
 function ViolationDialog({
@@ -51,13 +52,14 @@ function ViolationDialog({
   violationToEdit: Violation | null;
   reporter: AuthUser;
   isSelfConfession?: boolean;
-  categories: string[];
-  onCategoriesChange: (newCategories: string[]) => void;
+  categories: ViolationCategory[];
+  onCategoriesChange: (newCategories: ViolationCategory[]) => void;
   canManageCategories: boolean;
 }) {
   const [content, setContent] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [cost, setCost] = useState(0);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
   
@@ -70,22 +72,36 @@ function ViolationDialog({
               : [];
             setSelectedUsers(initialUsers);
             setSelectedCategory(violationToEdit.category);
+            setCost(violationToEdit.cost || 0);
             setPhotoIds([]);
         } else if (isSelfConfession) {
             const self = users.find(u => u.uid === reporter.uid);
             setContent('');
             setSelectedUsers(self ? [self] : []);
             setSelectedCategory('');
+            setCost(0);
             setPhotoIds([]);
         } else {
             // Reset for new violation by manager
             setContent('');
             setSelectedUsers([]);
             setSelectedCategory('');
+            setCost(0);
             setPhotoIds([]);
         }
     }
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
+
+  useEffect(() => {
+    if (selectedCategory) {
+        const categoryData = categories.find(c => c.name === selectedCategory);
+        if (categoryData) {
+            setCost(categoryData.fineAmount);
+        }
+    } else {
+        setCost(0);
+    }
+  }, [selectedCategory, categories]);
 
   const handleSave = () => {
     if (!content || selectedUsers.length === 0 || !selectedCategory) {
@@ -100,6 +116,7 @@ function ViolationDialog({
         reporterId: reporter.uid,
         reporterName: reporter.displayName,
         photosToUpload: photoIds,
+        cost: cost,
     };
     
     onSave(data, violationToEdit?.id);
@@ -170,6 +187,19 @@ function ViolationDialog({
               className="col-span-3"
               placeholder="Mô tả chi tiết về vi phạm..."
             />
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
+              <div className="col-span-3">
+                <Input
+                  id="cost"
+                  type="number"
+                  value={cost}
+                  onChange={e => setCost(Number(e.target.value))}
+                  placeholder="0"
+                  onFocus={(e) => e.target.select()}
+                />
+              </div>
           </div>
            <div className="grid grid-cols-4 items-start gap-4">
                 <Label className="text-right mt-2">Bằng chứng</Label>
@@ -371,6 +401,7 @@ export default function ViolationsPage() {
   const [processingViolationId, setProcessingViolationId] = useState<string | null>(null);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
@@ -455,7 +486,7 @@ export default function ViolationsPage() {
     }
   };
 
-  const handleCategoriesChange = async (newCategories: string[]) => {
+  const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
     await dataStore.updateViolationCategories(newCategories);
   };
 
@@ -625,6 +656,17 @@ export default function ViolationsPage() {
   const toggleCommentSection = (violationId: string) => {
       setOpenCommentSectionId(prevId => prevId === violationId ? null : violationId);
   }
+  
+  const getSeverityBadgeClass = (severity: Violation['severity']) => {
+    switch (severity) {
+      case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
+      case 'medium': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700';
+      case 'low':
+      default:
+        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+    }
+  };
+
 
   if (isLoading || authLoading || !user) {
     return (
@@ -683,9 +725,16 @@ export default function ViolationsPage() {
                         </Button>
                         )}
                         {canManage && (
-                        <Button onClick={() => openAddDialog(false)} className="w-full">
-                            <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                        </Button>
+                          <div className="flex gap-2">
+                            <Button onClick={() => openAddDialog(false)} className="w-full">
+                                <Plus className="mr-2 h-4 w-4" /> Thêm mới
+                            </Button>
+                            {isOwner && (
+                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                            )}
+                          </div>
                         )}
                     </div>
                  </div>
@@ -725,7 +774,7 @@ export default function ViolationsPage() {
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
-                                            <Badge>{v.category || 'Khác'}</Badge>
+                                            <Badge className={getSeverityBadgeClass(v.severity)}>{v.category || 'Khác'}</Badge>
                                             {v.users && v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
@@ -765,6 +814,7 @@ export default function ViolationsPage() {
                                         Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
                                     </p>
                                     <p className="mt-2 text-sm whitespace-pre-wrap">{v.content}</p>
+                                    <p className="mt-1 font-bold text-destructive">{v.cost > 0 && `Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}</p>
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
                                             {v.photos.map((photo, index) => (
@@ -859,6 +909,11 @@ export default function ViolationsPage() {
             canManageCategories={user.role === 'Chủ nhà hàng'}
           />
       )}
+      
+      <ViolationCategoryManagementDialog 
+        isOpen={isCategoryDialogOpen}
+        onClose={() => setIsCategoryDialogOpen(false)}
+      />
       
        <CameraDialog
         isOpen={isPenaltyCameraOpen}

@@ -306,88 +306,53 @@ export const dataStore = {
     },
 
     async addOrUpdateIncident(
-        data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'> & { photoIds: string[], photosToDelete: string[] },
-        id: string | undefined,
-        user: AuthUser
+      data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
+      id: string | undefined,
+      user: AuthUser
     ): Promise<void> {
-        const { photoIds, photosToDelete, ...incidentData } = data;
+        const { photosToUpload, category, ...incidentData } = data;
+    
+        const allCategories = await this.getViolationCategories();
+        const categoryData = allCategories.find(c => c.name === category);
 
-        // 1. Handle photo deletions for existing incidents
-        if (id && photosToDelete.length > 0) {
-            await Promise.all(photosToDelete.map(url => this.deletePhotoFromStorage(url)));
-        }
-
-        // 2. Handle new photo uploads
-        const uploadPromises = photoIds.map(async (photoId) => {
+        // 1. Handle photo uploads
+        const uploadPromises = photosToUpload.map(async (photoId) => {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
-            const storageRef = ref(storage, `incidents/${incidentData.date}/${uuidv4()}.jpg`);
+            const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, photoBlob);
             return getDownloadURL(storageRef);
         });
-        const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-        await photoStore.deletePhotos(photoIds);
-        
-        // 3. Prepare data for Firestore
-        const finalData: Partial<IncidentReport> = { ...incidentData };
+        const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+    
+        // 2. Prepare data for Firestore
+        const finalData: Partial<Violation> = { 
+            ...incidentData,
+            category: category,
+            cost: categoryData?.fineAmount || data.cost || 0,
+            severity: categoryData?.severity || 'low',
+        };
+    
         const creatorInfo = { userId: user.uid, userName: user.displayName || 'N/A' };
-
-
+    
         if (id) {
-            // Updating existing incident
-            const docRef = doc(db, 'incidents', id);
+            const docRef = doc(db, 'violations', id);
             const currentDoc = await getDoc(docRef);
-            const existingPhotos = currentDoc.exists() ? currentDoc.data().photos || [] : [];
-            const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
-            finalData.photos = [...remainingPhotos, ...newPhotoUrls];
+            if (currentDoc.exists()) {
+                const existingPhotos = currentDoc.data().photos || [];
+                finalData.photos = [...existingPhotos, ...photoUrls];
+            } else {
+                finalData.photos = photoUrls;
+            }
             await updateDoc(docRef, finalData);
         } else {
-            // Creating new incident
-            finalData.date = incidentData.date;
-            finalData.createdBy = creatorInfo;
             finalData.createdAt = serverTimestamp();
-            finalData.photos = newPhotoUrls;
-            const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
+            finalData.photos = photoUrls;
+            const incidentRef = await addDoc(collection(db, 'violations'), finalData);
             id = incidentRef.id;
         }
-
-        // 4. Handle associated expense slip
-        const cost = data.cost || 0;
-        const paymentMethod = data.paymentMethod || 'cash';
-        const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedIncidentId", "==", id));
-        const existingSlips = await getDocs(associatedSlipQuery);
-
-        if (cost > 0 && paymentMethod !== 'intangible_cost') {
-            const slipData = {
-                date: finalData.date,
-                expenseType: 'other_cost' as ExpenseType,
-                items: [{
-                    itemId: 'other_cost',
-                    name: `Chi phí sự cố (${data.category})`,
-                    description: data.content,
-                    quantity: 1,
-                    unitPrice: cost,
-                    unit: 'lần',
-                }],
-                totalAmount: cost,
-                paymentMethod: paymentMethod,
-                notes: `Tự động tạo từ báo cáo sự cố (ID: ${id}).`,
-                createdBy: creatorInfo,
-                associatedIncidentId: id,
-            };
-            if (!existingSlips.empty) {
-                // Update existing slip
-                const slipToUpdateId = existingSlips.docs[0].id;
-                await this.addOrUpdateExpenseSlip(slipData, slipToUpdateId);
-            } else {
-                // Create new slip
-                await this.addOrUpdateExpenseSlip(slipData);
-            }
-        } else if (!existingSlips.empty) {
-            // If cost is 0 or intangible, delete the associated expense slip
-            const slipToDeleteId = existingSlips.docs[0].id;
-            await deleteDoc(doc(db, "expense_slips", slipToDeleteId));
-        }
+    
+        await photoStore.deletePhotos(photosToUpload);
     },
 
 
@@ -2348,54 +2313,68 @@ export const dataStore = {
     return unsubscribe;
   },
 
+  async getViolationCategories(): Promise<ViolationCategory[]> {
+      const docRef = doc(db, 'app-data', 'violationCategories');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+          return docSnap.data().list as ViolationCategory[];
+      }
+      return initialViolationCategories;
+  },
+
   async updateViolationCategories(newCategories: ViolationCategory[]) {
     const docRef = doc(db, 'app-data', 'violationCategories');
     await setDoc(docRef, { list: newCategories });
   },
 
-  async addOrUpdateViolation(
-    violationData: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
-    id?: string
-  ): Promise<void> {
-    const { photosToUpload, ...data } = violationData;
+    async addOrUpdateViolation(
+        data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
+        id?: string
+    ): Promise<void> {
+        const { photosToUpload, category, ...incidentData } = data;
+        
+        const allCategories = await this.getViolationCategories();
+        const categoryData = allCategories.find(c => c.name === category);
 
-    // 1. Upload photos if any
-    const uploadPromises = photosToUpload.map(async (photoId) => {
-        const photoBlob = await photoStore.getPhoto(photoId);
-        if (!photoBlob) return null;
-        const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
-        return getDownloadURL(storageRef);
-    });
+        // 1. Upload photos if any
+        const uploadPromises = photosToUpload.map(async (photoId) => {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (!photoBlob) return null;
+            const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, photoBlob);
+            return getDownloadURL(storageRef);
+        });
+        
+        const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+        
+        // 2. Prepare data for Firestore
+        const finalData: Partial<Violation> = { 
+            ...incidentData,
+            category: category,
+            cost: categoryData?.fineAmount || data.cost || 0,
+            severity: categoryData?.severity || 'low',
+        };
     
-    const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+        const creatorInfo = { userId: data.reporterId, userName: data.reporterName };
     
-    // 2. Prepare data for Firestore
-    const finalData: Partial<Violation> = { ...data };
-
-    if (!id) {
-        finalData.createdAt = serverTimestamp();
-        finalData.photos = photoUrls;
-    } else {
-        finalData.lastModified = serverTimestamp();
-    }
-
-
-    if (id) {
-        const violationRef = doc(db, 'violations', id);
-        const currentDoc = await getDoc(violationRef);
-        if (currentDoc.exists()) {
-            const existingPhotos = currentDoc.data().photos || [];
-            finalData.photos = [...existingPhotos, ...photoUrls];
+        if (id) {
+            const docRef = doc(db, 'violations', id);
+            const currentDoc = await getDoc(docRef);
+            if (currentDoc.exists()) {
+                const existingPhotos = currentDoc.data().photos || [];
+                finalData.photos = [...existingPhotos, ...photoUrls];
+            } else {
+                finalData.photos = photoUrls;
+            }
+            await updateDoc(docRef, finalData);
         } else {
+            finalData.createdAt = serverTimestamp();
             finalData.photos = photoUrls;
+            const incidentRef = await addDoc(collection(db, 'violations'), finalData);
+            id = incidentRef.id;
         }
-        await updateDoc(violationRef, finalData);
-    } else {
-        await addDoc(collection(db, 'violations'), finalData);
-    }
     
-    await photoStore.deletePhotos(photosToUpload);
+        await photoStore.deletePhotos(photosToUpload);
   },
   
   async deleteViolation(violation: Violation): Promise<void> {
@@ -2552,6 +2531,7 @@ export const dataStore = {
 
 
     
+
 
 
 
