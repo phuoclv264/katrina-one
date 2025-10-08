@@ -69,7 +69,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
 
     try {
-        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', calculationType: 'fixed', fineAmount: 0 };
+        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', calculationType: 'fixed', fineAmount: 0, unitLabel: 'phút' };
         const newList = [...categories, newCategory];
         await dataStore.updateViolationCategories(newList);
         
@@ -206,12 +206,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                                 </RadioGroup>
                             </div>
 
-                            {currentEditingValues.calculationType === 'fixed' ? (
-                                <div className="space-y-2">
-                                    <Label className="text-xs">Mức phạt (VNĐ)</Label>
-                                    <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} />
-                                </div>
-                            ) : (
+                            {currentEditingValues.calculationType === 'perUnit' ? (
                                 <div className="grid grid-cols-2 gap-4">
                                      <div className="space-y-2">
                                         <Label className="text-xs">Tiền phạt/đơn vị</Label>
@@ -221,6 +216,11 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                                         <Label className="text-xs">Tên đơn vị</Label>
                                         <Input value={currentEditingValues.unitLabel ?? 'phút'} onChange={(e) => handleEditingValueChange('unitLabel', e.target.value)} />
                                     </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Label className="text-xs">Mức phạt (VNĐ)</Label>
+                                    <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} />
                                 </div>
                             )}
 
