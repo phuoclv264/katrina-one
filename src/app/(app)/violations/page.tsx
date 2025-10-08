@@ -108,7 +108,7 @@ function ViolationDialog({
     const finalSelectedCategory = categories.find(c => c.id === selectedCategoryId);
 
     if (!finalSelectedCategory) {
-        toast.error('Loại vi phạm đã chọn không hợp lệ. Vui lòng chọn lại.');
+        toast.error('Loại vi phạm đã chọn không còn tồn tại. Vui lòng chọn một loại khác.');
         return;
     }
     
@@ -187,8 +187,11 @@ function ViolationDialog({
             <div className="col-span-3">
               <ViolationCategoryCombobox
                 categories={categories}
-                value={selectedCategoryId}
-                onChange={setSelectedCategoryId}
+                value={selectedCategory?.name || ''}
+                onChange={(val) => {
+                    const newCat = categories.find(c => c.name === val);
+                    setSelectedCategoryId(newCat ? newCat.id : '');
+                }}
                 onCategoriesChange={onCategoriesChange}
                 canManage={canManageCategories}
                 placeholder="Chọn loại vi phạm..."
@@ -220,7 +223,7 @@ function ViolationDialog({
                             className="w-full"
                             placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'} ${selectedCategory.name.toLowerCase()}`}
                         />
-                        <span className="font-semibold text-muted-foreground">{selectedCategory.unitLabel || 'đơn vị'}</span>
+                         <span className="font-semibold text-muted-foreground">{selectedCategory.unitLabel || 'đơn vị'}</span>
                     </div>
                 </div>
             )}
@@ -737,8 +740,11 @@ export default function ViolationsPage() {
                     </Select>
                     <ViolationCategoryCombobox
                         categories={categories}
-                        value={filterCategoryId || ''}
-                        onChange={(val) => setFilterCategoryId(val || null)}
+                        value={categories.find(c => c.id === filterCategoryId)?.name || ''}
+                        onChange={(val) => {
+                            const newCat = categories.find(c => c.name === val);
+                            setFilterCategoryId(newCat ? newCat.id : null);
+                        }}
                         onCategoriesChange={handleCategoriesChange}
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
