@@ -99,20 +99,28 @@ function ViolationDialog({
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
   const handleSave = () => {
-    if (!content || selectedUsers.length === 0 || !selectedCategoryId || !selectedCategory) {
+    if (!content || selectedUsers.length === 0 || !selectedCategoryId) {
       toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
     
+    // Re-fetch selectedCategory inside the handler to ensure it's the latest
+    const finalSelectedCategory = categories.find(c => c.id === selectedCategoryId);
+
+    if (!finalSelectedCategory) {
+        toast.error('Loại vi phạm đã chọn không hợp lệ. Vui lòng chọn lại.');
+        return;
+    }
+    
     let calculatedCost = 0;
-    if (selectedCategory.calculationType === 'perUnit') {
+    if (finalSelectedCategory.calculationType === 'perUnit') {
       if (!unitCount || unitCount <= 0) {
-        toast.error(`Vui lòng nhập số ${selectedCategory.unitLabel || 'đơn vị'}.`);
+        toast.error(`Vui lòng nhập số ${finalSelectedCategory.unitLabel || 'đơn vị'}.`);
         return;
       }
-      calculatedCost = (selectedCategory.finePerUnit || 0) * (unitCount || 0);
+      calculatedCost = (finalSelectedCategory.finePerUnit || 0) * (unitCount || 0);
     } else {
-      calculatedCost = selectedCategory.fineAmount || 0;
+      calculatedCost = finalSelectedCategory.fineAmount || 0;
     }
     
     const data = {
@@ -123,11 +131,11 @@ function ViolationDialog({
       photosToUpload: photoIds,
       
       // Snapshot of category details
-      categoryId: selectedCategory.id,
-      categoryName: selectedCategory.name,
-      severity: selectedCategory.severity,
+      categoryId: finalSelectedCategory.id,
+      categoryName: finalSelectedCategory.name,
+      severity: finalSelectedCategory.severity,
       cost: calculatedCost,
-      unitCount: selectedCategory.calculationType === 'perUnit' ? unitCount : undefined,
+      unitCount: finalSelectedCategory.calculationType === 'perUnit' ? unitCount : undefined,
     };
     
     onSave(data, violationToEdit?.id);
@@ -930,7 +938,7 @@ export default function ViolationsPage() {
             isSelfConfession={isSelfConfessMode}
             categories={categories}
             onCategoriesChange={handleCategoriesChange}
-            canManage={user.role === 'Chủ nhà hàng'}
+            canManage={isOwner}
           />
       )}
       
@@ -957,5 +965,3 @@ export default function ViolationsPage() {
     </>
   );
 }
-
-    
