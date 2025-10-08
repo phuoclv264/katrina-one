@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -29,7 +30,7 @@ import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, Inventor
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 
 
@@ -2171,7 +2172,7 @@ export const dataStore = {
        });
        reports.sort((a, b) => {
          const timeA = a.submittedAt ? new Date(a.submittedAt as string).getTime() : 0;
-         const timeB = b.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
+         const timeB = a.submittedAt ? new Date(b.submittedAt as string).getTime() : 0;
          return timeA - timeB;
        });
        callback(reports);
@@ -2634,3 +2635,5 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
+    
