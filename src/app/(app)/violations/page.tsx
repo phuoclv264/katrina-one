@@ -198,19 +198,6 @@ function ViolationDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="content" className="text-right mt-2">
-              Nội dung
-            </Label>
-            <Textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="col-span-3"
-              placeholder="Mô tả chi tiết về vi phạm..."
-            />
-          </div>
-          
             {selectedCategory && selectedCategory.calculationType === 'perUnit' && (
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="unit-count" className="text-right">Số {selectedCategory.unitLabel || 'đơn vị'}</Label>
@@ -227,8 +214,19 @@ function ViolationDialog({
                     </div>
                 </div>
             )}
-
-
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="content" className="text-right mt-2">
+              Nội dung
+            </Label>
+            <Textarea
+              id="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="col-span-3"
+              placeholder="Mô tả chi tiết về vi phạm..."
+            />
+          </div>
+          
            <div className="grid grid-cols-4 items-start gap-4">
                 <Label className="text-right mt-2">Bằng chứng</Label>
                  <div className="col-span-3">
@@ -604,7 +602,7 @@ export default function ViolationsPage() {
         }
     };
   
-    const handlePenaltySubmit = async (photoIds: string[]) => {
+  const handlePenaltySubmit = async (photoIds: string[]) => {
         setIsPenaltyCameraOpen(false);
         if (!activeViolationForPenalty || photoIds.length === 0) {
             return;
@@ -733,18 +731,18 @@ export default function ViolationsPage() {
                             <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
                         </Button>
                         )}
-                        {canManage && (
-                           <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2">
+                            {canManage && (
                                 <Button onClick={() => openAddDialog(false)} className="w-full">
                                     <Plus className="mr-2 h-4 w-4" /> Thêm mới
                                 </Button>
-                                {isOwner && (
-                                    <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
-                                        <Settings className="h-4 w-4" />
-                                    </Button>
-                                )}
-                           </div>
-                        )}
+                            )}
+                            {isOwner && (
+                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
+                                    <Settings className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
