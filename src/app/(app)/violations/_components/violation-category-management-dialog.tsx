@@ -159,6 +159,7 @@ export default function ViolationCategoryManagementDialog({
                 {categories.map(category => {
                     const isCurrentEditing = editingCategory && editingCategory.id === category.id;
                     const item = isCurrentEditing ? editingCategory : category;
+                    if (!item) return null;
                   return (
                     <div id={category.id} key={category.id} className={cn("flex items-start gap-2 p-4 border rounded-lg transition-all", isCurrentEditing && "border-primary ring-2 ring-primary/50")}>
                       {isCurrentEditing ? (
