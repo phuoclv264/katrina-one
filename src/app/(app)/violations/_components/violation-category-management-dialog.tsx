@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -66,7 +65,15 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
 
     try {
-        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', calculationType: 'fixed', fineAmount: 0, unitLabel: 'phút', finePerUnit: 0 };
+        const newCategory: ViolationCategory = { 
+            id: uuidv4(), 
+            name: newCategoryName.trim(), 
+            severity: 'low', 
+            calculationType: 'fixed', 
+            fineAmount: 0, 
+            finePerUnit: 0, // Ensure all fields are initialized
+            unitLabel: 'phút', // Default unit label
+        };
         const newList = [...categories, newCategory];
         await dataStore.updateViolationCategories(newList);
         
@@ -98,8 +105,9 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
 
     try {
-        const dataToSave = { ...currentEditingValues };
+        const dataToSave: Partial<Omit<ViolationCategory, 'id'>> = { ...currentEditingValues };
 
+        // Sanitize data before saving
         if (dataToSave.calculationType === 'fixed') {
             dataToSave.finePerUnit = 0;
             dataToSave.unitLabel = null;
