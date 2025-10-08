@@ -99,9 +99,20 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
       toast.error('Tên loại vi phạm không được để trống.');
       return;
     }
-    
+
     try {
-        const newList = categories.map(c => c.id === editingCategoryId ? { id: editingCategoryId, ...currentEditingValues } : c);
+        const dataToSave = { ...currentEditingValues };
+        if (dataToSave.calculationType === 'fixed') {
+            dataToSave.finePerUnit = 0;
+            dataToSave.unitLabel = null;
+        }
+
+        const newList = categories.map(c => 
+            c.id === editingCategoryId 
+                ? { id: editingCategoryId, ...dataToSave } 
+                : c
+        ) as ViolationCategory[];
+        
         await dataStore.updateViolationCategories(newList);
         toast.success(`Đã cập nhật "${currentEditingValues.name}".`);
         setEditingCategoryId(null);
