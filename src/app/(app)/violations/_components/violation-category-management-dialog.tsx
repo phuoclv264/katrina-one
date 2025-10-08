@@ -41,7 +41,7 @@ export default function ViolationCategoryManagementDialog({
       const unsub = dataStore.subscribeToViolationCategories((cats) => {
         // Only update from Firestore if not currently editing to prevent overwriting user input
         if (!editingCategory) {
-            setCategories(cats.sort((a,b) => a.name.localeCompare(b.name, 'vi')));
+            setCategories(cats.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
         }
         setIsLoading(false);
       });
@@ -70,7 +70,7 @@ export default function ViolationCategoryManagementDialog({
     
     // Prevent duplicate names
     const isDuplicate = categories.some(
-      c => c.name.toLowerCase() === editingCategory.name.trim().toLowerCase() && c.id !== editingCategory.id
+      c => (c.name || '').toLowerCase() === (editingCategory.name || '').trim().toLowerCase() && c.id !== editingCategory.id
     );
 
     if (isDuplicate) {
@@ -103,7 +103,7 @@ export default function ViolationCategoryManagementDialog({
 
     try {
         await dataStore.updateViolationCategories(newCategories);
-        setCategories(newCategories.sort((a,b) => a.name.localeCompare(b.name, 'vi')));
+        setCategories(newCategories.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
         setEditingCategory(newCategory);
         newlyAddedId.current = newId; // Set the ID to scroll to
     } catch (error) {
@@ -157,18 +157,21 @@ export default function ViolationCategoryManagementDialog({
               </div>
             ) : (
               <div className="space-y-4">
-                {categories.map(category => (
-                  <div id={category.id} key={category.id} className={cn("flex items-start gap-2 p-4 border rounded-lg transition-all", editingCategory?.id === category.id && "border-primary ring-2 ring-primary/50")}>
-                    {editingCategory && editingCategory.id === category.id ? (
-                      <div className="w-full space-y-4">
+                {categories.map(category => {
+                    const isCurrentEditing = editingCategory && editingCategory.id === category.id;
+                    const item = isCurrentEditing ? editingCategory : category;
+                  return (
+                    <div id={category.id} key={category.id} className={cn("flex items-start gap-2 p-4 border rounded-lg transition-all", isCurrentEditing && "border-primary ring-2 ring-primary/50")}>
+                      {isCurrentEditing ? (
+                         <div className="w-full space-y-4">
                           <Input
-                              value={editingCategory.name}
+                              value={item.name}
                               onChange={(e) => handleUpdateCategory(category.id, 'name', e.target.value)}
                               placeholder="Tên vi phạm"
                           />
                           <div className="grid grid-cols-2 gap-4">
                               <Select
-                              value={editingCategory.severity}
+                              value={item.severity}
                               onValueChange={(value) => handleUpdateCategory(category.id, 'severity', value)}
                               >
                               <SelectTrigger><SelectValue/></SelectTrigger>
@@ -180,7 +183,7 @@ export default function ViolationCategoryManagementDialog({
                               </Select>
                               <Input
                               type="number"
-                              value={editingCategory.fineAmount}
+                              value={item.fineAmount}
                               onChange={(e) => handleUpdateCategory(category.id, 'fineAmount', Number(e.target.value))}
                               placeholder="Số tiền phạt"
                               />
@@ -190,40 +193,41 @@ export default function ViolationCategoryManagementDialog({
                               <Button size="sm" onClick={handleSaveCategory}><Check className="mr-2 h-4 w-4"/>Lưu</Button>
                           </div>
                       </div>
-                    ) : (
-                      <div className="flex justify-between items-center w-full">
-                        <div>
-                          <p className="font-semibold">{category.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                            <Badge className={cn("font-normal", getSeverityBadgeClass(category.severity))}>{category.severity}</Badge>
-                            <span>Phạt: {(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ</span>
+                      ) : (
+                        <div className="flex justify-between items-center w-full">
+                          <div>
+                            <p className="font-semibold">{category.name}</p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                              <Badge className={cn("font-normal", getSeverityBadgeClass(category.severity))}>{category.severity}</Badge>
+                              <span>Phạt: {(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center">
+                            <Button variant="ghost" size="icon" onClick={() => setEditingCategory(category)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {category.name !== 'Khác' && (
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Xóa "{category.name}"?</AlertDialogTitle></AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteCategory(category.id)}>Xóa</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          <Button variant="ghost" size="icon" onClick={() => setEditingCategory(category)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {category.name !== 'Khác' && (
-                               <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                          <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                      <AlertDialogHeader><AlertDialogTitle>Xóa "{category.name}"?</AlertDialogTitle></AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                          <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                          <AlertDialogAction onClick={() => handleDeleteCategory(category.id)}>Xóa</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                  </AlertDialogContent>
-                              </AlertDialog>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      )}
+                    </div>
+                  );
+                })}
                 <Button variant="outline" className="w-full mt-4" onClick={handleAddNewCategory}>
                   <Plus className="mr-2 h-4 w-4" /> Thêm loại vi phạm mới
                 </Button>
