@@ -320,7 +320,7 @@ export const dataStore = {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
             const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, photoBlob);
+            await uploadBytes(storageRef, blob);
             return getDownloadURL(storageRef);
         });
         const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -2324,7 +2324,20 @@ export const dataStore = {
 
   async updateViolationCategories(newCategories: ViolationCategory[]) {
     const docRef = doc(db, 'app-data', 'violationCategories');
-    await setDoc(docRef, { list: newCategories });
+    
+    // Sanitize data before sending to Firestore
+    const sanitizedCategories = newCategories.map(category => {
+      const sanitized = { ...category };
+      if (sanitized.calculationType === 'fixed') {
+        sanitized.finePerUnit = 0;
+        sanitized.unitLabel = null;
+      } else { // perUnit
+        sanitized.fineAmount = 0;
+      }
+      return sanitized;
+    });
+
+    await setDoc(docRef, { list: sanitizedCategories });
   },
 
     async addOrUpdateViolation(
@@ -2531,6 +2544,7 @@ export const dataStore = {
 
 
     
+
 
 
 
