@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import {
@@ -21,7 +22,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
 
 export default function ViolationCategoryManagementDialog({
   isOpen,
@@ -176,9 +176,9 @@ export default function ViolationCategoryManagementDialog({
                               >
                               <SelectTrigger><SelectValue/></SelectTrigger>
                               <SelectContent>
-                                  <SelectItem value="low">Nhẹ</SelectItem>
-                                  <SelectItem value="medium">Trung bình</SelectItem>
-                                  <SelectItem value="high">Nghiêm trọng</SelectItem>
+                                  <SelectItem key="low" value="low">Nhẹ</SelectItem>
+                                  <SelectItem key="medium" value="medium">Trung bình</SelectItem>
+                                  <SelectItem key="high" value="high">Nghiêm trọng</SelectItem>
                               </SelectContent>
                               </Select>
                               <Input
