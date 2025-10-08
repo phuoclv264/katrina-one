@@ -43,7 +43,7 @@ function ViolationDialog({
   isSelfConfession = false,
   categories,
   onCategoriesChange,
-  canManageCategories,
+  canManage,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -80,7 +80,7 @@ function ViolationDialog({
             setSelectedCategoryId(violationToEdit.categoryId);
             setUnitCount(violationToEdit.unitCount);
             setPhotoIds([]);
-        } else if (isSelfConfession) {
+        } else if (isSelfConfession && reporter) {
             const self = users.find(u => u.uid === reporter.uid);
             setContent('');
             setSelectedUsers(self ? [self] : []);
@@ -193,7 +193,7 @@ function ViolationDialog({
                     setSelectedCategoryId(newCat ? newCat.id : '');
                 }}
                 onCategoriesChange={onCategoriesChange}
-                canManage={canManageCategories}
+                canManage={canManage}
                 placeholder="Chọn loại vi phạm..."
               />
             </div>
@@ -894,7 +894,7 @@ export default function ViolationsPage() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                canManage && (
+                                                 (canManage || v.users.some(vu => vu.id === user.uid)) && (
                                                     <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
                                                         Xác nhận đã nộp phạt
                                                     </Button>
