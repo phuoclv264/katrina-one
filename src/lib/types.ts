@@ -217,6 +217,11 @@ export type ViolationCategory = {
   unitLabel: string | null;
 };
 
+export type ViolationCategoryData = {
+    list: ViolationCategory[];
+    generalNote?: string;
+};
+
 export type ViolationUser = {
   id: string;
   name: string;

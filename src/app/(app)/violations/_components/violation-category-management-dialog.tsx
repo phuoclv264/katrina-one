@@ -12,8 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Edit, Loader2, Check } from 'lucide-react';
-import type { ViolationCategory } from '@/lib/types';
+import { Trash2, Plus, Edit, Loader2, Check, Save } from 'lucide-react';
+import type { ViolationCategory, ViolationCategoryData } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,9 +33,11 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function ViolationCategoryManagementDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [categories, setCategories] = useState<ViolationCategory[]>([]);
+  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalNote: ''});
+  const [generalNote, setGeneralNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
@@ -47,8 +49,12 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true);
-      const unsub = dataStore.subscribeToViolationCategories((cats) => {
-        setCategories(cats.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
+      const unsub = dataStore.subscribeToViolationCategories((data) => {
+        if (data && data.list) {
+          const sortedList = data.list.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
+          setCategoryData({ list: sortedList, generalNote: data.generalNote });
+          setGeneralNote(data.generalNote || '');
+        }
         setIsLoading(false);
       });
       return () => unsub();
@@ -58,9 +64,9 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
   }, [isOpen]);
   
-  const handleAddNewCategory = async () => {
+  const handleAddNewCategory = () => {
     if (newCategoryName.trim() === '') return;
-    if (categories.some(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
+    if (categoryData.list.some(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
         toast.error('Loại vi phạm này đã tồn tại.');
         return;
     }
@@ -75,8 +81,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         unitLabel: 'phút',
     };
     
-    const newList = [...categories, newCategory].sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-    setCategories(newList); // Update UI optimistically
+    const newList = [...categoryData.list, newCategory].sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
+    setCategoryData(prev => ({...prev, list: newList })); // Update UI optimistically
     setNewCategoryName('');
 
     setTimeout(() => {
@@ -101,21 +107,20 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     try {
         const dataToSave: Partial<Omit<ViolationCategory, 'id'>> = { ...currentEditingValues };
 
-        // Sanitize data before saving
         if (dataToSave.calculationType === 'fixed') {
             dataToSave.finePerUnit = 0;
             dataToSave.unitLabel = null;
-        } else { // calculationType === 'perUnit'
+        } else {
             dataToSave.fineAmount = 0;
         }
 
-        const newList = categories.map(c => 
+        const newList = categoryData.list.map(c => 
             c.id === editingCategoryId 
                 ? { id: editingCategoryId, ...dataToSave } 
                 : c
         ) as ViolationCategory[];
         
-        await dataStore.updateViolationCategories(newList);
+        await dataStore.updateViolationCategories({ ...categoryData, list: newList });
         toast.success(`Đã cập nhật "${currentEditingValues.name}".`);
         setEditingCategoryId(null);
     } catch(error) {
@@ -125,24 +130,32 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
   };
   
     const handleCancelEdit = () => {
-        // Check if the item being cancelled was newly added and not yet saved
-        const originalItem = categories.find(c => c.id === editingCategoryId);
+        const originalItem = categoryData.list.find(c => c.id === editingCategoryId);
         if (originalItem && originalItem.name === 'Loại vi phạm mới') {
-             setCategories(prev => prev.filter(t => t.id !== editingCategoryId));
+             setCategoryData(prev => ({...prev, list: prev.list.filter(t => t.id !== editingCategoryId)}));
         }
         setEditingCategoryId(null);
     };
 
   const handleDeleteCategory = async (categoryId: string) => {
     try {
-        const newList = categories.filter(c => c.id !== categoryId);
-        await dataStore.updateViolationCategories(newList);
+        const newList = categoryData.list.filter(c => c.id !== categoryId);
+        await dataStore.updateViolationCategories({ ...categoryData, list: newList });
         toast.success('Đã xóa loại vi phạm.');
     } catch(error) {
         toast.error('Lỗi: Không thể xóa.');
         console.error(error);
     }
   };
+
+  const handleSaveNote = async () => {
+    try {
+        await dataStore.updateViolationCategories({ ...categoryData, generalNote: generalNote });
+        toast.success('Đã lưu ghi chú chung.');
+    } catch(error) {
+        toast.error('Lỗi: Không thể lưu ghi chú.');
+    }
+  }
 
   const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
     switch (severity) {
@@ -165,7 +178,19 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
-          <div className="flex gap-2">
+          <div className="space-y-2">
+            <Label>Ghi chú chung cho Chính sách phạt</Label>
+            <Textarea
+              placeholder="Nhập các quy định chung hoặc lưu ý..."
+              value={generalNote}
+              onChange={(e) => setGeneralNote(e.target.value)}
+              rows={3}
+            />
+            <div className="flex justify-end">
+                <Button size="sm" onClick={handleSaveNote}><Save className="mr-2 h-4 w-4" />Lưu ghi chú</Button>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-4 border-t">
             <Input
               placeholder="Tên loại vi phạm mới..."
               value={newCategoryName}
@@ -180,8 +205,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              ) : categories.length > 0 ? (
-                categories.map(category => (
+              ) : categoryData.list.length > 0 ? (
+                categoryData.list.map(category => (
                   <div
                     key={category.id}
                     ref={(el) => itemRefs.current.set(category.id, el)}

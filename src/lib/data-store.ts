@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -313,7 +313,7 @@ export const dataStore = {
     ): Promise<void> {
         const { photosToUpload, ...incidentData } = data;
     
-        // 1. Handle photo uploads
+        // 1. Upload photos if any
         const uploadPromises = photosToUpload.map(async (photoId) => {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
@@ -2283,50 +2283,42 @@ export const dataStore = {
     return unsubscribe;
   },
   
-  subscribeToViolationCategories(callback: (categories: ViolationCategory[]) => void): () => void {
+  subscribeToViolationCategories(callback: (data: ViolationCategoryData) => void): () => void {
     const docRef = doc(db, 'app-data', 'violationCategories');
+    const defaultData = { list: initialViolationCategories, generalNote: "" };
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
         if(docSnap.exists()) {
-            callback(docSnap.data().list as ViolationCategory[]);
+            const data = docSnap.data();
+            callback({
+                list: (data.list || initialViolationCategories) as ViolationCategory[],
+                generalNote: data.generalNote || ""
+            });
         } else {
             try {
-                await setDoc(docRef, { list: initialViolationCategories });
-                callback(initialViolationCategories);
+                await setDoc(docRef, defaultData);
+                callback(defaultData);
             } catch(e) {
                 console.error("Permission denied to create default violation categories.", e);
-                callback(initialViolationCategories);
+                callback(defaultData);
             }
         }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read violation categories: ${error.code}`);
-        callback(initialViolationCategories);
+        callback(defaultData);
     });
     return unsubscribe;
   },
 
-  async getViolationCategories(): Promise<ViolationCategory[]> {
-      const docRef = doc(db, 'app-data', 'violationCategories');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-          return docSnap.data().list as ViolationCategory[];
-      }
-      return initialViolationCategories;
-  },
-
-  async updateViolationCategories(newCategories: ViolationCategory[]) {
+  async updateViolationCategories(newData: ViolationCategoryData): Promise<void> {
     const docRef = doc(db, 'app-data', 'violationCategories');
-    
-    const sanitizedCategories = newCategories.map(category => {
+    const sanitizedCategories = (newData.list || []).map(category => {
       const sanitized: Partial<ViolationCategory> = { ...category };
-      
       if (sanitized.calculationType === 'fixed') {
         sanitized.finePerUnit = sanitized.finePerUnit ?? 0;
         sanitized.unitLabel = sanitized.unitLabel ?? null;
-      } else { // perUnit
+      } else { 
         sanitized.fineAmount = sanitized.fineAmount ?? 0;
       }
-      
-      // Ensure all fields are present to avoid 'undefined'
       return {
         id: sanitized.id!,
         name: sanitized.name!,
@@ -2338,7 +2330,7 @@ export const dataStore = {
       };
     });
 
-    await setDoc(docRef, { list: sanitizedCategories });
+    await setDoc(docRef, { list: sanitizedCategories, generalNote: newData.generalNote || "" });
   },
 
     async addOrUpdateViolation(
@@ -2535,6 +2527,7 @@ export const dataStore = {
 
 
     
+
 
 
 

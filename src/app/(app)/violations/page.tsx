@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -15,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send, Settings, Check } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -422,7 +423,7 @@ export default function ViolationsPage() {
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [categories, setCategories] = useState<ViolationCategory[]>([]);
+  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalNote: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingViolationId, setProcessingViolationId] = useState<string | null>(null);
@@ -475,7 +476,7 @@ export default function ViolationsPage() {
     if (!user) return;
     const unsubViolations = dataStore.subscribeToViolations(setViolations);
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
-    const unsubCategories = dataStore.subscribeToViolationCategories(setCategories);
+    const unsubCategories = dataStore.subscribeToViolationCategories(setCategoryData);
     
     Promise.all([
         getDocs(collection(db, 'violations')),
@@ -515,8 +516,12 @@ export default function ViolationsPage() {
   };
 
   const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
-    await dataStore.updateViolationCategories(newCategories);
+    await dataStore.updateViolationCategories({ list: newCategories, generalNote: categoryData.generalNote });
   };
+  
+  const handleGeneralNoteChange = async (newNote: string) => {
+    await dataStore.updateViolationCategories({ list: categoryData.list, generalNote: newNote });
+  }
 
   const handleDeleteViolation = async (violation: Violation) => {
     setIsProcessing(true);
@@ -739,7 +744,7 @@ export default function ViolationsPage() {
                                     <Plus className="mr-2 h-4 w-4" /> Thêm mới
                                 </Button>
                             )}
-                            <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)}>
+                             <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)}>
                                 <BadgeInfo className="mr-2 h-4 w-4" />
                                 Chính sách phạt
                             </Button>
@@ -764,10 +769,10 @@ export default function ViolationsPage() {
                         </SelectContent>
                     </Select>
                     <ViolationCategoryCombobox
-                        categories={categories}
+                        categories={categoryData.list}
                         value={filterCategoryName}
                         onChange={setFilterCategoryName}
-                        onCategoriesChange={handleCategoriesChange}
+                        onCategoriesChange={handleCategoriesChange as any}
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
                     />
@@ -790,7 +795,7 @@ export default function ViolationsPage() {
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
                                 const isWaived = v.isPenaltyWaived === true;
-                                const currentCategory = categories.find(c => c.id === v.categoryId);
+                                const currentCategory = categoryData.list.find(c => c.id === v.categoryId);
                                 const categoryDisplayName = currentCategory ? currentCategory.name : v.categoryName;
                                 const unitLabel = currentCategory?.unitLabel || 'đơn vị';
 
@@ -959,7 +964,7 @@ export default function ViolationsPage() {
             violationToEdit={violationToEdit}
             reporter={user}
             isSelfConfession={isSelfConfessMode}
-            categories={categories}
+            categories={categoryData.list}
             onCategoriesChange={handleCategoriesChange}
             canManage={isOwner}
           />
@@ -975,7 +980,9 @@ export default function ViolationsPage() {
       <ViolationInfoDialog
         isOpen={isInfoDialogOpen}
         onClose={() => setIsInfoDialogOpen(false)}
-        categories={categories}
+        categories={categoryData.list}
+        generalNote={categoryData.generalNote}
+        onSaveNote={isOwner ? handleGeneralNoteChange : undefined}
       />
       
        <CameraDialog
