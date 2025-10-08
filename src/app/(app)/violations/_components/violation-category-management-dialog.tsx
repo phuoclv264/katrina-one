@@ -65,32 +65,26 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         return;
     }
 
-    try {
-        const newCategory: ViolationCategory = { 
-            id: uuidv4(), 
-            name: newCategoryName.trim(), 
-            severity: 'low', 
-            calculationType: 'fixed', 
-            fineAmount: 0, 
-            finePerUnit: 0,
-            unitLabel: 'phút',
-        };
-        const newList = [...categories, newCategory];
-        await dataStore.updateViolationCategories(newList);
-        
-        toast.success(`Đã thêm loại vi phạm mới.`);
-        setNewCategoryName('');
+    const newCategory: ViolationCategory = { 
+        id: uuidv4(), 
+        name: newCategoryName.trim(), 
+        severity: 'low', 
+        calculationType: 'fixed', 
+        fineAmount: 0, 
+        finePerUnit: 0,
+        unitLabel: 'phút',
+    };
+    
+    const newList = [...categories, newCategory].sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
+    setCategories(newList); // Update UI optimistically
+    setNewCategoryName('');
 
-        setTimeout(() => {
-            const newItemRef = itemRefs.current.get(newCategory.id);
-            newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setEditingCategoryId(newCategory.id);
-            setCurrentEditingValues(newCategory);
-        }, 100);
-    } catch (error) {
-        toast.error('Lỗi: Không thể thêm loại vi phạm mới.');
-        console.error(error);
-    }
+    setTimeout(() => {
+        const newItemRef = itemRefs.current.get(newCategory.id);
+        newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setEditingCategoryId(newCategory.id);
+        setCurrentEditingValues(newCategory);
+    }, 100);
   };
 
   const handleEditingValueChange = (field: keyof Omit<ViolationCategory, 'id'>, value: string | number) => {
@@ -130,6 +124,15 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
   };
   
+    const handleCancelEdit = () => {
+        // Check if the item being cancelled was newly added and not yet saved
+        const originalItem = categories.find(c => c.id === editingCategoryId);
+        if (originalItem && originalItem.name === 'Loại vi phạm mới') {
+             setCategories(prev => prev.filter(t => t.id !== editingCategoryId));
+        }
+        setEditingCategoryId(null);
+    };
+
   const handleDeleteCategory = async (categoryId: string) => {
     try {
         const newList = categories.filter(c => c.id !== categoryId);
@@ -245,7 +248,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
                          </div>
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingCategoryId(null)}>Hủy</Button>
+                          <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Hủy</Button>
                           <Button size="sm" onClick={handleSaveCategory}><Check className="mr-2 h-4 w-4"/>Lưu</Button>
                         </div>
                       </div>
