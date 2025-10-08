@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -84,8 +85,8 @@ export function ViolationCategoryCombobox({
 
   const displayValue = value ? categories.find((cat) => cat.name === value)?.name || placeholder : placeholder;
   
-  const sortedCategories = React.useMemo(() => 
-    [...categories].filter(Boolean).sort((a,b) => a.name.localeCompare(b.name, 'vi')), 
+  const sortedCategories = React.useMemo(() =>
+    [...categories].filter(Boolean).sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi')),
   [categories]);
 
   const hasExactMatch = React.useMemo(() => 
