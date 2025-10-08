@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import {
@@ -126,7 +125,7 @@ export default function ViolationCategoryManagementDialog({
   const handleCancelEdit = () => {
     const originalItem = categories.find(c => c.id === editingCategory?.id);
     // If the item wasn't saved (i.e., it was a 'new' item placeholder), remove it from the list
-    if (!originalItem || originalItem.name === "Loại vi phạm mới") {
+    if (editingCategory && (!originalItem || originalItem.name === "Loại vi phạm mới")) {
        setCategories(prev => prev.filter(c => c.id !== editingCategory?.id));
     }
     setEditingCategory(null);
