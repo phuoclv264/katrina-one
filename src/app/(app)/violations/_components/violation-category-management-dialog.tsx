@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -40,7 +41,7 @@ function RuleEditor({ rule, onUpdate, onDelete }: { rule: FineRule, onUpdate: (u
     return (
         <div className="p-3 border rounded-md space-y-3 bg-blue-500/5">
             <div className="flex justify-between items-start">
-                <p className="font-semibold text-sm">Nếu...</p>
+                <p className="font-semibold text-sm">Nếu một vi phạm...</p>
                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive"/></Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -78,6 +79,16 @@ function RuleEditor({ rule, onUpdate, onDelete }: { rule: FineRule, onUpdate: (u
                     <Input type="number" value={rule.value} onChange={(e) => onUpdate({...rule, value: Number(e.target.value)})} />
                 </div>
             </div>
+             <div className="space-y-1">
+                <Label className="text-xs">Hành động phụ</Label>
+                <Select value={rule.severityAction || ''} onValueChange={(v) => onUpdate({ ...rule, severityAction: (v || null) as FineRule['severityAction'] })}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">Không thực hiện</SelectItem>
+                        <SelectItem value="increase">Gia tăng mức độ vi phạm</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
     )
 }
@@ -97,9 +108,11 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     if (isOpen) {
       setIsLoading(true);
       const unsub = dataStore.subscribeToViolationCategories((data) => {
-        if (data && Array.isArray(data.list)) {
+        if (data && data.list) {
           const sortedList = data.list.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
           setCategoryData({ list: sortedList, generalNote: data.generalNote, generalRules: data.generalRules || [] });
+        } else {
+             setCategoryData({ list: [], generalNote: '', generalRules: [] });
         }
         setIsLoading(false);
       });
@@ -197,7 +210,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
           condition: 'repeat_in_month',
           threshold: 4,
           action: 'multiply',
-          value: 2
+          value: 2,
+          severityAction: null,
       };
       const newRules = [...(categoryData.generalRules || []), newRule];
       handleSave({ ...categoryData, generalRules: newRules });
@@ -235,7 +249,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] -mx-6 px-6">
         <div className="py-4 space-y-4">
-          <div className="pt-4 border-t">
+          <div className="pt-4">
             <h4 className="font-semibold mb-2">Quy tắc phạt chung</h4>
             <div className="space-y-3">
               {(categoryData.generalRules || []).map((rule) => (

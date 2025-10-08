@@ -213,6 +213,7 @@ export type FineRule = {
     threshold: number; // e.g., 4 for "from the 4th time"
     action: 'multiply' | 'add';
     value: number; // e.g., 2 for "multiply by 2"
+    severityAction?: 'increase' | null;
 };
 
 export type ViolationCategory = {
