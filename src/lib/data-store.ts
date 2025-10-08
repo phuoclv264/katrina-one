@@ -2260,24 +2260,46 @@ export const dataStore = {
   subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
     const violationsCollection = collection(db, 'violations');
     const q = query(violationsCollection, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const violations: Violation[] = [];
+  
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      const fetchedViolations: Violation[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        violations.push({
+        fetchedViolations.push({
           id: doc.id,
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
           penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
         } as Violation);
       });
-      callback(violations);
+  
+      // Now, re-evaluate all violations based on current rules
+      const categoryData = await this.getViolationCategories();
+      const allViolationsSnapshot = await getDocs(q); // get all for context
+      const allHistoricViolations = allViolationsSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Violation);
+      const updates: Promise<void>[] = [];
+  
+      fetchedViolations.forEach(violation => {
+        const { cost, severity } = this.calculateViolationCost(violation, categoryData, allHistoricViolations);
+        if (violation.cost !== cost || violation.severity !== severity) {
+          const docRef = doc(db, 'violations', violation.id);
+          updates.push(updateDoc(docRef, { cost, severity }));
+          // Update local copy for immediate UI feedback
+          violation.cost = cost;
+          violation.severity = severity;
+        }
+      });
+  
+      if (updates.length > 0) {
+        Promise.all(updates).catch(err => console.error("Error during violation re-evaluation:", err));
+      }
+      
+      callback(fetchedViolations);
     }, (error) => {
-        console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
-        callback([]);
+      console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
+      callback([]);
     });
-
+  
     return unsubscribe;
   },
   
@@ -2312,9 +2334,26 @@ export const dataStore = {
     return unsubscribe;
   },
 
-  async updateViolationCategories(newData: ViolationCategoryData): Promise<void> {
+  async getViolationCategories(): Promise<ViolationCategoryData> {
     const docRef = doc(db, 'app-data', 'violationCategories');
-    const sanitizedCategories = (newData.list || []).map(category => {
+    const docSnap = await getDoc(docRef);
+     if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+            list: (data.list || initialViolationCategories) as ViolationCategory[],
+            generalNote: data.generalNote || "",
+            generalRules: (data.generalRules || []) as FineRule[],
+        };
+    }
+    return { list: initialViolationCategories, generalNote: "", generalRules: [] };
+  },
+
+  async updateViolationCategories(newData: Partial<ViolationCategoryData>): Promise<void> {
+    const docRef = doc(db, 'app-data', 'violationCategories');
+    const currentData = await this.getViolationCategories();
+    
+    let updatedList = newData.list || currentData.list;
+    updatedList = updatedList.map(category => {
       const sanitized: Partial<ViolationCategory> = { ...category };
       if (sanitized.calculationType === 'fixed') {
         sanitized.finePerUnit = sanitized.finePerUnit ?? 0;
@@ -2323,25 +2362,92 @@ export const dataStore = {
         sanitized.fineAmount = sanitized.fineAmount ?? 0;
       }
       return {
-        id: sanitized.id!,
-        name: sanitized.name!,
-        severity: sanitized.severity || 'low',
-        calculationType: sanitized.calculationType || 'fixed',
-        fineAmount: sanitized.fineAmount || 0,
-        finePerUnit: sanitized.finePerUnit || 0,
-        unitLabel: sanitized.unitLabel || null,
+        id: sanitized.id!, name: sanitized.name!, severity: sanitized.severity || 'low',
+        calculationType: sanitized.calculationType || 'fixed', fineAmount: sanitized.fineAmount || 0,
+        finePerUnit: sanitized.finePerUnit || 0, unitLabel: sanitized.unitLabel || null,
       };
     });
 
-    await setDoc(docRef, { 
-      list: sanitizedCategories, 
-      generalNote: newData.generalNote || "",
-      generalRules: newData.generalRules || [],
+    const dataToSave = {
+        list: updatedList,
+        generalNote: newData.generalNote !== undefined ? newData.generalNote : currentData.generalNote,
+        generalRules: newData.generalRules !== undefined ? newData.generalRules : currentData.generalRules,
+    };
+    
+    await setDoc(docRef, dataToSave, { merge: true });
+  },
+
+  calculateViolationCost(
+    violation: Violation,
+    categoryData: ViolationCategoryData,
+    allHistoricViolations: Violation[]
+  ): { cost: number; severity: Violation['severity'] } {
+    const category = categoryData.list.find(c => c.id === violation.categoryId);
+    if (!category) {
+      return { cost: violation.cost, severity: violation.severity };
+    }
+  
+    let baseCost = 0;
+    if (category.calculationType === 'perUnit') {
+      baseCost = (category.finePerUnit || 0) * (violation.unitCount || 0);
+    } else {
+      baseCost = category.fineAmount || 0;
+    }
+  
+    let finalCost = baseCost;
+    let finalSeverity = category.severity;
+  
+    const applicableRules = (categoryData.generalRules || []).filter(rule => {
+      if (rule.condition === 'is_flagged' && violation.isFlagged) {
+        return true;
+      }
+      if (rule.condition === 'repeat_in_month') {
+        const createdAt = parseISO(violation.createdAt as string);
+        const start = startOfMonth(createdAt);
+        const end = endOfMonth(createdAt);
+        
+        const repeatCount = violation.users.reduce((maxCount, user) => {
+          const count = allHistoricViolations.filter(v =>
+            v.users.some(vu => vu.id === user.id) &&
+            v.categoryId === violation.categoryId &&
+            isWithinInterval(parseISO(v.createdAt as string), { start, end }) &&
+            new Date(v.createdAt as string) < new Date(violation.createdAt as string)
+          ).length + 1; // +1 for the current violation
+          return Math.max(maxCount, count);
+        }, 0);
+  
+        return repeatCount >= rule.threshold;
+      }
+      return false;
     });
+  
+    // For rules with the same condition, only apply the one with the highest threshold
+    const highestThresholdRules = new Map<FineRule['condition'], FineRule>();
+    applicableRules.forEach(rule => {
+      const existing = highestThresholdRules.get(rule.condition);
+      if (!existing || rule.threshold > existing.threshold) {
+        highestThresholdRules.set(rule.condition, rule);
+      }
+    });
+  
+    highestThresholdRules.forEach(rule => {
+      if (rule.action === 'multiply') {
+        finalCost *= rule.value;
+      } else if (rule.action === 'add') {
+        finalCost += rule.value;
+      }
+  
+      if (rule.severityAction === 'increase') {
+        if (finalSeverity === 'low') finalSeverity = 'medium';
+        else if (finalSeverity === 'medium') finalSeverity = 'high';
+      }
+    });
+  
+    return { cost: finalCost, severity: finalSeverity };
   },
 
     async addOrUpdateViolation(
-        data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
+        data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt' | 'cost' | 'severity'> & { photosToUpload: string[] },
         id?: string
     ): Promise<void> {
         const { photosToUpload, ...violationData } = data;
@@ -2354,22 +2460,20 @@ export const dataStore = {
             await uploadBytes(storageRef, photoBlob);
             return getDownloadURL(storageRef);
         });
-        
         const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
     
         // 2. Prepare data for Firestore
         const finalData: Partial<Violation> = { ...violationData };
-    
+
         if (id) {
             const docRef = doc(db, 'violations', id);
             const currentDoc = await getDoc(docRef);
             if (currentDoc.exists()) {
                 const existingPhotos = currentDoc.data().photos || [];
                 finalData.photos = [...existingPhotos, ...photoUrls];
-            } else {
-                finalData.photos = photoUrls;
+                finalData.lastModified = serverTimestamp();
+                await updateDoc(docRef, finalData);
             }
-            await updateDoc(docRef, finalData);
         } else {
             finalData.createdAt = serverTimestamp();
             finalData.photos = photoUrls;
@@ -2378,6 +2482,8 @@ export const dataStore = {
         }
     
         await photoStore.deletePhotos(photosToUpload);
+        
+        // This triggers the re-evaluation logic on the client that's subscribed
   },
   
   async deleteViolation(violation: Violation): Promise<void> {
@@ -2528,21 +2634,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
