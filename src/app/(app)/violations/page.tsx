@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -31,6 +30,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import ViolationCategoryManagementDialog from './_components/violation-category-management-dialog';
+import ViolationInfoDialog from './_components/violation-info-dialog';
 
 function ViolationDialog({
   open,
@@ -428,6 +428,7 @@ export default function ViolationsPage() {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
@@ -686,7 +687,7 @@ export default function ViolationsPage() {
   const getSeverityBadgeClass = (severity: Violation['severity']) => {
     switch (severity) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
-      case 'medium': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700';
       case 'low':
       default:
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
@@ -737,9 +738,13 @@ export default function ViolationsPage() {
                                     <Plus className="mr-2 h-4 w-4" /> Thêm mới
                                 </Button>
                             )}
-                            {isOwner && (
+                            {isOwner ? (
                                 <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
                                     <Settings className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button variant="outline" size="icon" onClick={() => setIsInfoDialogOpen(true)}>
+                                    <BadgeInfo className="h-4 w-4" />
                                 </Button>
                             )}
                         </div>
@@ -965,6 +970,14 @@ export default function ViolationsPage() {
             onClose={() => setIsCategoryDialogOpen(false)}
         />
       )}
+
+      {!canManage && (
+         <ViolationInfoDialog
+            isOpen={isInfoDialogOpen}
+            onClose={() => setIsInfoDialogOpen(false)}
+            categories={categories}
+        />
+      )}
       
        <CameraDialog
         isOpen={isPenaltyCameraOpen}
@@ -982,4 +995,3 @@ export default function ViolationsPage() {
     </>
   );
 }
-
