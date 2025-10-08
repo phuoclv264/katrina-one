@@ -667,9 +667,9 @@ export default function ViolationsPage() {
   const isOwner = user?.role === 'Chủ nhà hàng';
   const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
-  const openAddDialog = (isSelfConfession: boolean) => {
+  const openAddDialog = (isSelfConfess: boolean) => {
     setViolationToEdit(null);
-    setIsSelfConfessMode(isSelfConfession);
+    setIsSelfConfessMode(isSelfConfess);
     setIsDialogOpen(true);
   }
   
@@ -797,8 +797,8 @@ export default function ViolationsPage() {
                                   borderClass = "border-red-500/30";
                                   bgClass = "bg-red-500/10";
                                 } else if (v.severity === 'medium') {
-                                  borderClass = "border-amber-500/30";
-                                  bgClass = "bg-amber-500/10";
+                                  borderClass = "border-yellow-500/30";
+                                  bgClass = "bg-yellow-500/10";
                                 } else {
                                   borderClass = "border-primary/50";
                                   bgClass = "bg-card";
@@ -982,3 +982,4 @@ export default function ViolationsPage() {
     </>
   );
 }
+
