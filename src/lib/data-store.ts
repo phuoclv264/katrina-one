@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -2277,7 +2278,14 @@ export const dataStore = {
       // Now, re-evaluate all violations based on current rules
       const categoryData = await this.getViolationCategories();
       const allViolationsSnapshot = await getDocs(q); // get all for context
-      const allHistoricViolations = allViolationsSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Violation);
+      const allHistoricViolations = allViolationsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id, 
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as Violation
+      });
       const updates: Promise<void>[] = [];
   
       fetchedViolations.forEach(violation => {
@@ -2365,7 +2373,7 @@ export const dataStore = {
       return {
         id: sanitized.id!, name: sanitized.name!, severity: sanitized.severity || 'low',
         calculationType: sanitized.calculationType || 'fixed', fineAmount: sanitized.fineAmount || 0,
-        finePerUnit: sanitized.finePerUnit || 0, unitLabel: sanitized.unitLabel || null,
+        finePerUnit: sanitized.finePerUnit || 0, unitLabel: sanitized.unitLabel || 'phút',
       };
     });
 
@@ -2403,7 +2411,9 @@ export const dataStore = {
         return true;
       }
       if (rule.condition === 'repeat_in_month') {
-        const createdAt = parseISO(violation.createdAt as string);
+        const createdAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
+        if (createdAt.getTime() === 0) return false;
+
         const start = startOfMonth(createdAt);
         const end = endOfMonth(createdAt);
         
@@ -2635,5 +2645,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
-    
