@@ -108,7 +108,7 @@ function ViolationDialog({
     const finalSelectedCategory = categories.find(c => c.id === selectedCategoryId);
 
     if (!finalSelectedCategory) {
-        toast.error('Loại vi phạm đã chọn không còn tồn tại. Vui lòng chọn một loại khác.');
+        toast.error("Loại vi phạm đã chọn không còn tồn tại. Vui lòng chọn một loại khác.");
         return;
     }
     
@@ -135,7 +135,7 @@ function ViolationDialog({
       categoryName: finalSelectedCategory.name,
       severity: finalSelectedCategory.severity,
       cost: calculatedCost,
-      unitCount: finalSelectedCategory.calculationType === 'perUnit' ? unitCount : undefined,
+      unitCount: finalSelectedCategory.calculationType === 'perUnit' ? (unitCount || 0) : 0,
     };
     
     onSave(data, violationToEdit?.id);
@@ -734,16 +734,16 @@ export default function ViolationsPage() {
                         </Button>
                         )}
                         {canManage && (
-                          <div className="flex gap-2">
-                            <Button onClick={() => openAddDialog(false)} className="w-full">
-                                <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                            </Button>
-                             {isOwner && (
-                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
-                                    <Settings className="h-4 w-4" />
+                           <div className="flex items-center gap-2">
+                                <Button onClick={() => openAddDialog(false)} className="w-full">
+                                    <Plus className="mr-2 h-4 w-4" /> Thêm mới
                                 </Button>
-                            )}
-                          </div>
+                                {isOwner && (
+                                    <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
+                                        <Settings className="h-4 w-4" />
+                                    </Button>
+                                )}
+                           </div>
                         )}
                     </div>
                 </div>
