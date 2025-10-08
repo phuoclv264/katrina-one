@@ -35,25 +35,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function ViolationCategoryManagementDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [categories, setCategories] = useState<ViolationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingCategory, setEditingCategory] = useState<ViolationCategory | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', fineAmount: 0 });
   
   const [newCategoryName, setNewCategoryName] = useState('');
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
-
+  // Effect to subscribe to data source
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true);
       const unsub = dataStore.subscribeToViolationCategories((cats) => {
         // Only update from Firestore if not currently editing to prevent overwriting user input
-        if (!editingCategory) {
+        if (!editingCategoryId) {
             setCategories(cats.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
         }
         setIsLoading(false);
       });
       return () => unsub();
+    } else {
+        // Reset state when dialog closes
+        setEditingCategoryId(null);
     }
-  }, [isOpen, editingCategory]);
+  }, [isOpen, editingCategoryId]);
   
   const handleAddNewCategory = async () => {
     if (newCategoryName.trim() === '') return;
@@ -70,11 +74,12 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         toast.success(`Đã thêm loại vi phạm mới.`);
         setNewCategoryName('');
 
-        // Scroll to the new item
+        // Scroll to the new item and enter edit mode
         setTimeout(() => {
             const newItemRef = itemRefs.current.get(newCategory.id);
             newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setEditingCategory(newCategory); // Automatically enter edit mode for the new item
+            setEditingCategoryId(newCategory.id);
+            setCurrentEditingValues({ name: newCategory.name, severity: newCategory.severity, fineAmount: newCategory.fineAmount });
         }, 100);
     } catch (error) {
         toast.error('Lỗi: Không thể thêm loại vi phạm mới.');
@@ -82,24 +87,22 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
   };
 
-  const handleUpdateCategory = (categoryId: string, field: keyof ViolationCategory, value: string | number) => {
-    setEditingCategory(prev => {
-        if (!prev || prev.id !== categoryId) return prev;
-        return { ...prev, [field]: value };
-    });
-  };
+  const handleEditingValueChange = (field: keyof Omit<ViolationCategory, 'id'>, value: string | number) => {
+    setCurrentEditingValues(prev => ({ ...prev, [field]: value }));
+  }
 
-  const handleSaveCategory = async (categoryToSave: ViolationCategory) => {
-    if (!categoryToSave.name.trim()) {
+  const handleSaveCategory = async () => {
+    if (!editingCategoryId) return;
+    if (!currentEditingValues.name.trim()) {
       toast.error('Tên loại vi phạm không được để trống.');
       return;
     }
     
     try {
-        const newList = categories.map(c => c.id === categoryToSave.id ? categoryToSave : c);
+        const newList = categories.map(c => c.id === editingCategoryId ? { id: editingCategoryId, ...currentEditingValues } : c);
         await dataStore.updateViolationCategories(newList);
-        toast.success(`Đã cập nhật "${categoryToSave.name}".`);
-        setEditingCategory(null);
+        toast.success(`Đã cập nhật "${currentEditingValues.name}".`);
+        setEditingCategoryId(null);
     } catch(error) {
         toast.error('Lỗi: Không thể lưu thay đổi.');
         console.error(error);
@@ -160,22 +163,22 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                     ref={(el) => itemRefs.current.set(category.id, el)}
                     className={cn(
                       "p-3 space-y-3 border rounded-lg",
-                       editingCategory?.id === category.id ? "bg-muted border-primary" : "bg-card"
+                       editingCategoryId === category.id ? "bg-muted border-primary" : "bg-card"
                     )}
                   >
-                    {editingCategory && editingCategory.id === category.id ? (
+                    {editingCategoryId === category.id ? (
                       // EDITING VIEW
                       <div className="w-full space-y-4">
                          <div className="space-y-4">
                             <Input
-                                value={editingCategory.name}
-                                onChange={(e) => handleUpdateCategory(category.id, 'name', e.target.value)}
+                                value={currentEditingValues.name}
+                                onChange={(e) => handleEditingValueChange('name', e.target.value)}
                                 placeholder="Tên vi phạm"
                             />
                             <div className="grid grid-cols-2 gap-4">
                                <div className="space-y-2">
                                   <Label className="text-xs">Mức độ</Label>
-                                  <Select value={editingCategory.severity} onValueChange={(val) => handleUpdateCategory(category.id, 'severity', val)}>
+                                  <Select value={currentEditingValues.severity} onValueChange={(val) => handleEditingValueChange('severity', val)}>
                                       <SelectTrigger><SelectValue /></SelectTrigger>
                                       <SelectContent>
                                           <SelectItem key="low" value="low">Nhẹ</SelectItem>
@@ -186,13 +189,13 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                                </div>
                                <div className="space-y-2">
                                   <Label className="text-xs">Mức phạt (VNĐ)</Label>
-                                  <Input type="number" value={editingCategory.fineAmount} onChange={(e) => handleUpdateCategory(category.id, 'fineAmount', parseInt(e.target.value, 10) || 0)} />
+                                  <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} />
                                </div>
                             </div>
                          </div>
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingCategory(null)}>Hủy</Button>
-                          <Button size="sm" onClick={() => handleSaveCategory(editingCategory)}><Check className="mr-2 h-4 w-4"/>Lưu</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingCategoryId(null)}>Hủy</Button>
+                          <Button size="sm" onClick={handleSaveCategory}><Check className="mr-2 h-4 w-4"/>Lưu</Button>
                         </div>
                       </div>
                     ) : (
@@ -205,7 +208,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                             <span className="text-muted-foreground">{(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ</span>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCategory(category)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategoryId(category.id); setCurrentEditingValues({ name: category.name, severity: category.severity, fineAmount: category.fineAmount }); }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
