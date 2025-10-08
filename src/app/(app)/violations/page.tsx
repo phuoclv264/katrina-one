@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -739,13 +738,12 @@ export default function ViolationsPage() {
                                     <Plus className="mr-2 h-4 w-4" /> Thêm mới
                                 </Button>
                             )}
-                            {isOwner ? (
+                            <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)}>
+                                <BadgeInfo className="mr-2 h-4 w-4" /> Chính sách phạt
+                            </Button>
+                            {isOwner && (
                                 <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
                                     <Settings className="h-4 w-4" />
-                                </Button>
-                            ) : (
-                                <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)}>
-                                    <BadgeInfo className="mr-2 h-4 w-4" /> Chính sách phạt
                                 </Button>
                             )}
                         </div>
@@ -972,13 +970,11 @@ export default function ViolationsPage() {
         />
       )}
 
-      {!isOwner && (
-         <ViolationInfoDialog
-            isOpen={isInfoDialogOpen}
-            onClose={() => setIsInfoDialogOpen(false)}
-            categories={categories}
-        />
-      )}
+      <ViolationInfoDialog
+        isOpen={isInfoDialogOpen}
+        onClose={() => setIsInfoDialogOpen(false)}
+        categories={categories}
+      />
       
        <CameraDialog
         isOpen={isPenaltyCameraOpen}
