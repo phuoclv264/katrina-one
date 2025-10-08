@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -12,8 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Edit, Loader2, Check, Save } from 'lucide-react';
-import type { ViolationCategory, ViolationCategoryData } from '@/lib/types';
+import { Trash2, Plus, Edit, Loader2, Check, Save, ShieldCheck, Repeat } from 'lucide-react';
+import type { ViolationCategory, ViolationCategoryData, FineRule } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,10 +33,57 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
+function RuleEditor({ rule, onUpdate, onDelete }: { rule: FineRule, onUpdate: (updatedRule: FineRule) => void, onDelete: () => void }) {
+    return (
+        <div className="p-3 border rounded-md space-y-3 bg-blue-500/5">
+            <div className="flex justify-between items-start">
+                <p className="font-semibold text-sm">Nếu...</p>
+                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                    <Label className="text-xs">Điều kiện</Label>
+                    <Select value={rule.condition} onValueChange={(v) => onUpdate({ ...rule, condition: v as FineRule['condition'] })}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="repeat_in_month">Lặp lại trong tháng</SelectItem>
+                            <SelectItem value="is_flagged">Bị gắn cờ</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                 {rule.condition === 'repeat_in_month' && (
+                    <div className="space-y-1">
+                        <Label className="text-xs">Ngưỡng (Từ lần thứ...)</Label>
+                        <Input type="number" value={rule.threshold} onChange={(e) => onUpdate({...rule, threshold: Number(e.target.value)})} />
+                    </div>
+                 )}
+            </div>
+             <p className="font-semibold text-sm">Thì...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                 <div className="space-y-1">
+                    <Label className="text-xs">Hành động</Label>
+                    <Select value={rule.action} onValueChange={(v) => onUpdate({ ...rule, action: v as FineRule['action'] })}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="multiply">Nhân tiền phạt</SelectItem>
+                            <SelectItem value="add">Cộng thêm tiền phạt</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="space-y-1">
+                    <Label className="text-xs">Giá trị</Label>
+                    <Input type="number" value={rule.value} onChange={(e) => onUpdate({...rule, value: Number(e.target.value)})} />
+                </div>
+            </div>
+        </div>
+    )
+}
+
 
 export default function ViolationCategoryManagementDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalNote: ''});
-  const [generalNote, setGeneralNote] = useState('');
+  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [], generalNote: ''});
   const [isLoading, setIsLoading] = useState(true);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
@@ -50,16 +96,14 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     if (isOpen) {
       setIsLoading(true);
       const unsub = dataStore.subscribeToViolationCategories((data) => {
-        if (data && data.list) {
-          const sortedList = data.list.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-          setCategoryData({ list: sortedList, generalNote: data.generalNote });
-          setGeneralNote(data.generalNote || '');
+        if (data) {
+          const sortedList = (data.list || []).sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
+          setCategoryData({ list: sortedList, generalNote: data.generalNote || '', generalRules: data.generalRules || [] });
         }
         setIsLoading(false);
       });
       return () => unsub();
     } else {
-        // Reset state when dialog closes
         setEditingCategoryId(null);
     }
   }, [isOpen]);
@@ -82,7 +126,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     };
     
     const newList = [...categoryData.list, newCategory].sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-    setCategoryData(prev => ({...prev, list: newList })); // Update UI optimistically
+    handleSave({...categoryData, list: newList});
     setNewCategoryName('');
 
     setTimeout(() => {
@@ -92,9 +136,14 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         setCurrentEditingValues(newCategory);
     }, 100);
   };
-
-  const handleEditingValueChange = (field: keyof Omit<ViolationCategory, 'id'>, value: string | number) => {
-    setCurrentEditingValues(prev => ({ ...prev, [field]: value }));
+  
+  const handleSave = async (newData: ViolationCategoryData) => {
+     try {
+      await dataStore.updateViolationCategories(newData);
+    } catch (error) {
+      toast.error('Lỗi: Không thể lưu thay đổi.');
+      console.error(error);
+    }
   }
 
   const handleSaveCategory = async () => {
@@ -104,29 +153,24 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
       return;
     }
 
-    try {
-        const dataToSave: Partial<Omit<ViolationCategory, 'id'>> = { ...currentEditingValues };
+    const dataToSave: Partial<Omit<ViolationCategory, 'id'>> = { ...currentEditingValues };
 
-        if (dataToSave.calculationType === 'fixed') {
-            dataToSave.finePerUnit = 0;
-            dataToSave.unitLabel = null;
-        } else {
-            dataToSave.fineAmount = 0;
-        }
-
-        const newList = categoryData.list.map(c => 
-            c.id === editingCategoryId 
-                ? { id: editingCategoryId, ...dataToSave } 
-                : c
-        ) as ViolationCategory[];
-        
-        await dataStore.updateViolationCategories({ ...categoryData, list: newList });
-        toast.success(`Đã cập nhật "${currentEditingValues.name}".`);
-        setEditingCategoryId(null);
-    } catch(error) {
-        toast.error('Lỗi: Không thể lưu thay đổi.');
-        console.error(error);
+    if (dataToSave.calculationType === 'fixed') {
+        dataToSave.finePerUnit = 0;
+        dataToSave.unitLabel = null;
+    } else {
+        dataToSave.fineAmount = 0;
     }
+
+    const newList = categoryData.list.map(c => 
+        c.id === editingCategoryId 
+            ? { id: editingCategoryId, ...dataToSave } 
+            : c
+    ) as ViolationCategory[];
+    
+    await handleSave({ ...categoryData, list: newList });
+    toast.success(`Đã cập nhật "${currentEditingValues.name}".`);
+    setEditingCategoryId(null);
   };
   
     const handleCancelEdit = () => {
@@ -138,23 +182,31 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    try {
-        const newList = categoryData.list.filter(c => c.id !== categoryId);
-        await dataStore.updateViolationCategories({ ...categoryData, list: newList });
-        toast.success('Đã xóa loại vi phạm.');
-    } catch(error) {
-        toast.error('Lỗi: Không thể xóa.');
-        console.error(error);
-    }
+    const newList = categoryData.list.filter(c => c.id !== categoryId);
+    await handleSave({ ...categoryData, list: newList });
+    toast.success('Đã xóa loại vi phạm.');
   };
+  
+  const handleAddGeneralRule = () => {
+      const newRule: FineRule = {
+          id: uuidv4(),
+          condition: 'repeat_in_month',
+          threshold: 4,
+          action: 'multiply',
+          value: 2
+      };
+      const newRules = [...(categoryData.generalRules || []), newRule];
+      handleSave({ ...categoryData, generalRules: newRules });
+  }
 
-  const handleSaveNote = async () => {
-    try {
-        await dataStore.updateViolationCategories({ ...categoryData, generalNote: generalNote });
-        toast.success('Đã lưu ghi chú chung.');
-    } catch(error) {
-        toast.error('Lỗi: Không thể lưu ghi chú.');
-    }
+  const handleUpdateGeneralRule = (ruleId: string, updatedRule: FineRule) => {
+      const newRules = (categoryData.generalRules || []).map(r => r.id === ruleId ? updatedRule : r);
+      handleSave({ ...categoryData, generalRules: newRules });
+  }
+
+  const handleDeleteGeneralRule = (ruleId: string) => {
+      const newRules = (categoryData.generalRules || []).filter(r => r.id !== ruleId);
+      handleSave({ ...categoryData, generalRules: newRules });
   }
 
   const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
@@ -177,17 +229,32 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
             Thêm, sửa, hoặc xóa các danh mục vi phạm và mức phạt tương ứng.
           </DialogDescription>
         </DialogHeader>
+        <ScrollArea className="max-h-[70vh] -mx-6 px-6">
         <div className="py-4 space-y-4">
           <div className="space-y-2">
             <Label>Ghi chú chung cho Chính sách phạt</Label>
             <Textarea
               placeholder="Nhập các quy định chung hoặc lưu ý..."
-              value={generalNote}
-              onChange={(e) => setGeneralNote(e.target.value)}
+              value={categoryData.generalNote}
+              onChange={(e) => setCategoryData(prev => ({ ...prev, generalNote: e.target.value }))}
+              onBlur={() => handleSave(categoryData)}
               rows={3}
             />
-            <div className="flex justify-end">
-                <Button size="sm" onClick={handleSaveNote}><Save className="mr-2 h-4 w-4" />Lưu ghi chú</Button>
+          </div>
+          <div className="pt-4 border-t">
+            <h4 className="font-semibold mb-2">Quy tắc phạt chung</h4>
+            <div className="space-y-3">
+              {(categoryData.generalRules || []).map((rule) => (
+                  <RuleEditor 
+                    key={rule.id} 
+                    rule={rule} 
+                    onUpdate={(updatedRule) => handleUpdateGeneralRule(rule.id, updatedRule)}
+                    onDelete={() => handleDeleteGeneralRule(rule.id)}
+                  />
+              ))}
+              <Button variant="outline" size="sm" className="w-full" onClick={handleAddGeneralRule}>
+                  <Plus className="mr-2 h-4 w-4" /> Thêm quy tắc chung
+              </Button>
             </div>
           </div>
           <div className="flex gap-2 pt-4 border-t">
@@ -199,8 +266,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
             />
             <Button onClick={handleAddNewCategory}><Plus className="mr-2 h-4 w-4" /> Thêm</Button>
           </div>
-          <ScrollArea className="h-72 border rounded-md">
-            <div className="p-2 space-y-2">
+          
+            <div className="space-y-2">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -329,8 +396,9 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                 <p className="text-center text-sm text-muted-foreground py-4">Chưa có loại vi phạm nào.</p>
               )}
             </div>
-          </ScrollArea>
+          
         </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

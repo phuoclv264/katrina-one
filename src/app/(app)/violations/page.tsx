@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -423,7 +421,7 @@ export default function ViolationsPage() {
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalNote: '' });
+  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [], generalNote: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingViolationId, setProcessingViolationId] = useState<string | null>(null);
@@ -516,11 +514,11 @@ export default function ViolationsPage() {
   };
 
   const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
-    await dataStore.updateViolationCategories({ list: newCategories, generalNote: categoryData.generalNote });
+    await dataStore.updateViolationCategories({ ...categoryData, list: newCategories });
   };
   
   const handleGeneralNoteChange = async (newNote: string) => {
-    await dataStore.updateViolationCategories({ list: categoryData.list, generalNote: newNote });
+    await dataStore.updateViolationCategories({ ...categoryData, generalNote: newNote });
   }
 
   const handleDeleteViolation = async (violation: Violation) => {
@@ -772,7 +770,7 @@ export default function ViolationsPage() {
                         categories={categoryData.list}
                         value={filterCategoryName}
                         onChange={setFilterCategoryName}
-                        onCategoriesChange={handleCategoriesChange as any}
+                        onCategoriesChange={handleCategoriesChange}
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
                     />
