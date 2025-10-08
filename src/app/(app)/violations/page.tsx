@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -726,20 +727,21 @@ export default function ViolationsPage() {
                             Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
                         </CardDescription>
                     </div>
-                     <div className="flex gap-2 w-full sm:w-auto">
+                     <div className="flex gap-2 w-full sm:w-auto flex-wrap justify-end">
                         {!canManage && (
-                        <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full">
-                            <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
-                        </Button>
+                          <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
+                              <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+                          </Button>
                         )}
-                         <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 flex-wrap">
                             {canManage && (
-                                <Button onClick={() => openAddDialog(false)} className="w-full">
+                                <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
                                     <Plus className="mr-2 h-4 w-4" /> Thêm mới
                                 </Button>
                             )}
                             <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)}>
-                                <BadgeInfo className="mr-2 h-4 w-4" /> Chính sách phạt
+                                <BadgeInfo className="mr-2 h-4 w-4" />
+                                Chính sách phạt
                             </Button>
                             {isOwner && (
                                 <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
