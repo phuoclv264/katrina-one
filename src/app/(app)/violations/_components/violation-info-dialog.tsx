@@ -1,4 +1,6 @@
+
 'use client';
+import React, { useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -28,10 +30,28 @@ const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
     }
 };
 
+const severityOrder: Record<ViolationCategory['severity'], number> = {
+    low: 1,
+    medium: 2,
+    high: 3
+};
+
 export default function ViolationInfoDialog({ isOpen, onClose, categories }: ViolationInfoDialogProps) {
+
+  const sortedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => {
+        const severityA = severityOrder[a.severity] || 99;
+        const severityB = severityOrder[b.severity] || 99;
+        if (severityA !== severityB) {
+            return severityA - severityB;
+        }
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+    });
+  }, [categories]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-white dark:bg-card">
         <DialogHeader>
           <DialogTitle>Quy định Vi phạm & Mức phạt</DialogTitle>
           <DialogDescription>
@@ -49,7 +69,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories }: Vio
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {categories.map((category) => (
+                    {sortedCategories.map((category) => (
                     <TableRow key={category.id}>
                         <TableCell className="font-medium">{category.name}</TableCell>
                         <TableCell className="text-center">
