@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -164,7 +163,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                        editingCategory?.id === category.id ? "bg-muted border-primary" : "bg-card"
                     )}
                   >
-                    {editingCategory?.id === category.id ? (
+                    {editingCategory && editingCategory.id === category.id ? (
                       // EDITING VIEW
                       <div className="w-full space-y-4">
                          <div className="space-y-4">
