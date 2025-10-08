@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -198,19 +199,23 @@ function ViolationDialog({
             />
           </div>
           
-           {selectedCategory && selectedCategory.calculationType === 'perUnit' && (
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="unit-count" className="text-right">Số {selectedCategory.unitLabel || 'đơn vị'}</Label>
-                <Input
-                    id="unit-count"
-                    type="number"
-                    value={unitCount || ''}
-                    onChange={(e) => setUnitCount(Number(e.target.value))}
-                    className="col-span-3"
-                    placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'}...`}
-                />
-            </div>
-          )}
+            {selectedCategory && selectedCategory.calculationType === 'perUnit' && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="unit-count" className="text-right">Số {selectedCategory.unitLabel || 'đơn vị'}</Label>
+                    <div className="col-span-3 flex items-center gap-2">
+                        <Input
+                            id="unit-count"
+                            type="number"
+                            value={unitCount || ''}
+                            onChange={(e) => setUnitCount(Number(e.target.value))}
+                            className="w-full"
+                            placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'}...`}
+                        />
+                        <span className="font-semibold text-muted-foreground">{selectedCategory.unitLabel || 'đơn vị'}</span>
+                    </div>
+                </div>
+            )}
+
 
            <div className="grid grid-cols-4 items-start gap-4">
                 <Label className="text-right mt-2">Bằng chứng</Label>
