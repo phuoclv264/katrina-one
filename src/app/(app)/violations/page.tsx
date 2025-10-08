@@ -885,7 +885,7 @@ export default function ViolationsPage() {
                                                           <Eye className="mr-2 h-4 w-4" />
                                                           Xem ({v.penaltyPhotos.length})
                                                       </Button>
-                                                      {canManage && (
+                                                      {(canManage || v.users.some(vu => vu.id === user.uid)) && (
                                                           <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
                                                               <FilePlus2 className="mr-2 h-4 w-4" />
                                                               Bổ sung
