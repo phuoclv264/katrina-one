@@ -789,6 +789,7 @@ export default function ViolationsPage() {
                                 const isWaived = v.isPenaltyWaived === true;
                                 const currentCategory = categories.find(c => c.id === v.categoryId);
                                 const categoryDisplayName = currentCategory ? currentCategory.name : v.categoryName;
+                                const unitLabel = currentCategory?.unitLabel || 'đơn vị';
 
                                 let borderClass = "border-primary/50";
                                 let bgClass = "bg-card";
@@ -852,7 +853,14 @@ export default function ViolationsPage() {
                                         Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
                                     </p>
                                     <p className="mt-2 text-sm whitespace-pre-wrap">{v.content}</p>
-                                    <p className="mt-1 font-bold text-destructive">{v.cost > 0 && `Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}</p>
+                                    <p className="mt-1 font-bold text-destructive">
+                                        {v.cost > 0 && `Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}
+                                        {v.cost > 0 && v.unitCount && currentCategory && currentCategory.calculationType === 'perUnit' && (
+                                            <span className="text-xs font-normal text-muted-foreground ml-1">
+                                                ({categoryDisplayName} {v.unitCount} {unitLabel})
+                                            </span>
+                                        )}
+                                    </p>
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
                                             {v.photos.map((photo, index) => (
