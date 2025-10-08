@@ -225,12 +225,12 @@ export const suppliers: Suppliers = [
 ];
 
 export const initialViolationCategories: ViolationCategory[] = [
-    { id: uuidv4(), name: "Đi trễ", severity: 'low', fineAmount: 50000 },
-    { id: uuidv4(), name: "Nói tục", severity: 'low', fineAmount: 20000 },
-    { id: uuidv4(), name: "Đùa giỡn lớn tiếng", severity: 'medium', fineAmount: 50000 },
-    { id: uuidv4(), name: "Pha chế sai công thức", severity: 'medium', fineAmount: 100000 },
-    { id: uuidv4(), name: "Làm vỡ tài sản", severity: 'high', fineAmount: 200000 },
-    { id: uuidv4(), name: "Khác", severity: 'low', fineAmount: 0 },
+    { id: uuidv4(), name: "Đi trễ", severity: 'low', calculationType: 'perUnit', fineAmount: 0, finePerUnit: 1000, unitLabel: 'phút' },
+    { id: uuidv4(), name: "Nói tục", severity: 'low', calculationType: 'fixed', fineAmount: 20000, finePerUnit: 0, unitLabel: null },
+    { id: uuidv4(), name: "Đùa giỡn lớn tiếng", severity: 'medium', calculationType: 'fixed', fineAmount: 50000, finePerUnit: 0, unitLabel: null },
+    { id: uuidv4(), name: "Pha chế sai công thức", severity: 'medium', calculationType: 'fixed', fineAmount: 100000, finePerUnit: 0, unitLabel: null },
+    { id: uuidv4(), name: "Làm vỡ tài sản", severity: 'high', calculationType: 'fixed', fineAmount: 200000, finePerUnit: 0, unitLabel: null },
+    { id: uuidv4(), name: "Khác", severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: null },
 ];
 
 export const initialOtherCostCategories: OtherCostCategory[] = [
