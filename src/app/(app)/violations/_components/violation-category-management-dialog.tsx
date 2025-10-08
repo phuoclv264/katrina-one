@@ -16,7 +16,7 @@ import type { ViolationCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { v4 as uuidv4 } from 'uuid';
 
 export default function ViolationCategoryManagementDialog({
@@ -90,7 +90,7 @@ export default function ViolationCategoryManagementDialog({
             <div className="space-y-4">
               {categories.map(category => (
                 <div key={category.id} className="flex items-start gap-2 p-4 border rounded-lg">
-                  {editingCategory?.id === category.id ? (
+                  {editingCategory && editingCategory.id === category.id ? (
                     <div className="w-full space-y-4">
                         <Input
                             value={editingCategory.name}
