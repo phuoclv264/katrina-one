@@ -71,8 +71,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
             severity: 'low', 
             calculationType: 'fixed', 
             fineAmount: 0, 
-            finePerUnit: 0, // Ensure all fields are initialized
-            unitLabel: 'phút', // Default unit label
+            finePerUnit: 0,
+            unitLabel: 'phút',
         };
         const newList = [...categories, newCategory];
         await dataStore.updateViolationCategories(newList);
@@ -80,7 +80,6 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         toast.success(`Đã thêm loại vi phạm mới.`);
         setNewCategoryName('');
 
-        // Scroll to the new item and enter edit mode
         setTimeout(() => {
             const newItemRef = itemRefs.current.get(newCategory.id);
             newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -263,7 +262,17 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                             )}
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategoryId(category.id); setCurrentEditingValues({ name: category.name, severity: category.severity, calculationType: category.calculationType || 'fixed', fineAmount: category.fineAmount, finePerUnit: category.finePerUnit, unitLabel: category.unitLabel }); }}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { 
+                            setEditingCategoryId(category.id); 
+                            setCurrentEditingValues({ 
+                                name: category.name, 
+                                severity: category.severity, 
+                                calculationType: category.calculationType || 'fixed', 
+                                fineAmount: category.fineAmount || 0,
+                                finePerUnit: category.finePerUnit || 0,
+                                unitLabel: category.unitLabel || 'phút', // Default to 'phút' if null/undefined
+                            }); 
+                        }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
