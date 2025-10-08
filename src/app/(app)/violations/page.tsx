@@ -60,15 +60,15 @@ function ViolationDialog({
 }) {
   const [content, setContent] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
-  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [unitCount, setUnitCount] = useState<number | undefined>(undefined);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
   
   const selectedCategory = useMemo(() => {
-      return categories.find(c => c.name === selectedCategoryName);
-  }, [selectedCategoryName, categories]);
+      return categories.find(c => c.id === selectedCategoryId);
+  }, [selectedCategoryId, categories]);
 
   useEffect(() => {
     if (open) {
@@ -78,21 +78,21 @@ function ViolationDialog({
               ? users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid))
               : [];
             setSelectedUsers(initialUsers);
-            setSelectedCategoryName(violationToEdit.categoryName);
+            setSelectedCategoryId(violationToEdit.categoryId);
             setUnitCount(violationToEdit.unitCount);
             setPhotoIds([]);
         } else if (isSelfConfession) {
             const self = users.find(u => u.uid === reporter.uid);
             setContent('');
             setSelectedUsers(self ? [self] : []);
-            setSelectedCategoryName('');
+            setSelectedCategoryId('');
             setUnitCount(undefined);
             setPhotoIds([]);
         } else {
             // Reset for new violation by manager
             setContent('');
             setSelectedUsers([]);
-            setSelectedCategoryName('');
+            setSelectedCategoryId('');
             setUnitCount(undefined);
             setPhotoIds([]);
         }
@@ -180,8 +180,8 @@ function ViolationDialog({
             <div className="col-span-3">
               <ViolationCategoryCombobox
                 categories={categories}
-                value={selectedCategoryName}
-                onChange={setSelectedCategoryName}
+                value={selectedCategoryId}
+                onChange={setSelectedCategoryId}
                 onCategoriesChange={onCategoriesChange}
                 canManage={canManageCategories}
                 placeholder="Chọn loại vi phạm..."
@@ -424,7 +424,7 @@ export default function ViolationsPage() {
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
   const [filterUserId, setFilterUserId] = useState<string | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -638,11 +638,11 @@ export default function ViolationsPage() {
       if (filterUserId) {
         result = result.filter(v => v.users.some(vu => vu.id === filterUserId));
       }
-      if(filterCategory) {
-          result = result.filter(v => v.categoryName === filterCategory);
+      if(filterCategoryId) {
+          result = result.filter(v => v.categoryId === filterCategoryId);
       }
       return result;
-  }, [violations, filterUserId, filterCategory]);
+  }, [violations, filterUserId, filterCategoryId]);
 
   const groupedViolations = useMemo(() => {
       return filteredViolations.reduce((acc, violation) => {
@@ -730,8 +730,8 @@ export default function ViolationsPage() {
                     </Select>
                     <ViolationCategoryCombobox
                         categories={categories}
-                        value={filterCategory || ''}
-                        onChange={(val) => setFilterCategory(val || null)}
+                        value={filterCategoryId || ''}
+                        onChange={(val) => setFilterCategoryId(val || null)}
                         onCategoriesChange={handleCategoriesChange}
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
@@ -774,6 +774,8 @@ export default function ViolationsPage() {
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
                                 const isWaived = v.isPenaltyWaived === true;
+                                const currentCategory = categories.find(c => c.id === v.categoryId);
+                                const categoryDisplayName = currentCategory ? currentCategory.name : v.categoryName;
 
                                 let borderClass = "border-primary/50";
                                 let bgClass = "bg-card";
@@ -791,7 +793,7 @@ export default function ViolationsPage() {
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-semibold">{userNames}</p>
-                                            <Badge className={getSeverityBadgeClass(v.severity)}>{v.categoryName || 'Khác'}</Badge>
+                                            <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
                                             {v.users && v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
