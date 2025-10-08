@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -153,7 +154,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl bg-white dark:bg-card">
         <DialogHeader>
           <DialogTitle>Quản lý Loại Vi phạm</DialogTitle>
           <DialogDescription>
@@ -270,7 +271,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                                 calculationType: category.calculationType || 'fixed', 
                                 fineAmount: category.fineAmount || 0,
                                 finePerUnit: category.finePerUnit || 0,
-                                unitLabel: category.unitLabel || 'phút', // Default to 'phút' if null/undefined
+                                unitLabel: category.unitLabel || 'phút',
                             }); 
                         }}>
                           <Edit className="h-4 w-4" />
