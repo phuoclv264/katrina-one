@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -81,10 +80,13 @@ function RuleEditor({ rule, onUpdate, onDelete }: { rule: FineRule, onUpdate: (u
             </div>
              <div className="space-y-1">
                 <Label className="text-xs">Hành động phụ</Label>
-                <Select value={rule.severityAction || ''} onValueChange={(v) => onUpdate({ ...rule, severityAction: (v || null) as FineRule['severityAction'] })}>
+                <Select
+                    value={rule.severityAction || 'none'}
+                    onValueChange={(v) => onUpdate({ ...rule, severityAction: v === 'none' ? null : (v as FineRule['severityAction']) })}
+                >
                     <SelectTrigger><SelectValue/></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">Không thực hiện</SelectItem>
+                        <SelectItem value="none">Không thực hiện</SelectItem>
                         <SelectItem value="increase">Gia tăng mức độ vi phạm</SelectItem>
                     </SelectContent>
                 </Select>
@@ -109,8 +111,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
       setIsLoading(true);
       const unsub = dataStore.subscribeToViolationCategories((data) => {
         if (data && data.list) {
-          const sortedList = data.list.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-          setCategoryData({ list: sortedList, generalNote: data.generalNote, generalRules: data.generalRules || [] });
+            const sortedList = data.list.sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
+            setCategoryData({ list: sortedList, generalNote: data.generalNote, generalRules: data.generalRules || [] });
         } else {
              setCategoryData({ list: [], generalNote: '', generalRules: [] });
         }
@@ -140,7 +142,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     };
     
     const newList = [...categoryData.list, newCategory].sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-    handleSave({...categoryData, list: newList});
+    handleSave({ list: newList });
     setNewCategoryName('');
 
     setTimeout(() => {
@@ -151,9 +153,9 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }, 100);
   };
   
-  const handleSave = async (newData: ViolationCategoryData) => {
+  const handleSave = async (newData: Partial<ViolationCategoryData>) => {
      try {
-      await dataStore.updateViolationCategories(newData);
+      await dataStore.updateViolationCategories({ ...categoryData, ...newData });
     } catch (error) {
       toast.error('Lỗi: Không thể lưu thay đổi.');
       console.error(error);
@@ -182,7 +184,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
             : c
     ) as ViolationCategory[];
     
-    await handleSave({ ...categoryData, list: newList });
+    await handleSave({ list: newList });
     toast.success(`Đã cập nhật "${currentEditingValues.name}".`);
     setEditingCategoryId(null);
   };
@@ -200,7 +202,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
   const handleDeleteCategory = async (categoryId: string) => {
     const newList = categoryData.list.filter(c => c.id !== categoryId);
-    await handleSave({ ...categoryData, list: newList });
+    await handleSave({ list: newList });
     toast.success('Đã xóa loại vi phạm.');
   };
   
@@ -214,17 +216,17 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
           severityAction: null,
       };
       const newRules = [...(categoryData.generalRules || []), newRule];
-      handleSave({ ...categoryData, generalRules: newRules });
+      handleSave({ generalRules: newRules });
   }
 
   const handleUpdateGeneralRule = (ruleId: string, updatedRule: FineRule) => {
       const newRules = (categoryData.generalRules || []).map(r => r.id === ruleId ? updatedRule : r);
-      handleSave({ ...categoryData, generalRules: newRules });
+      handleSave({ generalRules: newRules });
   }
 
   const handleDeleteGeneralRule = (ruleId: string) => {
       const newRules = (categoryData.generalRules || []).filter(r => r.id !== ruleId);
-      handleSave({ ...categoryData, generalRules: newRules });
+      handleSave({ generalRules: newRules });
   }
 
   const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
