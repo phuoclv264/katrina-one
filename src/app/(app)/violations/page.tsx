@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -56,7 +55,7 @@ function ViolationDialog({
   isSelfConfession?: boolean;
   categories: ViolationCategory[];
   onCategoriesChange: (newCategories: ViolationCategory[]) => void;
-  canManageCategories: boolean;
+  canManage: boolean;
 }) {
   const [content, setContent] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
@@ -100,7 +99,7 @@ function ViolationDialog({
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
   const handleSave = () => {
-    if (!content || selectedUsers.length === 0 || !selectedCategory) {
+    if (!content || selectedUsers.length === 0 || !selectedCategoryId || !selectedCategory) {
       toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
@@ -770,7 +769,7 @@ export default function ViolationsPage() {
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
-                                const userNames = v.users ? v.users.map(u => u.displayName).join(', ') : '';
+                                const userNames = v.users.map(u => u.name).join(', ');
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
                                 const isWaived = v.isPenaltyWaived === true;
@@ -931,7 +930,7 @@ export default function ViolationsPage() {
             isSelfConfession={isSelfConfessMode}
             categories={categories}
             onCategoriesChange={handleCategoriesChange}
-            canManageCategories={user.role === 'Chủ nhà hàng'}
+            canManage={user.role === 'Chủ nhà hàng'}
           />
       )}
       
@@ -958,3 +957,5 @@ export default function ViolationsPage() {
     </>
   );
 }
+
+    
