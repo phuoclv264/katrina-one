@@ -53,17 +53,17 @@ function ViolationCategoryManagementDialog({
   }, [isOpen]);
 
   const handleUpdateCategory = (id: string, field: keyof ViolationCategory, value: any) => {
-    setCategories(prev =>
-      prev.map(cat => (cat.id === id ? { ...cat, [field]: value } : cat))
-    );
+    setEditingCategory(prev => {
+      if (!prev || prev.id !== id) return prev;
+      return { ...prev, [field]: value };
+    });
   };
   
   const handleSaveCategory = async (id: string) => {
-    const categoryToSave = categories.find(c => c.id === id);
-    if (!categoryToSave) return;
+    const categoryToSave = editingCategory;
+    if (!categoryToSave || categoryToSave.id !== id) return;
     
-    // Create a new array with the updated item
-    const newCategories = categories.map(c => c.id === id ? categoryToSave : c);
+    const newCategories = categories.map(c => (c.id === id ? categoryToSave : c));
 
     try {
         await dataStore.updateViolationCategories(newCategories);
@@ -82,7 +82,7 @@ function ViolationCategoryManagementDialog({
       fineAmount: 0
     };
     await dataStore.updateViolationCategories([...categories, newCategory]);
-    setEditingCategory(newCategory); // Immediately enter edit mode for the new category
+    setEditingCategory(newCategory);
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -106,36 +106,41 @@ function ViolationCategoryManagementDialog({
               {categories.map(category => (
                 <div key={category.id} className="p-4 border rounded-lg space-y-4">
                   {editingCategory?.id === category.id ? (
-                    <div className="space-y-4">
-                      <Input
-                        value={editingCategory.name}
-                        onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                        placeholder="Tên vi phạm"
-                      />
-                      <div className="grid grid-cols-2 gap-4">
-                        <Select
-                          value={editingCategory.severity}
-                          onValueChange={(value) => setEditingCategory({ ...editingCategory, severity: value as any })}
-                        >
-                          <SelectTrigger><SelectValue/></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Nhẹ</SelectItem>
-                            <SelectItem value="medium">Trung bình</SelectItem>
-                            <SelectItem value="high">Nghiêm trọng</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          value={editingCategory.fineAmount}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, fineAmount: Number(e.target.value) })}
-                          placeholder="Số tiền phạt"
-                        />
-                      </div>
-                      <div className="flex justify-end gap-2">
-                         <Button variant="ghost" size="sm" onClick={() => setEditingCategory(null)}>Hủy</Button>
-                         <Button size="sm" onClick={() => handleSaveCategory(category.id)}>Lưu</Button>
-                      </div>
-                    </div>
+                    (() => {
+                        if (!editingCategory) return null;
+                        return (
+                            <div className="space-y-4">
+                            <Input
+                                value={editingCategory.name}
+                                onChange={(e) => handleUpdateCategory(category.id, 'name', e.target.value)}
+                                placeholder="Tên vi phạm"
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <Select
+                                value={editingCategory.severity}
+                                onValueChange={(value) => handleUpdateCategory(category.id, 'severity', value)}
+                                >
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="low">Nhẹ</SelectItem>
+                                    <SelectItem value="medium">Trung bình</SelectItem>
+                                    <SelectItem value="high">Nghiêm trọng</SelectItem>
+                                </SelectContent>
+                                </Select>
+                                <Input
+                                type="number"
+                                value={editingCategory.fineAmount}
+                                onChange={(e) => handleUpdateCategory(category.id, 'fineAmount', Number(e.target.value))}
+                                placeholder="Số tiền phạt"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => setEditingCategory(null)}>Hủy</Button>
+                                <Button size="sm" onClick={() => handleSaveCategory(category.id)}>Lưu</Button>
+                            </div>
+                            </div>
+                        )
+                    })()
                   ) : (
                     <div className="flex justify-between items-center">
                       <div>
