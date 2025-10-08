@@ -59,11 +59,16 @@ function ViolationDialog({
 }) {
   const [content, setContent] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [cost, setCost] = useState(0);
+  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [unitCount, setUnitCount] = useState<number | undefined>(undefined);
+  
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
   
+  const selectedCategory = useMemo(() => {
+      return categories.find(c => c.name === selectedCategoryName);
+  }, [selectedCategoryName, categories]);
+
   useEffect(() => {
     if (open) {
         if (violationToEdit) {
@@ -72,52 +77,55 @@ function ViolationDialog({
               ? users.filter(u => violationToEdit.users.some(vu => vu.id === u.uid))
               : [];
             setSelectedUsers(initialUsers);
-            setSelectedCategory(violationToEdit.category);
-            setCost(violationToEdit.cost || 0);
+            setSelectedCategoryName(violationToEdit.category);
+            setUnitCount(violationToEdit.unitCount);
             setPhotoIds([]);
         } else if (isSelfConfession) {
             const self = users.find(u => u.uid === reporter.uid);
             setContent('');
             setSelectedUsers(self ? [self] : []);
-            setSelectedCategory('');
-            setCost(0);
+            setSelectedCategoryName('');
+            setUnitCount(undefined);
             setPhotoIds([]);
         } else {
             // Reset for new violation by manager
             setContent('');
             setSelectedUsers([]);
-            setSelectedCategory('');
-            setCost(0);
+            setSelectedCategoryName('');
+            setUnitCount(undefined);
             setPhotoIds([]);
         }
     }
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
-  useEffect(() => {
-    if (selectedCategory) {
-        const categoryData = categories.find(c => c.name === selectedCategory);
-        if (categoryData) {
-            setCost(categoryData.fineAmount);
-        }
-    } else {
-        setCost(0);
-    }
-  }, [selectedCategory, categories]);
-
   const handleSave = () => {
-    if (!content || selectedUsers.length === 0 || !selectedCategory) {
+    if (!content || selectedUsers.length === 0 || !selectedCategoryName) {
       toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
     }
     
+    let calculatedCost = 0;
+    if (selectedCategory) {
+        if (selectedCategory.calculationType === 'perUnit' && selectedCategory.finePerUnit) {
+            if (!unitCount || unitCount <= 0) {
+                toast.error(`Vui lòng nhập số ${selectedCategory.unitLabel || 'đơn vị'}.`);
+                return;
+            }
+            calculatedCost = (selectedCategory.finePerUnit || 0) * (unitCount || 0);
+        } else {
+            calculatedCost = selectedCategory.fineAmount || 0;
+        }
+    }
+    
     const data = {
         content: content,
-        category: selectedCategory,
+        category: selectedCategoryName,
         users: selectedUsers.map(u => ({ id: u.uid, name: u.displayName })),
         reporterId: reporter.uid,
         reporterName: reporter.displayName,
         photosToUpload: photoIds,
-        cost: cost,
+        cost: calculatedCost,
+        unitCount: selectedCategory?.calculationType === 'perUnit' ? unitCount : undefined,
     };
     
     onSave(data, violationToEdit?.id);
@@ -169,8 +177,8 @@ function ViolationDialog({
             <div className="col-span-3">
               <ViolationCategoryCombobox
                 categories={categories}
-                value={selectedCategory}
-                onChange={setSelectedCategory}
+                value={selectedCategoryName}
+                onChange={setSelectedCategoryName}
                 onCategoriesChange={onCategoriesChange}
                 canManage={canManageCategories}
                 placeholder="Chọn loại vi phạm..."
@@ -189,19 +197,21 @@ function ViolationDialog({
               placeholder="Mô tả chi tiết về vi phạm..."
             />
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
-              <div className="col-span-3">
+          
+           {selectedCategory && selectedCategory.calculationType === 'perUnit' && (
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="unit-count" className="text-right">Số {selectedCategory.unitLabel || 'đơn vị'}</Label>
                 <Input
-                  id="cost"
-                  type="number"
-                  value={cost}
-                  onChange={e => setCost(Number(e.target.value))}
-                  placeholder="0"
-                  onFocus={(e) => e.target.select()}
+                    id="unit-count"
+                    type="number"
+                    value={unitCount || ''}
+                    onChange={(e) => setUnitCount(Number(e.target.value))}
+                    className="col-span-3"
+                    placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'}...`}
                 />
-              </div>
-          </div>
+            </div>
+          )}
+
            <div className="grid grid-cols-4 items-start gap-4">
                 <Label className="text-right mt-2">Bằng chứng</Label>
                  <div className="col-span-3">
@@ -940,4 +950,3 @@ export default function ViolationsPage() {
     </>
   );
 }
-

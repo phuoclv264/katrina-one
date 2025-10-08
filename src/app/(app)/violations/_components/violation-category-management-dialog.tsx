@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -31,12 +32,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 export default function ViolationCategoryManagementDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [categories, setCategories] = useState<ViolationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', fineAmount: 0 });
+  const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
   
   const [newCategoryName, setNewCategoryName] = useState('');
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -67,7 +69,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
 
     try {
-        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', fineAmount: 0 };
+        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', calculationType: 'fixed', fineAmount: 0 };
         const newList = [...categories, newCategory];
         await dataStore.updateViolationCategories(newList);
         
@@ -79,7 +81,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
             const newItemRef = itemRefs.current.get(newCategory.id);
             newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             setEditingCategoryId(newCategory.id);
-            setCurrentEditingValues({ name: newCategory.name, severity: newCategory.severity, fineAmount: newCategory.fineAmount });
+            setCurrentEditingValues({ name: newCategory.name, severity: newCategory.severity, calculationType: newCategory.calculationType, fineAmount: newCategory.fineAmount });
         }, 100);
     } catch (error) {
         toast.error('Lỗi: Không thể thêm loại vi phạm mới.');
@@ -175,23 +177,53 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                                 onChange={(e) => handleEditingValueChange('name', e.target.value)}
                                 placeholder="Tên vi phạm"
                             />
-                            <div className="grid grid-cols-2 gap-4">
-                               <div className="space-y-2">
-                                  <Label className="text-xs">Mức độ</Label>
-                                  <Select value={currentEditingValues.severity} onValueChange={(val) => handleEditingValueChange('severity', val)}>
-                                      <SelectTrigger><SelectValue /></SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem key="low" value="low">Nhẹ</SelectItem>
-                                          <SelectItem key="medium" value="medium">Trung bình</SelectItem>
-                                          <SelectItem key="high" value="high">Nghiêm trọng</SelectItem>
-                                      </SelectContent>
-                                  </Select>
-                               </div>
-                               <div className="space-y-2">
-                                  <Label className="text-xs">Mức phạt (VNĐ)</Label>
-                                  <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} />
-                               </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs">Mức độ</Label>
+                                <Select value={currentEditingValues.severity} onValueChange={(val) => handleEditingValueChange('severity', val)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem key="low" value="low">Nhẹ</SelectItem>
+                                        <SelectItem key="medium" value="medium">Trung bình</SelectItem>
+                                        <SelectItem key="high" value="high">Nghiêm trọng</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
+                            <div className="space-y-2">
+                               <Label className="text-xs">Kiểu tính phạt</Label>
+                                <RadioGroup 
+                                  value={currentEditingValues.calculationType} 
+                                  onValueChange={(val) => handleEditingValueChange('calculationType', val)}
+                                  className="flex gap-4"
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="fixed" id={`calc-fixed-${category.id}`} />
+                                        <Label htmlFor={`calc-fixed-${category.id}`}>Cố định</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="perUnit" id={`calc-unit-${category.id}`} />
+                                        <Label htmlFor={`calc-unit-${category.id}`}>Theo đơn vị</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
+
+                            {currentEditingValues.calculationType === 'fixed' ? (
+                                <div className="space-y-2">
+                                    <Label className="text-xs">Mức phạt (VNĐ)</Label>
+                                    <Input type="number" value={currentEditingValues.fineAmount} onChange={(e) => handleEditingValueChange('fineAmount', parseInt(e.target.value, 10) || 0)} />
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div className="space-y-2">
+                                        <Label className="text-xs">Tiền phạt/đơn vị</Label>
+                                        <Input type="number" value={currentEditingValues.finePerUnit ?? 0} onChange={(e) => handleEditingValueChange('finePerUnit', parseInt(e.target.value, 10) || 0)} />
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label className="text-xs">Tên đơn vị</Label>
+                                        <Input value={currentEditingValues.unitLabel ?? 'phút'} onChange={(e) => handleEditingValueChange('unitLabel', e.target.value)} />
+                                    </div>
+                                </div>
+                            )}
+
                          </div>
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="ghost" onClick={() => setEditingCategoryId(null)}>Hủy</Button>
@@ -205,10 +237,14 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                           <p className="font-semibold">{category.name}</p>
                           <div className="flex items-center gap-2 text-sm mt-1">
                             <Badge className={getSeverityBadgeClass(category.severity)}>{category.severity}</Badge>
-                            <span className="text-muted-foreground">{(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ</span>
+                            {category.calculationType === 'perUnit' ? (
+                                <span className="text-muted-foreground">{(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / {category.unitLabel || 'đơn vị'}</span>
+                            ) : (
+                                <span className="text-muted-foreground">{(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ</span>
+                            )}
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategoryId(category.id); setCurrentEditingValues({ name: category.name, severity: category.severity, fineAmount: category.fineAmount }); }}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategoryId(category.id); setCurrentEditingValues({ name: category.name, severity: category.severity, calculationType: category.calculationType || 'fixed', fineAmount: category.fineAmount, finePerUnit: category.finePerUnit, unitLabel: category.unitLabel }); }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <AlertDialog>

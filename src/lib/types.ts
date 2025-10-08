@@ -210,7 +210,10 @@ export type ViolationCategory = {
   id: string;
   name: string;
   severity: 'low' | 'medium' | 'high';
-  fineAmount: number;
+  calculationType: 'fixed' | 'perUnit';
+  fineAmount: number; // For 'fixed' type
+  finePerUnit?: number; // For 'perUnit' type
+  unitLabel?: string; // e.g., "phút", "lần"
 };
 
 export type ViolationUser = {
@@ -244,6 +247,7 @@ export type Violation = {
   comments?: ViolationComment[];
   cost?: number; // The fine amount at the time of creation
   severity?: 'low' | 'medium' | 'high';
+  unitCount?: number; // For 'perUnit' calculation, e.g., number of minutes late
 };
 
 // --- Summary Types ---
