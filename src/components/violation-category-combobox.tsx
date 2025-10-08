@@ -85,12 +85,13 @@ export function ViolationCategoryCombobox({
 
   const displayValue = value ? categories.find((cat) => cat.name === value)?.name || placeholder : placeholder;
   
-  const sortedCategories = React.useMemo(() =>
-    [...categories].filter(Boolean).sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi')),
+  const sortedCategories = React.useMemo(() => 
+    [...categories].filter(Boolean).sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')), 
   [categories]);
 
+
   const hasExactMatch = React.useMemo(() => 
-    sortedCategories.some(cat => cat.name.toLowerCase() === inputValue.toLowerCase()),
+    sortedCategories.some(cat => (cat.name || '').toLowerCase() === inputValue.toLowerCase()),
     [sortedCategories, inputValue]
   );
   
