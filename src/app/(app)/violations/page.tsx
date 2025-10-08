@@ -434,7 +434,7 @@ export default function ViolationsPage() {
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
   const [filterUserId, setFilterUserId] = useState<string | null>(null);
-  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+  const [filterCategoryName, setFilterCategoryName] = useState<string>('');
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -648,11 +648,11 @@ export default function ViolationsPage() {
       if (filterUserId) {
         result = result.filter(v => v.users.some(vu => vu.id === filterUserId));
       }
-      if(filterCategoryId) {
-          result = result.filter(v => v.categoryId === filterCategoryId);
+      if(filterCategoryName) {
+          result = result.filter(v => v.categoryName === filterCategoryName);
       }
       return result;
-  }, [violations, filterUserId, filterCategoryId]);
+  }, [violations, filterUserId, filterCategoryName]);
 
   const groupedViolations = useMemo(() => {
       return filteredViolations.reduce((acc, violation) => {
@@ -734,14 +734,16 @@ export default function ViolationsPage() {
                         </Button>
                         )}
                         {canManage && (
+                          <div className="flex gap-2">
                             <Button onClick={() => openAddDialog(false)} className="w-full">
                                 <Plus className="mr-2 h-4 w-4" /> Thêm mới
                             </Button>
-                        )}
-                        {isOwner && (
-                            <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
-                                <Settings className="h-4 w-4" />
-                            </Button>
+                             {isOwner && (
+                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
+                                    <Settings className="h-4 w-4" />
+                                </Button>
+                            )}
+                          </div>
                         )}
                     </div>
                 </div>
@@ -759,11 +761,8 @@ export default function ViolationsPage() {
                     </Select>
                     <ViolationCategoryCombobox
                         categories={categories}
-                        value={categories.find(c => c.id === filterCategoryId)?.name || ''}
-                        onChange={(val) => {
-                            const newCat = categories.find(c => c.name === val);
-                            setFilterCategoryId(newCat ? newCat.id : null);
-                        }}
+                        value={filterCategoryName}
+                        onChange={setFilterCategoryName}
                         onCategoriesChange={handleCategoriesChange}
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
