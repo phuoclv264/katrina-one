@@ -719,14 +719,33 @@ export default function ViolationsPage() {
         </header>
 
         <Card>
-           <CardHeader>
-              <CardTitle>Danh sách Vi phạm</CardTitle>
-              <CardDescription>
-                Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
+            <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <CardTitle>Danh sách Vi phạm</CardTitle>
+                        <CardDescription className="mt-1">
+                            Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
+                        </CardDescription>
+                    </div>
+                     <div className="flex gap-2 w-full sm:w-auto">
+                        {!canManage && (
+                        <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full">
+                            <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+                        </Button>
+                        )}
+                        {canManage && (
+                            <Button onClick={() => openAddDialog(false)} className="w-full">
+                                <Plus className="mr-2 h-4 w-4" /> Thêm mới
+                            </Button>
+                        )}
+                        {isOwner && (
+                            <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
+                                <Settings className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
                     <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Lọc theo nhân viên..."/>
@@ -749,28 +768,9 @@ export default function ViolationsPage() {
                         canManage={false}
                         placeholder="Lọc theo loại vi phạm..."
                     />
-                    <div className="col-start-1 sm:col-start-4 sm:col-span-1">
-                        {!canManage && (
-                        <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full">
-                            <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
-                        </Button>
-                        )}
-                        {canManage && (
-                          <div className="flex gap-2">
-                            <Button onClick={() => openAddDialog(false)} className="w-full">
-                                <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                            </Button>
-                            {isOwner && (
-                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
-                                  <Settings className="h-4 w-4" />
-                                </Button>
-                            )}
-                          </div>
-                        )}
-                    </div>
-                 </div>
-          </CardContent>
-          <CardContent>
+                </div>
+            </CardHeader>
+            <CardContent>
             {Object.keys(groupedViolations).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
                     <FilterX className="h-12 w-12"/>
