@@ -207,6 +207,14 @@ export type ParsedProduct = Omit<Product, 'id'>;
 
 
 // --- Violation Logging Types ---
+export type FineRule = {
+    id: string;
+    condition: 'repeat_in_month' | 'is_flagged';
+    threshold: number; // e.g., 4 for "from the 4th time"
+    action: 'multiply' | 'add';
+    value: number; // e.g., 2 for "multiply by 2"
+};
+
 export type ViolationCategory = {
   id: string;
   name: string;
@@ -220,7 +228,9 @@ export type ViolationCategory = {
 export type ViolationCategoryData = {
     list: ViolationCategory[];
     generalNote?: string;
+    generalRules?: FineRule[];
 };
+
 
 export type ViolationUser = {
   id: string;

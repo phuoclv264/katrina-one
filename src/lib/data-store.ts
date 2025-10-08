@@ -339,8 +339,8 @@ export const dataStore = {
         } else {
             finalData.createdAt = serverTimestamp();
             finalData.photos = photoUrls;
-            const incidentRef = await addDoc(collection(db, 'violations'), finalData);
-            id = incidentRef.id;
+            const violationRef = await addDoc(collection(db, 'violations'), finalData);
+            id = violationRef.id;
         }
     
         await photoStore.deletePhotos(photosToUpload);
@@ -2285,13 +2285,18 @@ export const dataStore = {
   
   subscribeToViolationCategories(callback: (data: ViolationCategoryData) => void): () => void {
     const docRef = doc(db, 'app-data', 'violationCategories');
-    const defaultData = { list: initialViolationCategories, generalNote: "" };
+    const defaultData: ViolationCategoryData = { 
+        list: initialViolationCategories, 
+        generalNote: "",
+        generalRules: [],
+    };
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
         if(docSnap.exists()) {
             const data = docSnap.data();
             callback({
                 list: (data.list || initialViolationCategories) as ViolationCategory[],
-                generalNote: data.generalNote || ""
+                generalNote: data.generalNote || "",
+                generalRules: (data.generalRules || []) as any[],
             });
         } else {
             try {
@@ -2330,7 +2335,11 @@ export const dataStore = {
       };
     });
 
-    await setDoc(docRef, { list: sanitizedCategories, generalNote: newData.generalNote || "" });
+    await setDoc(docRef, { 
+      list: sanitizedCategories, 
+      generalNote: newData.generalNote || "",
+      generalRules: newData.generalRules || [],
+    });
   },
 
     async addOrUpdateViolation(
@@ -2527,6 +2536,7 @@ export const dataStore = {
 
 
     
+
 
 
 
