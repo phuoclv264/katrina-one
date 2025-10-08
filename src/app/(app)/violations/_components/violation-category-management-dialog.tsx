@@ -40,7 +40,7 @@ export default function ViolationCategoryManagementDialog({
       const unsub = dataStore.subscribeToViolationCategories((cats) => {
         // Only update from Firestore if not currently editing to prevent overwriting user input
         if (!editingCategory) {
-            setCategories(cats.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
+            setCategories((cats || []).sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
         }
         setIsLoading(false);
       });
