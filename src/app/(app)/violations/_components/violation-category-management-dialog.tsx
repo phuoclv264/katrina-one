@@ -48,10 +48,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     if (isOpen) {
       setIsLoading(true);
       const unsub = dataStore.subscribeToViolationCategories((cats) => {
-        // Only update from Firestore if not currently editing to prevent overwriting user input
-        if (!editingCategoryId) {
-            setCategories(cats.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
-        }
+        setCategories(cats.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'vi')));
         setIsLoading(false);
       });
       return () => unsub();
@@ -59,7 +56,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         // Reset state when dialog closes
         setEditingCategoryId(null);
     }
-  }, [isOpen, editingCategoryId]);
+  }, [isOpen]);
   
   const handleAddNewCategory = async () => {
     if (newCategoryName.trim() === '') return;
@@ -69,7 +66,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     }
 
     try {
-        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', calculationType: 'fixed', fineAmount: 0, unitLabel: 'phút' };
+        const newCategory: ViolationCategory = { id: uuidv4(), name: newCategoryName.trim(), severity: 'low', calculationType: 'fixed', fineAmount: 0, unitLabel: 'phút', finePerUnit: 0 };
         const newList = [...categories, newCategory];
         await dataStore.updateViolationCategories(newList);
         
@@ -81,7 +78,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
             const newItemRef = itemRefs.current.get(newCategory.id);
             newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             setEditingCategoryId(newCategory.id);
-            setCurrentEditingValues({ name: newCategory.name, severity: newCategory.severity, calculationType: newCategory.calculationType, fineAmount: newCategory.fineAmount });
+            setCurrentEditingValues(newCategory);
         }, 100);
     } catch (error) {
         toast.error('Lỗi: Không thể thêm loại vi phạm mới.');
@@ -102,9 +99,12 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
     try {
         const dataToSave = { ...currentEditingValues };
+
         if (dataToSave.calculationType === 'fixed') {
             dataToSave.finePerUnit = 0;
             dataToSave.unitLabel = null;
+        } else { // calculationType === 'perUnit'
+            dataToSave.fineAmount = 0;
         }
 
         const newList = categories.map(c => 
