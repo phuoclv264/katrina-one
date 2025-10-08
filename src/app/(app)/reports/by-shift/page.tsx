@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
@@ -62,7 +61,7 @@ function ShiftSummaryCard({
 
         const serverUsers = allUsers.filter(u => u.role === 'Phục vụ');
         
-        const assignedUsersSet = new Set<string>();
+        const assignedUsersMap = new Map<string, { name: string; shifts: string[] }>();
 
         const mainShiftStartMinutes = parseTime(mainShiftFrame.start);
         const mainShiftEndMinutes = parseTime(mainShiftFrame.end);
@@ -70,21 +69,24 @@ function ShiftSummaryCard({
         serverUsers.forEach(user => {
             const userShiftsOnDay = allShiftsOnDay.filter(s => s.assignedUsers.some(au => au.userId === user.uid));
             
-            const isInMainShift = userShiftsOnDay.some(userShift => {
+            userShiftsOnDay.forEach(userShift => {
                 const shiftStartMinutes = parseTime(userShift.timeSlot.start);
                 const shiftEndMinutes = parseTime(userShift.timeSlot.end);
-                // Check for overlap: (StartA < EndB) and (StartB < EndA)
-                return shiftStartMinutes < mainShiftEndMinutes && mainShiftStartMinutes < shiftEndMinutes;
+                const overlaps = shiftStartMinutes < mainShiftEndMinutes && mainShiftStartMinutes < shiftEndMinutes;
+
+                if (overlaps) {
+                    if (!assignedUsersMap.has(user.uid)) {
+                        assignedUsersMap.set(user.uid, { name: user.displayName, shifts: [] });
+                    }
+                    assignedUsersMap.get(user.uid)!.shifts.push(userShift.label);
+                }
             });
-
-            if (isInMainShift) {
-                assignedUsersSet.add(user.displayName);
-            }
         });
-
-        const assignedUsers = Array.from(assignedUsersSet).sort();
+        
+        const assignedUsers = Array.from(assignedUsersMap.values()).map(u => `${u.name} (${u.shifts.join(', ')})`).sort();
         const submittedUsers = Array.from(new Set(reports.map(r => r.staffName)));
-        const absentUsers = assignedUsers.filter(u => !submittedUsers.includes(u));
+        const absentUsers = Array.from(assignedUsersMap.values()).filter(u => !submittedUsers.includes(u.name)).map(u => u.name);
+
 
         const allCompletedTasks = new Map<string, { staffName: string; completion: CompletionRecord }[]>();
         const notes = reports.filter(r => r.issues?.trim()).map(r => ({ staffName: r.staffName, issues: r.issues! }));
