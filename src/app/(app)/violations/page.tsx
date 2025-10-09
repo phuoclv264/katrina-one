@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -708,10 +707,18 @@ export default function ViolationsPage() {
   
   const getSeverityCardClass = (severity: Violation['severity']) => {
     switch (severity) {
-      case 'high': return 'bg-red-500/5';
-      case 'medium': return 'bg-yellow-500/5';
-      default: return 'bg-card';
+        case 'high': return 'bg-red-500/5';
+        case 'medium': return 'bg-yellow-500/5';
+        default: return 'bg-card';
     }
+  };
+
+  const getSeverityBorderClass = (severity: Violation['severity']) => {
+      switch (severity) {
+        case 'high': return 'border-red-500/50';
+        case 'medium': return 'border-yellow-500/50';
+        default: return 'border-blue-500/50';
+      }
   };
 
 
@@ -814,24 +821,14 @@ export default function ViolationsPage() {
                                 const userPenaltyDetails = (v.userCosts || v.users.map(u => ({ userId: u.id, cost: (v.cost || 0) / v.users.length })))
                                     .map(uc => {
                                         const user = v.users.find(vu => vu.id === uc.userId);
-                                        return `${user?.name || 'N/A'}: ${uc.cost.toLocaleString('vi-VN')}đ`;
+                                        return `${user?.name || 'N/A'}: ${(uc.cost || 0).toLocaleString('vi-VN')}đ`;
                                     }).join(', ');
-
-
-                                let borderClass: string;
-                                let backgroundClass: string = getSeverityCardClass(v.severity);
-                                if(isWaived) {
-                                  borderClass = "border-green-500/50 ring-2 ring-green-500/20";
-                                  backgroundClass = "bg-green-500/5";
-                                } else if (v.isFlagged) {
-                                  borderClass = "border-red-500/50 ring-2 ring-red-500/20";
-                                  backgroundClass = "bg-red-500/5";
-                                } else {
-                                  borderClass = "border-border";
-                                }
+                                
+                                const cardBorderColor = v.isFlagged ? 'border-red-500/50 ring-2 ring-red-500/20' : (isWaived ? 'border-green-500/50 ring-2 ring-green-500/20' : getSeverityBorderClass(v.severity));
+                                const cardBgColor = v.isFlagged ? 'bg-red-500/5' : (isWaived ? 'bg-green-500/5' : getSeverityCardClass(v.severity));
 
                                 return (
-                                <Card key={v.id} className={cn("relative shadow-sm", borderClass, backgroundClass)}>
+                                <Card key={v.id} className={cn("relative shadow-sm", cardBorderColor, cardBgColor)}>
                                     <CardContent className="p-4">
                                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                             {/* Left side: Users & Category */}
@@ -846,7 +843,7 @@ export default function ViolationsPage() {
                                             </div>
                                             
                                             {/* Right side: Actions */}
-                                            <div className="flex gap-1 self-start sm:self-start mt-2 sm:mt-0">
+                                            <div className="flex gap-1 self-start sm:self-start mt-2 sm:mt-0 flex-wrap sm:flex-nowrap">
                                                 {isOwner && (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
@@ -855,31 +852,27 @@ export default function ViolationsPage() {
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
                                                             <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-red-500")} />
                                                         </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteViolation(v)}>Xóa</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
                                                     </>
-                                                )}
-                                                {isOwner && (
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                                {isOwner && (
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle>
-                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteViolation(v)}>Xóa</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
                                                 )}
                                             </div>
                                         </div>
@@ -908,7 +901,6 @@ export default function ViolationsPage() {
                                          <div className="mt-4 pt-4 border-t space-y-4">
                                             {v.users.map((violatedUser) => {
                                                 const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
-                                                const canCurrentUserSubmit = user.uid === violatedUser.id || canManage;
                                                 const isCurrentUserTheViolator = user.uid === violatedUser.id;
                                                 
                                                 if (isWaived) {
@@ -929,16 +921,16 @@ export default function ViolationsPage() {
                                                             </div>
                                                             <div className="flex gap-2 self-start sm:self-center">
                                                                 {submission.photos.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submission.photos, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submission.photos.length})</Button>}
-                                                                {canCurrentUserSubmit && <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>}
+                                                                <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
                                                             </div>
                                                         </div>
                                                     );
                                                 }
                                                 
-                                                if (isCurrentUserTheViolator || canManage) {
+                                                if (isCurrentUserTheViolator) {
                                                     return (
                                                         <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                                             <p className="font-semibold text-sm">{violatedUser.name} chưa nộp phạt.</p>
+                                                             <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
                                                             <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
                                                                 Xác nhận đã nộp phạt
                                                             </Button>
