@@ -449,7 +449,8 @@ export default function CashierDashboardPage() {
         try {
             const reportData = {
                 ...handoverReceiptData, // Includes image URI, AI data, edited status etc.
-                ...finalData, // Includes actualCash, discrepancy, reason, and photo IDs
+                discrepancyReason: finalData.discrepancyReason || null, // Ensure it's not undefined
+                ...finalData, // Includes actualCash, discrepancy, and photo IDs
             };
             await dataStore.addHandoverReport(reportData, user);
             toast.success("Báo cáo bàn giao đã được gửi thành công!");
