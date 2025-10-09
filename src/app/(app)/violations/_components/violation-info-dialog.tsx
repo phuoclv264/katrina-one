@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,13 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Pencil, Save, X } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
-import { toast } from 'react-hot-toast';
-
 
 type ViolationInfoDialogProps = {
   isOpen: boolean;
@@ -46,8 +40,6 @@ const severityOrder: Record<ViolationCategory['severity'], number> = {
 };
 
 export default function ViolationInfoDialog({ isOpen, onClose, categories, generalRules = [] }: ViolationInfoDialogProps) {
-  const { user } = useAuth();
-  
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => {
         const severityA = severityOrder[a.severity] || 99;
@@ -58,7 +50,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
         return (a.name || '').localeCompare(b.name || '', 'vi');
     });
   }, [categories]);
-
+  
   const generalRuleSummary = useMemo(() => {
     if (!generalRules || generalRules.length === 0) return null;
     return generalRules.map(rule => {
@@ -130,7 +122,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
         {generalRuleSummary && (
           <DialogFooter className="border-t pt-4 flex-col items-start gap-2 sm:flex-row sm:items-center">
               <div className="w-full space-y-2">
-                  <Label htmlFor="general-note" className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
                       Quy tắc phạt chung
                   </Label>
                   <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 whitespace-pre-wrap">
