@@ -240,6 +240,14 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     </div>
                 );
             }
+            if (status === 'cancelled' && currentUser.role === 'Chủ nhà hàng') {
+                return (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                    </AlertDialog>
+                );
+            }
         }
         
         return null;
