@@ -104,17 +104,16 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             date: payload.shiftDate,
         };
         
-        // For swap requests, ALWAYS use the payload snapshot for shift B
-        let shiftB: { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
+        let sB: { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
         if (payload.isSwapRequest && payload.targetUserShiftPayload) {
-            shiftB = {
+            sB = {
                 label: payload.targetUserShiftPayload.shiftLabel,
                 timeSlot: payload.targetUserShiftPayload.shiftTimeSlot,
                 date: payload.targetUserShiftPayload.date,
             };
         }
         
-        return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
+        return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB: sB };
     }, [payload, allUsers, status]);
 
     const metadataText = useMemo(() => {
@@ -285,7 +284,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     <UserBlock user={recipient} shift={shiftB} label={payload.isSwapRequest ? "Muốn đổi với" : "Người nhận"} />
                 </div>
                 <div className="px-1 pt-2 text-xs text-muted-foreground flex items-center justify-between">
-                    <p className="truncate" title={metadataText}>{metadataText}</p>
+                    <div className="whitespace-pre-wrap" title={metadataText}>{metadataText}</div>
                     {/* Placeholder for future attachments */}
                 </div>
             </div>
