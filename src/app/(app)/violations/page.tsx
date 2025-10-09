@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -8,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -796,7 +795,7 @@ export default function ViolationsPage() {
                 {Object.entries(groupedViolations).map(([month, violationsInMonth]) => (
                     <AccordionItem key={month} value={month}>
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
-                        <AccordionContent className="space-y-4">
+                        <AccordionContent className="space-y-4 pt-2">
                             {violationsInMonth.map(v => {
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
@@ -806,158 +805,161 @@ export default function ViolationsPage() {
                                 const unitLabel = currentCategory?.unitLabel || 'đơn vị';
 
                                 let borderClass: string;
-                                let bgClass: string;
                                 if(isWaived) {
-                                  borderClass = "border-green-500/30";
-                                  bgClass = "bg-green-500/10";
+                                  borderClass = "border-green-500/50 ring-2 ring-green-500/20";
                                 } else if (v.isFlagged || v.severity === 'high') {
-                                  borderClass = "border-red-500/30";
-                                  bgClass = "bg-red-500/10";
-                                } else if (v.severity === 'medium') {
-                                  borderClass = "border-yellow-500/30";
-                                  bgClass = "bg-yellow-500/10";
+                                  borderClass = "border-red-500/50 ring-2 ring-red-500/20";
                                 } else {
-                                  borderClass = "border-primary/50";
-                                  bgClass = "bg-card";
+                                  borderClass = "border-border";
                                 }
+                                
+                                const userPenaltyDetails = (v.userCosts || v.users.map(u => ({ userId: u.id, cost: v.cost / v.users.length })))
+                                    .map(uc => {
+                                        const user = v.users.find(vu => vu.id === uc.userId);
+                                        return `${user?.name || 'N/A'}: ${uc.cost.toLocaleString('vi-VN')}đ`;
+                                    }).join(', ');
+
 
                                 return (
-                                <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", borderClass, bgClass)}>
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
-                                            {v.users.length === 1 && v.users[0].id === v.reporterId && (
-                                                <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
-                                            )}
-                                        </div>
-                                         <div className="flex gap-1 self-end sm:self-start">
-                                            {isOwner && (
-                                                <>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
-                                                        <Flag className={cn("h-4 w-4", isWaived ? "text-green-500 fill-green-500" : "text-green-500")} />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
-                                                        <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-red-500")} />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {isOwner && (
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {isOwner && (
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                                            <Trash2 className="h-4 w-4" />
+                                <Card key={v.id} className={cn("relative shadow-sm", borderClass)}>
+                                    <CardContent className="p-4">
+                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
+                                                {v.users.length === 1 && v.users[0].id === v.reporterId && (
+                                                    <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-1 self-end sm:self-start">
+                                                {isOwner && (
+                                                    <>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
+                                                            <Flag className={cn("h-4 w-4", isWaived ? "text-green-500 fill-green-500" : "text-green-500")} />
                                                         </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle>
-                                                            <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteViolation(v)}>Xóa</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleFlag(v)} disabled={isItemProcessing}>
+                                                            <Flag className={cn("h-4 w-4", v.isFlagged ? "text-red-500 fill-red-500" : "text-red-500")} />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                {isOwner && (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setViolationToEdit(v); setIsSelfConfessMode(false); setIsDialogOpen(true); }}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {isOwner && (
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle>
+                                                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteViolation(v)}>Xóa</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p className="mt-2 text-sm text-muted-foreground">
+                                            <span className="font-semibold text-foreground">{v.users.map(u => u.name).join(', ')}</span>
+                                        </p>
+                                        <p className="mt-1 text-base whitespace-pre-wrap font-medium">{v.content}</p>
+                                        
+                                        <p className="mt-2 text-destructive font-bold text-lg">
+                                            Tổng phạt: {v.cost.toLocaleString('vi-VN')}đ
+                                            {v.users.length > 1 && (
+                                                <span className="text-xs font-normal text-muted-foreground ml-2">({userPenaltyDetails})</span>
                                             )}
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
-                                    </p>
-                                    <p className="mt-2 text-sm whitespace-pre-wrap">{v.content}</p>
-                                    <p className="mt-1 font-bold text-destructive">
-                                        {v.cost > 0 && `Tổng Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}
-                                    </p>
-                                    {v.photos && v.photos.length > 0 && (
-                                        <div className="mt-2 flex gap-2 flex-wrap">
-                                            {v.photos.map((photo, index) => (
-                                                <button key={index} onClick={() => openLightbox(v.photos, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
-                                                    <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                     <div className="mt-4 pt-4 border-t space-y-4">
-                                        {v.users.map((violatedUser) => {
-                                            const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
-                                            const canSubmit = (canManage || user?.uid === violatedUser.id);
-                                            const userCostData = (v.userCosts || []).find(uc => uc.userId === violatedUser.id);
-                                            const userCost = userCostData ? userCostData.cost : 0;
-                                            
-                                            return (
-                                                <div key={violatedUser.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                                                    <p className="font-semibold text-sm">{violatedUser.name}
-                                                        {userCost > 0 && (
-                                                            <span className="font-bold text-destructive ml-2">({userCost.toLocaleString('vi-VN')}đ)</span>
-                                                        )}
-                                                    </p>
-                                                    {isWaived ? (
-                                                         <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
+                                        </p>
+                                        
+                                        {v.photos && v.photos.length > 0 && (
+                                            <div className="mt-2 flex gap-2 flex-wrap">
+                                                {v.photos.map((photo, index) => (
+                                                    <button key={index} onClick={() => openLightbox(v.photos, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
+                                                        <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <p className="mt-2 text-xs text-muted-foreground">
+                                            Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
+                                        </p>
+                                         <div className="mt-4 pt-4 border-t space-y-4">
+                                            {v.users.map((violatedUser) => {
+                                                const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
+                                                const canCurrentUserSubmit = user.uid === violatedUser.id || canManage;
+                                                const isCurrentUserTheViolator = user.uid === violatedUser.id;
+                                                
+                                                if (isWaived) {
+                                                    return (
+                                                        <div key={violatedUser.id} className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                             <CheckCircle className="h-4 w-4" />
-                                                            <span>Đã được miễn phạt.</span>
+                                                            <span>{violatedUser.name} đã được miễn phạt.</span>
                                                         </div>
-                                                    ) : submission ? (
-                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                    )
+                                                }
+
+                                                if (submission) {
+                                                    return (
+                                                        <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                                             <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                                 <CheckCircle className="h-4 w-4" />
-                                                                <span>Đã nộp phạt lúc {submission.submittedAt ? new Date(submission.submittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
+                                                                <span>{violatedUser.name} đã nộp phạt lúc {submission.submittedAt ? new Date(submission.submittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
                                                             </div>
-                                                            {submission.photos.length > 0 && (
-                                                              <Button size="sm" variant="secondary" onClick={() => openLightbox(submission.photos, 0)}>
-                                                                  <Eye className="mr-2 h-4 w-4" />
-                                                                  Xem ({submission.photos.length})
-                                                              </Button>
-                                                            )}
-                                                            {canSubmit && (
-                                                              <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}>
-                                                                  <FilePlus2 className="mr-2 h-4 w-4" />
-                                                                  Bổ sung
-                                                              </Button>
-                                                            )}
+                                                            <div className="flex gap-2 self-start sm:self-center">
+                                                                {submission.photos.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submission.photos, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submission.photos.length})</Button>}
+                                                                {canCurrentUserSubmit && <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>}
+                                                            </div>
                                                         </div>
-                                                    ) : (
-                                                        canSubmit && (
-                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}>
+                                                    );
+                                                }
+                                                
+                                                if (isCurrentUserTheViolator || canManage) {
+                                                    return (
+                                                        <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                             <p className="font-semibold text-sm">{violatedUser.name} chưa nộp phạt.</p>
+                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
                                                                 Xác nhận đã nộp phạt
                                                             </Button>
-                                                        )
-                                                    )}
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                    {showCommentButton && (
-                                        <div className="mt-4 pt-4 border-t">
-                                            <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
-                                                <MessageSquare className="mr-2 h-4 w-4"/>
-                                                {openCommentSectionIds.has(v.id) ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
-                                            </Button>
+                                                        </div>
+                                                    )
+                                                }
+                                                return null;
+                                            })}
                                         </div>
-                                    )}
-                                    {openCommentSectionIds.has(v.id) && (
-                                        <CommentSection
-                                            violation={v}
-                                            currentUser={user}
-                                            onCommentSubmit={handleCommentSubmit}
-                                            onCommentEdit={handleCommentEdit}
-                                            onCommentDelete={handleCommentDelete}
-                                            onOpenLightbox={openLightbox}
-                                            isProcessing={isItemProcessing}
-                                        />
-                                    )}
-
-                                    {isItemProcessing && (
-                                        <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
-                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                        </div>
-                                    )}
-                                </div>
+                                        {showCommentButton && (
+                                            <div className="mt-4 pt-4 border-t">
+                                                <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
+                                                    <MessageSquare className="mr-2 h-4 w-4"/>
+                                                    {openCommentSectionIds.has(v.id) ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
+                                                </Button>
+                                            </div>
+                                        )}
+                                        {openCommentSectionIds.has(v.id) && (
+                                            <CommentSection
+                                                violation={v}
+                                                currentUser={user}
+                                                onCommentSubmit={handleCommentSubmit}
+                                                onCommentEdit={handleCommentEdit}
+                                                onCommentDelete={handleCommentDelete}
+                                                onOpenLightbox={openLightbox}
+                                                isProcessing={isItemProcessing}
+                                            />
+                                        )}
+                                        {isItemProcessing && (
+                                            <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-lg">
+                                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
                                 )
                             })}
                         </AccordionContent>
