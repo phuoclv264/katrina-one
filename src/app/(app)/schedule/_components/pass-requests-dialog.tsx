@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -98,11 +99,19 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             recUser = allUsers.find(u => u.uid === recipientId);
         }
 
-        if (payload.isSwapRequest && schedule && recipientId) {
-            const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-            const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientId));
-            if (foundShiftB) {
-                shiftB = foundShiftB;
+        if (payload.isSwapRequest) {
+            if (payload.targetUserShiftPayload) {
+                 shiftB = {
+                    label: payload.targetUserShiftPayload.shiftLabel,
+                    timeSlot: payload.targetUserShiftPayload.shiftTimeSlot,
+                    date: payload.targetUserShiftPayload.date,
+                };
+            } else if (schedule && recipientId) { // Fallback for old data
+                const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
+                const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientId));
+                if (foundShiftB) {
+                    shiftB = foundShiftB;
+                }
             }
         }
         
@@ -213,12 +222,10 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         }
 
         if(isManagerOrOwner) {
-            if (status === 'pending') {
+            if (status === 'pending' && currentUser.role === 'Chủ nhà hàng' && !payload.targetUserId) {
                  return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                         {currentUser.role === 'Chủ nhà hàng' && !payload.targetUserId && (
-                            <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
-                         )}
+                        <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild><Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1"><Trash2 className="mr-2 h-4 w-4"/>Hủy</Button></AlertDialogTrigger>
                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent>

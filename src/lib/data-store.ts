@@ -1101,27 +1101,45 @@ export const dataStore = {
         if (!existingRequestsSnapshot.empty) {
             throw new Error(`Bạn đã gửi yêu cầu cho ${targetUser.displayName} rồi.`);
         }
-
+    
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+        const payload: PassRequestPayload = {
+            weekId: weekId,
+            shiftId: shiftToPass.id,
+            shiftLabel: shiftToPass.label,
+            shiftDate: shiftToPass.date,
+            shiftTimeSlot: shiftToPass.timeSlot,
+            shiftRole: shiftToPass.role,
+            requestingUser: {
+                userId: requestingUser.uid,
+                userName: requestingUser.displayName
+            },
+            targetUserId: targetUser.uid,
+            isSwapRequest: isSwap,
+            declinedBy: [],
+        };
+    
+        if (isSwap) {
+            const schedule = await this.getSchedule(weekId);
+            const targetUserShift = schedule?.shifts.find(s => 
+                s.date === shiftToPass.date && s.assignedUsers.some(u => u.userId === targetUser.uid)
+            );
+            if (!targetUserShift) {
+                throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
+            }
+            payload.targetUserShiftPayload = {
+                shiftId: targetUserShift.id,
+                shiftLabel: targetUserShift.label,
+                shiftTimeSlot: targetUserShift.timeSlot,
+                date: targetUserShift.date,
+            };
+        }
+    
         const newNotification: Omit<Notification, 'id'> = {
             type: 'pass_request',
             status: 'pending',
             createdAt: serverTimestamp(),
-            payload: {
-                weekId: weekId,
-                shiftId: shiftToPass.id,
-                shiftLabel: shiftToPass.label,
-                shiftDate: shiftToPass.date,
-                shiftTimeSlot: shiftToPass.timeSlot,
-                shiftRole: shiftToPass.role,
-                requestingUser: {
-                    userId: requestingUser.uid,
-                    userName: requestingUser.displayName
-                },
-                targetUserId: targetUser.uid,
-                isSwapRequest: isSwap,
-                declinedBy: [],
-            }
+            payload: payload
         };
         await addDoc(collection(db, "notifications"), newNotification);
     },

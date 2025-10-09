@@ -365,6 +365,12 @@ export type PassRequestPayload = {
   declinedBy?: string[]; // Array of user IDs who declined
   targetUserId?: string; // For direct pass requests
   isSwapRequest?: boolean; // For direct shift swaps
+  targetUserShiftPayload?: { // Snapshot of the target user's shift for swaps
+      shiftId: string;
+      shiftLabel: string;
+      shiftTimeSlot: TimeSlot;
+      date: string;
+  };
   cancellationReason?: string; // Reason for automatic cancellation
 }
 
