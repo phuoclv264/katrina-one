@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -974,6 +972,55 @@ export const dataStore = {
 
     async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
         const docRef = doc(db, 'schedules', weekId);
+        
+        // Add validation logic here
+        const notificationsQuery = query(
+            collection(db, 'notifications'),
+            where('type', '==', 'pass_request'),
+            where('payload.weekId', '==', weekId),
+            or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+        );
+        const notificationsSnapshot = await getDocs(notificationsQuery);
+        const pendingNotifications = notificationsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Notification));
+        const batch = writeBatch(db);
+
+        pendingNotifications.forEach(notif => {
+            const { payload } = notif;
+            const shiftInNewSchedule = data.shifts?.find(s => s.id === payload.shiftId);
+
+            // Rule 1 & 3: Check if the requesting user is still in the shift
+            if (!shiftInNewSchedule || !shiftInNewSchedule.assignedUsers.some(u => u.userId === payload.requestingUser.userId)) {
+                batch.update(doc(db, 'notifications', notif.id), { status: 'cancelled', 'payload.cancellationReason': 'Tự động hủy do người yêu cầu không còn trong ca.' });
+                return; // Skip other checks for this notification
+            }
+            
+            // Rule 2 & 4: Check the taker/target
+            if (notif.status === 'pending_approval' && payload.takenBy) {
+                const taker = payload.takenBy;
+                const shiftsOnDay = data.shifts?.filter(s => s.date === payload.shiftDate) || [];
+                const conflict = hasTimeConflict(taker.userId, shiftInNewSchedule, shiftsOnDay.filter(s => s.id !== payload.shiftId));
+                
+                if (conflict) {
+                     batch.update(doc(db, 'notifications', notif.id), { 
+                        status: 'pending', 
+                        'payload.takenBy': null, 
+                        'payload.declinedBy': arrayUnion(taker.userId)
+                    });
+                    return;
+                }
+            }
+
+            if (payload.isSwapRequest && payload.targetUserShiftPayload) {
+                 const targetShiftInNewSchedule = data.shifts?.find(s => s.id === payload.targetUserShiftPayload?.shiftId);
+                 const targetUserId = payload.targetUserId || payload.takenBy?.userId;
+
+                 if (!targetShiftInNewSchedule || !targetShiftInNewSchedule.assignedUsers.some(u => u.userId === targetUserId)) {
+                     batch.update(doc(db, 'notifications', notif.id), { status: 'cancelled', 'payload.cancellationReason': 'Tự động hủy do người được đổi không còn trong ca.' });
+                 }
+            }
+        });
+
+        await batch.commit();
         await setDoc(docRef, data, { merge: true });
     },
 
@@ -1296,7 +1343,7 @@ export const dataStore = {
     },
     
     async rejectPassRequestApproval(notificationId: string, resolver: AuthUser): Promise<void> {
-        const notificationRef = doc(db, "notifications", notificationId);
+        const notificationRef = doc(db, 'notifications', notificationId);
         await updateDoc(notificationRef, {
             status: 'pending',
             resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
