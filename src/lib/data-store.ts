@@ -1,3 +1,4 @@
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -267,6 +268,7 @@ export const dataStore = {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
                 const storageRef = ref(storage, `handover-reports/${id}/discrepancy/${uuidv4()}.jpg`);
+                const blob = photoBlob;
                 await uploadBytes(storageRef, blob);
                 return getDownloadURL(storageRef);
             });
@@ -973,12 +975,13 @@ export const dataStore = {
     async updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
         const docRef = doc(db, 'schedules', weekId);
         
-        // Add validation logic here
         const notificationsQuery = query(
             collection(db, 'notifications'),
-            where('type', '==', 'pass_request'),
-            where('payload.weekId', '==', weekId),
-            or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+            and(
+                where('type', '==', 'pass_request'),
+                where('payload.weekId', '==', weekId),
+                or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
+            )
         );
         const notificationsSnapshot = await getDocs(notificationsQuery);
         const pendingNotifications = notificationsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Notification));
