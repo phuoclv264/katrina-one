@@ -100,6 +100,10 @@ function ViolationDialog({
   }, [open, violationToEdit, isSelfConfession, reporter, users]);
 
   const handleSave = () => {
+    if (!reporter) {
+      toast.error("Không tìm thấy thông tin người báo cáo.");
+      return;
+    }
     if (!content || selectedUsers.length === 0 || !selectedCategoryId) {
       toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
       return;
@@ -443,7 +447,7 @@ export default function ViolationsPage() {
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
 
-  const [openCommentSectionId, setOpenCommentSectionId] = useState<string | null>(null);
+  const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
@@ -664,6 +668,18 @@ export default function ViolationsPage() {
           return acc;
       }, {} as {[key: string]: Violation[]});
   }, [filteredViolations]);
+  
+  useEffect(() => {
+    if (user && user.role !== 'Chủ nhà hàng' && violations.length > 0) {
+      const newOpenIds = new Set<string>();
+      violations.forEach(v => {
+        if (v.comments && v.comments.length > 0) {
+          newOpenIds.add(v.id);
+        }
+      });
+      setOpenCommentSectionIds(newOpenIds);
+    }
+  }, [violations, user]);
 
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
   const isOwner = user?.role === 'Chủ nhà hàng';
@@ -681,9 +697,17 @@ export default function ViolationsPage() {
       setLightboxOpen(true);
   };
   
-  const toggleCommentSection = (violationId: string) => {
-      setOpenCommentSectionId(prevId => prevId === violationId ? null : violationId);
-  }
+    const toggleCommentSection = (violationId: string) => {
+        setOpenCommentSectionIds(prevIds => {
+            const newIds = new Set(prevIds);
+            if (newIds.has(violationId)) {
+                newIds.delete(violationId);
+            } else {
+                newIds.add(violationId);
+            }
+            return newIds;
+        });
+    };
   
   const getSeverityBadgeClass = (severity: Violation['severity']) => {
     switch (severity) {
@@ -916,11 +940,11 @@ export default function ViolationsPage() {
                                         {showCommentButton && (
                                             <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
                                                 <MessageSquare className="mr-2 h-4 w-4"/>
-                                                {openCommentSectionId === v.id ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
+                                                {openCommentSectionIds.has(v.id) ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
                                             </Button>
                                         )}
                                     </div>
-                                    {openCommentSectionId === v.id && (
+                                    {openCommentSectionIds.has(v.id) && (
                                         <CommentSection
                                             violation={v}
                                             currentUser={user}
