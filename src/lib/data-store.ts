@@ -2264,6 +2264,24 @@ export const dataStore = {
     const q = query(violationsCollection, orderBy('createdAt', 'desc'));
   
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      // 1. Get all necessary data
+      const categoryData = await this.getViolationCategories();
+      const now = new Date();
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+      
+      const violationsInMonthQuery = query(violationsCollection, 
+        where('createdAt', '>=', monthStart),
+        where('createdAt', '<=', monthEnd)
+      );
+      const historicSnapshot = await getDocs(violationsInMonthQuery);
+      const allHistoricViolations = historicSnapshot.docs.map(doc => {
+          const data = doc.data();
+          const createdAt = (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString();
+          return { id: doc.id, ...data, createdAt } as Violation
+      });
+  
+      // 2. Process currently fetched violations
       const fetchedViolations: Violation[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -2275,20 +2293,11 @@ export const dataStore = {
         } as Violation);
       });
   
-      // Now, re-evaluate all violations based on current rules
-      const categoryData = await this.getViolationCategories();
-      const allViolationsSnapshot = await getDocs(q); // get all for context
-      const allHistoricViolations = allViolationsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id, 
-            ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-        } as Violation
-      });
+      // 3. Re-evaluate violations from the current month
       const updates: Promise<void>[] = [];
-  
-      fetchedViolations.forEach(violation => {
+      const violationsInCurrentMonth = fetchedViolations.filter(v => isWithinInterval(parseISO(v.createdAt as string), { start: monthStart, end: monthEnd }));
+
+      violationsInCurrentMonth.forEach(violation => {
         const { cost, severity } = this.calculateViolationCost(violation, categoryData, allHistoricViolations);
         if (violation.cost !== cost || violation.severity !== severity) {
           const docRef = doc(db, 'violations', violation.id);
@@ -2432,26 +2441,29 @@ export const dataStore = {
       return false;
     });
   
-    // For rules with the same condition, only apply the one with the highest threshold
-    const highestThresholdRules = new Map<FineRule['condition'], FineRule>();
+    const rulesByCondition = new Map<FineRule['condition'], FineRule[]>();
     applicableRules.forEach(rule => {
-      const existing = highestThresholdRules.get(rule.condition);
-      if (!existing || rule.threshold > existing.threshold) {
-        highestThresholdRules.set(rule.condition, rule);
-      }
+        if (!rulesByCondition.has(rule.condition)) {
+            rulesByCondition.set(rule.condition, []);
+        }
+        rulesByCondition.get(rule.condition)!.push(rule);
     });
-  
-    highestThresholdRules.forEach(rule => {
-      if (rule.action === 'multiply') {
-        finalCost *= rule.value;
-      } else if (rule.action === 'add') {
-        finalCost += rule.value;
-      }
-  
-      if (rule.severityAction === 'increase') {
-        if (finalSeverity === 'low') finalSeverity = 'medium';
-        else if (finalSeverity === 'medium') finalSeverity = 'high';
-      }
+
+    rulesByCondition.forEach((rules, condition) => {
+        if (rules.length === 0) return;
+        // For a given condition, find the rule with the highest threshold that is met.
+        const bestRule = rules.sort((a,b) => b.threshold - a.threshold)[0];
+        
+        if (bestRule.action === 'multiply') {
+            finalCost *= bestRule.value;
+        } else if (bestRule.action === 'add') {
+            finalCost += bestRule.value;
+        }
+    
+        if (bestRule.severityAction === 'increase') {
+            if (finalSeverity === 'low') finalSeverity = 'medium';
+            else if (finalSeverity === 'medium') finalSeverity = 'high';
+        }
     });
   
     return { cost: finalCost, severity: finalSeverity };
