@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -81,34 +82,34 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-card p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle>Chính sách phạt</DialogTitle>
-          <DialogDescription>
-            Danh sách các loại vi phạm và mức phạt tương ứng được áp dụng tại cửa hàng.
+        <DialogHeader className="p-4 border-b">
+          <DialogTitle className="text-lg">Chính sách phạt</DialogTitle>
+          <DialogDescription className="text-xs">
+            Danh sách các loại vi phạm và mức phạt tương ứng.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 border-b bg-muted/50 sticky top-0 z-10 bg-background/95 backdrop-blur">
-          <div className="flex h-12 items-center text-sm font-medium text-muted-foreground">
-            <div className="w-[40%] px-4 text-left">Tên vi phạm</div>
-            <div className="w-[30%] px-4 text-center">Mức độ</div>
-            <div className="w-[30%] px-4 text-right">Mức phạt</div>
+        <div className="px-4 border-b bg-muted/50 sticky top-0 z-10 bg-background/95 backdrop-blur">
+          <div className="flex h-10 items-center text-xs font-medium text-muted-foreground">
+            <div className="w-[40%] px-2 text-left">Tên vi phạm</div>
+            <div className="w-[30%] px-2 text-center">Mức độ</div>
+            <div className="w-[30%] px-2 text-right">Mức phạt</div>
           </div>
         </div>
 
         <ScrollArea className="flex-grow">
-            <div className="px-6">
+            <div className="px-4">
                 <Table>
                     <TableBody>
                         {sortedCategories.map((category) => (
                         <TableRow key={category.id}>
-                            <TableCell className="font-medium py-2 w-[40%]">{category.name}</TableCell>
-                            <TableCell className="text-center py-2 w-[30%]">
-                                <Badge className={cn("capitalize", getSeverityBadgeClass(category.severity))}>
+                            <TableCell className="font-medium py-1.5 px-2 w-[40%] text-sm">{category.name}</TableCell>
+                            <TableCell className="text-center py-1.5 px-2 w-[30%]">
+                                <Badge className={cn("capitalize text-xs", getSeverityBadgeClass(category.severity))}>
                                     {category.severity === 'low' ? 'Nhẹ' : category.severity === 'medium' ? 'TB' : 'Nặng'}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-semibold py-2 w-[30%]">
+                            <TableCell className="text-right font-semibold py-1.5 px-2 w-[30%] text-sm">
                             {category.calculationType === 'perUnit'
                                 ? `${(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / ${category.unitLabel || 'đơn vị'}`
                                 : `${(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ`
@@ -120,11 +121,11 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
                 </Table>
             </div>
         </ScrollArea>
-        <DialogFooter className="p-6 pt-4 border-t flex-col items-start gap-2 sm:flex-col sm:items-start bg-white dark:bg-card">
+        <DialogFooter className="p-4 pt-2 border-t flex-col items-start gap-2 sm:flex-col sm:items-start bg-white dark:bg-card">
           <Label className="text-xs font-semibold text-muted-foreground w-full">
             Quy tắc phạt chung
           </Label>
-          <div className="w-full text-sm text-muted-foreground p-3 border rounded-lg bg-muted/50 whitespace-pre-wrap">
+          <div className="w-full text-xs text-muted-foreground p-2 border rounded-lg bg-muted/50 whitespace-pre-wrap">
             {generalRuleSummary ? generalRuleSummary : 'Không có quy tắc phạt chung nào được thiết lập.'}
           </div>
         </DialogFooter>
