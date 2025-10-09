@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
@@ -80,7 +82,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card">
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>Chính sách phạt</DialogTitle>
           <DialogDescription>
@@ -118,16 +120,18 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
                 </Table>
             </div>
         </ScrollArea>
+        {generalRules.length > 0 && (
         <DialogFooter className="p-6 pt-4 border-t flex-col items-start gap-2 sm:flex-row sm:items-center">
             <div className="w-full space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
                     Quy tắc phạt chung
                 </Label>
                 <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 whitespace-pre-wrap">
-                    {generalRuleSummary || 'Không có quy tắc chung nào được thiết lập.'}
+                    {generalRuleSummary}
                 </div>
             </div>
         </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
