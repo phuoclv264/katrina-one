@@ -245,7 +245,7 @@ function ViolationDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
           <Button onClick={handleSave} disabled={isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Lưu
           </Button>
         </DialogFooter>
@@ -705,6 +705,14 @@ export default function ViolationsPage() {
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
     }
   };
+  
+  const getSeverityCardClass = (severity: Violation['severity']) => {
+    switch (severity) {
+      case 'high': return 'bg-red-500/5';
+      case 'medium': return 'bg-yellow-500/5';
+      default: return 'bg-card';
+    }
+  };
 
 
   if (isLoading || authLoading || !user) {
@@ -811,25 +819,34 @@ export default function ViolationsPage() {
 
 
                                 let borderClass: string;
+                                let backgroundClass: string = getSeverityCardClass(v.severity);
                                 if(isWaived) {
                                   borderClass = "border-green-500/50 ring-2 ring-green-500/20";
-                                } else if (v.isFlagged || v.severity === 'high') {
+                                  backgroundClass = "bg-green-500/5";
+                                } else if (v.isFlagged) {
                                   borderClass = "border-red-500/50 ring-2 ring-red-500/20";
+                                  backgroundClass = "bg-red-500/5";
                                 } else {
                                   borderClass = "border-border";
                                 }
 
                                 return (
-                                <Card key={v.id} className={cn("relative shadow-sm", borderClass)}>
+                                <Card key={v.id} className={cn("relative shadow-sm", borderClass, backgroundClass)}>
                                     <CardContent className="p-4">
                                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
-                                                {v.users.length === 1 && v.users[0].id === v.reporterId && (
-                                                    <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
-                                                )}
+                                            {/* Left side: Users & Category */}
+                                            <div className="flex-1">
+                                                <p className="font-semibold">{v.users.map(u => u.name).join(', ')}</p>
+                                                <div className="flex items-center gap-2 flex-wrap mt-1">
+                                                    <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
+                                                    {v.users.length === 1 && v.users[0].id === v.reporterId && (
+                                                        <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="flex gap-1 self-end sm:self-start">
+                                            
+                                            {/* Right side: Actions */}
+                                            <div className="flex gap-1 self-start sm:self-start mt-2 sm:mt-0">
                                                 {isOwner && (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
@@ -866,12 +883,10 @@ export default function ViolationsPage() {
                                                 )}
                                             </div>
                                         </div>
-                                        <p className="mt-2 text-sm text-muted-foreground">
-                                            <span className="font-semibold text-foreground">{v.users.map(u => u.name).join(', ')}</span>
-                                        </p>
-                                        <p className="mt-1 text-base whitespace-pre-wrap font-medium">{v.content}</p>
+
+                                        <p className="mt-3 text-base whitespace-pre-wrap font-medium">{v.content}</p>
                                         
-                                        <p className="mt-2 text-destructive font-bold text-lg">
+                                        <p className={cn("mt-2 font-bold text-lg", isWaived ? "text-green-600 line-through" : "text-destructive")}>
                                             Tổng phạt: {(v.cost || 0).toLocaleString('vi-VN')}đ
                                             {v.users.length > 1 && (
                                                 <span className="text-xs font-normal text-muted-foreground ml-2">({userPenaltyDetails})</span>
