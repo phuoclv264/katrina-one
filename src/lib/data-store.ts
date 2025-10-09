@@ -33,6 +33,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
+import isEqual from 'lodash.isequal';
 
 
 const getTodaysDateKey = () => {
@@ -2311,8 +2312,8 @@ export const dataStore = {
             return [v.id, v];
         }));
         
-        allViolationsInMonth.forEach(violation => {
-            const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = this.calculateViolationCost(violation, cachedCategories!, allViolationsInMonth);
+        violationsInMonth.forEach(violation => {
+            const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = this.calculateViolationCost(violation, cachedCategories!, violationsInMonth);
             const currentViolationState = updatedViolationsMap.get(violation.id)!;
     
             if (currentViolationState.cost !== newCost || currentViolationState.severity !== newSeverity || !isEqual(currentViolationState.userCosts, newUserCosts)) {
@@ -2778,3 +2779,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
