@@ -56,9 +56,9 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
     return generalRules.map(rule => {
       let conditionText = '';
       if (rule.condition === 'repeat_in_month') {
-        conditionText = `Lặp lại từ lần thứ ${rule.threshold} trong tháng`;
+        conditionText = `lặp lại từ lần thứ ${rule.threshold} trong tháng`;
       } else if (rule.condition === 'is_flagged') {
-        conditionText = `Bị gắn cờ đỏ`;
+        conditionText = `bị gắn cờ đỏ`;
       }
 
       let actionText = '';
@@ -119,18 +119,16 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
                 </Table>
             </div>
         </ScrollArea>
-        {generalRuleSummary && (
-          <DialogFooter className="border-t pt-4 flex-col items-start gap-2 sm:flex-row sm:items-center">
-              <div className="w-full space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
-                      Quy tắc phạt chung
-                  </Label>
-                  <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 whitespace-pre-wrap">
-                      {generalRuleSummary}
-                  </div>
-              </div>
-          </DialogFooter>
-        )}
+        <DialogFooter className="border-t pt-4 flex-col items-start gap-2 sm:flex-row sm:items-center">
+            <div className="w-full space-y-2">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
+                    Quy tắc phạt chung
+                </Label>
+                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 whitespace-pre-wrap">
+                    {generalRuleSummary || 'Không có quy tắc chung nào được thiết lập.'}
+                </div>
+            </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
