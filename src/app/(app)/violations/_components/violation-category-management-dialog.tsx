@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Edit, Loader2, Check, Save, ShieldCheck, Repeat } from 'lucide-react';
+import { Trash2, Plus, Edit, Loader2, Check, Save, ShieldCheck, Repeat, ArrowUp, ArrowDown } from 'lucide-react';
 import type { ViolationCategory, ViolationCategoryData, FineRule } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
@@ -35,7 +35,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-function RuleEditor({ rule, onUpdate, onDelete, isEditing }: { rule: FineRule, onUpdate: (updatedRule: FineRule) => void, onDelete: () => void, isEditing: boolean }) {
+function RuleEditor({ rule, onUpdate, onDelete, isEditing, onMove, canMoveUp, canMoveDown }: { rule: FineRule, onUpdate: (updatedRule: FineRule) => void, onDelete: () => void, isEditing: boolean, onMove: (direction: 'up' | 'down') => void, canMoveUp: boolean, canMoveDown: boolean }) {
     if (!isEditing) {
         let conditionText = '';
         if (rule.condition === 'repeat_in_month') {
@@ -51,11 +51,18 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing }: { rule: FineRule, o
             actionText = `cộng thêm ${rule.value.toLocaleString('vi-VN')}đ`;
         }
 
-        const severityActionText = rule.severityAction === 'increase' ? ' và gia tăng mức độ vi phạm.' : '.';
+        let severityActionText = '';
+        if (rule.severityAction === 'increase') {
+            severityActionText = ' và gia tăng mức độ vi phạm.';
+        } else if (rule.severityAction === 'set_to_high') {
+             severityActionText = ' và chuyển sang vi phạm nghiêm trọng.';
+        } else {
+            severityActionText = '.';
+        }
 
         return (
-            <div className="p-3 border rounded-md bg-blue-500/5 text-sm">
-                <span className="font-semibold">Nếu một vi phạm</span> {conditionText} <span className="font-semibold">thì</span> {actionText}{severityActionText}
+            <div className="p-3 border rounded-md bg-blue-500/5 text-sm flex justify-between items-center">
+                <span><span className="font-semibold">Nếu một vi phạm</span> {conditionText} <span className="font-semibold">thì</span> {actionText}{severityActionText}</span>
             </div>
         );
     }
@@ -63,7 +70,11 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing }: { rule: FineRule, o
     return (
         <div className="p-3 border rounded-md space-y-3 bg-blue-500/5">
             <div className="flex justify-between items-start">
-                <p className="font-semibold text-sm">Nếu một vi phạm....</p>
+                 <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onMove('up')} disabled={!canMoveUp}><ArrowUp className="h-4 w-4"/></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onMove('down')} disabled={!canMoveDown}><ArrowDown className="h-4 w-4"/></Button>
+                    <p className="font-semibold text-sm">Nếu một vi phạm....</p>
+                </div>
                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive"/></Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -111,6 +122,7 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing }: { rule: FineRule, o
                     <SelectContent>
                         <SelectItem value="none">Không thực hiện</SelectItem>
                         <SelectItem value="increase">Gia tăng mức độ vi phạm</SelectItem>
+                        <SelectItem value="set_to_high">Chuyển sang vi phạm nghiêm trọng</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -262,6 +274,14 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     setIsEditingGeneralRules(false);
   }
 
+  const handleMoveRule = (index: number, direction: 'up' | 'down') => {
+    const newRules = [...tempGeneralRules];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= newRules.length) return;
+    [newRules[index], newRules[newIndex]] = [newRules[newIndex], newRules[index]];
+    setTempGeneralRules(newRules);
+  };
+
   const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
     switch (severity) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
@@ -306,6 +326,9 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                     onUpdate={(updatedRule) => handleUpdateGeneralRule(rule.id, updatedRule)}
                     onDelete={() => handleDeleteGeneralRule(rule.id)}
                     isEditing={isEditingGeneralRules}
+                    onMove={(dir) => handleMoveRule(index, dir)}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < tempGeneralRules.length - 1}
                   />
               ))}
               {isEditingGeneralRules && (

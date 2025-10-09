@@ -307,7 +307,7 @@ export const dataStore = {
     },
 
     async addOrUpdateIncident(
-      data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt'> & { photosToUpload: string[] },
+      data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt' | 'cost' | 'severity'> & { photosToUpload: string[] },
       id: string | undefined,
       user: AuthUser
     ): Promise<void> {
@@ -2260,26 +2260,86 @@ export const dataStore = {
 
    subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
     const violationsQuery = query(collection(db, 'violations'), orderBy('createdAt', 'desc'));
-    
-    // Only listen to violations, the recalculation will be triggered explicitly.
+    const categoriesDocRef = doc(db, 'app-data', 'violationCategories');
+
+    let cachedCategories: ViolationCategoryData | null = null;
+    let cachedViolations: Violation[] = [];
+    let isInitialViolationsLoad = true;
+
+    const processAndCallback = async () => {
+        if (!cachedCategories || cachedViolations.length === 0) return;
+
+        const currentMonthStart = startOfMonth(new Date());
+        const currentMonthEnd = endOfMonth(new Date());
+
+        const violationsInMonth = cachedViolations.filter(v => {
+            if (!v.createdAt) return false;
+            const createdAtDate = parseISO(v.createdAt as string);
+            return isWithinInterval(createdAtDate, { start: currentMonthStart, end: currentMonthEnd });
+        });
+
+        const batch = writeBatch(db);
+        let hasUpdates = false;
+
+        const updatedViolationsMap = new Map(cachedViolations.map(v => [v.id, v]));
+
+        violationsInMonth.forEach(violation => {
+            const { cost: newCost, severity: newSeverity } = this.calculateViolationCost(violation, cachedCategories!, violationsInMonth);
+            const currentViolationState = updatedViolationsMap.get(violation.id)!;
+
+            if (currentViolationState.cost !== newCost || currentViolationState.severity !== newSeverity) {
+                const docRef = doc(db, 'violations', violation.id);
+                batch.update(docRef, { cost: newCost, severity: newSeverity });
+                
+                updatedViolationsMap.set(violation.id, { ...currentViolationState, cost: newCost, severity: newSeverity });
+                hasUpdates = true;
+            }
+        });
+
+        if (hasUpdates) {
+             callback(Array.from(updatedViolationsMap.values()));
+            try {
+                await batch.commit();
+                // The onSnapshot listener for violations will then fetch the updated data naturally.
+            } catch (err) {
+                console.error("Error batch updating violation costs:", err);
+            }
+        } else {
+             callback(cachedViolations);
+        }
+    };
+
+    const unsubCategories = onSnapshot(categoriesDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            cachedCategories = docSnap.data() as ViolationCategoryData;
+            if (!isInitialViolationsLoad) {
+                processAndCallback();
+            }
+        }
+    });
+
     const unsubViolations = onSnapshot(violationsQuery, (violationsSnapshot) => {
-        const fullViolationList: Violation[] = violationsSnapshot.docs.map(doc => {
+        cachedViolations = violationsSnapshot.docs.map(doc => {
             const data = doc.data();
-            const createdAt = (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString();
+            const createdAt = data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date(0).toISOString();
             return {
                 id: doc.id,
                 ...data,
-                createdAt: createdAt,
-                penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
+                createdAt,
+                penaltySubmittedAt: data.penaltySubmittedAt ? (data.penaltySubmittedAt as Timestamp).toDate().toISOString() : undefined,
             } as Violation;
         });
-        callback(fullViolationList);
+        isInitialViolationsLoad = false;
+        processAndCallback();
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
         callback([]);
     });
 
-    return unsubViolations;
+    return () => {
+        unsubCategories();
+        unsubViolations();
+    };
   },
 
   async recalculateViolationsForCurrentMonth(): Promise<void> {
@@ -2306,7 +2366,7 @@ export const dataStore = {
             createdAt: (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString(),
         } as Violation;
     }).sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
-
+    
     const batch = writeBatch(db);
     let hasUpdates = false;
 
@@ -2324,9 +2384,8 @@ export const dataStore = {
     if (hasUpdates) {
         try {
             await batch.commit();
-            console.log("Batch updated violation costs and severities successfully.");
         } catch (err) {
-            console.error("Error batch updating violation costs:", err);
+            console.error("Error recalculating and batch updating violation costs:", err);
         }
     }
   },
@@ -2410,11 +2469,11 @@ export const dataStore = {
   calculateViolationCost(
     violation: Violation,
     categoryData: ViolationCategoryData,
-    allHistoricViolations: Violation[]
+    allHistoricViolationsInMonth: Violation[]
   ): { cost: number; severity: Violation['severity'] } {
     const category = categoryData.list.find(c => c.id === violation.categoryId);
     if (!category) {
-      return { cost: violation.cost, severity: violation.severity };
+      return { cost: violation.cost || 0, severity: violation.severity || 'low' };
     }
   
     let baseCost = 0;
@@ -2435,15 +2494,11 @@ export const dataStore = {
         return true;
       }
       if (rule.condition === 'repeat_in_month') {
-        const start = startOfMonth(violationCreatedAt);
-        const end = endOfMonth(violationCreatedAt);
-        
         const repeatCount = violation.users.reduce((maxCount, user) => {
-          const count = allHistoricViolations.filter(v =>
+          const count = allHistoricViolationsInMonth.filter(v =>
             v.users.some(vu => vu.id === user.id) &&
             v.categoryId === violation.categoryId &&
-            isWithinInterval(parseISO(v.createdAt as string), { start, end }) &&
-            new Date(v.createdAt as string) < new Date(violation.createdAt as string)
+            new Date(v.createdAt as string) < violationCreatedAt
           ).length + 1; // +1 for the current violation
           return Math.max(maxCount, count);
         }, 0);
@@ -2452,31 +2507,24 @@ export const dataStore = {
       }
       return false;
     });
-  
-    const rulesByCondition = new Map<FineRule['condition'], FineRule[]>();
-    applicableRules.forEach(rule => {
-        if (!rulesByCondition.has(rule.condition)) {
-            rulesByCondition.set(rule.condition, []);
-        }
-        rulesByCondition.get(rule.condition)!.push(rule);
-    });
 
-    rulesByCondition.forEach((rules, condition) => {
-        if (rules.length === 0) return;
-        // For a given condition, find the rule with the highest threshold that is met.
-        const bestRule = rules.sort((a,b) => b.threshold - a.threshold)[0];
-        
-        if (bestRule.action === 'multiply') {
-            finalCost *= bestRule.value;
-        } else if (bestRule.action === 'add') {
-            finalCost += bestRule.value;
+    // Sort rules so they can be applied in order
+    const sortedRules = [...applicableRules].sort((a,b) => (a.threshold || 0) - (b.threshold || 0));
+  
+    for(const rule of sortedRules) {
+        if (rule.action === 'multiply') {
+            finalCost *= rule.value;
+        } else if (rule.action === 'add') {
+            finalCost += rule.value;
         }
     
-        if (bestRule.severityAction === 'increase') {
+        if (rule.severityAction === 'increase') {
             if (finalSeverity === 'low') finalSeverity = 'medium';
             else if (finalSeverity === 'medium') finalSeverity = 'high';
+        } else if (rule.severityAction === 'set_to_high') {
+            finalSeverity = 'high';
         }
-    });
+    }
   
     return { cost: finalCost, severity: finalSeverity };
   },
@@ -2518,7 +2566,6 @@ export const dataStore = {
     
         await photoStore.deletePhotos(photosToUpload);
         
-        // After saving, trigger a recalculation for the current month
         await this.recalculateViolationsForCurrentMonth();
   },
   
