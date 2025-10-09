@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send, Settings, Check } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission, ViolationUserCost } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -821,15 +821,17 @@ export default function ViolationsPage() {
                                 <Plus className="mr-2 h-4 w-4" /> Thêm mới
                             </Button>
                         )}
-                        <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="w-full sm:w-auto">
-                           <BadgeInfo className="mr-2 h-4 w-4" />
-                           Chính sách phạt
-                       </Button>
-                        {isOwner && (
-                            <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
-                                <Settings className="h-4 w-4" />
-                            </Button>
-                        )}
+                        <div className="flex gap-2 w-full sm:w-auto">
+                           <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="flex-grow">
+                              <BadgeInfo className="mr-2 h-4 w-4" />
+                              Chính sách phạt
+                           </Button>
+                           {isOwner && (
+                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)} className="shrink-0">
+                                    <Settings className="h-4 w-4" />
+                                </Button>
+                           )}
+                        </div>
                     </div>
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
