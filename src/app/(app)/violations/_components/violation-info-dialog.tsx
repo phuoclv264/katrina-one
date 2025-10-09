@@ -8,7 +8,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
@@ -89,8 +88,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
           </DialogDescription>
         </DialogHeader>
 
-        {/* Sticky Table Header */}
-        <div className="px-6 border-b">
+        <div className="px-6 border-b bg-muted/50">
           <div className="flex h-12 items-center text-sm font-medium text-muted-foreground">
             <div className="w-[40%] px-4 text-left">Tên vi phạm</div>
             <div className="w-[30%] px-4 text-center">Mức độ</div>
@@ -123,12 +121,12 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
             </div>
         </ScrollArea>
         {generalRules.length > 0 && (
-        <DialogFooter className="p-6 pt-4 border-t flex-col items-start gap-2 sm:flex-row sm:items-center">
+        <DialogFooter className="p-6 pt-4 border-t flex-col items-start gap-2 sm:flex-row sm:items-center bg-muted/50">
             <div className="w-full space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
                     Quy tắc phạt chung
                 </Label>
-                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 whitespace-pre-wrap">
+                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-background whitespace-pre-wrap">
                     {generalRuleSummary}
                 </div>
             </div>
