@@ -262,7 +262,7 @@ export const dataStore = {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
                 const storageRef = ref(storage, `handover-reports/${id}/discrepancy/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
+                await uploadBytes(storageRef, blob);
                 return getDownloadURL(storageRef);
             });
             newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -2547,6 +2547,12 @@ export const dataStore = {
         totalCost += userFine;
     }
 
+    const severityOrder: Record<ViolationCategory['severity'], number> = {
+        low: 1,
+        medium: 2,
+        high: 3
+    };
+    
     // Determine the highest severity among all users involved.
     const finalSeverity = violation.users.reduce((maxSeverity, user) => {
         let userSeverity = category.severity;
