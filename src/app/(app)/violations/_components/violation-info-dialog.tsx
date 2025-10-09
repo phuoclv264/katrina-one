@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
@@ -84,9 +85,6 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
       <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-card p-0">
         <DialogHeader className="p-4 border-b">
           <DialogTitle className="text-lg">Chính sách phạt</DialogTitle>
-          <DialogDescription className="text-xs">
-            Danh sách các loại vi phạm và mức phạt tương ứng.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="px-4 border-b bg-muted/50 sticky top-0 z-10 bg-background/95 backdrop-blur">
