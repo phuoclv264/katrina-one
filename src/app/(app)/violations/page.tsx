@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -447,6 +446,8 @@ export default function ViolationsPage() {
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
+  const [activeUserForPenalty, setActiveUserForPenalty] = useState<ViolationUser | null>(null);
+
 
   const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
 
@@ -621,9 +622,9 @@ export default function ViolationsPage() {
         }
     };
   
-  const handlePenaltySubmit = async (photoIds: string[]) => {
+    const handlePenaltySubmit = async (photoIds: string[]) => {
         setIsPenaltyCameraOpen(false);
-        if (!activeViolationForPenalty || photoIds.length === 0 || !user) {
+        if (!activeViolationForPenalty || !activeUserForPenalty || photoIds.length === 0) {
             return;
         }
         
@@ -632,7 +633,7 @@ export default function ViolationsPage() {
         toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
         try {
-            const newPhotoUrls = await dataStore.submitPenaltyProof(violationId, photoIds, user);
+            await dataStore.submitPenaltyProof(violationId, photoIds, activeUserForPenalty);
             toast.success('Đã cập nhật bằng chứng nộp phạt.');
         } catch (error) {
             console.error("Failed to submit penalty proof:", error);
@@ -641,6 +642,7 @@ export default function ViolationsPage() {
             toast.dismiss();
             setProcessingViolationId(null);
             setActiveViolationForPenalty(null);
+            setActiveUserForPenalty(null);
         }
     };
 
@@ -912,7 +914,7 @@ export default function ViolationsPage() {
                                                               </Button>
                                                             )}
                                                             {canSubmit && (
-                                                              <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                              <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}>
                                                                   <FilePlus2 className="mr-2 h-4 w-4" />
                                                                   Bổ sung
                                                               </Button>
@@ -920,7 +922,7 @@ export default function ViolationsPage() {
                                                         </div>
                                                     ) : (
                                                         canSubmit && (
-                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}>
                                                                 Xác nhận đã nộp phạt
                                                             </Button>
                                                         )
