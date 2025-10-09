@@ -569,7 +569,7 @@ export const dataStore = {
             finalData.date = slipData.date || getTodaysDateKey();
              if (!slipData.createdBy || !slipData.createdBy.userId) {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
-                throw new Error(`Cannot create expense slip: createdBy information is missing or invalid. ${slipData.createdBy}`);
+                throw new Error(`Cannot create expense slip: createdBy information is missing or invalid. ${''}`);
             }
             if (slipData.paymentMethod === 'bank_transfer') {
                 finalData.paymentStatus = 'unpaid';
@@ -737,7 +737,7 @@ export const dataStore = {
                 
                 // Identify expired pass requests
                 if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
-                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
+                    const shiftDateTime = parseISO(`${''}`);
                     if (isPast(shiftDateTime)) {
                         expiredRequests.push(notification);
                     }
@@ -1448,7 +1448,7 @@ export const dataStore = {
             }
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read app settings: ${error.code}`);
-            callback({ isRegistrationEnabled: false }); // Default to false on error
+            callback({ isRegistrationEnabled: false }); // Default to disabled on error
         });
         return unsubscribe;
     },
@@ -2568,44 +2568,40 @@ export const dataStore = {
     return { cost: totalCost, severity: finalSeverity, userCosts };
   },
 
-    async addOrUpdateViolation(
-        data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt' | 'cost' | 'severity'> & { photosToUpload: string[] },
-        id?: string
-    ): Promise<void> {
-        const { photosToUpload, ...violationData } = data;
+  async addOrUpdateViolation(
+      data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmissions' | 'cost' | 'severity'> & { photosToUpload: string[] },
+      id?: string
+  ): Promise<void> {
+    const { photosToUpload, ...violationData } = data;
     
-        // 1. Upload photos
-        const uploadPromises = photosToUpload.map(async (photoId) => {
-            const photoBlob = await photoStore.getPhoto(photoId);
-            if (!photoBlob) return null;
-            const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, photoBlob);
-            return getDownloadURL(storageRef);
-        });
-        const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+    const uploadPromises = photosToUpload.map(async (photoId) => {
+      const photoBlob = await photoStore.getPhoto(photoId);
+      if (!photoBlob) return null;
+      const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
+      await uploadBytes(storageRef, photoBlob);
+      return getDownloadURL(storageRef);
+    });
+    const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
     
-        // 2. Prepare data for Firestore
-        const finalData: Partial<Violation> = { ...violationData };
+    const finalData: Partial<Violation> = { ...violationData };
 
-        if (id) {
-            const docRef = doc(db, 'violations', id);
-            const currentDoc = await getDoc(docRef);
-            if (currentDoc.exists()) {
-                const existingPhotos = currentDoc.data().photos || [];
-                finalData.photos = [...existingPhotos, ...photoUrls];
-                finalData.lastModified = serverTimestamp();
-                await updateDoc(docRef, finalData);
-            }
-        } else {
-            finalData.createdAt = serverTimestamp();
-            finalData.photos = photoUrls;
-            const violationRef = await addDoc(collection(db, 'violations'), finalData);
-            id = violationRef.id;
+    if (id) {
+        const docRef = doc(db, 'violations', id);
+        const currentDoc = await getDoc(docRef);
+        if (currentDoc.exists()) {
+            const existingPhotos = currentDoc.data().photos || [];
+            finalData.photos = [...existingPhotos, ...photoUrls];
+            finalData.lastModified = serverTimestamp();
+            await updateDoc(docRef, finalData);
         }
-    
-        await photoStore.deletePhotos(photosToUpload);
-        
-        await this.recalculateViolationsForCurrentMonth();
+    } else {
+        finalData.createdAt = serverTimestamp();
+        finalData.photos = photoUrls;
+        await addDoc(collection(db, 'violations'), finalData);
+    }
+
+    await photoStore.deletePhotos(photosToUpload);
+    await this.recalculateViolationsForCurrentMonth();
   },
   
   async deleteViolation(violation: Violation): Promise<void> {
@@ -2727,11 +2723,11 @@ export const dataStore = {
         });
     },
   
-  async submitPenaltyProof(violationId: string, photoIds: string[], user: AuthUser): Promise<string[]> {
+  async submitPenaltyProof(violationId: string, photoIds: string[], user: { userId: string; userName: string; }): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
-        const storageRef = ref(storage, `penalties/${violationId}/${user.uid}/${uuidv4()}.jpg`);
+        const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.jpg`);
         await uploadBytes(storageRef, photoBlob);
         return getDownloadURL(storageRef);
     });
@@ -2753,19 +2749,19 @@ export const dataStore = {
       const violationData = violationDoc.data() as Violation;
       let submissions = violationData.penaltySubmissions || [];
       
-      const existingSubmissionIndex = submissions.findIndex(s => s.userId === user.uid);
+      const existingSubmissionIndex = submissions.findIndex(s => s.userId === user.userId);
       
       if (existingSubmissionIndex > -1) {
-        // Add photos to existing submission
-        const existingSubmission = submissions[existingSubmissionIndex];
-        existingSubmission.photos = [...existingSubmission.photos, ...newPhotoUrls];
-        existingSubmission.submittedAt = new Date().toISOString();
-        submissions[existingSubmissionIndex] = existingSubmission;
+        const updatedSubmission: PenaltySubmission = {
+          ...submissions[existingSubmissionIndex],
+          photos: [...submissions[existingSubmissionIndex].photos, ...newPhotoUrls],
+          submittedAt: new Date().toISOString(),
+        };
+        submissions[existingSubmissionIndex] = updatedSubmission;
       } else {
-        // Create new submission
         const newSubmission: PenaltySubmission = {
-          userId: user.uid,
-          userName: user.displayName,
+          userId: user.userId,
+          userName: user.userName,
           photos: newPhotoUrls,
           submittedAt: new Date().toISOString(),
         };

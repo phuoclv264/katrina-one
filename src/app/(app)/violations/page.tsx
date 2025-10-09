@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -622,29 +623,29 @@ export default function ViolationsPage() {
         }
     };
   
-    const handlePenaltySubmit = async (photoIds: string[]) => {
-        setIsPenaltyCameraOpen(false);
-        if (!activeViolationForPenalty || !activeUserForPenalty || photoIds.length === 0) {
-            return;
-        }
-        
-        setProcessingViolationId(activeViolationForPenalty.id);
-        const violationId = activeViolationForPenalty.id;
-        toast.loading('Bằng chứng nộp phạt đang được tải lên.');
+  const handlePenaltySubmit = async (photoIds: string[]) => {
+    setIsPenaltyCameraOpen(false);
+    if (!activeViolationForPenalty || !activeUserForPenalty || photoIds.length === 0) {
+        return;
+    }
+    
+    setProcessingViolationId(activeViolationForPenalty.id);
+    const violationId = activeViolationForPenalty.id;
+    toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
-        try {
-            await dataStore.submitPenaltyProof(violationId, photoIds, activeUserForPenalty);
-            toast.success('Đã cập nhật bằng chứng nộp phạt.');
-        } catch (error) {
-            console.error("Failed to submit penalty proof:", error);
-            toast.error('Không thể gửi bằng chứng nộp phạt.');
-        } finally {
-            toast.dismiss();
-            setProcessingViolationId(null);
-            setActiveViolationForPenalty(null);
-            setActiveUserForPenalty(null);
-        }
-    };
+    try {
+        await dataStore.submitPenaltyProof(violationId, photoIds, { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
+        toast.success('Đã cập nhật bằng chứng nộp phạt.');
+    } catch (error) {
+        console.error("Failed to submit penalty proof:", error);
+        toast.error('Không thể gửi bằng chứng nộp phạt.');
+    } finally {
+        toast.dismiss();
+        setProcessingViolationId(null);
+        setActiveViolationForPenalty(null);
+        setActiveUserForPenalty(null);
+    }
+};
 
   const filteredViolations = useMemo(() => {
       let result = violations;
