@@ -737,7 +737,7 @@ export const dataStore = {
                 
                 // Identify expired pass requests
                 if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
-                    const shiftDateTime = parseISO(`${''}`);
+                    const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
                     if (isPast(shiftDateTime)) {
                         expiredRequests.push(notification);
                     }
@@ -1135,6 +1135,7 @@ export const dataStore = {
             if (!targetUserShift) {
                 throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
             }
+            // Snapshot the target user's shift information AT THE TIME OF REQUEST
             payload.targetUserShiftPayload = {
                 shiftId: targetUserShift.id,
                 shiftLabel: targetUserShift.label,
@@ -1192,6 +1193,17 @@ export const dataStore = {
     async acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: AssignedUser, schedule: Schedule): Promise<void> {
         const notificationRef = doc(db, "notifications", notificationId);
 
+        // Validate that the requesting user is still in the shift
+        const shift = schedule.shifts.find(s => s.id === payload.shiftId);
+        if (!shift || !shift.assignedUsers.some(u => u.userId === payload.requestingUser.userId)) {
+            await updateDoc(notificationRef, {
+                status: 'cancelled',
+                'payload.cancellationReason': 'Người yêu cầu không còn trong ca.',
+                resolvedAt: serverTimestamp(),
+            });
+            throw new Error("Yêu cầu này không còn hợp lệ vì người pass ca đã không còn trong ca làm việc.");
+        }
+
         // For swap requests, the conflict check is bypassed.
         if (!payload.isSwapRequest) {
             const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
@@ -1214,51 +1226,54 @@ export const dataStore = {
         const { weekId, shiftId, requestingUser, takenBy, isSwapRequest } = payload;
         const scheduleRef = doc(db, "schedules", weekId);
         const notificationRef = doc(db, "notifications", notification.id);
-    
+
         if (!takenBy) {
             throw new Error("Không có người nhận ca để phê duyệt.");
         }
-    
+
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
             if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
-    
+            
             const scheduleData = scheduleDoc.data() as Schedule;
             let updatedShifts = [...scheduleData.shifts];
-    
+
             const shiftA_Index = updatedShifts.findIndex(s => s.id === shiftId);
-            if (shiftA_Index === -1) throw new Error("Không tìm thấy ca làm việc gốc.");
-    
-            const shiftA = { ...updatedShifts[shiftA_Index] };
-    
+            if (shiftA_Index === -1 || !updatedShifts[shiftA_Index].assignedUsers.some(u => u.userId === requestingUser.userId)) {
+                transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': 'Người yêu cầu không còn trong ca.' });
+                throw new Error("Không thể phê duyệt: Người yêu cầu không còn trong ca làm việc.");
+            }
+
             if (isSwapRequest) {
-                // Logic for SWAP
-                const shiftB_Index = updatedShifts.findIndex(s => s.date === shiftA.date && s.assignedUsers.some(u => u.userId === takenBy.userId));
-                if (shiftB_Index === -1) throw new Error("Không tìm thấy ca của người nhận để hoán đổi.");
-                
-                const shiftB = { ...updatedShifts[shiftB_Index] };
-    
+                if (!payload.targetUserShiftPayload) {
+                     throw new Error("Lỗi dữ liệu: Thiếu thông tin ca cần đổi.");
+                }
+                const shiftB_Index = updatedShifts.findIndex(s => s.id === payload.targetUserShiftPayload!.shiftId);
+
+                if (shiftB_Index === -1 || !updatedShifts[shiftB_Index].assignedUsers.some(u => u.userId === takenBy.userId)) {
+                    transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': 'Người nhận không còn trong ca cần đổi.' });
+                    throw new Error("Không thể phê duyệt: Người nhận không còn trong ca làm việc cần đổi.");
+                }
+
                 // Swap users
+                const shiftA = { ...updatedShifts[shiftA_Index] };
+                const shiftB = { ...updatedShifts[shiftB_Index] };
+                
                 shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
                 shiftA.assignedUsers.push(takenBy);
-    
+
                 shiftB.assignedUsers = shiftB.assignedUsers.filter(u => u.userId !== takenBy.userId);
                 shiftB.assignedUsers.push(requestingUser);
-    
+                
                 updatedShifts[shiftA_Index] = shiftA;
                 updatedShifts[shiftB_Index] = shiftB;
-    
+
             } else {
-                // Logic for simple PASS
+                // Simple pass
+                const shiftA = { ...updatedShifts[shiftA_Index] };
                 const conflict = hasTimeConflict(takenBy.userId, shiftA, updatedShifts.filter(s => s.date === shiftA.date));
                 if (conflict) {
-                    transaction.update(notificationRef, {
-                        status: 'cancelled',
-                        'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`,
-                        'payload.takenBy': null,
-                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
-                        resolvedAt: serverTimestamp(),
-                    });
+                    transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`, 'payload.takenBy': null });
                     throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
                 }
                 
@@ -1266,36 +1281,15 @@ export const dataStore = {
                 shiftA.assignedUsers.push(takenBy);
                 updatedShifts[shiftA_Index] = shiftA;
             }
-    
-            // Commit shift changes
+
             transaction.update(scheduleRef, { shifts: updatedShifts });
-    
-            // Resolve the current notification
-            transaction.update(notificationRef, {
-                status: 'resolved',
-                resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
-                resolvedAt: serverTimestamp(),
-            });
-    
-            // Find and cancel all other related pending requests for the original shift
-            const otherRequestsQuery = query(
-                collection(db, 'notifications'),
-                and(
-                    where('type', '==', 'pass_request'),
-                    where('payload.shiftId', '==', shiftId),
-                    or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
-                )
-            );
-    
+            transaction.update(notificationRef, { status: 'resolved', resolvedBy: { userId: resolver.uid, userName: resolver.displayName }, resolvedAt: serverTimestamp() });
+            
+            const otherRequestsQuery = query(collection(db, 'notifications'), and(where('type', '==', 'pass_request'), where('payload.shiftId', '==', shiftId), or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))));
             const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
             otherRequestsSnapshot.forEach(doc => {
                 if (doc.id !== notification.id) {
-                    transaction.update(doc.ref, {
-                        status: 'cancelled',
-                        'payload.cancellationReason': 'Đã có người khác nhận và được phê duyệt.',
-                        resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
-                        resolvedAt: serverTimestamp(),
-                    });
+                    transaction.update(doc.ref, { status: 'cancelled', 'payload.cancellationReason': 'Đã có người khác nhận và được phê duyệt.', resolvedBy: { userId: resolver.uid, userName: resolver.displayName }, resolvedAt: serverTimestamp() });
                 }
             });
         });
@@ -2802,4 +2796,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-

@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -87,9 +88,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         shiftB
     } = useMemo(() => {
         const reqUser = allUsers.find(u => u.uid === payload.requestingUser.userId);
-        
         let recUser: ManagedUser | undefined;
-        let shiftB: { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
         
         const recipientId = (status === 'pending_approval' && payload.takenBy?.userId) 
                             || (status === 'resolved' && payload.takenBy?.userId) 
@@ -99,30 +98,24 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             recUser = allUsers.find(u => u.uid === recipientId);
         }
 
-        if (payload.isSwapRequest) {
-            if (payload.targetUserShiftPayload) {
-                 shiftB = {
-                    label: payload.targetUserShiftPayload.shiftLabel,
-                    timeSlot: payload.targetUserShiftPayload.shiftTimeSlot,
-                    date: payload.targetUserShiftPayload.date,
-                };
-            } else if (schedule && recipientId) { // Fallback for old data
-                const shiftsForDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
-                const foundShiftB = shiftsForDay.find(s => s.assignedUsers.some(au => au.userId === recipientId));
-                if (foundShiftB) {
-                    shiftB = foundShiftB;
-                }
-            }
-        }
-        
         const sA = {
             label: payload.shiftLabel,
             timeSlot: payload.shiftTimeSlot,
             date: payload.shiftDate,
         };
         
+        // For swap requests, ALWAYS use the payload snapshot for shift B
+        let shiftB: { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
+        if (payload.isSwapRequest && payload.targetUserShiftPayload) {
+            shiftB = {
+                label: payload.targetUserShiftPayload.shiftLabel,
+                timeSlot: payload.targetUserShiftPayload.shiftTimeSlot,
+                date: payload.targetUserShiftPayload.date,
+            };
+        }
+        
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB };
-    }, [payload, allUsers, schedule, status]);
+    }, [payload, allUsers, status]);
 
     const metadataText = useMemo(() => {
         if (status === 'resolved' && resolvedBy && resolvedAt) {
