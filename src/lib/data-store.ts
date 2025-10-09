@@ -1126,7 +1126,7 @@ export const dataStore = {
         await runTransaction(db, async (transaction) => {
             const scheduleDoc = await transaction.get(scheduleRef);
             if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
-
+    
             // 1. Revert assigned users in schedule
             const scheduleData = scheduleDoc.data() as Schedule;
             const updatedShifts = scheduleData.shifts.map(s => {
@@ -2494,61 +2494,91 @@ export const dataStore = {
   ): { cost: number; severity: Violation['severity'] } {
     const category = categoryData.list.find(c => c.id === violation.categoryId);
     if (!category) {
-      return { cost: violation.cost || 0, severity: violation.severity || 'low' };
+        return { cost: violation.cost || 0, severity: violation.severity || 'low' };
     }
-  
-    let baseCost = 0;
-    if (category.calculationType === 'perUnit') {
-      baseCost = (category.finePerUnit || 0) * (violation.unitCount || 0);
-    } else {
-      baseCost = category.fineAmount || 0;
-    }
-  
-    let finalCost = baseCost;
-    let finalSeverity = category.severity;
 
-    const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
-    if (violationCreatedAt.getTime() === 0) return { cost: finalCost, severity: finalSeverity };
-  
-    const applicableRules = (categoryData.generalRules || []).filter(rule => {
-      if (rule.condition === 'is_flagged' && violation.isFlagged) {
-        return true;
-      }
-      if (rule.condition === 'repeat_in_month') {
-        const repeatCount = violation.users.reduce((maxCount, user) => {
-          const count = allHistoricViolationsInMonth.filter(v =>
-            v.users.some(vu => vu.id === user.id) &&
-            v.categoryId === violation.categoryId &&
-            isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
-            new Date(v.createdAt as string) < violationCreatedAt
-          ).length + 1; // +1 for the current violation
-          return Math.max(maxCount, count);
-        }, 0);
-  
-        return repeatCount >= rule.threshold;
-      }
-      return false;
-    });
+    const baseCost = category.calculationType === 'perUnit'
+        ? (category.finePerUnit || 0) * (violation.unitCount || 0)
+        : (category.fineAmount || 0);
 
-    // Sort rules so they can be applied in order
-    const sortedRules = [...applicableRules].sort((a,b) => (a.threshold || 0) - (b.threshold || 0));
-  
-    for(const rule of sortedRules) {
-        if (rule.action === 'multiply') {
-            finalCost *= rule.value;
-        } else if (rule.action === 'add') {
-            finalCost += rule.value;
+    let totalCost = 0;
+
+    for (const user of violation.users) {
+        let userFine = baseCost;
+        let userSeverity = category.severity;
+
+        const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
+        if (violationCreatedAt.getTime() === 0) continue;
+
+        const sortedRules = (categoryData.generalRules || []).sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
+
+        for (const rule of sortedRules) {
+            let ruleApplies = false;
+            if (rule.condition === 'is_flagged' && violation.isFlagged) {
+                ruleApplies = true;
+            } else if (rule.condition === 'repeat_in_month') {
+                const repeatCount = allHistoricViolationsInMonth.filter(v =>
+                    v.users.some(vu => vu.id === user.id) &&
+                    v.categoryId === violation.categoryId &&
+                    isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
+                    new Date(v.createdAt as string) < violationCreatedAt
+                ).length + 1;
+
+                if (repeatCount >= rule.threshold) {
+                    ruleApplies = true;
+                }
+            }
+
+            if (ruleApplies) {
+                if (rule.action === 'multiply') {
+                    userFine *= rule.value;
+                } else if (rule.action === 'add') {
+                    userFine += rule.value;
+                }
+
+                if (rule.severityAction === 'increase') {
+                    if (userSeverity === 'low') userSeverity = 'medium';
+                    else if (userSeverity === 'medium') userSeverity = 'high';
+                } else if (rule.severityAction === 'set_to_high') {
+                    userSeverity = 'high';
+                }
+            }
         }
-    
-        if (rule.severityAction === 'increase') {
-            if (finalSeverity === 'low') finalSeverity = 'medium';
-            else if (finalSeverity === 'medium') finalSeverity = 'high';
-        } else if (rule.severityAction === 'set_to_high') {
-            finalSeverity = 'high';
-        }
+        totalCost += userFine;
     }
-  
-    return { cost: finalCost, severity: finalSeverity };
+
+    // Determine the highest severity among all users involved.
+    const finalSeverity = violation.users.reduce((maxSeverity, user) => {
+        let userSeverity = category.severity;
+        const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
+        const sortedRules = (categoryData.generalRules || []).sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
+
+        for (const rule of sortedRules) {
+             let ruleApplies = false;
+            if (rule.condition === 'is_flagged' && violation.isFlagged) ruleApplies = true;
+            else if (rule.condition === 'repeat_in_month') {
+                 const repeatCount = allHistoricViolationsInMonth.filter(v =>
+                    v.users.some(vu => vu.id === user.id) &&
+                    v.categoryId === violation.categoryId &&
+                    isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
+                    new Date(v.createdAt as string) < violationCreatedAt
+                ).length + 1;
+                 if (repeatCount >= rule.threshold) ruleApplies = true;
+            }
+
+             if (ruleApplies) {
+                if (rule.severityAction === 'increase') {
+                    if (userSeverity === 'low') userSeverity = 'medium';
+                    else if (userSeverity === 'medium') userSeverity = 'high';
+                } else if (rule.severityAction === 'set_to_high') {
+                    userSeverity = 'high';
+                }
+            }
+        }
+        return severityOrder[userSeverity] > severityOrder[maxSeverity] ? userSeverity : maxSeverity;
+    }, category.severity);
+
+    return { cost: totalCost, severity: finalSeverity };
   },
 
     async addOrUpdateViolation(
