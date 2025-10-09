@@ -2277,7 +2277,7 @@ export const dataStore = {
 
     const processAndCallback = async () => {
         if (!cachedCategories || cachedViolations.length === 0) {
-          if (!cachedCategories) callback(cachedViolations);
+          if (!isInitialViolationsLoad) callback(cachedViolations);
           return;
         };
 
@@ -2500,7 +2500,7 @@ export const dataStore = {
   ): { cost: number; severity: Violation['severity']; userCosts: ViolationUserCost[] } {
     const category = categoryData.list.find(c => c.id === violation.categoryId);
     if (!category) {
-        return { cost: violation.cost || 0, severity: violation.severity || 'low', userCosts: [] };
+        return { cost: violation.cost || 0, severity: violation.severity || 'low', userCosts: violation.userCosts || [] };
     }
 
     const baseCost = category.calculationType === 'perUnit'
@@ -2529,11 +2529,12 @@ export const dataStore = {
                 ruleApplies = true;
             } else if (rule.condition === 'repeat_in_month') {
                 const repeatCount = allHistoricViolationsInMonth.filter(v =>
+                    v.id !== violation.id && // Exclude the current violation from the count
                     v.users.some(vu => vu.id === user.id) &&
                     v.categoryId === violation.categoryId &&
                     isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
                     new Date(v.createdAt as string) < violationCreatedAt
-                ).length + 1;
+                ).length + 1; // +1 to count the current one
 
                 if (repeatCount >= rule.threshold) {
                     ruleApplies = true;
@@ -2758,7 +2759,7 @@ export const dataStore = {
         // Add photos to existing submission
         const existingSubmission = submissions[existingSubmissionIndex];
         existingSubmission.photos = [...existingSubmission.photos, ...newPhotoUrls];
-        existingSubmission.submittedAt = serverTimestamp();
+        existingSubmission.submittedAt = new Date().toISOString();
         submissions[existingSubmissionIndex] = existingSubmission;
       } else {
         // Create new submission
@@ -2766,7 +2767,7 @@ export const dataStore = {
           userId: user.uid,
           userName: user.displayName,
           photos: newPhotoUrls,
-          submittedAt: serverTimestamp(),
+          submittedAt: new Date().toISOString(),
         };
         submissions.push(newSubmission);
       }
@@ -2779,4 +2780,3 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
-
