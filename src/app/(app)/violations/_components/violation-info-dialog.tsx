@@ -8,7 +8,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -120,20 +120,20 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
                 </Table>
             </div>
         </ScrollArea>
-        {generalRules.length > 0 && (
-        <DialogFooter className="p-6 pt-4 border-t flex-col items-start gap-2 sm:flex-row sm:items-center bg-white dark:bg-card">
-          {generalRules.length > 0 && (
-            <div className="w-full space-y-2 p-3 rounded-lg bg-muted/50">
-              <Label className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
+        <DialogFooter className="p-6 pt-4 border-t flex-col items-start gap-2 sm:flex-col sm:items-start bg-white dark:bg-card">
+          {generalRules.length > 0 ? (
+            <>
+              <Label className="text-xs font-semibold text-muted-foreground w-full">
                 Quy tắc phạt chung
               </Label>
-              <div className="text-sm text-muted-foreground p-3 border rounded-md bg-background whitespace-pre-wrap">
+              <div className="w-full text-sm text-muted-foreground p-3 border rounded-lg bg-muted/50 whitespace-pre-wrap">
                 {generalRuleSummary}
               </div>
-            </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center w-full">Không có quy tắc phạt chung nào được thiết lập.</p>
           )}
         </DialogFooter>
-        )}
       </DialogContent>
     </Dialog>
   );
