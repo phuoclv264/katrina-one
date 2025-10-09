@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -532,7 +533,7 @@ export default function ViolationsPage() {
   };
 
   const handleCategoriesChange = async (newCategories: ViolationCategory[]) => {
-    await dataStore.updateViolationCategories({ ...categoryData, list: newCategories });
+    await dataStore.updateViolationCategories({ list: newCategories });
   };
 
   const handleDeleteViolation = async (violation: Violation) => {
@@ -704,15 +705,15 @@ export default function ViolationsPage() {
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
     }
   };
-  
+
   const getSeverityCardClass = (severity: Violation['severity']) => {
-    switch (severity) {
+      switch (severity) {
         case 'high': return 'bg-red-500/5';
         case 'medium': return 'bg-yellow-500/5';
         default: return 'bg-card';
-    }
+      }
   };
-
+  
   const getSeverityBorderClass = (severity: Violation['severity']) => {
       switch (severity) {
         case 'high': return 'border-red-500/50';
@@ -898,11 +899,15 @@ export default function ViolationsPage() {
                                         <p className="mt-2 text-xs text-muted-foreground">
                                             Ghi nhận bởi: {v.reporterName} lúc {new Date(v.createdAt as string).toLocaleString('vi-VN', {hour12: false})}
                                         </p>
-                                         <div className="mt-4 pt-4 border-t space-y-4">
+                                        <div className="mt-4 pt-4 border-t space-y-4">
                                             {v.users.map((violatedUser) => {
                                                 const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
                                                 const isCurrentUserTheViolator = user.uid === violatedUser.id;
                                                 
+                                                const shouldShowActions = isCurrentUserTheViolator || isOwner;
+
+                                                if (!shouldShowActions) return null;
+
                                                 if (isWaived) {
                                                     return (
                                                         <div key={violatedUser.id} className="text-sm text-green-600 font-semibold flex items-center gap-2">
@@ -927,17 +932,14 @@ export default function ViolationsPage() {
                                                     );
                                                 }
                                                 
-                                                if (isCurrentUserTheViolator) {
-                                                    return (
-                                                        <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                                             <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
-                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
-                                                                Xác nhận đã nộp phạt
-                                                            </Button>
-                                                        </div>
-                                                    )
-                                                }
-                                                return null;
+                                                return (
+                                                    <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                         <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
+                                                        <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
+                                                            Xác nhận đã nộp phạt
+                                                        </Button>
+                                                    </div>
+                                                );
                                             })}
                                         </div>
                                         {showCommentButton && (
