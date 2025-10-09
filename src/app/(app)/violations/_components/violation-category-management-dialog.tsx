@@ -35,11 +35,35 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-function RuleEditor({ rule, onUpdate, onDelete }: { rule: FineRule, onUpdate: (updatedRule: FineRule) => void, onDelete: () => void }) {
+function RuleEditor({ rule, onUpdate, onDelete, isEditing }: { rule: FineRule, onUpdate: (updatedRule: FineRule) => void, onDelete: () => void, isEditing: boolean }) {
+    if (!isEditing) {
+        let conditionText = '';
+        if (rule.condition === 'repeat_in_month') {
+            conditionText = `Lặp lại từ lần thứ ${rule.threshold} trong tháng`;
+        } else if (rule.condition === 'is_flagged') {
+            conditionText = `Bị gắn cờ đỏ`;
+        }
+
+        let actionText = '';
+        if (rule.action === 'multiply') {
+            actionText = `nhân tiền phạt với ${rule.value}`;
+        } else {
+            actionText = `cộng thêm ${rule.value.toLocaleString('vi-VN')}đ`;
+        }
+
+        const severityActionText = rule.severityAction === 'increase' ? ' và gia tăng mức độ vi phạm.' : '.';
+
+        return (
+            <div className="p-3 border rounded-md bg-blue-500/5 text-sm">
+                <span className="font-semibold">Nếu một vi phạm</span> {conditionText} <span className="font-semibold">thì</span> {actionText}{severityActionText}
+            </div>
+        );
+    }
+    
     return (
         <div className="p-3 border rounded-md space-y-3 bg-blue-500/5">
             <div className="flex justify-between items-start">
-                <p className="font-semibold text-sm">Nếu một vi phạm...</p>
+                <p className="font-semibold text-sm">Nếu một vi phạm....</p>
                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive"/></Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -100,6 +124,8 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
   const [isLoading, setIsLoading] = useState(true);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
+  const [isEditingGeneralRules, setIsEditingGeneralRules] = useState(false);
+  const [tempGeneralRules, setTempGeneralRules] = useState<FineRule[]>([]);
   
   const [newCategoryName, setNewCategoryName] = useState('');
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -112,14 +138,17 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         if (data && data.list) {
             const sortedList = data.list.sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
             setCategoryData({ list: sortedList, generalNote: data.generalNote, generalRules: data.generalRules || [] });
+            setTempGeneralRules(data.generalRules || []);
         } else {
              setCategoryData({ list: [], generalNote: '', generalRules: [] });
+             setTempGeneralRules([]);
         }
         setIsLoading(false);
       });
       return () => unsub();
     } else {
         setEditingCategoryId(null);
+        setIsEditingGeneralRules(false);
     }
   }, [isOpen]);
   
@@ -189,9 +218,6 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
   };
   
     const handleCancelEdit = () => {
-        const originalItem = categoryData.list.find(c => c.id === editingCategoryId);
-        // This logic is flawed if name is changed and then cancelled.
-        // It's better to just cancel the edit state.
         setEditingCategoryId(null);
     };
     
@@ -214,18 +240,26 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
           value: 2,
           severityAction: null,
       };
-      const newRules = [...(categoryData.generalRules || []), newRule];
-      handleSave({ generalRules: newRules });
+      setTempGeneralRules(prev => [...prev, newRule]);
   }
 
   const handleUpdateGeneralRule = (ruleId: string, updatedRule: FineRule) => {
-      const newRules = (categoryData.generalRules || []).map(r => r.id === ruleId ? updatedRule : r);
-      handleSave({ generalRules: newRules });
+      setTempGeneralRules(prev => prev.map(r => r.id === ruleId ? updatedRule : r));
   }
 
   const handleDeleteGeneralRule = (ruleId: string) => {
-      const newRules = (categoryData.generalRules || []).filter(r => r.id !== ruleId);
-      handleSave({ generalRules: newRules });
+      setTempGeneralRules(prev => prev.filter(r => r.id !== ruleId));
+  }
+  
+  const handleSaveGeneralRules = async () => {
+    await handleSave({ generalRules: tempGeneralRules });
+    toast.success('Đã lưu các quy tắc chung.');
+    setIsEditingGeneralRules(false);
+  }
+  
+  const handleCancelGeneralRulesEdit = () => {
+    setTempGeneralRules(categoryData.generalRules || []);
+    setIsEditingGeneralRules(false);
   }
 
   const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
@@ -251,19 +285,34 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
         <ScrollArea className="max-h-[70vh] -mx-6 px-6">
         <div className="py-4 space-y-4">
           <div className="pt-4">
-            <h4 className="font-semibold mb-2">Quy tắc phạt chung</h4>
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="font-semibold">Quy tắc phạt chung</h4>
+                {!isEditingGeneralRules ? (
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingGeneralRules(true)}>
+                        <Edit className="mr-2 h-4 w-4"/> Chỉnh sửa
+                    </Button>
+                ) : (
+                    <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={handleCancelGeneralRulesEdit}>Hủy</Button>
+                        <Button size="sm" onClick={handleSaveGeneralRules}><Save className="mr-2 h-4 w-4"/>Lưu quy tắc</Button>
+                    </div>
+                )}
+            </div>
             <div className="space-y-3">
-              {(categoryData.generalRules || []).map((rule) => (
+              {(isEditingGeneralRules ? tempGeneralRules : (categoryData.generalRules || [])).map((rule, index) => (
                   <RuleEditor 
                     key={rule.id} 
                     rule={rule} 
                     onUpdate={(updatedRule) => handleUpdateGeneralRule(rule.id, updatedRule)}
                     onDelete={() => handleDeleteGeneralRule(rule.id)}
+                    isEditing={isEditingGeneralRules}
                   />
               ))}
-              <Button variant="outline" size="sm" className="w-full" onClick={handleAddGeneralRule}>
-                  <Plus className="mr-2 h-4 w-4" /> Thêm quy tắc chung
-              </Button>
+              {isEditingGeneralRules && (
+                 <Button variant="outline" size="sm" className="w-full" onClick={handleAddGeneralRule}>
+                    <Plus className="mr-2 h-4 w-4" /> Thêm quy tắc chung
+                </Button>
+              )}
             </div>
           </div>
           <div className="flex gap-2 pt-4 border-t">
