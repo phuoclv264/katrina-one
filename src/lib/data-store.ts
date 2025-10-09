@@ -2269,7 +2269,10 @@ export const dataStore = {
     let isInitialViolationsLoad = true;
 
     const processAndCallback = async () => {
-        if (!cachedCategories || cachedViolations.length === 0) return;
+        if (!cachedCategories || cachedViolations.length === 0) {
+          if (!cachedCategories) callback(cachedViolations);
+          return;
+        };
 
         const currentMonthStart = startOfMonth(new Date());
         const currentMonthEnd = endOfMonth(new Date());
@@ -2283,8 +2286,25 @@ export const dataStore = {
         const batch = writeBatch(db);
         let hasUpdates = false;
 
-        const updatedViolationsMap = new Map(cachedViolations.map(v => [v.id, v]));
-
+        const updatedViolationsMap = new Map(cachedViolations.map(v => {
+            // Data migration for old penaltyPhotos field
+            if ('penaltyPhotos' in v && v.penaltyPhotos && !v.penaltySubmissions) {
+              const firstUser = v.users[0];
+              if (firstUser) {
+                return [v.id, {
+                  ...v,
+                  penaltySubmissions: [{
+                    userId: firstUser.id,
+                    userName: firstUser.name,
+                    photos: v.penaltyPhotos as string[],
+                    submittedAt: (v as any).penaltySubmittedAt || v.createdAt,
+                  }]
+                }];
+              }
+            }
+            return [v.id, v];
+        }));
+        
         violationsInMonth.forEach(violation => {
             const { cost: newCost, severity: newSeverity } = this.calculateViolationCost(violation, cachedCategories!, violationsInMonth);
             const currentViolationState = updatedViolationsMap.get(violation.id)!;
@@ -2297,9 +2317,11 @@ export const dataStore = {
                 hasUpdates = true;
             }
         });
+        
+        const finalViolationList = Array.from(updatedViolationsMap.values());
 
         if (hasUpdates) {
-             callback(Array.from(updatedViolationsMap.values()));
+             callback(finalViolationList);
             try {
                 await batch.commit();
                 // The onSnapshot listener for violations will then fetch the updated data naturally.
@@ -2307,7 +2329,7 @@ export const dataStore = {
                 console.error("Error batch updating violation costs:", err);
             }
         } else {
-             callback(cachedViolations);
+             callback(finalViolationList);
         }
     };
 
@@ -2405,7 +2427,6 @@ export const dataStore = {
             callback({
                 list: (data.list || initialViolationCategories) as ViolationCategory[],
                 generalRules: (data.generalRules || []) as FineRule[],
-                generalNote: data.generalNote || '',
             });
         } else {
             try {
@@ -2431,10 +2452,9 @@ export const dataStore = {
         return {
             list: (data.list || initialViolationCategories) as ViolationCategory[],
             generalRules: (data.generalRules || []) as FineRule[],
-            generalNote: data.generalNote || '',
         };
     }
-    return { list: initialViolationCategories, generalRules: [], generalNote: '' };
+    return { list: initialViolationCategories, generalRules: [] };
   },
 
   async updateViolationCategories(newData: Partial<ViolationCategoryData>): Promise<void> {
@@ -2460,7 +2480,6 @@ export const dataStore = {
     const dataToSave = {
         list: updatedList,
         generalRules: newData.generalRules !== undefined ? newData.generalRules : currentData.generalRules,
-        generalNote: newData.generalNote !== undefined ? newData.generalNote : currentData.generalNote,
     };
     
     await setDoc(docRef, dataToSave, { merge: true });
@@ -2691,7 +2710,7 @@ export const dataStore = {
         });
     },
   
-  async submitPenaltyProof(violationId: string, photoIds: string[], user: AuthUser): Promise<void> {
+  async submitPenaltyProof(violationId: string, photoIds: string[], user: AuthUser): Promise<string[]> {
     const uploadPromises = photoIds.map(async (photoId) => {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
@@ -2708,17 +2727,39 @@ export const dataStore = {
     
     const violationRef = doc(db, 'violations', violationId);
     
-    const newSubmission: PenaltySubmission = {
-      userId: user.uid,
-      userName: user.displayName,
-      photos: newPhotoUrls,
-      submittedAt: serverTimestamp(),
-    };
+    await runTransaction(db, async (transaction) => {
+      const violationDoc = await transaction.get(violationRef);
+      if (!violationDoc.exists()) {
+        throw new Error("Violation not found.");
+      }
+      
+      const violationData = violationDoc.data() as Violation;
+      let submissions = violationData.penaltySubmissions || [];
+      
+      const existingSubmissionIndex = submissions.findIndex(s => s.userId === user.uid);
+      
+      if (existingSubmissionIndex > -1) {
+        // Add photos to existing submission
+        const existingSubmission = submissions[existingSubmissionIndex];
+        existingSubmission.photos = [...existingSubmission.photos, ...newPhotoUrls];
+        existingSubmission.submittedAt = serverTimestamp();
+        submissions[existingSubmissionIndex] = existingSubmission;
+      } else {
+        // Create new submission
+        const newSubmission: PenaltySubmission = {
+          userId: user.uid,
+          userName: user.displayName,
+          photos: newPhotoUrls,
+          submittedAt: serverTimestamp(),
+        };
+        submissions.push(newSubmission);
+      }
 
-    await updateDoc(violationRef, {
-      penaltySubmissions: arrayUnion(newSubmission)
+      transaction.update(violationRef, { penaltySubmissions: submissions });
     });
 
+
     await photoStore.deletePhotos(photoIds);
+    return newPhotoUrls;
   },
 };
