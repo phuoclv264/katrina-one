@@ -934,7 +934,6 @@ export const dataStore = {
             console.warn(`[Firestore Read Error] Could not read all schedules: ${error.code}`);
             callback([]);
         });
-        return unsubscribe;
     },
 
     async getSchedulesForMonth(date: Date): Promise<Schedule[]> {
@@ -2264,55 +2263,58 @@ export const dataStore = {
     const q = query(violationsCollection, orderBy('createdAt', 'desc'));
   
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      // 1. Get all necessary data
       const categoryData = await this.getViolationCategories();
       const now = new Date();
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
       
-      const violationsInMonthQuery = query(violationsCollection, 
-        where('createdAt', '>=', monthStart),
-        where('createdAt', '<=', monthEnd)
-      );
-      const historicSnapshot = await getDocs(violationsInMonthQuery);
-      const allHistoricViolations = historicSnapshot.docs.map(doc => {
-          const data = doc.data();
-          const createdAt = (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString();
-          return { id: doc.id, ...data, createdAt } as Violation
-      });
-  
-      // 2. Process currently fetched violations
-      const fetchedViolations: Violation[] = [];
-      querySnapshot.forEach((doc) => {
+      const allViolationsInCurrentMonth = querySnapshot.docs
+        .map(doc => {
+            const data = doc.data();
+            return { 
+              id: doc.id, 
+              ...data, 
+              createdAt: (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString()
+            } as Violation
+        })
+        .filter(v => isWithinInterval(parseISO(v.createdAt as string), { start: monthStart, end: monthEnd }))
+        .sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+
+      const batch = writeBatch(db);
+      let updatesMade = false;
+
+      const fullViolationList = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        fetchedViolations.push({
+        return {
           id: doc.id,
           ...data,
           createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
           penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
-        } as Violation);
+        } as Violation;
       });
-  
-      // 3. Re-evaluate violations from the current month
-      const updates: Promise<void>[] = [];
-      const violationsInCurrentMonth = fetchedViolations.filter(v => isWithinInterval(parseISO(v.createdAt as string), { start: monthStart, end: monthEnd }));
+      
+      const updatedViolationsMap = new Map(fullViolationList.map(v => [v.id, v]));
 
-      violationsInCurrentMonth.forEach(violation => {
-        const { cost, severity } = this.calculateViolationCost(violation, categoryData, allHistoricViolations);
-        if (violation.cost !== cost || violation.severity !== severity) {
-          const docRef = doc(db, 'violations', violation.id);
-          updates.push(updateDoc(docRef, { cost, severity }));
-          // Update local copy for immediate UI feedback
-          violation.cost = cost;
-          violation.severity = severity;
+      allViolationsInCurrentMonth.forEach(violation => {
+        const { cost, severity } = this.calculateViolationCost(violation, categoryData, allViolationsInCurrentMonth);
+        const hasChanged = violation.cost !== cost || violation.severity !== severity;
+        
+        if(hasChanged) {
+            const docRef = doc(db, 'violations', violation.id);
+            batch.update(docRef, { cost, severity });
+            updatesMade = true;
+
+            const updatedViolation = { ...violation, cost, severity };
+            updatedViolationsMap.set(violation.id, updatedViolation);
         }
       });
   
-      if (updates.length > 0) {
-        Promise.all(updates).catch(err => console.error("Error during violation re-evaluation:", err));
+      if (updatesMade) {
+        batch.commit().catch(err => console.error("Error batch updating violation costs:", err));
       }
       
-      callback(fetchedViolations);
+      callback(Array.from(updatedViolationsMap.values()).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()));
+
     }, (error) => {
       console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
       callback([]);
