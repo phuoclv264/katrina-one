@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -757,7 +758,7 @@ export default function ViolationsPage() {
       case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700';
       case 'low':
       default:
-        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
     }
   };
 
@@ -809,28 +810,26 @@ export default function ViolationsPage() {
                             Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
                         </CardDescription>
                     </div>
-                     <div className="flex gap-2 w-full sm:w-auto flex-wrap justify-end">
+                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         {!canManage && (
                           <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
                               <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
                           </Button>
                         )}
-                         <div className="flex items-center gap-2 flex-wrap">
-                            {canManage && (
-                                <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
-                                    <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                                </Button>
-                            )}
-                             <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)}>
-                                <BadgeInfo className="mr-2 h-4 w-4" />
-                                Chính sách phạt
+                        {canManage && (
+                            <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
+                                <Plus className="mr-2 h-4 w-4" /> Thêm mới
                             </Button>
-                            {isOwner && (
-                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
-                                    <Settings className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
+                        )}
+                        <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="w-full sm:w-auto">
+                           <BadgeInfo className="mr-2 h-4 w-4" />
+                           Chính sách phạt
+                       </Button>
+                        {isOwner && (
+                            <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)}>
+                                <Settings className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
@@ -899,7 +898,7 @@ export default function ViolationsPage() {
                                             </div>
                                             
                                             {/* Right side: Actions */}
-                                             <div className="flex gap-1 self-start sm:self-end mt-2 sm:mt-0 flex-wrap sm:flex-nowrap">
+                                             <div className="flex gap-1 self-start sm:self-center mt-2 sm:mt-0 flex-wrap">
                                                 {isOwner && (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
