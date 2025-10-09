@@ -253,6 +253,12 @@ export type PenaltySubmission = {
   submittedAt: string | Timestamp;
 };
 
+export type ViolationUserCost = {
+  userId: string;
+  cost: number;
+  severity: 'low' | 'medium' | 'high';
+};
+
 export type Violation = {
   id: string;
   content: string;
@@ -273,6 +279,7 @@ export type Violation = {
   severity: 'low' | 'medium' | 'high';
   cost: number;
   unitCount?: number;
+  userCosts?: ViolationUserCost[]; // Details for each user's penalty
 };
 
 

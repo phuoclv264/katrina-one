@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -61,6 +61,12 @@ cleanupOldLocalStorage();
 // Also clean up old photos from IndexedDB
 // This will run when the app first loads the dataStore file.
 photoStore.cleanupOldPhotos();
+
+const severityOrder: Record<ViolationCategory['severity'], number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+};
 
 
 export const dataStore = {
@@ -2305,15 +2311,14 @@ export const dataStore = {
             return [v.id, v];
         }));
         
-        violationsInMonth.forEach(violation => {
-            const { cost: newCost, severity: newSeverity } = this.calculateViolationCost(violation, cachedCategories!, violationsInMonth);
+        allViolationsInMonth.forEach(violation => {
+            const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = this.calculateViolationCost(violation, cachedCategories!, allViolationsInMonth);
             const currentViolationState = updatedViolationsMap.get(violation.id)!;
-
-            if (currentViolationState.cost !== newCost || currentViolationState.severity !== newSeverity) {
+    
+            if (currentViolationState.cost !== newCost || currentViolationState.severity !== newSeverity || !isEqual(currentViolationState.userCosts, newUserCosts)) {
                 const docRef = doc(db, 'violations', violation.id);
-                batch.update(docRef, { cost: newCost, severity: newSeverity });
-                
-                updatedViolationsMap.set(violation.id, { ...currentViolationState, cost: newCost, severity: newSeverity });
+                batch.update(docRef, { cost: newCost, severity: newSeverity, userCosts: newUserCosts });
+                updatedViolationsMap.set(violation.id, { ...currentViolationState, cost: newCost, severity: newSeverity, userCosts: newUserCosts });
                 hasUpdates = true;
             }
         });
@@ -2395,12 +2400,12 @@ export const dataStore = {
     let hasUpdates = false;
 
     allViolationsInMonth.forEach(violation => {
-        const { cost: newCost, severity: newSeverity } = this.calculateViolationCost(violation, categoryData, allViolationsInMonth);
-        const hasChanged = violation.cost !== newCost || violation.severity !== newSeverity;
+        const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = this.calculateViolationCost(violation, categoryData, allViolationsInMonth);
+        const hasChanged = violation.cost !== newCost || violation.severity !== newSeverity || !isEqual(violation.userCosts, newUserCosts);
         
         if (hasChanged) {
             const docRef = doc(db, 'violations', violation.id);
-            batch.update(docRef, { cost: newCost, severity: newSeverity });
+            batch.update(docRef, { cost: newCost, severity: newSeverity, userCosts: newUserCosts });
             hasUpdates = true;
         }
     });
@@ -2491,10 +2496,10 @@ export const dataStore = {
     violation: Violation,
     categoryData: ViolationCategoryData,
     allHistoricViolationsInMonth: Violation[]
-  ): { cost: number; severity: Violation['severity'] } {
+  ): { cost: number; severity: Violation['severity']; userCosts: ViolationUserCost[] } {
     const category = categoryData.list.find(c => c.id === violation.categoryId);
     if (!category) {
-        return { cost: violation.cost || 0, severity: violation.severity || 'low' };
+        return { cost: violation.cost || 0, severity: violation.severity || 'low', userCosts: [] };
     }
 
     const baseCost = category.calculationType === 'perUnit'
@@ -2502,16 +2507,21 @@ export const dataStore = {
         : (category.fineAmount || 0);
 
     let totalCost = 0;
+    const userCosts: ViolationUserCost[] = [];
 
-    for (const user of violation.users) {
+    violation.users.forEach(user => {
         let userFine = baseCost;
         let userSeverity = category.severity;
-
+        
         const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
-        if (violationCreatedAt.getTime() === 0) continue;
+        if (violationCreatedAt.getTime() === 0) {
+            userCosts.push({ userId: user.id, cost: userFine, severity: userSeverity });
+            totalCost += userFine;
+            return;
+        };
 
         const sortedRules = (categoryData.generalRules || []).sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
-
+        
         for (const rule of sortedRules) {
             let ruleApplies = false;
             if (rule.condition === 'is_flagged' && violation.isFlagged) {
@@ -2528,14 +2538,14 @@ export const dataStore = {
                     ruleApplies = true;
                 }
             }
-
+            
             if (ruleApplies) {
                 if (rule.action === 'multiply') {
                     userFine *= rule.value;
                 } else if (rule.action === 'add') {
                     userFine += rule.value;
                 }
-
+                
                 if (rule.severityAction === 'increase') {
                     if (userSeverity === 'low') userSeverity = 'medium';
                     else if (userSeverity === 'medium') userSeverity = 'high';
@@ -2544,47 +2554,16 @@ export const dataStore = {
                 }
             }
         }
+        
+        userCosts.push({ userId: user.id, cost: userFine, severity: userSeverity });
         totalCost += userFine;
-    }
+    });
 
-    const severityOrder: Record<ViolationCategory['severity'], number> = {
-        low: 1,
-        medium: 2,
-        high: 3
-    };
-    
-    // Determine the highest severity among all users involved.
-    const finalSeverity = violation.users.reduce((maxSeverity, user) => {
-        let userSeverity = category.severity;
-        const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
-        const sortedRules = (categoryData.generalRules || []).sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
-
-        for (const rule of sortedRules) {
-             let ruleApplies = false;
-            if (rule.condition === 'is_flagged' && violation.isFlagged) ruleApplies = true;
-            else if (rule.condition === 'repeat_in_month') {
-                 const repeatCount = allHistoricViolationsInMonth.filter(v =>
-                    v.users.some(vu => vu.id === user.id) &&
-                    v.categoryId === violation.categoryId &&
-                    isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
-                    new Date(v.createdAt as string) < violationCreatedAt
-                ).length + 1;
-                 if (repeatCount >= rule.threshold) ruleApplies = true;
-            }
-
-             if (ruleApplies) {
-                if (rule.severityAction === 'increase') {
-                    if (userSeverity === 'low') userSeverity = 'medium';
-                    else if (userSeverity === 'medium') userSeverity = 'high';
-                } else if (rule.severityAction === 'set_to_high') {
-                    userSeverity = 'high';
-                }
-            }
-        }
-        return severityOrder[userSeverity] > severityOrder[maxSeverity] ? userSeverity : maxSeverity;
+    const finalSeverity = userCosts.reduce((maxSeverity, userCost) => {
+        return severityOrder[userCost.severity] > severityOrder[maxSeverity] ? userCost.severity : maxSeverity;
     }, category.severity);
 
-    return { cost: totalCost, severity: finalSeverity };
+    return { cost: totalCost, severity: finalSeverity, userCosts };
   },
 
     async addOrUpdateViolation(

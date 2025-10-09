@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -868,12 +869,7 @@ export default function ViolationsPage() {
                                     </p>
                                     <p className="mt-2 text-sm whitespace-pre-wrap">{v.content}</p>
                                     <p className="mt-1 font-bold text-destructive">
-                                        {v.cost > 0 && `Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}
-                                        {v.cost > 0 && v.unitCount != null && v.unitCount > 0 && currentCategory && currentCategory.calculationType === 'perUnit' && (
-                                            <span className="text-xs font-normal text-muted-foreground ml-1">
-                                                ({categoryDisplayName} {v.unitCount} {unitLabel})
-                                            </span>
-                                        )}
+                                        {v.cost > 0 && `Tổng Phạt: ${v.cost.toLocaleString('vi-VN')}đ`}
                                     </p>
                                     {v.photos && v.photos.length > 0 && (
                                         <div className="mt-2 flex gap-2 flex-wrap">
@@ -888,10 +884,16 @@ export default function ViolationsPage() {
                                         {v.users.map((violatedUser) => {
                                             const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
                                             const canSubmit = (canManage || user?.uid === violatedUser.id);
+                                            const userCostData = (v.userCosts || []).find(uc => uc.userId === violatedUser.id);
+                                            const userCost = userCostData ? userCostData.cost : 0;
                                             
                                             return (
                                                 <div key={violatedUser.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                                                    <p className="font-semibold text-sm">{violatedUser.name}</p>
+                                                    <p className="font-semibold text-sm">{violatedUser.name}
+                                                        {userCost > 0 && (
+                                                            <span className="font-bold text-destructive ml-2">({userCost.toLocaleString('vi-VN')}đ)</span>
+                                                        )}
+                                                    </p>
                                                     {isWaived ? (
                                                          <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
                                                             <CheckCircle className="h-4 w-4" />
