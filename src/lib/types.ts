@@ -228,7 +228,6 @@ export type ViolationCategory = {
 
 export type ViolationCategoryData = {
     list: ViolationCategory[];
-    generalNote?: string;
     generalRules?: FineRule[];
 };
 

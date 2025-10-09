@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { ViolationCategory } from '@/lib/types';
+import type { ViolationCategory, FineRule } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,8 +26,7 @@ type ViolationInfoDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   categories: ViolationCategory[];
-  generalNote?: string;
-  onSaveNote?: (newNote: string) => void;
+  generalRules?: FineRule[];
 };
 
 const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
@@ -46,18 +45,9 @@ const severityOrder: Record<ViolationCategory['severity'], number> = {
     high: 3
 };
 
-export default function ViolationInfoDialog({ isOpen, onClose, categories, generalNote = '', onSaveNote }: ViolationInfoDialogProps) {
+export default function ViolationInfoDialog({ isOpen, onClose, categories, generalRules = [] }: ViolationInfoDialogProps) {
   const { user } = useAuth();
-  const [isEditingNote, setIsEditingNote] = useState(false);
-  const [noteContent, setNoteContent] = useState(generalNote);
-
-  useEffect(() => {
-    if (isOpen) {
-        setNoteContent(generalNote);
-        setIsEditingNote(false);
-    }
-  }, [isOpen, generalNote]);
-
+  
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => {
         const severityA = severityOrder[a.severity] || 99;
@@ -68,16 +58,34 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
         return (a.name || '').localeCompare(b.name || '', 'vi');
     });
   }, [categories]);
-  
-  const handleSaveNote = () => {
-    if (onSaveNote) {
-        onSaveNote(noteContent);
-        toast.success("Đã lưu ghi chú.");
-    }
-    setIsEditingNote(false);
-  }
 
-  const isOwner = user?.role === 'Chủ nhà hàng';
+  const generalRuleSummary = useMemo(() => {
+    if (!generalRules || generalRules.length === 0) return null;
+    return generalRules.map(rule => {
+      let conditionText = '';
+      if (rule.condition === 'repeat_in_month') {
+        conditionText = `Lặp lại từ lần thứ ${rule.threshold} trong tháng`;
+      } else if (rule.condition === 'is_flagged') {
+        conditionText = `Bị gắn cờ đỏ`;
+      }
+
+      let actionText = '';
+      if (rule.action === 'multiply') {
+        actionText = `nhân tiền phạt với ${rule.value}`;
+      } else {
+        actionText = `cộng thêm ${rule.value.toLocaleString('vi-VN')}đ`;
+      }
+      
+      let severityActionText = '';
+      if (rule.severityAction === 'increase') {
+        severityActionText = ', tăng mức độ vi phạm';
+      } else if (rule.severityAction === 'set_to_high') {
+        severityActionText = ', chuyển thành vi phạm nghiêm trọng';
+      }
+
+      return `- Nếu một vi phạm ${conditionText} thì ${actionText}${severityActionText}.`;
+    }).join('\n');
+  }, [generalRules]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -119,42 +127,19 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
                 </Table>
             </div>
         </ScrollArea>
-         <DialogFooter className="border-t pt-4 flex-col items-start gap-2 sm:flex-row sm:items-center">
-            <div className="w-full space-y-2">
-                <Label htmlFor="general-note" className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
-                    Ghi chú chung
-                    {isOwner && !isEditingNote && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditingNote(true)}>
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                    )}
-                </Label>
-                {isEditingNote ? (
-                    <Textarea
-                        id="general-note"
-                        value={noteContent}
-                        onChange={(e) => setNoteContent(e.target.value)}
-                        className="text-sm"
-                        rows={4}
-                        autoFocus
-                    />
-                ) : (
-                    <div className="text-sm text-muted-foreground p-3 border rounded-md min-h-[80px] bg-muted/50 whitespace-pre-wrap">
-                        {noteContent || 'Không có ghi chú chung.'}
-                    </div>
-                )}
-                 {isEditingNote && (
-                    <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setIsEditingNote(false)}>Hủy</Button>
-                        <Button size="sm" onClick={handleSaveNote}>
-                            <Save className="mr-2 h-4 w-4" /> Lưu
-                        </Button>
-                    </div>
-                )}
-            </div>
-        </DialogFooter>
+        {generalRuleSummary && (
+          <DialogFooter className="border-t pt-4 flex-col items-start gap-2 sm:flex-row sm:items-center">
+              <div className="w-full space-y-2">
+                  <Label htmlFor="general-note" className="text-xs font-semibold text-muted-foreground flex items-center justify-between w-full">
+                      Quy tắc phạt chung
+                  </Label>
+                  <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 whitespace-pre-wrap">
+                      {generalRuleSummary}
+                  </div>
+              </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
-

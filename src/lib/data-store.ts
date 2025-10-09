@@ -344,6 +344,8 @@ export const dataStore = {
         }
     
         await photoStore.deletePhotos(photosToUpload);
+        
+        await this.recalculateViolationsForCurrentMonth();
   },
 
 
@@ -2394,7 +2396,6 @@ export const dataStore = {
     const docRef = doc(db, 'app-data', 'violationCategories');
     const defaultData: ViolationCategoryData = { 
         list: initialViolationCategories, 
-        generalNote: "",
         generalRules: [],
     };
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
@@ -2402,7 +2403,6 @@ export const dataStore = {
             const data = docSnap.data();
             callback({
                 list: (data.list || initialViolationCategories) as ViolationCategory[],
-                generalNote: data.generalNote || "",
                 generalRules: (data.generalRules || []) as FineRule[],
             });
         } else {
@@ -2428,11 +2428,10 @@ export const dataStore = {
         const data = docSnap.data();
         return {
             list: (data.list || initialViolationCategories) as ViolationCategory[],
-            generalNote: data.generalNote || "",
             generalRules: (data.generalRules || []) as FineRule[],
         };
     }
-    return { list: initialViolationCategories, generalNote: "", generalRules: [] };
+    return { list: initialViolationCategories, generalRules: [] };
   },
 
   async updateViolationCategories(newData: Partial<ViolationCategoryData>): Promise<void> {
@@ -2457,7 +2456,6 @@ export const dataStore = {
 
     const dataToSave = {
         list: updatedList,
-        generalNote: newData.generalNote !== undefined ? newData.generalNote : currentData.generalNote,
         generalRules: newData.generalRules !== undefined ? newData.generalRules : currentData.generalRules,
     };
     
@@ -2498,6 +2496,7 @@ export const dataStore = {
           const count = allHistoricViolationsInMonth.filter(v =>
             v.users.some(vu => vu.id === user.id) &&
             v.categoryId === violation.categoryId &&
+            isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
             new Date(v.createdAt as string) < violationCreatedAt
           ).length + 1; // +1 for the current violation
           return Math.max(maxCount, count);
