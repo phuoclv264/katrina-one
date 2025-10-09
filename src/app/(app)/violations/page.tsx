@@ -822,7 +822,7 @@ export default function ViolationsPage() {
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
-                                            {v.users && v.users.length === 1 && v.users[0].id === v.reporterId && (
+                                            {v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
                                             )}
                                         </div>
@@ -887,7 +887,7 @@ export default function ViolationsPage() {
                                      <div className="mt-4 pt-4 border-t space-y-4">
                                         {v.users.map((violatedUser) => {
                                             const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
-                                            const canSubmit = (canManage || currentUser?.uid === violatedUser.id);
+                                            const canSubmit = (canManage || user?.uid === violatedUser.id);
                                             
                                             return (
                                                 <div key={violatedUser.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
