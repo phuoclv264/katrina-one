@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -81,41 +81,44 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card">
+      <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-card p-0">
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>Chính sách phạt</DialogTitle>
           <DialogDescription>
             Danh sách các loại vi phạm và mức phạt tương ứng được áp dụng tại cửa hàng.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Sticky Table Header */}
+        <div className="px-6 border-b">
+          <div className="flex h-12 items-center text-sm font-medium text-muted-foreground">
+            <div className="w-[40%] px-4 text-left">Tên vi phạm</div>
+            <div className="w-[30%] px-4 text-center">Mức độ</div>
+            <div className="w-[30%] px-4 text-right">Mức phạt</div>
+          </div>
+        </div>
+
         <ScrollArea className="flex-grow">
-            <div className="border-y px-6">
+            <div className="px-6">
                 <Table>
-                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10">
-                    <TableRow>
-                    <TableHead className="w-[40%]">Tên vi phạm</TableHead>
-                    <TableHead className="text-center">Mức độ</TableHead>
-                    <TableHead className="text-right">Mức phạt</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {sortedCategories.map((category) => (
-                    <TableRow key={category.id}>
-                        <TableCell className="font-medium py-2">{category.name}</TableCell>
-                        <TableCell className="text-center py-2">
-                            <Badge className={cn("capitalize", getSeverityBadgeClass(category.severity))}>
-                                {category.severity === 'low' ? 'Nhẹ' : category.severity === 'medium' ? 'TB' : 'Nặng'}
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-semibold py-2">
-                        {category.calculationType === 'perUnit'
-                            ? `${(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / ${category.unitLabel || 'đơn vị'}`
-                            : `${(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ`
-                        }
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                </TableBody>
+                    <TableBody>
+                        {sortedCategories.map((category) => (
+                        <TableRow key={category.id}>
+                            <TableCell className="font-medium py-2 w-[40%]">{category.name}</TableCell>
+                            <TableCell className="text-center py-2 w-[30%]">
+                                <Badge className={cn("capitalize", getSeverityBadgeClass(category.severity))}>
+                                    {category.severity === 'low' ? 'Nhẹ' : category.severity === 'medium' ? 'TB' : 'Nặng'}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold py-2 w-[30%]">
+                            {category.calculationType === 'perUnit'
+                                ? `${(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / ${category.unitLabel || 'đơn vị'}`
+                                : `${(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ`
+                            }
+                            </TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
                 </Table>
             </div>
         </ScrollArea>
