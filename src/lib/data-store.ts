@@ -27,7 +27,7 @@ import {
   and,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -2397,6 +2397,7 @@ export const dataStore = {
     const defaultData: ViolationCategoryData = { 
         list: initialViolationCategories, 
         generalRules: [],
+        generalNote: '',
     };
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
         if(docSnap.exists()) {
@@ -2404,6 +2405,7 @@ export const dataStore = {
             callback({
                 list: (data.list || initialViolationCategories) as ViolationCategory[],
                 generalRules: (data.generalRules || []) as FineRule[],
+                generalNote: data.generalNote || '',
             });
         } else {
             try {
@@ -2429,9 +2431,10 @@ export const dataStore = {
         return {
             list: (data.list || initialViolationCategories) as ViolationCategory[],
             generalRules: (data.generalRules || []) as FineRule[],
+            generalNote: data.generalNote || '',
         };
     }
-    return { list: initialViolationCategories, generalRules: [] };
+    return { list: initialViolationCategories, generalRules: [], generalNote: '' };
   },
 
   async updateViolationCategories(newData: Partial<ViolationCategoryData>): Promise<void> {
@@ -2457,6 +2460,7 @@ export const dataStore = {
     const dataToSave = {
         list: updatedList,
         generalRules: newData.generalRules !== undefined ? newData.generalRules : currentData.generalRules,
+        generalNote: newData.generalNote !== undefined ? newData.generalNote : currentData.generalNote,
     };
     
     await setDoc(docRef, dataToSave, { merge: true });
@@ -2573,8 +2577,8 @@ export const dataStore = {
     if (violation.photos) {
       allPhotoUrls.push(...violation.photos);
     }
-    if (violation.penaltyPhotos) {
-      allPhotoUrls.push(...violation.penaltyPhotos);
+    if (violation.penaltySubmissions) {
+        violation.penaltySubmissions.forEach(sub => allPhotoUrls.push(...sub.photos));
     }
     if (violation.comments) {
       violation.comments.forEach(comment => {
@@ -2687,11 +2691,11 @@ export const dataStore = {
         });
     },
   
-  async submitPenaltyProof(violationId: string, photoIds: string[]): Promise<string[]> {
+  async submitPenaltyProof(violationId: string, photoIds: string[], user: AuthUser): Promise<void> {
     const uploadPromises = photoIds.map(async (photoId) => {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
-        const storageRef = ref(storage, `penalties/${violationId}/${uuidv4()}.jpg`);
+        const storageRef = ref(storage, `penalties/${violationId}/${user.uid}/${uuidv4()}.jpg`);
         await uploadBytes(storageRef, photoBlob);
         return getDownloadURL(storageRef);
     });
@@ -2701,20 +2705,20 @@ export const dataStore = {
     if (newPhotoUrls.length === 0) {
         throw new Error("Failed to upload penalty proof photos.");
     }
-
-    const violationRef = doc(db, 'violations', violationId);
-    const currentDoc = await getDoc(violationRef);
-    const existingPhotos = currentDoc.exists() ? (currentDoc.data().penaltyPhotos || []) : [];
     
-    // Use a Set to ensure no duplicates before updating
-    const updatedPhotos = Array.from(new Set([...existingPhotos, ...newPhotoUrls]));
+    const violationRef = doc(db, 'violations', violationId);
+    
+    const newSubmission: PenaltySubmission = {
+      userId: user.uid,
+      userName: user.displayName,
+      photos: newPhotoUrls,
+      submittedAt: serverTimestamp(),
+    };
 
     await updateDoc(violationRef, {
-        penaltyPhotos: updatedPhotos,
-        penaltySubmittedAt: serverTimestamp(),
+      penaltySubmissions: arrayUnion(newSubmission)
     });
 
     await photoStore.deletePhotos(photoIds);
-    return newPhotoUrls;
   },
 };

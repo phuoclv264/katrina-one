@@ -246,6 +246,13 @@ export type ViolationComment = {
   createdAt: string | Timestamp;
 }
 
+export type PenaltySubmission = {
+  userId: string;
+  userName: string;
+  photos: string[];
+  submittedAt: string | Timestamp;
+};
+
 export type Violation = {
   id: string;
   content: string;
@@ -255,8 +262,7 @@ export type Violation = {
   photos: string[];
   createdAt: string | Timestamp;
   lastModified?: string | Timestamp;
-  penaltyPhotos?: string[];
-  penaltySubmittedAt?: string | Timestamp;
+  penaltySubmissions?: PenaltySubmission[];
   isFlagged?: boolean;
   isPenaltyWaived?: boolean;
   comments?: ViolationComment[];
