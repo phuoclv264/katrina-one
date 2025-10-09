@@ -2258,75 +2258,78 @@ export const dataStore = {
     }
   },
 
-  subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
-    const categoriesDocRef = doc(db, 'app-data', 'violationCategories');
-  
-    // Listen to both violations and categories
-    const unsubCategories = onSnapshot(categoriesDocRef, (categoryDoc) => {
-        const categoryData = categoryDoc.exists() 
-            ? (categoryDoc.data() as ViolationCategoryData)
-            : { list: initialViolationCategories, generalNote: "", generalRules: [] };
-
-        const violationsQuery = query(collection(db, 'violations'), orderBy('createdAt', 'desc'));
-        
-        const unsubViolations = onSnapshot(violationsQuery, (violationsSnapshot) => {
-            const now = new Date();
-            const monthStart = startOfMonth(now);
-            const monthEnd = endOfMonth(now);
-            const batch = writeBatch(db);
-            let hasUpdates = false;
-
-            const fullViolationList: Violation[] = violationsSnapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date(0).toISOString(),
-                    penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
-                } as Violation;
-            });
-            
-            // Filter for violations in the current month to recalculate
-            const violationsInCurrentMonth = fullViolationList.filter(v => 
-                isWithinInterval(parseISO(v.createdAt as string), { start: monthStart, end: monthEnd })
-            ).sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
-
-            // Recalculate cost for each violation in the month
-            const updatedViolationsMap = new Map(fullViolationList.map(v => [v.id, v]));
-
-            violationsInCurrentMonth.forEach(violation => {
-                const { cost, severity } = this.calculateViolationCost(violation, categoryData, violationsInCurrentMonth);
-                const hasChanged = violation.cost !== cost || violation.severity !== severity;
-
-                if (hasChanged) {
-                    const docRef = doc(db, 'violations', violation.id);
-                    batch.update(docRef, { cost, severity });
-                    hasUpdates = true;
-
-                    // Optimistically update the object in the map
-                    const updatedViolation = { ...violation, cost, severity };
-                    updatedViolationsMap.set(violation.id, updatedViolation);
-                }
-            });
-
-            if (hasUpdates) {
-                batch.commit().catch(err => console.error("Error batch updating violation costs:", err));
-            }
-            
-            callback(Array.from(updatedViolationsMap.values()).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()));
-
-        }, (error) => {
-            console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
-            callback([]);
+   subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
+    const violationsQuery = query(collection(db, 'violations'), orderBy('createdAt', 'desc'));
+    
+    // Only listen to violations, the recalculation will be triggered explicitly.
+    const unsubViolations = onSnapshot(violationsQuery, (violationsSnapshot) => {
+        const fullViolationList: Violation[] = violationsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const createdAt = (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString();
+            return {
+                id: doc.id,
+                ...data,
+                createdAt: createdAt,
+                penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Violation;
         });
-
-        // Return a function that unsubscribes from the violations listener.
-        // The categories listener will be handled by the outer return.
-        return unsubViolations;
+        callback(fullViolationList);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
+        callback([]);
     });
 
-    return unsubCategories; // When this is called, it stops listening to category changes.
-},
+    return unsubViolations;
+  },
+
+  async recalculateViolationsForCurrentMonth(): Promise<void> {
+    const categoryData = await this.getViolationCategories();
+    
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    const violationsQuery = query(
+        collection(db, 'violations'),
+        where('createdAt', '>=', monthStart),
+        where('createdAt', '<=', monthEnd)
+    );
+
+    const violationsSnapshot = await getDocs(violationsQuery);
+    if (violationsSnapshot.empty) return;
+
+    const allViolationsInMonth = violationsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString(),
+        } as Violation;
+    }).sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+
+    const batch = writeBatch(db);
+    let hasUpdates = false;
+
+    allViolationsInMonth.forEach(violation => {
+        const { cost: newCost, severity: newSeverity } = this.calculateViolationCost(violation, categoryData, allViolationsInMonth);
+        const hasChanged = violation.cost !== newCost || violation.severity !== newSeverity;
+        
+        if (hasChanged) {
+            const docRef = doc(db, 'violations', violation.id);
+            batch.update(docRef, { cost: newCost, severity: newSeverity });
+            hasUpdates = true;
+        }
+    });
+
+    if (hasUpdates) {
+        try {
+            await batch.commit();
+            console.log("Batch updated violation costs and severities successfully.");
+        } catch (err) {
+            console.error("Error batch updating violation costs:", err);
+        }
+    }
+  },
   
   subscribeToViolationCategories(callback: (data: ViolationCategoryData) => void): () => void {
     const docRef = doc(db, 'app-data', 'violationCategories');
@@ -2400,6 +2403,8 @@ export const dataStore = {
     };
     
     await setDoc(docRef, dataToSave, { merge: true });
+    // After saving, trigger a recalculation
+    await this.recalculateViolationsForCurrentMonth();
   },
 
   calculateViolationCost(
@@ -2421,17 +2426,17 @@ export const dataStore = {
   
     let finalCost = baseCost;
     let finalSeverity = category.severity;
+
+    const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
+    if (violationCreatedAt.getTime() === 0) return { cost: finalCost, severity: finalSeverity };
   
     const applicableRules = (categoryData.generalRules || []).filter(rule => {
       if (rule.condition === 'is_flagged' && violation.isFlagged) {
         return true;
       }
       if (rule.condition === 'repeat_in_month') {
-        const createdAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
-        if (createdAt.getTime() === 0) return false;
-
-        const start = startOfMonth(createdAt);
-        const end = endOfMonth(createdAt);
+        const start = startOfMonth(violationCreatedAt);
+        const end = endOfMonth(violationCreatedAt);
         
         const repeatCount = violation.users.reduce((maxCount, user) => {
           const count = allHistoricViolations.filter(v =>
@@ -2482,7 +2487,7 @@ export const dataStore = {
     ): Promise<void> {
         const { photosToUpload, ...violationData } = data;
     
-        // 1. Upload photos if any
+        // 1. Upload photos
         const uploadPromises = photosToUpload.map(async (photoId) => {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
@@ -2513,7 +2518,8 @@ export const dataStore = {
     
         await photoStore.deletePhotos(photosToUpload);
         
-        // This triggers the re-evaluation logic on the client that's subscribed
+        // After saving, trigger a recalculation for the current month
+        await this.recalculateViolationsForCurrentMonth();
   },
   
   async deleteViolation(violation: Violation): Promise<void> {
@@ -2546,6 +2552,8 @@ export const dataStore = {
     await updateDoc(violationRef, {
       isFlagged: !currentState
     });
+    // After changing flag, trigger recalculation
+    await this.recalculateViolationsForCurrentMonth();
   },
 
   async toggleViolationPenaltyWaived(violationId: string, currentState: boolean): Promise<void> {
