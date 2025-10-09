@@ -107,7 +107,7 @@ export default function HandoverComparisonDialog({
     const finalData = {
       actualCash,
       discrepancy,
-      discrepancyReason: discrepancyReason.trim() || undefined,
+      discrepancyReason: discrepancyReason.trim() || null,
       discrepancyProofPhotos: discrepancyPhotoIds,
     };
     onFinalSubmit(finalData);
@@ -293,7 +293,7 @@ export default function HandoverComparisonDialog({
              ) : (
                 <div className="w-full flex flex-col md:flex-row md:justify-end gap-3">
                     <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full md:w-auto h-11 md:h-10 text-base md:text-sm">Hủy</Button>
-                    <Button onClick={handleConfirmAndSave} disabled={isProcessing || actualCash === null} className="w-full md:w-auto h-12 md:h-10 text-base">
+                    <Button onClick={handleConfirmAndSave} disabled={isProcessing || typeof actualCash !== 'number'} className="w-full md:w-auto h-12 md:h-10 text-base">
                         {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <ArrowRight className="mr-2 h-5 w-5"/>}
                         {isProcessing ? 'Đang gửi...' : 'Hoàn tất & Gửi Báo cáo'}
                     </Button>
