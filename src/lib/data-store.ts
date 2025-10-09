@@ -2259,69 +2259,74 @@ export const dataStore = {
   },
 
   subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
-    const violationsCollection = collection(db, 'violations');
-    const q = query(violationsCollection, orderBy('createdAt', 'desc'));
+    const categoriesDocRef = doc(db, 'app-data', 'violationCategories');
   
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      const categoryData = await this.getViolationCategories();
-      const now = new Date();
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
-      
-      const allViolationsInCurrentMonth = querySnapshot.docs
-        .map(doc => {
-            const data = doc.data();
-            return { 
-              id: doc.id, 
-              ...data, 
-              createdAt: (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString()
-            } as Violation
-        })
-        .filter(v => isWithinInterval(parseISO(v.createdAt as string), { start: monthStart, end: monthEnd }))
-        .sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+    // Listen to both violations and categories
+    const unsubCategories = onSnapshot(categoriesDocRef, (categoryDoc) => {
+        const categoryData = categoryDoc.exists() 
+            ? (categoryDoc.data() as ViolationCategoryData)
+            : { list: initialViolationCategories, generalNote: "", generalRules: [] };
 
-      const batch = writeBatch(db);
-      let updatesMade = false;
-
-      const fullViolationList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-          penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
-        } as Violation;
-      });
-      
-      const updatedViolationsMap = new Map(fullViolationList.map(v => [v.id, v]));
-
-      allViolationsInCurrentMonth.forEach(violation => {
-        const { cost, severity } = this.calculateViolationCost(violation, categoryData, allViolationsInCurrentMonth);
-        const hasChanged = violation.cost !== cost || violation.severity !== severity;
+        const violationsQuery = query(collection(db, 'violations'), orderBy('createdAt', 'desc'));
         
-        if(hasChanged) {
-            const docRef = doc(db, 'violations', violation.id);
-            batch.update(docRef, { cost, severity });
-            updatesMade = true;
+        const unsubViolations = onSnapshot(violationsQuery, (violationsSnapshot) => {
+            const now = new Date();
+            const monthStart = startOfMonth(now);
+            const monthEnd = endOfMonth(now);
+            const batch = writeBatch(db);
+            let hasUpdates = false;
 
-            const updatedViolation = { ...violation, cost, severity };
-            updatedViolationsMap.set(violation.id, updatedViolation);
-        }
-      });
-  
-      if (updatesMade) {
-        batch.commit().catch(err => console.error("Error batch updating violation costs:", err));
-      }
-      
-      callback(Array.from(updatedViolationsMap.values()).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()));
+            const fullViolationList: Violation[] = violationsSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date(0).toISOString(),
+                    penaltySubmittedAt: (data.penaltySubmittedAt as Timestamp)?.toDate()?.toISOString(),
+                } as Violation;
+            });
+            
+            // Filter for violations in the current month to recalculate
+            const violationsInCurrentMonth = fullViolationList.filter(v => 
+                isWithinInterval(parseISO(v.createdAt as string), { start: monthStart, end: monthEnd })
+            ).sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
 
-    }, (error) => {
-      console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
-      callback([]);
+            // Recalculate cost for each violation in the month
+            const updatedViolationsMap = new Map(fullViolationList.map(v => [v.id, v]));
+
+            violationsInCurrentMonth.forEach(violation => {
+                const { cost, severity } = this.calculateViolationCost(violation, categoryData, violationsInCurrentMonth);
+                const hasChanged = violation.cost !== cost || violation.severity !== severity;
+
+                if (hasChanged) {
+                    const docRef = doc(db, 'violations', violation.id);
+                    batch.update(docRef, { cost, severity });
+                    hasUpdates = true;
+
+                    // Optimistically update the object in the map
+                    const updatedViolation = { ...violation, cost, severity };
+                    updatedViolationsMap.set(violation.id, updatedViolation);
+                }
+            });
+
+            if (hasUpdates) {
+                batch.commit().catch(err => console.error("Error batch updating violation costs:", err));
+            }
+            
+            callback(Array.from(updatedViolationsMap.values()).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()));
+
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read violations: ${error.code}`);
+            callback([]);
+        });
+
+        // Return a function that unsubscribes from the violations listener.
+        // The categories listener will be handled by the outer return.
+        return unsubViolations;
     });
-  
-    return unsubscribe;
-  },
+
+    return unsubCategories; // When this is called, it stops listening to category changes.
+},
   
   subscribeToViolationCategories(callback: (data: ViolationCategoryData) => void): () => void {
     const docRef = doc(db, 'app-data', 'violationCategories');
