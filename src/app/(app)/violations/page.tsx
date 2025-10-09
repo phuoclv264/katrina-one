@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -419,6 +418,60 @@ function CommentSection({
   );
 }
 
+const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> => {
+    const abbreviations = new Map<string, string>();
+    const usersByLastName = new Map<string, ManagedUser[]>();
+
+    // Group users by their last name (first name in Vietnamese context)
+    users.forEach(user => {
+        const nameParts = user.displayName.trim().split(/\s+/);
+        if (nameParts.length > 0) {
+            const lastName = nameParts[nameParts.length - 1];
+            if (!usersByLastName.has(lastName)) {
+                usersByLastName.set(lastName, []);
+            }
+            usersByLastName.get(lastName)!.push(user);
+        }
+    });
+
+    for (const [lastName, userGroup] of usersByLastName.entries()) {
+        if (userGroup.length === 1 && ![...usersByLastName.keys()].some(key => key !== lastName && key.includes(lastName))) {
+            // If the last name is unique across all users, just use the last name
+            abbreviations.set(userGroup[0].uid, lastName);
+        } else {
+            // If last names are duplicated, generate abbreviations
+            userGroup.forEach(user => {
+                const nameParts = user.displayName.trim().split(/\s+/);
+                // Start with just the last name
+                let currentAbbr = lastName;
+                // Iterate backwards from the second to last part of the name
+                for (let i = nameParts.length - 2; i >= 0; i--) {
+                    const candidateAbbr = `${nameParts[i].charAt(0).toUpperCase()}.${currentAbbr}`;
+                    
+                    // Check if this new abbreviation already exists for another user in the group
+                    const isDuplicate = userGroup.some(otherUser => {
+                         if (otherUser.uid === user.uid) return false; // Don't compare with self
+                         const otherParts = otherUser.displayName.trim().split(/\s+/);
+                         let otherAbbr = otherParts[otherParts.length - 1];
+                         for(let j = otherParts.length - 2; j >= i; j--) {
+                            otherAbbr = `${otherParts[j].charAt(0).toUpperCase()}.${otherAbbr}`;
+                         }
+                         return otherAbbr === candidateAbbr;
+                    });
+                    
+                    currentAbbr = candidateAbbr;
+                    if (!isDuplicate) {
+                        break; // This abbreviation is unique within the group, we can stop
+                    }
+                }
+                 abbreviations.set(user.uid, currentAbbr);
+            });
+        }
+    }
+
+    return abbreviations;
+};
+
 
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -672,6 +725,8 @@ export default function ViolationsPage() {
   const isOwner = user?.role === 'Chủ nhà hàng';
   const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
+  const userAbbreviations = useMemo(() => generateSmartAbbreviations(users), [users]);
+
   const openAddDialog = (isSelfConfess: boolean) => {
     setViolationToEdit(null);
     setIsSelfConfessMode(isSelfConfess);
@@ -821,8 +876,8 @@ export default function ViolationsPage() {
                                 
                                 const userPenaltyDetails = (v.userCosts || v.users.map(u => ({ userId: u.id, cost: (v.cost || 0) / v.users.length })))
                                     .map(uc => {
-                                        const user = v.users.find(vu => vu.id === uc.userId);
-                                        return `${user?.name || 'N/A'}: ${(uc.cost || 0).toLocaleString('vi-VN')}đ`;
+                                        const userAbbr = userAbbreviations.get(uc.userId) || 'N/A';
+                                        return `${userAbbr}: ${(uc.cost || 0).toLocaleString('vi-VN')}đ`;
                                     }).join(', ');
                                 
                                 const cardBorderColor = v.isFlagged ? 'border-red-500/50 ring-2 ring-red-500/20' : (isWaived ? 'border-green-500/50 ring-2 ring-green-500/20' : getSeverityBorderClass(v.severity));
@@ -844,7 +899,7 @@ export default function ViolationsPage() {
                                             </div>
                                             
                                             {/* Right side: Actions */}
-                                            <div className="flex gap-1 self-start sm:self-start mt-2 sm:mt-0 flex-wrap sm:flex-nowrap">
+                                             <div className="flex gap-1 self-start sm:self-end mt-2 sm:mt-0 flex-wrap sm:flex-nowrap">
                                                 {isOwner && (
                                                     <>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleWaivePenalty(v)} disabled={isItemProcessing}>
@@ -903,10 +958,7 @@ export default function ViolationsPage() {
                                             {v.users.map((violatedUser) => {
                                                 const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
                                                 const isCurrentUserTheViolator = user.uid === violatedUser.id;
-                                                
                                                 const shouldShowActions = isCurrentUserTheViolator || isOwner;
-
-                                                if (!shouldShowActions) return null;
 
                                                 if (isWaived) {
                                                     return (
@@ -924,22 +976,27 @@ export default function ViolationsPage() {
                                                                 <CheckCircle className="h-4 w-4" />
                                                                 <span>{violatedUser.name} đã nộp phạt lúc {submission.submittedAt ? new Date(submission.submittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
                                                             </div>
-                                                            <div className="flex gap-2 self-start sm:self-center">
-                                                                {submission.photos.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submission.photos, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submission.photos.length})</Button>}
-                                                                <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
-                                                            </div>
+                                                            {shouldShowActions && (
+                                                                <div className="flex gap-2 self-start sm:self-center">
+                                                                    {submission.photos.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submission.photos, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submission.photos.length})</Button>}
+                                                                    <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     );
                                                 }
                                                 
-                                                return (
-                                                    <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                                         <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
-                                                        <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
-                                                            Xác nhận đã nộp phạt
-                                                        </Button>
-                                                    </div>
-                                                );
+                                                if (shouldShowActions) {
+                                                    return (
+                                                        <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                             <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
+                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
+                                                                Xác nhận đã nộp phạt
+                                                            </Button>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
                                             })}
                                         </div>
                                         {showCommentButton && (
