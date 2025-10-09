@@ -880,6 +880,14 @@ export const dataStore = {
     },
 
     // --- Schedule ---
+    async getSchedule(weekId: string): Promise<Schedule | null> {
+        const docRef = doc(db, 'schedules', weekId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as Schedule;
+        }
+        return null;
+    },
     subscribeToSchedule(weekId: string, callback: (schedule: Schedule | null) => void): () => void {
         const docRef = doc(db, 'schedules', weekId);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -2794,3 +2802,4 @@ export const dataStore = {
     return newPhotoUrls;
   },
 };
+
