@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, Edit, Trash2, Camera, Loader2, FilterX, BadgeInfo, CheckCircle, Eye, FilePlus2, Flag, MessageSquare, Send, Settings, Check } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -802,7 +802,13 @@ export default function ViolationsPage() {
                                 const isWaived = v.isPenaltyWaived === true;
                                 const currentCategory = categoryData.list.find(c => c.id === v.categoryId);
                                 const categoryDisplayName = currentCategory ? currentCategory.name : v.categoryName;
-                                const unitLabel = currentCategory?.unitLabel || 'đơn vị';
+                                
+                                const userPenaltyDetails = (v.userCosts || v.users.map(u => ({ userId: u.id, cost: (v.cost || 0) / v.users.length })))
+                                    .map(uc => {
+                                        const user = v.users.find(vu => vu.id === uc.userId);
+                                        return `${user?.name || 'N/A'}: ${uc.cost.toLocaleString('vi-VN')}đ`;
+                                    }).join(', ');
+
 
                                 let borderClass: string;
                                 if(isWaived) {
@@ -812,13 +818,6 @@ export default function ViolationsPage() {
                                 } else {
                                   borderClass = "border-border";
                                 }
-                                
-                                const userPenaltyDetails = (v.userCosts || v.users.map(u => ({ userId: u.id, cost: v.cost / v.users.length })))
-                                    .map(uc => {
-                                        const user = v.users.find(vu => vu.id === uc.userId);
-                                        return `${user?.name || 'N/A'}: ${uc.cost.toLocaleString('vi-VN')}đ`;
-                                    }).join(', ');
-
 
                                 return (
                                 <Card key={v.id} className={cn("relative shadow-sm", borderClass)}>
@@ -873,7 +872,7 @@ export default function ViolationsPage() {
                                         <p className="mt-1 text-base whitespace-pre-wrap font-medium">{v.content}</p>
                                         
                                         <p className="mt-2 text-destructive font-bold text-lg">
-                                            Tổng phạt: {v.cost.toLocaleString('vi-VN')}đ
+                                            Tổng phạt: {(v.cost || 0).toLocaleString('vi-VN')}đ
                                             {v.users.length > 1 && (
                                                 <span className="text-xs font-normal text-muted-foreground ml-2">({userPenaltyDetails})</span>
                                             )}
