@@ -494,6 +494,18 @@ export default function ViolationsPage() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (user && user.role !== 'Chủ nhà hàng' && violations.length > 0) {
+      const newOpenIds = new Set<string>();
+      violations.forEach(v => {
+        if (v.comments && v.comments.length > 0) {
+          newOpenIds.add(v.id);
+        }
+      });
+      setOpenCommentSectionIds(newOpenIds);
+    }
+  }, [violations, user]);
+
   const displayUsers = useMemo(() => {
     if (!user || !users) return [];
     if (user.role === 'Chủ nhà hàng' || user.displayName.includes("Không chọn")) {
@@ -610,7 +622,7 @@ export default function ViolationsPage() {
   
   const handlePenaltySubmit = async (photoIds: string[]) => {
         setIsPenaltyCameraOpen(false);
-        if (!activeViolationForPenalty || photoIds.length === 0) {
+        if (!activeViolationForPenalty || photoIds.length === 0 || !user) {
             return;
         }
         
@@ -619,23 +631,7 @@ export default function ViolationsPage() {
         toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
         try {
-            const newPhotoUrls = await dataStore.submitPenaltyProof(violationId, photoIds);
-            
-            setViolations(prevViolations => 
-                prevViolations.map(v => {
-                    if (v.id === violationId) {
-                         const existingPhotos = v.penaltyPhotos || [];
-                         const updatedPhotos = Array.from(new Set([...existingPhotos, ...newPhotoUrls]));
-                        return {
-                            ...v, 
-                            penaltyPhotos: updatedPhotos,
-                            penaltySubmittedAt: new Date().toISOString() 
-                        };
-                    }
-                    return v;
-                })
-            );
-
+            const newPhotoUrls = await dataStore.submitPenaltyProof(violationId, photoIds, user);
             toast.success('Đã cập nhật bằng chứng nộp phạt.');
         } catch (error) {
             console.error("Failed to submit penalty proof:", error);
@@ -669,18 +665,6 @@ export default function ViolationsPage() {
       }, {} as {[key: string]: Violation[]});
   }, [filteredViolations]);
   
-  useEffect(() => {
-    if (user && user.role !== 'Chủ nhà hàng' && violations.length > 0) {
-      const newOpenIds = new Set<string>();
-      violations.forEach(v => {
-        if (v.comments && v.comments.length > 0) {
-          newOpenIds.add(v.id);
-        }
-      });
-      setOpenCommentSectionIds(newOpenIds);
-    }
-  }, [violations, user]);
-
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
   const isOwner = user?.role === 'Chủ nhà hàng';
   const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
@@ -810,7 +794,6 @@ export default function ViolationsPage() {
                         <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
                         <AccordionContent className="space-y-4">
                             {violationsInMonth.map(v => {
-                                const userNames = v.users.map(u => u.name).join(', ');
                                 const isItemProcessing = processingViolationId === v.id;
                                 const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
                                 const isWaived = v.isPenaltyWaived === true;
@@ -834,12 +817,10 @@ export default function ViolationsPage() {
                                   bgClass = "bg-card";
                                 }
 
-
                                 return (
                                 <div key={v.id} className={cn("border-2 rounded-lg p-4 relative shadow-sm", borderClass, bgClass)}>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="font-semibold">{userNames}</p>
                                             <Badge className={getSeverityBadgeClass(v.severity)}>{categoryDisplayName || 'Khác'}</Badge>
                                             {v.users && v.users.length === 1 && v.users[0].id === v.reporterId && (
                                                 <Badge variant="outline" className="border-green-500 text-green-600">Tự thú</Badge>
@@ -903,47 +884,57 @@ export default function ViolationsPage() {
                                             ))}
                                         </div>
                                     )}
-                                     <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-2">
-                                        <div>
-                                            {isWaived ? (
-                                                <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
-                                                    <CheckCircle className="h-4 w-4" />
-                                                    <span>Đã được miễn phạt.</span>
+                                     <div className="mt-4 pt-4 border-t space-y-4">
+                                        {v.users.map((violatedUser) => {
+                                            const submission = (v.penaltySubmissions || []).find(s => s.userId === violatedUser.id);
+                                            const canSubmit = (canManage || currentUser?.uid === violatedUser.id);
+                                            
+                                            return (
+                                                <div key={violatedUser.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                                    <p className="font-semibold text-sm">{violatedUser.name}</p>
+                                                    {isWaived ? (
+                                                         <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
+                                                            <CheckCircle className="h-4 w-4" />
+                                                            <span>Đã được miễn phạt.</span>
+                                                        </div>
+                                                    ) : submission ? (
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
+                                                                <CheckCircle className="h-4 w-4" />
+                                                                <span>Đã nộp phạt lúc {submission.submittedAt ? new Date(submission.submittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
+                                                            </div>
+                                                            {submission.photos.length > 0 && (
+                                                              <Button size="sm" variant="secondary" onClick={() => openLightbox(submission.photos, 0)}>
+                                                                  <Eye className="mr-2 h-4 w-4" />
+                                                                  Xem ({submission.photos.length})
+                                                              </Button>
+                                                            )}
+                                                            {canSubmit && (
+                                                              <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                                  <FilePlus2 className="mr-2 h-4 w-4" />
+                                                                  Bổ sung
+                                                              </Button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        canSubmit && (
+                                                            <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
+                                                                Xác nhận đã nộp phạt
+                                                            </Button>
+                                                        )
+                                                    )}
                                                 </div>
-                                            ) : v.penaltyPhotos && v.penaltyPhotos.length > 0 ? (
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
-                                                    <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
-                                                        <CheckCircle className="h-4 w-4" />
-                                                        <span>Đã nộp phạt lúc {v.penaltySubmittedAt ? new Date(v.penaltySubmittedAt as string).toLocaleString('vi-VN', {hour12: false}) : 'Không rõ'}</span>
-                                                    </div>
-                                                    <div className="flex gap-2 flex-wrap">
-                                                      <Button size="sm" variant="secondary" onClick={() => openLightbox(v.penaltyPhotos!, 0)}>
-                                                          <Eye className="mr-2 h-4 w-4" />
-                                                          Xem ({v.penaltyPhotos.length})
-                                                      </Button>
-                                                      {(canManage || v.users.some(vu => vu.id === user.uid)) && (
-                                                          <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                              <FilePlus2 className="mr-2 h-4 w-4" />
-                                                              Bổ sung
-                                                          </Button>
-                                                      )}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                 (canManage || v.users.some(vu => vu.id === user.uid)) && (
-                                                    <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setIsPenaltyCameraOpen(true); }}>
-                                                        Xác nhận đã nộp phạt
-                                                    </Button>
-                                                )
-                                            )}
-                                        </div>
-                                        {showCommentButton && (
+                                            )
+                                        })}
+                                    </div>
+                                    {showCommentButton && (
+                                        <div className="mt-4 pt-4 border-t">
                                             <Button variant="ghost" size="sm" onClick={() => toggleCommentSection(v.id)}>
                                                 <MessageSquare className="mr-2 h-4 w-4"/>
                                                 {openCommentSectionIds.has(v.id) ? 'Đóng' : `Bình luận (${(v.comments || []).length})`}
                                             </Button>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                     {openCommentSectionIds.has(v.id) && (
                                         <CommentSection
                                             violation={v}
