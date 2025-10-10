@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -179,17 +180,30 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             );
         }
         
-        if (isManagerOrOwner && status === 'pending_approval') {
-            const isRequestByManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý';
-            const isTakenByManager = payload.takenBy && allUsers.find(u => u.uid === payload.takenBy.userId)?.role === 'Quản lý';
-            const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
-            const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestByManager && !isTakenByManager;
+        if (isManagerOrOwner) {
+            if (status === 'pending_approval') {
+                const isRequestByManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý';
+                const isTakenByManager = payload.takenBy && allUsers.find(u => u.uid === payload.takenBy.userId)?.role === 'Quản lý';
+                const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
+                const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestByManager && !isTakenByManager;
 
-            if(canOwnerApprove || canManagerApprove) {
+                if(canOwnerApprove || canManagerApprove) {
+                     return (
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
+                            <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessing} className="flex-1"><CheckCircle className="mr-2 h-4 w-4"/>Phê duyệt</Button>
+                        </div>
+                    );
+                }
+            }
+             if (status === 'pending' && currentUser.role === 'Chủ nhà hàng') {
                  return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
-                        <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessing} className="flex-1"><CheckCircle className="mr-2 h-4 w-4"/>Phê duyệt</Button>
+                        <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild><Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1"><Trash2 className="mr-2 h-4 w-4"/>Hủy</Button></AlertDialogTrigger>
+                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 );
             }
@@ -212,17 +226,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         }
 
         if(isManagerOrOwner) {
-            if (status === 'pending' && currentUser.role === 'Chủ nhà hàng' && !payload.targetUserId) {
-                 return (
-                    <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1"><Trash2 className="mr-2 h-4 w-4"/>Hủy</Button></AlertDialogTrigger>
-                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                );
-            }
              if (status === 'resolved' && currentUser.role === 'Chủ nhà hàng') {
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
