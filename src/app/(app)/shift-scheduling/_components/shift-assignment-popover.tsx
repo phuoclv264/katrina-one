@@ -80,7 +80,7 @@ export default function ShiftAssignmentDialog({
     }
   }, [isOpen, shift.assignedUsers, isPassAssignmentMode]);
 
-  const sortedUsers = useMemo(() => {
+  const { selectedUsersList, availableUsers, busyUsers } = useMemo(() => {
     const shiftRole = shift.role;
     
     let roleFilteredUsers: ManagedUser[];
@@ -93,7 +93,6 @@ export default function ShiftAssignmentDialog({
         roleFilteredUsers = allUsers;
     }
 
-
     // Further filter by the role required for the shift
     roleFilteredUsers = roleFilteredUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole || user.secondaryRoles?.includes(shiftRole));
 
@@ -102,14 +101,17 @@ export default function ShiftAssignmentDialog({
         roleFilteredUsers = roleFilteredUsers.filter(user => user.uid !== passRequestingUser.userId);
     }
 
-    const availableUsers: ManagedUser[] = [];
-    const busyUsers: ManagedUser[] = [];
+    const selected: ManagedUser[] = [];
+    const available: ManagedUser[] = [];
+    const busy: ManagedUser[] = [];
 
     roleFilteredUsers.forEach(user => {
-      if (isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)) {
-        availableUsers.push(user);
+      if (selectedUserIds.has(user.uid)) {
+        selected.push(user);
+      } else if (isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)) {
+        available.push(user);
       } else {
-        busyUsers.push(user);
+        busy.push(user);
       }
     });
 
@@ -119,11 +121,12 @@ export default function ShiftAssignmentDialog({
         return a.displayName.localeCompare(b.displayName, 'vi');
     };
 
-    availableUsers.sort(sortFn);
-    busyUsers.sort(sortFn);
+    selected.sort(sortFn);
+    available.sort(sortFn);
+    busy.sort(sortFn);
 
-    return { availableUsers, busyUsers };
-  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser, currentUserRole]);
+    return { selectedUsersList: selected, availableUsers: available, busyUsers: busy };
+  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
   
   const handleSelectUser = (user: ManagedUser) => {
     // Prevent manager from selecting busy users. Only owner can.
@@ -132,7 +135,6 @@ export default function ShiftAssignmentDialog({
         toast.error("Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.");
         return;
     }
-
 
     if (isPassAssignmentMode) {
       // Single selection mode
@@ -210,6 +212,12 @@ export default function ShiftAssignmentDialog({
     );
   }
 
+  const SectionHeader = ({ title }: { title: string }) => (
+    <h4 className="text-sm font-semibold mb-2 sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2 -mt-2">
+      {title}
+    </h4>
+  );
+
   return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-md">
@@ -220,25 +228,33 @@ export default function ShiftAssignmentDialog({
                      {isPassAssignmentMode && ` cho ${passRequestingUser?.userName}`}
                 </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="max-h-[50vh] pr-4">
+            <ScrollArea className="max-h-[50vh] -mx-4 px-4">
                 <div className="space-y-4">
-                    {sortedUsers.availableUsers.length > 0 && (
+                    {selectedUsersList.length > 0 && (
                         <div>
-                            <h4 className="text-sm font-semibold mb-2">Nhân viên rảnh</h4>
+                            <SectionHeader title={`Nhân viên trong ca (${selectedUsersList.length})`} />
                             <div className="space-y-2">
-                                {sortedUsers.availableUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={true} />)}
+                                {selectedUsersList.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)} />)}
                             </div>
                         </div>
                     )}
-                     {sortedUsers.busyUsers.length > 0 && (
+                    {availableUsers.length > 0 && (
                         <div>
-                            <h4 className="text-sm font-semibold mb-2">Nhân viên bận hoặc chưa đăng ký</h4>
+                            <SectionHeader title={`Nhân viên rảnh (${availableUsers.length})`} />
                             <div className="space-y-2">
-                                {sortedUsers.busyUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={false} />)}
+                                {availableUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={true} />)}
                             </div>
                         </div>
                     )}
-                    {sortedUsers.availableUsers.length === 0 && sortedUsers.busyUsers.length === 0 && (
+                     {busyUsers.length > 0 && (
+                        <div>
+                            <SectionHeader title={`Nhân viên bận hoặc chưa đăng ký (${busyUsers.length})`} />
+                            <div className="space-y-2">
+                                {busyUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={false} />)}
+                            </div>
+                        </div>
+                    )}
+                    {selectedUsersList.length === 0 && availableUsers.length === 0 && busyUsers.length === 0 && (
                         <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào phù hợp để chỉ định.</p>
                     )}
                 </div>
