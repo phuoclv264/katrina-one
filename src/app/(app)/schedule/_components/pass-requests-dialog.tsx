@@ -195,7 +195,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     );
                 }
             }
-             if (status === 'pending' && currentUser.role === 'Chủ nhà hàng') {
+             if (status === 'pending' && currentUser.role === 'Chủ nhà hàng' && !payload.targetUserId) {
                  return (
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
@@ -211,8 +211,8 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         if (status === 'pending' && !isMyRequest) {
             const isManagerViewing = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
 
-            if(isManagerViewing) {
-                // Render manager-specific actions for pending public requests
+            // A manager can only 'take' a public request, not a direct swap/pass between others.
+            if(isManagerViewing && !payload.targetUserId && !payload.isSwapRequest) {
                 return (
                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
