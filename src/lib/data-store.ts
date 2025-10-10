@@ -978,7 +978,6 @@ export const dataStore = {
         const notificationsQuery = query(
             collection(db, 'notifications'),
             and(
-                where('type', '==', 'pass_request'),
                 where('payload.weekId', '==', weekId),
                 or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
             )
@@ -1146,18 +1145,22 @@ export const dataStore = {
         await addDoc(collection(db, "notifications"), newNotification);
     },
 
-    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean): Promise<void> {
+    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null): Promise<void> {
         const existingRequestQuery = query(
             collection(db, 'notifications'),
             where('type', '==', 'pass_request'),
             where('payload.shiftId', '==', shiftToPass.id),
             where('payload.requestingUser.userId', '==', requestingUser.uid),
-            where('payload.targetUserId', '==', targetUser.uid),
             where('status', 'in', ['pending', 'pending_approval'])
         );
         const existingRequestsSnapshot = await getDocs(existingRequestQuery);
         if (!existingRequestsSnapshot.empty) {
-            throw new Error(`Bạn đã gửi yêu cầu cho ${targetUser.displayName} rồi.`);
+            const existingRequest = existingRequestsSnapshot.docs[0].data() as Notification;
+            if(existingRequest.payload.targetUserId) {
+                 throw new Error(`Bạn đã có một yêu cầu nhờ/đổi ca đang chờ cho ca này.`);
+            } else {
+                 throw new Error(`Bạn đã có một yêu cầu pass công khai đang chờ. Vui lòng hủy yêu cầu đó trước.`);
+            }
         }
     
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
@@ -1178,14 +1181,9 @@ export const dataStore = {
         };
     
         if (isSwap) {
-            const schedule = await this.getSchedule(weekId);
-            const targetUserShift = schedule?.shifts.find(s => 
-                s.date === shiftToPass.date && s.assignedUsers.some(u => u.userId === targetUser.uid)
-            );
             if (!targetUserShift) {
                 throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
             }
-            // Snapshot the target user's shift information AT THE TIME OF REQUEST
             payload.targetUserShiftPayload = {
                 shiftId: targetUserShift.id,
                 shiftLabel: targetUserShift.label,
