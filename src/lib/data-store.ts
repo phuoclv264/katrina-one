@@ -1291,7 +1291,7 @@ export const dataStore = {
             const shiftA_Index = updatedShifts.findIndex(s => s.id === shiftId);
             if (shiftA_Index === -1 || !updatedShifts[shiftA_Index].assignedUsers.some(u => u.userId === requestingUser.userId)) {
                 transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': 'Người yêu cầu không còn trong ca.' });
-                throw new Error("Không thể phê duyệt: Người yêu cầu không còn trong ca làm việc.");
+                throw new Error("Không thể phê duyệt: Người yêu cầu ban đầu không còn trong ca làm việc này.");
             }
 
             if (isSwapRequest) {
