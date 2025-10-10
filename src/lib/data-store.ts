@@ -1163,6 +1163,24 @@ export const dataStore = {
             existingRequestData.id = existingRequestsSnapshot.docs[0].id;
             return existingRequestData;
         }
+
+        if (isSwap && !targetUserShift) {
+            throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
+        }
+
+        // NEW: Check if the target shift is already part of another pending request
+        if (isSwap && targetUserShift) {
+             const targetShiftRequestQuery = query(
+                collection(db, 'notifications'),
+                where('type', '==', 'pass_request'),
+                where('payload.shiftId', '==', targetUserShift.id),
+                where('status', 'in', ['pending', 'pending_approval'])
+            );
+            const targetShiftSnapshot = await getDocs(targetShiftRequestQuery);
+            if (!targetShiftSnapshot.empty) {
+                throw new Error(`Không thể đổi ca vì ca làm việc của ${targetUser.displayName} đã có một yêu cầu pass ca khác đang chờ xử lý.`);
+            }
+        }
     
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
         const payload: PassRequestPayload = {
@@ -1181,10 +1199,7 @@ export const dataStore = {
             declinedBy: [],
         };
     
-        if (isSwap) {
-            if (!targetUserShift) {
-                throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
-            }
+        if (isSwap && targetUserShift) {
             payload.targetUserShiftPayload = {
                 shiftId: targetUserShift.id,
                 shiftLabel: targetUserShift.label,
@@ -1289,7 +1304,7 @@ export const dataStore = {
             let updatedShifts = [...scheduleData.shifts];
 
             const shiftA_Index = updatedShifts.findIndex(s => s.id === shiftId);
-            if (shiftA_Index === -1 || !updatedShifts[shiftA_Index].assignedUsers.some(u => u.userId === requestingUser.userId)) {
+             if (shiftA_Index === -1 || !updatedShifts[shiftA_Index].assignedUsers.some(u => u.userId === requestingUser.userId)) {
                 transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': 'Người yêu cầu không còn trong ca.' });
                 throw new Error("Không thể phê duyệt: Người yêu cầu ban đầu không còn trong ca làm việc này.");
             }
