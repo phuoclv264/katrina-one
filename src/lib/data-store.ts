@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -1107,7 +1108,7 @@ export const dataStore = {
         await setDoc(docRef, { templates });
     },
     
-    async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<void> {
+    async requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {
         const existingRequestQuery = query(
             collection(db, 'notifications'),
             where('type', '==', 'pass_request'),
@@ -1118,7 +1119,9 @@ export const dataStore = {
 
         const existingRequestsSnapshot = await getDocs(existingRequestQuery);
         if (!existingRequestsSnapshot.empty) {
-            throw new Error('Bạn đã có một yêu cầu pass ca đang chờ cho ca làm việc này.');
+            const existingRequestData = existingRequestsSnapshot.docs[0].data() as Notification;
+            existingRequestData.id = existingRequestsSnapshot.docs[0].id;
+            return existingRequestData;
         }
 
 
@@ -1143,9 +1146,10 @@ export const dataStore = {
             }
         };
         await addDoc(collection(db, "notifications"), newNotification);
+        return null;
     },
 
-    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null): Promise<void> {
+    async requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null): Promise<Notification | null> {
         const existingRequestQuery = query(
             collection(db, 'notifications'),
             where('type', '==', 'pass_request'),
@@ -1155,12 +1159,9 @@ export const dataStore = {
         );
         const existingRequestsSnapshot = await getDocs(existingRequestQuery);
         if (!existingRequestsSnapshot.empty) {
-            const existingRequest = existingRequestsSnapshot.docs[0].data() as Notification;
-            if(existingRequest.payload.targetUserId) {
-                 throw new Error(`Bạn đã có một yêu cầu nhờ/đổi ca đang chờ cho ca này.`);
-            } else {
-                 throw new Error(`Bạn đã có một yêu cầu pass công khai đang chờ. Vui lòng hủy yêu cầu đó trước.`);
-            }
+            const existingRequestData = existingRequestsSnapshot.docs[0].data() as Notification;
+            existingRequestData.id = existingRequestsSnapshot.docs[0].id;
+            return existingRequestData;
         }
     
         const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
@@ -1199,6 +1200,7 @@ export const dataStore = {
             payload: payload
         };
         await addDoc(collection(db, "notifications"), newNotification);
+        return null;
     },
 
     async revertPassRequest(notification: Notification, resolver: AuthUser): Promise<void> {

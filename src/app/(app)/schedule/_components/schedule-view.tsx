@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -59,6 +60,8 @@ export default function ScheduleView() {
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
     const [activeShiftForInfo, setActiveShiftForInfo] = useState<AssignedShift | null>(null);
     const [selectedDateForAvailability, setSelectedDateForAvailability] = useState<Date | null>(null);
+
+    const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
     
@@ -189,31 +192,45 @@ export default function ScheduleView() {
         setIsAvailabilityDialogOpen(false);
     };
 
-    const handlePassShift = async (shift: AssignedShift) => {
+    const handlePassShift = async (shift: AssignedShift, isCreatingNew: boolean = true) => {
         if (!user || !schedule) return;
-        try {
+
+        if (isCreatingNew) {
+            const conflictingRequest = await dataStore.requestPassShift(shift, user);
+            if (conflictingRequest) {
+                setConflictDialog({
+                    isOpen: true,
+                    oldRequest: conflictingRequest,
+                    newRequestFn: () => handlePassShift(shift, false)
+                });
+                return;
+            }
+        } else {
             await dataStore.requestPassShift(shift, user);
-            toast.success('Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.');
-        } catch (error: any) {
-            console.error("Failed to pass shift:", error);
-            const errorMessage = error.message || 'Không thể gửi yêu cầu pass ca.';
-            toast.error(errorMessage);
         }
+        
+        toast.success('Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.');
     }
     
-    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean) => {
+    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, isCreatingNew: boolean = true, targetUserShift: AssignedShift | null = null) => {
         if (!user) return;
-        setIsProcessing(true);
-        try {
-            await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap);
-            const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
-            toast.success(`Yêu cầu ${actionText} đã được gửi trực tiếp đến ${targetUser.displayName}.`);
-        } catch(error: any) {
-            console.error("Failed to send direct pass request:", error);
-            toast.error(`Không thể gửi yêu cầu: ${error.message}`);
-        } finally {
-            setIsProcessing(false);
+        
+        if (isCreatingNew) {
+            const conflictingRequest = await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
+            if (conflictingRequest) {
+                setConflictDialog({
+                    isOpen: true,
+                    oldRequest: conflictingRequest,
+                    newRequestFn: () => handleDirectPassRequest(shift, targetUser, isSwap, false, targetUserShift)
+                });
+                return;
+            }
+        } else {
+            await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
         }
+
+        const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
+        toast.success(`Yêu cầu ${actionText} đã được gửi trực tiếp đến ${targetUser.displayName}.`);
     }
 
     const handleTakeShift = async (notification: Notification) => {
@@ -614,6 +631,30 @@ export default function ScheduleView() {
                     notifications={notifications}
                 />
             )}
+
+            <AlertDialog open={conflictDialog.isOpen} onOpenChange={(open) => {if(!open) setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} })}}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này. Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Không</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => {
+                            if (conflictDialog.oldRequest) {
+                                await handleCancelPassRequest(conflictDialog.oldRequest.id);
+                            }
+                            conflictDialog.newRequestFn();
+                            setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
+                        }}>
+                            Hủy yêu cầu cũ & Tạo yêu cầu mới
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </TooltipProvider>
     );
 }
