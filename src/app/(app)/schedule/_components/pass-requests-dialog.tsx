@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -209,16 +208,30 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
             }
         }
         
-        if (status === 'pending' && !isMyRequest && !payload.targetUserId) {
-            return (
-                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Bỏ qua</Button>
-                    <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
-                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
-                        Nhận ca
-                    </Button>
-                </div>
-            )
+        if (status === 'pending' && !isMyRequest) {
+            const isManagerViewing = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
+
+            if(isManagerViewing) {
+                // Render manager-specific actions for pending public requests
+                return (
+                     <div className="flex gap-2 w-full sm:w-auto">
+                        <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
+                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                            Nhận ca
+                        </Button>
+                    </div>
+                )
+            } else if (!payload.targetUserId) { // Public request for regular staff
+                return (
+                     <div className="flex gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Bỏ qua</Button>
+                        <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
+                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                            Nhận ca
+                        </Button>
+                    </div>
+                )
+            }
         }
         
         if (status === 'pending' && isMyRequest) {
@@ -371,6 +384,7 @@ export default function PassRequestsDialog({
         }
 
         if (isManagerOrOwner) {
+            // Manager can see pending/pending_approval if it doesn't involve another manager, unless they are the owner
             if (currentUser.role === 'Chủ nhà hàng' || (!isRequestByManager && !isTakenByManager)) {
                 pending.push(notification);
                 return;

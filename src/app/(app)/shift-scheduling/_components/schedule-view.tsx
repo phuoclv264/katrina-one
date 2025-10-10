@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -516,8 +514,54 @@ export default function ScheduleView() {
         }
     }
 
-    const handleApproveRequest = async (notification: Notification) => {
+    const handleTakeShift = async (notification: Notification) => {
+        if (!user || !localSchedule) return;
+        
+        (window as any).processingNotificationId = notification.id;
+        setIsSubmitting(true);
+        
+        try {
+            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
+            
+            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, localSchedule);
+
+            // Optimistic update UI
+            setNotifications(prevNotifs => prevNotifs.map(n => {
+                if (n.id === notification.id) {
+                    return {
+                        ...n,
+                        status: 'pending_approval',
+                        payload: {
+                            ...n.payload,
+                            takenBy: acceptingUser
+                        }
+                    };
+                }
+                return n;
+            }));
+
+            toast.success('Yêu cầu nhận ca đã được gửi đi và đang chờ quản lý phê duyệt.');
+        } catch (error: any) {
+            console.error("Failed to take shift:", error);
+            toast.error(error.message);
+        } finally {
+            setIsSubmitting(false);
+            delete (window as any).processingNotificationId;
+        }
+    }
+    
+    const handleDeclineShift = async (notification: Notification) => {
         if (!user) return;
+        try {
+            await dataStore.declinePassShift(notification, { uid: user.uid, displayName: user.displayName });
+            toast.success('Đã từ chối. Bạn sẽ không thấy lại yêu cầu này.');
+        } catch (error: any) {
+            toast.error('Không thể từ chối yêu cầu.');
+        }
+    }
+
+    const handleApproveRequest = async (notification: Notification) => {
+        if (!user || !localSchedule) return;
         (window as any).processingNotificationId = notification.id;
         setIsSubmitting(true);
         try {
@@ -531,6 +575,8 @@ export default function ScheduleView() {
                     errorMessage = error.message.replace('SHIFT_CONFLICT:', '').trim();
                 } else if (error.message.includes('ALREADY_RESOLVED:')) {
                     errorMessage = error.message.replace('ALREADY_RESOLVED:', '').trim();
+                } else {
+                    errorMessage = error.message;
                 }
             }
             toast.error(errorMessage);
@@ -1059,8 +1105,8 @@ export default function ScheduleView() {
                 notifications={notifications}
                 allUsers={allUsers}
                 weekInterval={weekInterval}
-                onAccept={() => {}} // This view only manages, doesn't accept
-                onDecline={() => {}} // This view only manages, doesn't decline
+                onAccept={handleTakeShift} 
+                onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
                 onAssign={handleAssignShift}
