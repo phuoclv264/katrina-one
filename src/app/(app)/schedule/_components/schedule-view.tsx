@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -249,7 +250,7 @@ export default function ScheduleView() {
             
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
 
-            // Optimistically update UI
+            // Optimistic update UI
             setNotifications(prevNotifs => prevNotifs.map(n => {
                 if (n.id === notification.id) {
                     return {
@@ -644,20 +645,26 @@ export default function ScheduleView() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này. Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?
+                           Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này. 
+                           {conflictDialog.oldRequest?.status === 'pending_approval' 
+                                ? " Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
+                                : " Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
+                           }
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Không</AlertDialogCancel>
-                        <AlertDialogAction onClick={async () => {
-                            if (conflictDialog.oldRequest) {
-                                await handleCancelPassRequest(conflictDialog.oldRequest.id);
-                            }
-                            conflictDialog.newRequestFn();
-                            setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
-                        }}>
-                            Hủy yêu cầu cũ & Tạo yêu cầu mới
-                        </AlertDialogAction>
+                        <AlertDialogCancel>Đóng</AlertDialogCancel>
+                        {conflictDialog.oldRequest?.status === 'pending' && (
+                            <AlertDialogAction onClick={async () => {
+                                if (conflictDialog.oldRequest) {
+                                    await handleCancelPassRequest(conflictDialog.oldRequest.id);
+                                }
+                                conflictDialog.newRequestFn();
+                                setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
+                            }}>
+                                Hủy yêu cầu cũ & Tạo yêu cầu mới
+                            </AlertDialogAction>
+                        )}
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
