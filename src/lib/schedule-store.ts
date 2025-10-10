@@ -25,7 +25,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot } from './types';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 
 
@@ -637,6 +637,42 @@ export function subscribeToRelevantNotifications(userId: string, userRole: UserR
         unsubMyRequests();
         unsubOtherRequests();
     };
+}
+
+export function subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
+    const notificationsCollection = collection(db, 'notifications');
+    const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const notifs = snapshot.docs.map(doc => {
+            const data = doc.data();
+            // Check for expired pending requests and update them
+            if (data.type === 'pass_request' && (data.status === 'pending' || data.status === 'pending_approval')) {
+                const shiftDateTime = parseISO(`${data.payload.shiftDate}T${data.payload.shiftTimeSlot.start}`);
+                if (isPast(shiftDateTime)) {
+                    const docRef = doc(db, 'notifications', doc.id);
+                    updateDoc(docRef, {
+                        status: 'cancelled',
+                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                        resolvedAt: serverTimestamp(),
+                    }).catch(e => console.error("Failed to auto-cancel expired request:", e));
+                    // Reflect change immediately in the callback
+                    data.status = 'cancelled';
+                    data.payload.cancellationReason = 'Tự động hủy do đã quá hạn.';
+                }
+            }
+            return {
+                id: doc.id,
+                ...data,
+                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
+            } as Notification
+        });
+        callback(notifs);
+    }, (error) => {
+        console.error("Error subscribing to all notifications:", error);
+        callback([]);
+    });
+    return unsubscribe;
 }
 
 export async function updateNotificationStatus(notificationId: string, status: Notification['status'], resolver?: AuthUser): Promise<void> {
