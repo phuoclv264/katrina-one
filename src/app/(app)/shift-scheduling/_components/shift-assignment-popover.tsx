@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -111,17 +110,17 @@ export default function ShiftAssignmentDialog({
         roleFilteredUsers = roleFilteredUsers.filter(user => user.uid !== passRequestingUser.userId);
     }
     
-    const selected: ManagedUser[] = [];
-    const available: ManagedUser[] = [];
-    const busy: ManagedUser[] = [];
+    const selectedList: ManagedUser[] = [];
+    const availableList: ManagedUser[] = [];
+    const busyList: ManagedUser[] = [];
 
     roleFilteredUsers.forEach(user => {
       if (selectedUserIds.has(user.uid)) {
-        selected.push(user);
+        selectedList.push(user);
       } else if (isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)) {
-        available.push(user);
+        availableList.push(user);
       } else {
-        busy.push(user);
+        busyList.push(user);
       }
     });
 
@@ -131,11 +130,11 @@ export default function ShiftAssignmentDialog({
         return a.displayName.localeCompare(b.displayName, 'vi');
     };
 
-    selected.sort(sortFn);
-    available.sort(sortFn);
-    busy.sort(sortFn);
+    selectedList.sort(sortFn);
+    availableList.sort(sortFn);
+    busyList.sort(sortFn);
 
-    return { selectedUsers, availableUsers, busyUsers };
+    return { selectedUsers: selectedList, availableUsers: availableList, busyUsers: busyList };
   }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
   
   const handleSelectUser = (user: ManagedUser) => {
@@ -240,8 +239,8 @@ export default function ShiftAssignmentDialog({
                      {isPassAssignmentMode && ` cho ${passRequestingUser?.userName}`}
                 </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="max-h-[50vh] -mx-4">
-                <div className="space-y-4 px-4 pb-4">
+            <ScrollArea className="max-h-[50vh] -mx-4 px-2">
+                <div className="space-y-4 px-2 pb-4">
                     {selectedUsers.length > 0 && (
                         <div>
                             <SectionHeader title={`Nhân viên trong ca (${selectedUsers.length})`} />
@@ -295,4 +294,3 @@ export default function ShiftAssignmentDialog({
       </Dialog>
   );
 }
-
