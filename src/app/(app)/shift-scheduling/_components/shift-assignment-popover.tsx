@@ -52,6 +52,16 @@ const roleOrder: Record<UserRole, number> = {
     'Chủ nhà hàng': 5,
 };
 
+const getRoleTextColor = (role: UserRole): string => {
+    switch (role) {
+        case 'Phục vụ': return 'text-blue-800 dark:text-blue-300';
+        case 'Pha chế': return 'text-green-800 dark:text-green-300';
+        case 'Thu ngân': return 'text-orange-800 dark:text-orange-300';
+        case 'Quản lý': return 'text-purple-800 dark:text-purple-300';
+        default: return 'text-muted-foreground';
+    }
+};
+
 export default function ShiftAssignmentDialog({
   shift,
   allUsers,
@@ -195,7 +205,7 @@ export default function ShiftAssignmentDialog({
         <CardContent className="p-3 flex items-center justify-between gap-3">
           <div className="flex-1 space-y-1">
             <p className="font-semibold">{user.displayName}</p>
-            <p className="text-xs text-muted-foreground">{user.role}</p>
+            <p className={cn("text-xs", getRoleTextColor(user.role))}>{user.role}</p>
           </div>
            <div className="flex flex-col items-end gap-1">
              {isSelected ? (
@@ -228,8 +238,8 @@ export default function ShiftAssignmentDialog({
                      {isPassAssignmentMode && ` cho ${passRequestingUser?.userName}`}
                 </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="max-h-[50vh] -mx-4 px-4">
-                <div className="space-y-4">
+            <ScrollArea className="max-h-[50vh] -mx-4">
+                <div className="space-y-4 px-4">
                     {selectedUsersList.length > 0 && (
                         <div>
                             <SectionHeader title={`Nhân viên trong ca (${selectedUsersList.length})`} />
