@@ -35,6 +35,7 @@ type ShiftAssignmentDialogProps = {
   shift: AssignedShift;
   allUsers: ManagedUser[];
   currentUserRole: UserRole;
+  currentUserName: string;
   dailyAvailability: Availability[];
   onSave: (shiftId: string, newAssignedUsers: AssignedUser[]) => void;
   isOpen: boolean;
@@ -65,6 +66,7 @@ export default function ShiftAssignmentDialog({
   shift,
   allUsers,
   currentUserRole,
+  currentUserName,
   dailyAvailability,
   onSave,
   isOpen,
@@ -94,7 +96,7 @@ export default function ShiftAssignmentDialog({
     
     let roleFilteredUsers: ManagedUser[];
 
-    if (currentUserRole === 'Quản lý') {
+    if (currentUserRole === 'Quản lý' && !currentUserName.includes('Không chọn')) {
       roleFilteredUsers = allUsers.filter(user => 
         user.role !== 'Chủ nhà hàng' && !user.displayName.includes('Không chọn')
       );

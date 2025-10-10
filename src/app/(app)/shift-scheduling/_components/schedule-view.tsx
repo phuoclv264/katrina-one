@@ -700,7 +700,7 @@ export default function ScheduleView() {
         const userDetails = allUsers.find(u => u.uid === assignedUser.userId);
         if (!userDetails) return null;
 
-        if (user?.role !== 'Chủ nhà hàng') {
+        if (user?.role !== 'Chủ nhà hàng' && !user?.displayName.includes('Không chọn')) {
             if (userDetails.role === 'Chủ nhà hàng' || userDetails.displayName.includes('Không chọn')) {
                 return null;
             }
@@ -1092,6 +1092,7 @@ export default function ScheduleView() {
                     shift={activeShift}
                     allUsers={allUsers}
                     currentUserRole={user.role}
+                    currentUserName={user.displayName}
                     dailyAvailability={availabilityByDay[activeShift.date] || []}
                     onSave={handleUpdateShiftAssignment}
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
