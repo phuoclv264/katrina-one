@@ -17,6 +17,8 @@ import { vi } from 'date-fns/locale';
 import { isUserAvailable } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
+import { hasTimeConflict } from '@/lib/schedule-utils';
+import { toast } from 'react-hot-toast';
 
 type ShiftInfoDialogProps = {
   isOpen: boolean;
@@ -24,7 +26,7 @@ type ShiftInfoDialogProps = {
   shift: AssignedShift;
   schedule: Schedule;
   allUsers: ManagedUser[];
-  onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => void;
+  onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => Promise<void>;
   isProcessing: boolean;
   notifications: Notification[];
 };
@@ -104,6 +106,25 @@ export default function ShiftInfoDialog({
 
 
   if (!shift) return null;
+  
+  const handlePassRequest = async (targetUser: ManagedUser, isSwap: boolean) => {
+    try {
+        let targetUserShift: AssignedShift | null = null;
+        if (isSwap) {
+            const colleagueInfo = colleagues.find(c => c.user.uid === targetUser.uid);
+            if (colleagueInfo) {
+                targetUserShift = colleagueInfo.shift;
+            } else {
+                 toast.error(`${targetUser.displayName} không có ca làm việc phù hợp để đổi.`);
+                 return;
+            }
+        }
+        await onDirectPassRequest(shift, targetUser, isSwap, targetUserShift);
+    } catch (error: any) {
+        toast.error(error.message || "Không thể gửi yêu cầu.");
+    }
+  }
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -134,7 +155,7 @@ export default function ShiftInfoDialog({
                                         <p className="text-sm text-muted-foreground">{colleagueShift.label} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
                                     </div>
                                     {canSwap && (
-                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user, true, colleagueShift)} disabled={isProcessing || alreadyRequested}>
+                                        <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isProcessing || alreadyRequested}>
                                             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Replace className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
                                         </Button>
@@ -162,7 +183,7 @@ export default function ShiftInfoDialog({
                                             <p className="font-semibold">{user.displayName}</p>
                                             <p className="text-sm text-muted-foreground">{user.role}</p>
                                         </div>
-                                        <Button size="sm" onClick={() => onDirectPassRequest(shift, user, false, null)} disabled={isProcessing || alreadyRequested}>
+                                        <Button size="sm" onClick={() => handlePassRequest(user, false)} disabled={isProcessing || alreadyRequested}>
                                             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận ca'}
                                         </Button>

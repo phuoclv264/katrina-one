@@ -1,5 +1,3 @@
-
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -195,42 +193,49 @@ export default function ScheduleView() {
     const handlePassShift = async (shift: AssignedShift, isCreatingNew: boolean = true) => {
         if (!user || !schedule) return;
 
-        if (isCreatingNew) {
-            const conflictingRequest = await dataStore.requestPassShift(shift, user);
-            if (conflictingRequest) {
-                setConflictDialog({
-                    isOpen: true,
-                    oldRequest: conflictingRequest,
-                    newRequestFn: () => handlePassShift(shift, false)
-                });
-                return;
+        try {
+            if (isCreatingNew) {
+                const conflictingRequest = await dataStore.requestPassShift(shift, user);
+                if (conflictingRequest) {
+                    setConflictDialog({
+                        isOpen: true,
+                        oldRequest: conflictingRequest,
+                        newRequestFn: () => handlePassShift(shift, false)
+                    });
+                    return;
+                }
+            } else {
+                await dataStore.requestPassShift(shift, user);
             }
-        } else {
-            await dataStore.requestPassShift(shift, user);
+            toast.success('Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.');
+        } catch (error: any) {
+            toast.error(error.message || "Không thể gửi yêu cầu pass ca.");
         }
-        
-        toast.success('Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.');
     }
     
-    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, isCreatingNew: boolean = true, targetUserShift: AssignedShift | null = null) => {
+    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null, isCreatingNew: boolean = true) => {
         if (!user) return;
         
-        if (isCreatingNew) {
-            const conflictingRequest = await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
-            if (conflictingRequest) {
-                setConflictDialog({
-                    isOpen: true,
-                    oldRequest: conflictingRequest,
-                    newRequestFn: () => handleDirectPassRequest(shift, targetUser, isSwap, false, targetUserShift)
-                });
-                return;
+        try {
+            if (isCreatingNew) {
+                const conflictingRequest = await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
+                if (conflictingRequest) {
+                    setConflictDialog({
+                        isOpen: true,
+                        oldRequest: conflictingRequest,
+                        newRequestFn: () => handleDirectPassRequest(shift, targetUser, isSwap, targetUserShift, false)
+                    });
+                    return;
+                }
+            } else {
+                await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
             }
-        } else {
-            await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
-        }
 
-        const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
-        toast.success(`Yêu cầu ${actionText} đã được gửi trực tiếp đến ${targetUser.displayName}.`);
+            const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
+            toast.success(`Yêu cầu ${actionText} đã được gửi trực tiếp đến ${targetUser.displayName}.`);
+        } catch (error: any) {
+             toast.error(error.message || "Không thể gửi yêu cầu.");
+        }
     }
 
     const handleTakeShift = async (notification: Notification) => {
@@ -315,6 +320,8 @@ export default function ScheduleView() {
                     errorMessage = error.message.replace('SHIFT_CONFLICT:', '').trim();
                 } else if (error.message.includes('ALREADY_RESOLVED:')) {
                     errorMessage = error.message.replace('ALREADY_RESOLVED:', '').trim();
+                } else {
+                    errorMessage = error.message;
                 }
             }
             toast.error(errorMessage);
