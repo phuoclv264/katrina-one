@@ -90,7 +90,7 @@ export default function ShiftAssignmentDialog({
     }
   }, [isOpen, shift.assignedUsers, isPassAssignmentMode]);
 
-  const { selectedUsersList, availableUsers, busyUsers } = useMemo(() => {
+  const { selectedUsers, availableUsers, busyUsers } = useMemo(() => {
     const shiftRole = shift.role;
     
     let roleFilteredUsers: ManagedUser[];
@@ -110,7 +110,7 @@ export default function ShiftAssignmentDialog({
     if (isPassAssignmentMode && passRequestingUser) {
         roleFilteredUsers = roleFilteredUsers.filter(user => user.uid !== passRequestingUser.userId);
     }
-
+    
     const selected: ManagedUser[] = [];
     const available: ManagedUser[] = [];
     const busy: ManagedUser[] = [];
@@ -135,7 +135,7 @@ export default function ShiftAssignmentDialog({
     available.sort(sortFn);
     busy.sort(sortFn);
 
-    return { selectedUsersList: selected, availableUsers: available, busyUsers: busy };
+    return { selectedUsers, availableUsers, busyUsers };
   }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
   
   const handleSelectUser = (user: ManagedUser) => {
@@ -214,7 +214,9 @@ export default function ShiftAssignmentDialog({
                     {!isAvailable && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Chọn dù bận</Badge>}
                 </>
              ) : (
-                conflict ? <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Trùng ca</Badge> : (!isAvailable && <Badge variant="outline" className="text-xs">Bận</Badge>)
+                conflict 
+                    ? <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Trùng ca</Badge> 
+                    : (!isAvailable && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Bận</Badge>)
              )}
            </div>
         </CardContent>
@@ -239,12 +241,12 @@ export default function ShiftAssignmentDialog({
                 </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[50vh] -mx-4">
-                <div className="space-y-4 px-4">
-                    {selectedUsersList.length > 0 && (
+                <div className="space-y-4 px-4 pb-4">
+                    {selectedUsers.length > 0 && (
                         <div>
-                            <SectionHeader title={`Nhân viên trong ca (${selectedUsersList.length})`} />
+                            <SectionHeader title={`Nhân viên trong ca (${selectedUsers.length})`} />
                             <div className="space-y-2">
-                                {selectedUsersList.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)} />)}
+                                {selectedUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)} />)}
                             </div>
                         </div>
                     )}
@@ -264,7 +266,7 @@ export default function ShiftAssignmentDialog({
                             </div>
                         </div>
                     )}
-                    {selectedUsersList.length === 0 && availableUsers.length === 0 && busyUsers.length === 0 && (
+                    {selectedUsers.length === 0 && availableUsers.length === 0 && busyUsers.length === 0 && (
                         <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào phù hợp để chỉ định.</p>
                     )}
                 </div>
@@ -293,3 +295,4 @@ export default function ShiftAssignmentDialog({
       </Dialog>
   );
 }
+
