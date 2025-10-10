@@ -428,9 +428,25 @@ export async function acceptPassShift(notificationId: string, payload: PassReque
 
 export async function declinePassShift(notification: Notification, decliningUser: { uid: string, displayName: string }): Promise<void> {
     const notificationRef = doc(db, "notifications", notification.id);
-    await updateDoc(notificationRef, {
-        'payload.declinedBy': arrayUnion(decliningUser.uid)
-    });
+
+    if (notification.payload.targetUserId === decliningUser.uid) {
+        // It's a direct request, so declining means cancelling it.
+        await updateDoc(notificationRef, {
+            status: 'cancelled',
+            'payload.cancellationReason': `Bị từ chối bởi ${decliningUser.displayName}`,
+            resolvedBy: { userId: decliningUser.uid, userName: decliningUser.displayName },
+            resolvedAt: serverTimestamp(),
+        });
+    } else {
+        // It's a public request, just add to the declined list.
+        await runTransaction(db, async (transaction) => {
+            const notificationDoc = await transaction.get(notificationRef);
+            if (!notificationDoc.exists()) throw new Error("Notification not found");
+            const existingDeclined = notificationDoc.data().payload.declinedBy || [];
+            const newDeclined = Array.from(new Set([...existingDeclined, decliningUser.uid]));
+            transaction.update(notificationRef, { 'payload.declinedBy': newDeclined });
+        });
+    }
 }
 
 export async function approvePassRequest(notification: Notification, resolver: AuthUser): Promise<void> {
@@ -642,36 +658,52 @@ export function subscribeToRelevantNotifications(userId: string, userRole: UserR
 export function subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
     const notificationsCollection = collection(db, 'notifications');
     const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const notifs = snapshot.docs.map(doc => {
-            const data = doc.data();
-            // Check for expired pending requests and update them
-            if (data.type === 'pass_request' && (data.status === 'pending' || data.status === 'pending_approval')) {
-                const shiftDateTime = parseISO(`${data.payload.shiftDate}T${data.payload.shiftTimeSlot.start}`);
-                if (isPast(shiftDateTime)) {
-                    const docRef = doc(db, 'notifications', doc.id);
-                    updateDoc(docRef, {
-                        status: 'cancelled',
-                        'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
-                        resolvedAt: serverTimestamp(),
-                    }).catch(e => console.error("Failed to auto-cancel expired request:", e));
-                    // Reflect change immediately in the callback
-                    data.status = 'cancelled';
-                    data.payload.cancellationReason = 'Tự động hủy do đã quá hạn.';
-                }
-            }
-            return {
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const now = new Date();
+        const expiredRequests: Notification[] = [];
+
+        const notifications: Notification[] = querySnapshot.docs.map(doc => {
+                const data = doc.data();
+            const notification = {
                 id: doc.id,
                 ...data,
                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
-            } as Notification
+            } as Notification;
+            
+            // Identify expired pass requests
+            if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
+                const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
+                if (isPast(shiftDateTime)) {
+                    expiredRequests.push(notification);
+                }
+            }
+            
+            return notification;
         });
-        callback(notifs);
+        
+        // Automatically cancel expired requests
+        if (expiredRequests.length > 0) {
+            const batch = writeBatch(db);
+            expiredRequests.forEach(req => {
+                const docRef = doc(db, 'notifications', req.id);
+                batch.update(docRef, {
+                    status: 'cancelled',
+                    'payload.cancellationReason': 'Tự động hủy do đã quá hạn.',
+                    resolvedAt: serverTimestamp(),
+                });
+            });
+            batch.commit().catch(e => console.error("Failed to auto-cancel expired pass requests:", e));
+        }
+
+        callback(notifications);
+
     }, (error) => {
-        console.error("Error subscribing to all notifications:", error);
+        console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
         callback([]);
     });
+
     return unsubscribe;
 }
 
