@@ -226,7 +226,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             const isManagerViewing = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
 
             // A manager can only 'take' a public request, not a direct swap/pass between others.
-            if(isManagerViewing && !payload.targetUserId && !payload.isSwapRequest) {
+            if(isManagerViewing && !payload.targetUserId && !payload.isSwapRequest && payload.requestingUser.userId !== currentUser.uid) {
                 return (
                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
@@ -331,7 +331,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             {actions && (
                 <>
                 <Separator />
-                <div className="p-3 flex flex-col md:flex-row md:justify-end gap-2">
+                <div className={cn("p-3 flex flex-col md:flex-row md:justify-end gap-2", isProcessing && "opacity-70 pointer-events-none")}>
                     {actions}
                 </div>
                 </>
