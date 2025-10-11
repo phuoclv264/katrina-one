@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -29,6 +28,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -643,40 +643,42 @@ export default function ScheduleView() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            <div>Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này.</div>
-                            {conflictDialog.oldRequest?.payload && (
-                                <Card className="mt-4">
-                                    <CardContent className="p-3 text-sm">
-                                        <div>
-                                            <span className="font-semibold">Loại yêu cầu:</span> {
-                                                conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
-                                                : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
-                                                : 'Pass công khai'
-                                            }
-                                        </div>
-                                        {conflictDialog.oldRequest.payload.targetUserId && (
-                                            <div>
-                                                <span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}
-                                            </div>
-                                        )}
-                                        <div>
-                                            <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt' : 'Đang chờ'}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-                            <div className="mt-2">
-                                {conflictDialog.oldRequest?.status === 'pending_approval' 
-                                    ? "Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
-                                    : "Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
-                                }
-                            </div>
+                        <AlertDialogDescription asChild>
+                          <div>
+                              <div>Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này.</div>
+                              {conflictDialog.oldRequest?.payload && (
+                                  <Card className="mt-4">
+                                      <CardContent className="p-3 text-sm">
+                                          <div>
+                                              <span className="font-semibold">Loại yêu cầu:</span> {
+                                                  conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
+                                                  : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
+                                                  : 'Pass công khai'
+                                              }
+                                          </div>
+                                          {conflictDialog.oldRequest.payload.targetUserId && (
+                                              <div>
+                                                  <span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}
+                                              </div>
+                                          )}
+                                           <div>
+                                              <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt' : 'Đang chờ'}
+                                          </div>
+                                      </CardContent>
+                                  </Card>
+                              )}
+                              <div className="mt-2">
+                                  {conflictDialog.oldRequest?.status === 'pending_approval' 
+                                      ? "Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
+                                      : "Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
+                                  }
+                              </div>
+                          </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Đóng</AlertDialogCancel>
-                         {conflictDialog.oldRequest?.status === 'pending' && (
+                        {conflictDialog.oldRequest?.status === 'pending' && (
                             <AlertDialogAction onClick={async () => {
                                 if (conflictDialog.oldRequest) {
                                     await handleCancelPassRequest(conflictDialog.oldRequest.id);
@@ -694,4 +696,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
