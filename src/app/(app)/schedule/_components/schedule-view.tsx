@@ -192,22 +192,18 @@ export default function ScheduleView() {
         setIsAvailabilityDialogOpen(false);
     };
 
-    const handlePassShift = async (shift: AssignedShift, isCreatingNew: boolean = true) => {
+    const handlePassShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
 
         try {
-            if (isCreatingNew) {
-                const conflictingRequest = await dataStore.requestPassShift(shift, user);
-                if (conflictingRequest) {
-                    setConflictDialog({
-                        isOpen: true,
-                        oldRequest: conflictingRequest,
-                        newRequestFn: () => handlePassShift(shift, false)
-                    });
-                    return;
-                }
-            } else {
-                await dataStore.requestPassShift(shift, user);
+            const conflictingRequest = await dataStore.requestPassShift(shift, user);
+            if (conflictingRequest) {
+                setConflictDialog({
+                    isOpen: true,
+                    oldRequest: conflictingRequest,
+                    newRequestFn: () => handlePassShiftAfterConflict(shift)
+                });
+                return;
             }
             toast.success('Yêu cầu pass ca của bạn đã được gửi đến các nhân viên khác.');
         } catch (error: any) {
@@ -215,22 +211,23 @@ export default function ScheduleView() {
         }
     }
     
-    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null, isCreatingNew: boolean = true) => {
+    const handlePassShiftAfterConflict = async (shift: AssignedShift) => {
+        if (!user) return;
+        await dataStore.requestPassShift(shift, user);
+    }
+    
+    const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => {
         if (!user) return;
         
         try {
-            if (isCreatingNew) {
-                const conflictingRequest = await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
-                if (conflictingRequest) {
-                    setConflictDialog({
-                        isOpen: true,
-                        oldRequest: conflictingRequest,
-                        newRequestFn: () => handleDirectPassRequest(shift, targetUser, isSwap, targetUserShift, false)
-                    });
-                    return;
-                }
-            } else {
-                await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
+            const conflictingRequest = await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
+            if (conflictingRequest) {
+                setConflictDialog({
+                    isOpen: true,
+                    oldRequest: conflictingRequest,
+                    newRequestFn: () => handleDirectPassRequestAfterConflict(shift, targetUser, isSwap, targetUserShift)
+                });
+                return;
             }
 
             const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
@@ -239,6 +236,11 @@ export default function ScheduleView() {
              toast.error(error.message || "Không thể gửi yêu cầu.");
         }
     }
+    
+    const handleDirectPassRequestAfterConflict = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => {
+         if (!user) return;
+         await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
+    }
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
@@ -246,7 +248,7 @@ export default function ScheduleView() {
         setProcessingNotificationId(notification.id);
         
         try {
-            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
+            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName || 'N/A' };
             
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
 
@@ -277,7 +279,7 @@ export default function ScheduleView() {
     const handleDeclineShift = async (notification: Notification) => {
         if (!user) return;
         try {
-            await dataStore.declinePassShift(notification, { uid: user.uid, displayName: user.displayName });
+            await dataStore.declinePassShift(notification, { uid: user.uid, displayName: user.displayName || 'N/A' });
             toast.success('Đã từ chối. Bạn sẽ không thấy lại yêu cầu này.');
         } catch (error: any) {
             toast.error('Không thể từ chối yêu cầu.');
@@ -650,7 +652,7 @@ export default function ScheduleView() {
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                            <div>
-                                <p>Bạn đã có một yêu cầu pass ca khác loại đang chờ xử lý cho ca làm việc này.</p>
+                                <div>Bạn đã có một yêu cầu pass ca khác loại đang chờ xử lý cho ca làm việc này.</div>
                                 {conflictDialog.oldRequest?.payload && (
                                     <Card className="mt-4 bg-muted">
                                         <CardContent className="p-3 text-sm">
@@ -686,9 +688,8 @@ export default function ScheduleView() {
                                         if (conflictDialog.oldRequest) {
                                             await handleCancelPassRequest(conflictDialog.oldRequest.id);
                                         }
-                                        // A short delay to allow Firestore to process cancellation before creating a new one
                                         await new Promise(resolve => setTimeout(resolve, 500));
-                                        conflictDialog.newRequestFn();
+                                        await conflictDialog.newRequestFn();
                                     } finally {
                                         setIsHandlingConflict(false);
                                         setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} });

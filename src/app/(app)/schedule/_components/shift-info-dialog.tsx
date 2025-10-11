@@ -162,7 +162,7 @@ export default function ShiftInfoDialog({
                                         <p className="text-sm text-muted-foreground">{colleagueShift.label} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
                                     </div>
                                     {canSwap && (
-                                        <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isThisUserProcessing || alreadyRequested || isProcessing}>
+                                        <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isProcessing || isThisUserProcessing || alreadyRequested}>
                                             {isThisUserProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Replace className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
                                         </Button>
@@ -191,7 +191,7 @@ export default function ShiftInfoDialog({
                                             <p className="font-semibold">{user.displayName}</p>
                                             <p className="text-sm text-muted-foreground">{user.role}</p>
                                         </div>
-                                        <Button size="sm" onClick={() => handlePassRequest(user, false)} disabled={isThisUserProcessing || alreadyRequested || isProcessing}>
+                                        <Button size="sm" onClick={() => handlePassRequest(user, false)} disabled={isProcessing || isThisUserProcessing || alreadyRequested}>
                                             {isThisUserProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận ca'}
                                         </Button>
