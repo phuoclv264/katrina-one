@@ -661,7 +661,7 @@ export default function ScheduleView() {
                                             </div>
                                         )}
                                         <div>
-                                            <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt (đã có người nhận)' : 'Đang chờ'}
+                                            <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt' : 'Đang chờ'}
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -694,3 +694,4 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
