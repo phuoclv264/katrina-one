@@ -273,6 +273,19 @@ export async function updateShiftTemplates(templates: ShiftTemplate[]): Promise<
 }
 
 export async function requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {
+    // Server-side check: Fetch the latest schedule to verify the user is still in the shift
+    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+    const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
+    if (scheduleDoc.exists()) {
+        const schedule = scheduleDoc.data() as Schedule;
+        const currentShift = schedule.shifts.find(s => s.id === shiftToPass.id);
+        if (!currentShift || !currentShift.assignedUsers.some(u => u.userId === requestingUser.uid)) {
+            throw new Error("Bạn không còn trong ca làm việc này nên không thể gửi yêu cầu pass ca.");
+        }
+    } else {
+        throw new Error("Không tìm thấy lịch làm việc cho tuần này.");
+    }
+
     const existingRequestQuery = query(
         collection(db, 'notifications'),
         where('type', '==', 'pass_request'),
@@ -289,7 +302,6 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
     }
 
 
-    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const newNotification: Omit<Notification, 'id'> = {
         type: 'pass_request',
         status: 'pending',
@@ -314,6 +326,29 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
 }
 
 export async function requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null): Promise<Notification | null> {
+    // Server-side check
+    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+    const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
+    if (!scheduleDoc.exists()) {
+        throw new Error("Không tìm thấy lịch làm việc cho tuần này.");
+    }
+    const schedule = scheduleDoc.data() as Schedule;
+
+    const currentShiftA = schedule.shifts.find(s => s.id === shiftToPass.id);
+    if (!currentShiftA || !currentShiftA.assignedUsers.some(u => u.userId === requestingUser.uid)) {
+        throw new Error("Bạn không còn trong ca làm việc này nên không thể gửi yêu cầu.");
+    }
+    
+    if (isSwap) {
+        if (!targetUserShift) {
+            throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
+        }
+        const currentShiftB = schedule.shifts.find(s => s.id === targetUserShift.id);
+        if (!currentShiftB || !currentShiftB.assignedUsers.some(u => u.userId === targetUser.uid)) {
+            throw new Error(`Ca làm việc của ${targetUser.displayName} đã thay đổi, không thể thực hiện đổi ca.`);
+        }
+    }
+    
     const existingRequestQuery = query(
         collection(db, 'notifications'),
         where('type', '==', 'pass_request'),
@@ -326,10 +361,6 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
         const existingRequestData = existingRequestsSnapshot.docs[0].data() as Notification;
         existingRequestData.id = existingRequestsSnapshot.docs[0].id;
         return existingRequestData;
-    }
-
-    if (isSwap && !targetUserShift) {
-        throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
     }
 
     if (isSwap && targetUserShift) {
@@ -345,7 +376,6 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
         }
     }
 
-    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const payload: PassRequestPayload = {
         weekId: weekId,
         shiftId: shiftToPass.id,
