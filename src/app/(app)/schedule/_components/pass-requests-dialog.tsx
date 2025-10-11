@@ -189,8 +189,14 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                 if(canOwnerApprove || canManagerApprove) {
                      return (
                         <div className="flex gap-2 w-full sm:w-auto">
-                            <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
-                            <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessing} className="flex-1"><CheckCircle className="mr-2 h-4 w-4"/>Phê duyệt</Button>
+                            <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing} className="flex-1">
+                                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
+                                Từ chối
+                            </Button>
+                            <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessing} className="flex-1">
+                                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                                Phê duyệt
+                            </Button>
                         </div>
                     );
                 }
@@ -200,7 +206,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
                         <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1"><Trash2 className="mr-2 h-4 w-4"/>Hủy</Button></AlertDialogTrigger>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1">
+                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                    Hủy
+                                </Button>
+                            </AlertDialogTrigger>
                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                         </AlertDialog>
                     </div>
@@ -235,7 +246,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         }
         
         if (status === 'pending' && isMyRequest) {
-            return <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessing}>Hủy yêu cầu</Button>;
+            return (
+                <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
+                    Hủy yêu cầu
+                </Button>
+            );
         }
 
         if(isManagerOrOwner) {
@@ -243,7 +259,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
                         <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="outline" size="sm" disabled={isProcessing}><Undo className="mr-2 h-4 w-4"/>Hoàn tác</Button></AlertDialogTrigger>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" disabled={isProcessing}>
+                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
+                                    Hoàn tác
+                                </Button>
+                            </AlertDialogTrigger>
                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                         </AlertDialog>
                          <AlertDialog>
