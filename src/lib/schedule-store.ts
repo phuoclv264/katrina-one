@@ -122,7 +122,8 @@ export async function getSchedulesForMonth(date: Date): Promise<Schedule[]> {
 
 export async function updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
     const docRef = doc(db, 'schedules', weekId);
-    
+
+    // First, query for all pending or pending_approval requests within this week
     const notificationsQuery = query(
         collection(db, 'notifications'),
         and(
@@ -132,45 +133,63 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
     );
     const notificationsSnapshot = await getDocs(notificationsQuery);
     const pendingNotifications = notificationsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Notification));
+    
+    // Create a batch to update notifications that become invalid
     const batch = writeBatch(db);
 
-    pendingNotifications.forEach(notif => {
+    for (const notif of pendingNotifications) {
         const { payload } = notif;
         const shiftInNewSchedule = data.shifts?.find(s => s.id === payload.shiftId);
 
+        // Case 1: The original requester is no longer in the shift. The request is invalid.
         if (!shiftInNewSchedule || !shiftInNewSchedule.assignedUsers.some(u => u.userId === payload.requestingUser.userId)) {
-            batch.update(doc(db, 'notifications', notif.id), { status: 'cancelled', 'payload.cancellationReason': 'Tự động hủy do người yêu cầu không còn trong ca.' });
-            return;
+            batch.update(doc(db, 'notifications', notif.id), { 
+                status: 'cancelled', 
+                'payload.cancellationReason': 'Tự động hủy do người yêu cầu không còn trong ca.' 
+            });
+            continue;
         }
-        
-        if (notif.status === 'pending_approval' && payload.takenBy) {
-            const taker = payload.takenBy;
-            const shiftsOnDay = data.shifts?.filter(s => s.date === payload.shiftDate) || [];
-            const conflict = hasTimeConflict(taker.userId, shiftInNewSchedule, shiftsOnDay.filter(s => s.id !== payload.shiftId));
+
+        // Case 2: The request is a swap. Check if the target user is still in their target shift.
+        if (payload.isSwapRequest && payload.targetUserShiftPayload) {
+            const targetShiftInNewSchedule = data.shifts?.find(s => s.id === payload.targetUserShiftPayload!.shiftId);
+            const targetUserStillInTheirShift = targetShiftInNewSchedule?.assignedUsers.some(u => u.userId === payload.targetUserId);
             
-            if (conflict) {
-                 batch.update(doc(db, 'notifications', notif.id), { 
-                    status: 'pending', 
-                    'payload.takenBy': null, 
-                    'payload.declinedBy': arrayUnion(taker.userId)
+            if (!targetUserStillInTheirShift) {
+                batch.update(doc(db, 'notifications', notif.id), { 
+                    status: 'cancelled', 
+                    'payload.cancellationReason': 'Tự động hủy do ca cần đổi đã thay đổi.' 
                 });
-                return;
+                continue;
             }
         }
-
-        if (payload.isSwapRequest && payload.targetUserShiftPayload) {
-             const targetShiftInNewSchedule = data.shifts?.find(s => s.id === payload.targetUserShiftPayload?.shiftId);
-             const targetUserId = payload.targetUserId || payload.takenBy?.userId;
-
-             if (!targetShiftInNewSchedule || !targetShiftInNewSchedule.assignedUsers.some(u => u.userId === targetUserId)) {
-                 batch.update(doc(db, 'notifications', notif.id), { status: 'cancelled', 'payload.cancellationReason': 'Tự động hủy do người được đổi không còn trong ca.' });
-             }
+        
+        // Case 3: The request is pending_approval. We need to check for new conflicts.
+        if (notif.status === 'pending_approval' && payload.takenBy) {
+            const takerId = payload.takenBy.userId;
+            const shiftToTake = shiftInNewSchedule; // We know it exists from the first check
+            const allShiftsOnDay = data.shifts?.filter(s => s.date === payload.shiftDate) || [];
+            
+            const conflict = hasTimeConflict(takerId, shiftToTake, allShiftsOnDay.filter(s => s.id !== shiftToTake.id));
+            
+            if (conflict) {
+                // If there's a conflict, revert the request to 'pending' and remove the 'takenBy' user.
+                batch.update(doc(db, 'notifications', notif.id), {
+                    status: 'pending',
+                    'payload.takenBy': null,
+                    'payload.declinedBy': arrayUnion(takerId) // Prevent them from seeing it again
+                });
+            }
         }
-    });
-
+    }
+    
+    // Commit all notification updates first
     await batch.commit();
+
+    // Then, save the actual schedule changes
     await setDoc(docRef, data, { merge: true });
 }
+
 
 export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
     const nextWeekDate = addDays(currentDate, 7);
@@ -522,7 +541,7 @@ export async function approvePassRequest(notification: Notification, resolver: A
 }
 
 export async function rejectPassRequestApproval(notificationId: string, resolver: AuthUser): Promise<void> {
-    const notificationRef = doc(db, 'notifications', notificationId);
+    const notificationRef = doc(db, "notifications", notificationId);
     await updateDoc(notificationRef, {
         status: 'pending',
         resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
