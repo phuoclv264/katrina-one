@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -152,6 +153,8 @@ export default function ScheduleView() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
+
 
     const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
     const [activeShift, setActiveShift] = useState<AssignedShift | null>(null);
@@ -164,6 +167,9 @@ export default function ScheduleView() {
     
     const [isUserDetailsDialogOpen, setIsUserDetailsDialogOpen] = useState(false);
     const [selectedUserForDetails, setSelectedUserForDetails] = useState<ManagedUser | null>(null);
+    
+    const [isHandlingConflict, setIsHandlingConflict] = useState(false);
+    const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
 
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -340,14 +346,14 @@ export default function ScheduleView() {
         if (activeNotification && activeNotification.payload.shiftId === shiftId) {
             const userToAssign = newAssignedUsers[0]; // In pass assignment mode, we only assign one user
             if (userToAssign) {
-                setIsSubmitting(true);
+                setProcessingNotificationId(activeNotification.id);
                 try {
                     await dataStore.resolvePassRequestByAssignment(activeNotification, userToAssign, user);
                     toast.success(`Đã chỉ định ca cho ${userToAssign.userName}.`);
                 } catch (error: any) {
                     toast.error(`Không thể chỉ định ca: ${error.message}`);
                 } finally {
-                    setIsSubmitting(false);
+                    setProcessingNotificationId(null);
                     setActiveNotification(null);
                 }
                 return; 
@@ -495,30 +501,35 @@ export default function ScheduleView() {
     
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
+        setProcessingNotificationId(notificationId);
         try {
             await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
              toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
              toast.error('Không thể hủy yêu cầu.');
+        } finally {
+            setProcessingNotificationId(null);
         }
     }
     
      const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
+        setProcessingNotificationId(notification.id);
          try {
             await dataStore.revertPassRequest(notification, user);
             toast.success('Đã hoàn tác yêu cầu pass ca thành công.');
         } catch (error) {
             console.error(error);
             toast.error('Không thể hoàn tác yêu cầu.');
+        } finally {
+            setProcessingNotificationId(null);
         }
     }
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !localSchedule) return;
         
-        (window as any).processingNotificationId = notification.id;
-        setIsSubmitting(true);
+        setProcessingNotificationId(notification.id);
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
@@ -545,29 +556,31 @@ export default function ScheduleView() {
             console.error("Failed to take shift:", error);
             toast.error(error.message);
         } finally {
-            setIsSubmitting(false);
-            delete (window as any).processingNotificationId;
+            setProcessingNotificationId(null);
         }
     }
     
     const handleDeclineShift = async (notification: Notification) => {
         if (!user) return;
+        setProcessingNotificationId(notification.id);
         try {
             await dataStore.declinePassShift(notification, { uid: user.uid, displayName: user.displayName });
             toast.success('Đã từ chối. Bạn sẽ không thấy lại yêu cầu này.');
         } catch (error: any) {
             toast.error('Không thể từ chối yêu cầu.');
+        } finally {
+            setProcessingNotificationId(null);
         }
     }
 
     const handleApproveRequest = async (notification: Notification) => {
         if (!user || !localSchedule) return;
-        (window as any).processingNotificationId = notification.id;
-        setIsSubmitting(true);
+        setProcessingNotificationId(notification.id);
         try {
             await dataStore.approvePassRequest(notification, user);
             toast.success('Đã phê duyệt yêu cầu đổi ca.');
-        } catch (error: any) {
+        } catch (error: any)
+{
             console.error(error);
             let errorMessage = 'Không thể phê duyệt yêu cầu.';
             if (error instanceof Error) {
@@ -581,15 +594,13 @@ export default function ScheduleView() {
             }
             toast.error(errorMessage);
         } finally {
-            setIsSubmitting(false);
-            delete (window as any).processingNotificationId;
+            setProcessingNotificationId(null);
         }
     }
     
     const handleRejectApproval = async (notificationId: string) => {
         if (!user) return;
-        (window as any).processingNotificationId = notificationId;
-        setIsSubmitting(true);
+        setProcessingNotificationId(notificationId);
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
             toast.success('Yêu cầu đổi ca đã được trả lại.');
@@ -597,8 +608,7 @@ export default function ScheduleView() {
             console.error(error);
             toast.error('Không thể từ chối yêu cầu.');
         } finally {
-            setIsSubmitting(false);
-            delete (window as any).processingNotificationId;
+            setProcessingNotificationId(null);
         }
     }
 
@@ -1113,7 +1123,7 @@ export default function ScheduleView() {
                 onAssign={handleAssignShift}
                 onApprove={handleApproveRequest}
                 onRejectApproval={handleRejectApproval}
-                isProcessing={isSubmitting}
+                processingNotificationId={processingNotificationId}
                 schedule={localSchedule}
             />
             
