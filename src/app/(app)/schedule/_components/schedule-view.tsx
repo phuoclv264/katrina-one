@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -645,11 +644,34 @@ export default function ScheduleView() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
                         <AlertDialogDescription>
-                           Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này. 
-                           {conflictDialog.oldRequest?.status === 'pending_approval' 
-                                ? " Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
-                                : " Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
-                           }
+                            <p>Bạn đã có một yêu cầu khác đang chờ xử lý cho ca làm việc này.</p>
+                            {conflictDialog.oldRequest?.payload && (
+                                <Card className="mt-4">
+                                    <CardContent className="p-3 text-sm">
+                                        <p>
+                                            <span className="font-semibold">Loại yêu cầu:</span> {
+                                                conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
+                                                : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
+                                                : 'Pass công khai'
+                                            }
+                                        </p>
+                                        {conflictDialog.oldRequest.payload.targetUserId && (
+                                            <p>
+                                                <span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}
+                                            </p>
+                                        )}
+                                        <p>
+                                            <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt (đã có người nhận)' : 'Đang chờ'}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
+                            <p className="mt-2">
+                                {conflictDialog.oldRequest?.status === 'pending_approval' 
+                                    ? "Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
+                                    : "Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
+                                }
+                            </p>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -672,3 +694,4 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
+
