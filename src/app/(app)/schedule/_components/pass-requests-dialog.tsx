@@ -204,7 +204,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                     );
                 }
             }
-             if (status === 'pending' && currentUser.role === 'Chủ nhà hàng' && !payload.targetUserId) {
+             if (status === 'pending' && currentUser.role === 'Chủ nhà hàng' && (!payload.targetUserId || !payload.isSwapRequest)) {
                  return (
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4"/>Chỉ định</Button>
