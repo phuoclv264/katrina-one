@@ -644,39 +644,39 @@ export default function ScheduleView() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
                         <AlertDialogDescription>
-                            <p>Bạn đã có một yêu cầu khác đang chờ xử lý cho ca làm việc này.</p>
+                            <div>Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này.</div>
                             {conflictDialog.oldRequest?.payload && (
                                 <Card className="mt-4">
                                     <CardContent className="p-3 text-sm">
-                                        <p>
+                                        <div>
                                             <span className="font-semibold">Loại yêu cầu:</span> {
                                                 conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
                                                 : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
                                                 : 'Pass công khai'
                                             }
-                                        </p>
+                                        </div>
                                         {conflictDialog.oldRequest.payload.targetUserId && (
-                                            <p>
+                                            <div>
                                                 <span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}
-                                            </p>
+                                            </div>
                                         )}
-                                        <p>
+                                        <div>
                                             <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt (đã có người nhận)' : 'Đang chờ'}
-                                        </p>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             )}
-                            <p className="mt-2">
+                            <div className="mt-2">
                                 {conflictDialog.oldRequest?.status === 'pending_approval' 
                                     ? "Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
                                     : "Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
                                 }
-                            </p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Đóng</AlertDialogCancel>
-                        {conflictDialog.oldRequest?.status === 'pending' && (
+                         {conflictDialog.oldRequest?.status === 'pending' && (
                             <AlertDialogAction onClick={async () => {
                                 if (conflictDialog.oldRequest) {
                                     await handleCancelPassRequest(conflictDialog.oldRequest.id);
@@ -694,4 +694,3 @@ export default function ScheduleView() {
         </TooltipProvider>
     );
 }
-
