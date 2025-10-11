@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -40,7 +41,7 @@ type RequestCardProps = {
     schedule: Schedule | null;
     currentUser: AuthUser;
     allUsers: ManagedUser[];
-    isProcessing: boolean;
+    processingNotificationId: string | null;
     onAccept: (notification: Notification) => void;
     onDecline: (notification: Notification) => void;
     onCancel: (notificationId: string) => void;
@@ -51,10 +52,12 @@ type RequestCardProps = {
     onDeleteHistory: (notificationId: string) => void;
 };
 
-const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessing, onAccept, onDecline, onCancel, onRevert, onAssign, onApprove, onRejectApproval, onDeleteHistory }: RequestCardProps) => {
+const RequestCard = ({ notification, schedule, currentUser, allUsers, processingNotificationId, onAccept, onDecline, onCancel, onRevert, onAssign, onApprove, onRejectApproval, onDeleteHistory }: RequestCardProps) => {
     const { payload, status, createdAt, resolvedAt, resolvedBy } = notification;
     const { toast } = useToast();
     const isManagerOrOwner = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
+    const isProcessing = processingNotificationId === notification.id;
+
 
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
@@ -248,7 +251,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, isProcessi
         if (status === 'pending' && isMyRequest) {
             return (
                 <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
+                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Hủy yêu cầu
                 </Button>
             );
@@ -351,7 +354,7 @@ type PassRequestsDialogProps = {
     onAssign: (notification: Notification) => void;
     onApprove: (notification: Notification) => void;
     onRejectApproval: (notificationId: string) => void;
-    isProcessing: boolean;
+    processingNotificationId: string | null;
     schedule: Schedule | null;
 }
 
@@ -369,7 +372,7 @@ export default function PassRequestsDialog({
   onAssign,
   onApprove,
   onRejectApproval,
-  isProcessing,
+  processingNotificationId,
   schedule,
 }: PassRequestsDialogProps) {
   const { user: currentUser } = useAuth();
@@ -507,7 +510,7 @@ export default function PassRequestsDialog({
                                 schedule={schedule}
                                 currentUser={currentUser}
                                 allUsers={allUsers}
-                                isProcessing={isProcessing}
+                                processingNotificationId={processingNotificationId}
                                 onAccept={onAccept}
                                 onDecline={onDecline}
                                 onCancel={onCancel}
@@ -537,7 +540,7 @@ export default function PassRequestsDialog({
                                 schedule={schedule}
                                 currentUser={currentUser}
                                 allUsers={allUsers}
-                                isProcessing={isProcessing}
+                                processingNotificationId={processingNotificationId}
                                 onAccept={onAccept}
                                 onDecline={onDecline}
                                 onCancel={onCancel}

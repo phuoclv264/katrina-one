@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import {
@@ -47,6 +48,8 @@ export default function ShiftInfoDialog({
   notifications,
 }: ShiftInfoDialogProps) {
   const { user: currentUser } = useAuth();
+  const [processingUser, setProcessingUser] = useState<string | null>(null);
+
 
   const parseTime = (time: string): number => {
     const [hours, minutes] = time.split(':').map(Number);
@@ -108,6 +111,7 @@ export default function ShiftInfoDialog({
   if (!shift) return null;
   
   const handlePassRequest = async (targetUser: ManagedUser, isSwap: boolean) => {
+    setProcessingUser(targetUser.uid);
     try {
         let targetUserShift: AssignedShift | null = null;
         if (isSwap) {
@@ -116,12 +120,15 @@ export default function ShiftInfoDialog({
                 targetUserShift = colleagueInfo.shift;
             } else {
                  toast.error(`${targetUser.displayName} không có ca làm việc phù hợp để đổi.`);
+                 setProcessingUser(null);
                  return;
             }
         }
         await onDirectPassRequest(shift, targetUser, isSwap, targetUserShift);
     } catch (error: any) {
         toast.error(error.message || "Không thể gửi yêu cầu.");
+    } finally {
+        setProcessingUser(null);
     }
   }
 
@@ -147,6 +154,7 @@ export default function ShiftInfoDialog({
                     {colleagues.map(({ user, shift: colleagueShift }) => {
                         const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
                         const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
+                        const isThisUserProcessing = processingUser === user.uid;
                         return (
                             <Card key={user.uid}>
                                 <CardContent className="p-3 flex items-center justify-between">
@@ -155,8 +163,8 @@ export default function ShiftInfoDialog({
                                         <p className="text-sm text-muted-foreground">{colleagueShift.label} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
                                     </div>
                                     {canSwap && (
-                                        <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isProcessing || alreadyRequested}>
-                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Replace className="mr-2 h-4 w-4" />}
+                                        <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isThisUserProcessing || alreadyRequested}>
+                                            {isThisUserProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Replace className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
                                         </Button>
                                     )}
@@ -176,6 +184,7 @@ export default function ShiftInfoDialog({
                     <div className="space-y-2 pr-4">
                         {availableStaff.map(user => {
                             const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
+                            const isThisUserProcessing = processingUser === user.uid;
                             return (
                                 <Card key={user.uid}>
                                     <CardContent className="p-3 flex items-center justify-between">
@@ -183,8 +192,8 @@ export default function ShiftInfoDialog({
                                             <p className="font-semibold">{user.displayName}</p>
                                             <p className="text-sm text-muted-foreground">{user.role}</p>
                                         </div>
-                                        <Button size="sm" onClick={() => handlePassRequest(user, false)} disabled={isProcessing || alreadyRequested}>
-                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
+                                        <Button size="sm" onClick={() => handlePassRequest(user, false)} disabled={isThisUserProcessing || alreadyRequested}>
+                                            {isThisUserProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
                                             {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận ca'}
                                         </Button>
                                     </CardContent>

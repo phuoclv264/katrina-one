@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -51,7 +51,8 @@ export default function ScheduleView() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
+
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
@@ -241,8 +242,7 @@ export default function ScheduleView() {
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
         
-        (window as any).processingNotificationId = notification.id;
-        setIsProcessing(true);
+        setProcessingNotificationId(notification.id);
         
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
@@ -269,8 +269,7 @@ export default function ScheduleView() {
             console.error("Failed to take shift:", error);
             toast.error(error.message);
         } finally {
-            setIsProcessing(false);
-            delete (window as any).processingNotificationId;
+            setProcessingNotificationId(null);
         }
     }
 
@@ -307,12 +306,12 @@ export default function ScheduleView() {
 
      const handleApproveRequest = async (notification: Notification) => {
         if (!user) return;
-        (window as any).processingNotificationId = notification.id;
-        setIsProcessing(true);
+        setProcessingNotificationId(notification.id);
         try {
             await dataStore.approvePassRequest(notification, user);
             toast.success('Đã phê duyệt yêu cầu đổi ca.');
-        } catch (error: any) {
+        } catch (error: any)
+{
             console.error(error);
             let errorMessage = 'Không thể phê duyệt yêu cầu.';
             if (error instanceof Error) {
@@ -326,15 +325,13 @@ export default function ScheduleView() {
             }
             toast.error(errorMessage);
         } finally {
-            setIsProcessing(false);
-            delete (window as any).processingNotificationId;
+            setProcessingNotificationId(null);
         }
     }
     
     const handleRejectApproval = async (notificationId: string) => {
          if (!user) return;
-        (window as any).processingNotificationId = notificationId;
-        setIsProcessing(true);
+        setProcessingNotificationId(notificationId);
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
             toast.success('Yêu cầu đổi ca đã được trả lại.');
@@ -342,8 +339,7 @@ export default function ScheduleView() {
             console.error(error);
             toast.error('Không thể từ chối yêu cầu.');
         } finally {
-            setIsProcessing(false);
-            delete (window as any).processingNotificationId;
+            setProcessingNotificationId(null);
         }
     }
     
@@ -575,8 +571,16 @@ export default function ScheduleView() {
                                                                                         </DropdownMenuItem>
                                                                                     </AlertDialogTrigger>
                                                                                     <AlertDialogContent>
-                                                                                        <AlertDialogHeader><AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận và được quản lý phê duyệt.</AlertDialogDescription></AlertDialogHeader>
-                                                                                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction></AlertDialogFooter>
+                                                                                        <AlertDialogHeader>
+                                                                                            <AlertDialogTitle>Xác nhận pass ca?</AlertDialogTitle>
+                                                                                            <AlertDialogDescription>
+                                                                                                Hành động này sẽ gửi yêu cầu pass ca của bạn đến các nhân viên khác. Bạn vẫn có trách nhiệm với ca này cho đến khi có người nhận và được quản lý phê duyệt.
+                                                                                            </AlertDialogDescription>
+                                                                                        </AlertDialogHeader>
+                                                                                        <AlertDialogFooter>
+                                                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                                            <AlertDialogAction onClick={() => handlePassShift(shift)}>Xác nhận</AlertDialogAction>
+                                                                                        </AlertDialogFooter>
                                                                                     </AlertDialogContent>
                                                                                 </AlertDialog>
                                                                             </DropdownMenuContent>
@@ -622,7 +626,7 @@ export default function ScheduleView() {
                 onAssign={() => { /* Implemented in shift-scheduling */ }}
                 onApprove={handleApproveRequest}
                 onRejectApproval={handleRejectApproval}
-                isProcessing={isProcessing}
+                processingNotificationId={processingNotificationId}
                 schedule={schedule}
             />
             
@@ -634,7 +638,7 @@ export default function ScheduleView() {
                     schedule={schedule}
                     allUsers={allUsers}
                     onDirectPassRequest={handleDirectPassRequest}
-                    isProcessing={isProcessing}
+                    isProcessing={!!processingNotificationId}
                     notifications={notifications}
                 />
             )}
@@ -644,36 +648,36 @@ export default function ScheduleView() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
                         <AlertDialogDescription asChild>
-                          <div>
-                              <div>Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này.</div>
-                              {conflictDialog.oldRequest?.payload && (
-                                  <Card className="mt-4">
-                                      <CardContent className="p-3 text-sm">
+                           <div>
+                            <p>Bạn đã có một yêu cầu pass ca khác đang chờ xử lý cho ca làm việc này.</p>
+                            {conflictDialog.oldRequest?.payload && (
+                                 <Card className="mt-4">
+                                     <CardContent className="p-3 text-sm">
+                                         <div>
+                                             <span className="font-semibold">Loại yêu cầu:</span> {
+                                                 conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
+                                                 : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
+                                                 : 'Pass công khai'
+                                             }
+                                         </div>
+                                         {conflictDialog.oldRequest.payload.targetUserId && (
+                                             <div>
+                                                 <span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}
+                                             </div>
+                                         )}
                                           <div>
-                                              <span className="font-semibold">Loại yêu cầu:</span> {
-                                                  conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
-                                                  : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
-                                                  : 'Pass công khai'
-                                              }
-                                          </div>
-                                          {conflictDialog.oldRequest.payload.targetUserId && (
-                                              <div>
-                                                  <span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}
-                                              </div>
-                                          )}
-                                           <div>
-                                              <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt' : 'Đang chờ'}
-                                          </div>
-                                      </CardContent>
-                                  </Card>
-                              )}
+                                             <span className="font-semibold">Trạng thái:</span> {conflictDialog.oldRequest.status === 'pending_approval' ? 'Đang chờ duyệt' : 'Đang chờ'}
+                                         </div>
+                                     </CardContent>
+                                 </Card>
+                             )}
                               <div className="mt-2">
                                   {conflictDialog.oldRequest?.status === 'pending_approval' 
                                       ? "Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
                                       : "Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
                                   }
                               </div>
-                          </div>
+                           </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
