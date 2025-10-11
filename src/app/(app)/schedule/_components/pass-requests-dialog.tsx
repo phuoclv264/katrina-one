@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import {
@@ -173,7 +172,10 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
         if (isDirectRequestToMe) {
             return (
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Từ chối</Button>
+                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1">
+                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
+                        Từ chối
+                    </Button>
                     <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
                         {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
                         {payload.isSwapRequest ? 'Đồng ý đổi' : 'Nhận ca'}
@@ -238,7 +240,10 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             } else if (!payload.targetUserId) { // Public request for regular staff
                 return (
                      <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1"><XCircle className="mr-2 h-4 w-4"/>Bỏ qua</Button>
+                        <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1">
+                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
+                            Bỏ qua
+                        </Button>
                         <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
                             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
                             Nhận ca
