@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import { InventoryItemRow } from './_components/inventory-item-row';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import WorkShiftGuard from '@/components/work-shift-guard';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -31,7 +32,7 @@ type CategorizedList = {
     items: InventoryItem[];
 }[];
 
-export default function InventoryPage() {
+function InventoryPageComponent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
@@ -695,4 +696,12 @@ export default function InventoryPage() {
     </div>
     </TooltipProvider>
   );
+}
+
+export default function InventoryPage() {
+  return (
+    <WorkShiftGuard redirectPath="/bartender">
+      <InventoryPageComponent />
+    </WorkShiftGuard>
+  )
 }

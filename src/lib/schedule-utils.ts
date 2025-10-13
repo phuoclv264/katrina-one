@@ -1,9 +1,41 @@
 
 
 import type { TimeSlot, Availability, AssignedShift } from './types';
+import { set, isWithinInterval } from 'date-fns';
+
 
 /**
- * Checks if a user is available for a given shift time slot.
+ * Checks if the current time is within the allowed timeframe of any of the user's assigned shifts for the day.
+ * The allowed timeframe is from 1 hour before the shift starts to 1 hour after the shift ends.
+ * @param userShifts An array of the user's assigned shifts for the day.
+ * @returns True if the user is currently within an active shift timeframe, otherwise false.
+ */
+export function isUserOnActiveShift(userShifts: AssignedShift[]): boolean {
+    if (!userShifts || userShifts.length === 0) {
+        return false;
+    }
+
+    const now = new Date();
+
+    return userShifts.some(shift => {
+        const [startHour, startMinute] = shift.timeSlot.start.split(':').map(Number);
+        const [endHour, endMinute] = shift.timeSlot.end.split(':').map(Number);
+        
+        const shiftDate = new Date(shift.date);
+        
+        const validStartTime = set(shiftDate, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
+        validStartTime.setHours(validStartTime.getHours() - 1); 
+
+        const validEndTime = set(shiftDate, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
+        validEndTime.setHours(validEndTime.getHours() + 1);
+
+        return isWithinInterval(now, { start: validStartTime, end: validEndTime });
+    });
+}
+
+
+/**
+ * Checks if a user is available for a given shift time slot based on their registered availability.
  * @param userId The ID of the user to check.
  * @param shiftSlot The time slot of the shift.
  * @param dailyAvailability An array of all availability records for that day.

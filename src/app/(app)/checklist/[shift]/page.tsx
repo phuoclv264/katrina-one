@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
@@ -29,6 +30,7 @@ import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
 import { TaskItem } from '../../_components/task-item';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import WorkShiftGuard from '@/components/work-shift-guard';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -38,7 +40,7 @@ const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
   toi: { start: '17:00', end: '22:30' },
 };
 
-export default function ChecklistPage() {
+function ChecklistPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
@@ -72,24 +74,6 @@ export default function ChecklistPage() {
   
   const [isReadonly, setIsReadonly] = useState(true);
   const [isReadonlyChecked, setIsReadonlyChecked] = useState(false);
-  
-  const [isCheckingSchedule, setIsCheckingSchedule] = useState(true);
-  const [hasShiftToday, setHasShiftToday] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!isAuthLoading && user) {
-        const today = new Date();
-        const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
-        dataStore.getSchedule(weekId).then(schedule => {
-            const todayKey = format(today, 'yyyy-MM-dd');
-            const hasShift = schedule?.shifts?.some(s => s.date === todayKey && s.assignedUsers.some(u => u.userId === user.uid)) ?? false;
-            setHasShiftToday(hasShift);
-            setIsCheckingSchedule(false);
-        });
-    } else if (!isAuthLoading && !user) {
-        setIsCheckingSchedule(false);
-    }
-  }, [isAuthLoading, user]);
 
   useEffect(() => {
     if (!shiftKey || !shiftTimeFrames[shiftKey]) return;
@@ -571,32 +555,6 @@ export default function ChecklistPage() {
     }
   };
   
-    if (isCheckingSchedule) {
-      return (
-        <div className="flex h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      );
-    }
-  
-    if (hasShiftToday === false) {
-      return (
-        <AlertDialog open={true} onOpenChange={() => {}}>
-          <AlertDialogContent onInteractOutside={(e) => e.preventDefault()}>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Không có ca làm việc</AlertDialogTitle>
-              <AlertDialogDescription>
-                Bạn không có ca làm việc nào được phân công hôm nay. Bạn không thể truy cập chức năng này.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction onClick={() => router.replace('/shifts')}>Đã hiểu</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      );
-    }
-
   if (isAuthLoading || isLoading || !isReadonlyChecked || !report || !tasksByShift || !shift) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
@@ -802,4 +760,13 @@ export default function ChecklistPage() {
     />
     </TooltipProvider>
   );
+}
+
+
+export default function Page() {
+  return (
+    <WorkShiftGuard redirectPath="/shifts">
+      <ChecklistPageComponent />
+    </WorkShiftGuard>
+  )
 }

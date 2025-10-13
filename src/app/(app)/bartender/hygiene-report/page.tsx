@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
@@ -28,10 +29,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { TaskItem } from '../../_components/task-item';
 import SubmissionNotesSection from '../../checklist/_components/submission-notes-section';
 import { format, getISOWeek } from 'date-fns';
+import WorkShiftGuard from '@/components/work-shift-guard';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
-export default function HygieneReportPage() {
+function HygieneReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
   const shiftKey = 'bartender_hygiene';
@@ -60,24 +62,6 @@ export default function HygieneReportPage() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
-  const [isCheckingSchedule, setIsCheckingSchedule] = useState(true);
-  const [hasShiftToday, setHasShiftToday] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!isAuthLoading && user) {
-        const today = new Date();
-        const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
-        dataStore.getSchedule(weekId).then(schedule => {
-            const todayKey = format(today, 'yyyy-MM-dd');
-            const hasShift = schedule?.shifts?.some(s => s.date === todayKey && s.assignedUsers.some(u => u.userId === user.uid)) ?? false;
-            setHasShiftToday(hasShift);
-            setIsCheckingSchedule(false);
-        });
-    } else if (!isAuthLoading && !user) {
-        setIsCheckingSchedule(false);
-    }
-  }, [isAuthLoading, user]);
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
@@ -447,35 +431,8 @@ export default function HygieneReportPage() {
   };
 
   const isReadonly = isSubmitting;
-  
-  if (isCheckingSchedule || isAuthLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
 
-  if (hasShiftToday === false) {
-    return (
-      <AlertDialog open={true} onOpenChange={() => {}}>
-        <AlertDialogContent onInteractOutside={(e) => e.preventDefault()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Không có ca làm việc</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn không có ca làm việc nào được phân công hôm nay. Bạn không thể truy cập chức năng này.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => router.replace('/bartender')}>Đã hiểu</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    );
-  }
-
-
-  if (isLoading || !report || !tasks) {
+  if (isAuthLoading || isLoading || !report || !tasks) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
@@ -678,4 +635,12 @@ export default function HygieneReportPage() {
     />
     </TooltipProvider>
   );
+}
+
+export default function HygieneReportPage() {
+  return (
+    <WorkShiftGuard redirectPath="/bartender">
+      <HygieneReportPageComponent />
+    </WorkShiftGuard>
+  )
 }

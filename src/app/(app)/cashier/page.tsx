@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -34,6 +33,7 @@ import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Link from 'next/link';
+import WorkShiftGuard from '@/components/work-shift-guard';
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -129,7 +129,7 @@ const ChangeIndicator = ({ value }: { value: number }) => {
 };
 
 
-export default function CashierDashboardPage() {
+function CashierDashboardPageComponent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   
@@ -927,4 +927,12 @@ export default function CashierDashboardPage() {
     />
     </>
   );
+}
+
+export default function CashierDashboardPage() {
+    return (
+        <WorkShiftGuard redirectPath="/">
+            <CashierDashboardPageComponent />
+        </WorkShiftGuard>
+    )
 }
