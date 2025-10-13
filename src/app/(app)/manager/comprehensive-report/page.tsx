@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
@@ -14,7 +13,7 @@ import { Camera, Send, ArrowLeft, Clock, X, Trash2, AlertCircle, Loader2, CheckC
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Lightbox from "yet-another-react-lightbox";
@@ -28,7 +27,7 @@ import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TaskItem } from '../../_components/task-item';
 import SubmissionNotesSection from '../../checklist/_components/submission-notes-section';
-import { format } from 'date-fns';
+import { format, getISOWeek } from 'date-fns';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -59,6 +58,24 @@ export default function ComprehensiveReportPage() {
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  const [isCheckingSchedule, setIsCheckingSchedule] = useState(true);
+  const [hasShiftToday, setHasShiftToday] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+        const today = new Date();
+        const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
+        dataStore.getSchedule(weekId).then(schedule => {
+            const todayKey = format(today, 'yyyy-MM-dd');
+            const hasShift = schedule?.shifts?.some(s => s.date === todayKey && s.assignedUsers.some(u => u.userId === user.uid)) ?? false;
+            setHasShiftToday(hasShift);
+            setIsCheckingSchedule(false);
+        });
+    } else if (!isAuthLoading && !user) {
+        setIsCheckingSchedule(false);
+    }
+  }, [isAuthLoading, user]);
 
   // --- Back button handling for Lightbox ---
   useEffect(() => {
@@ -413,8 +430,34 @@ export default function ComprehensiveReportPage() {
   };
   
   const isReadonly = isSubmitting;
+  
+  if (isCheckingSchedule || isAuthLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
-  if (isAuthLoading || isLoading || !report || !tasks) {
+  if (hasShiftToday === false) {
+    return (
+      <AlertDialog open={true} onOpenChange={() => {}}>
+        <AlertDialogContent onInteractOutside={(e) => e.preventDefault()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Không có ca làm việc</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn không có ca làm việc nào được phân công hôm nay. Bạn không thể truy cập chức năng này.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => router.replace('/manager')}>Đã hiểu</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  if (isLoading || !report || !tasks) {
       return (
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">

@@ -1,11 +1,10 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
-import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
+import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, Task, Schedule } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -25,7 +24,7 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { format, set } from 'date-fns';
+import { format, set, getISOWeek, isSameDay } from 'date-fns';
 import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
 import { TaskItem } from '../../_components/task-item';
@@ -73,6 +72,24 @@ export default function ChecklistPage() {
   
   const [isReadonly, setIsReadonly] = useState(true);
   const [isReadonlyChecked, setIsReadonlyChecked] = useState(false);
+  
+  const [isCheckingSchedule, setIsCheckingSchedule] = useState(true);
+  const [hasShiftToday, setHasShiftToday] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+        const today = new Date();
+        const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
+        dataStore.getSchedule(weekId).then(schedule => {
+            const todayKey = format(today, 'yyyy-MM-dd');
+            const hasShift = schedule?.shifts?.some(s => s.date === todayKey && s.assignedUsers.some(u => u.userId === user.uid)) ?? false;
+            setHasShiftToday(hasShift);
+            setIsCheckingSchedule(false);
+        });
+    } else if (!isAuthLoading && !user) {
+        setIsCheckingSchedule(false);
+    }
+  }, [isAuthLoading, user]);
 
   useEffect(() => {
     if (!shiftKey || !shiftTimeFrames[shiftKey]) return;
@@ -553,6 +570,32 @@ export default function ChecklistPage() {
       setOpenAccordionItems(shift.sections.map(s => s.title));
     }
   };
+  
+    if (isCheckingSchedule) {
+      return (
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      );
+    }
+  
+    if (hasShiftToday === false) {
+      return (
+        <AlertDialog open={true} onOpenChange={() => {}}>
+          <AlertDialogContent onInteractOutside={(e) => e.preventDefault()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Không có ca làm việc</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn không có ca làm việc nào được phân công hôm nay. Bạn không thể truy cập chức năng này.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => router.replace('/shifts')}>Đã hiểu</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      );
+    }
 
   if (isAuthLoading || isLoading || !isReadonlyChecked || !report || !tasksByShift || !shift) {
       return (
