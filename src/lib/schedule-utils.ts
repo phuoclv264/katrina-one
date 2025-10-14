@@ -1,5 +1,4 @@
 
-
 import type { TimeSlot, Availability, AssignedShift } from './types';
 import { set, isWithinInterval } from 'date-fns';
 
@@ -31,6 +30,35 @@ export function isUserOnActiveShift(userShifts: AssignedShift[]): boolean {
 
         return isWithinInterval(now, { start: validStartTime, end: validEndTime });
     });
+}
+
+/**
+ * Gets the keys of the main shifts (sang, trua, toi) that are currently active.
+ * The allowed timeframe is from 1 hour before the shift starts to 1 hour after the shift ends.
+ * @param userShifts An array of the user's assigned shifts for the day.
+ * @returns An array of active main shift keys ('sang', 'trua', 'toi').
+ */
+export function getActiveShifts(userShifts: AssignedShift[]): AssignedShift[] {
+  if (!userShifts || userShifts.length === 0) {
+      return [];
+  }
+
+  const now = new Date();
+
+  return userShifts.filter(shift => {
+      const [startHour, startMinute] = shift.timeSlot.start.split(':').map(Number);
+      const [endHour, endMinute] = shift.timeSlot.end.split(':').map(Number);
+      
+      const shiftDate = new Date(shift.date);
+      
+      const validStartTime = set(shiftDate, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
+      validStartTime.setHours(validStartTime.getHours() - 1); 
+
+      const validEndTime = set(shiftDate, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
+      validEndTime.setHours(validEndTime.getHours() + 1);
+
+      return isWithinInterval(now, { start: validStartTime, end: validEndTime });
+  });
 }
 
 

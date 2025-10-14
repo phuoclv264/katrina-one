@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -6,6 +5,10 @@ import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndP
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
+import { dataStore } from '@/lib/data-store';
+import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
+import type { Schedule, AssignedShift } from '@/lib/types';
+import { getISOWeek, format } from 'date-fns';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
@@ -18,11 +21,39 @@ export interface AuthUser extends User {
 export const useAuth = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOnActiveShift, setIsOnActiveShift] = useState(false);
+  const [activeShifts, setActiveShifts] = useState<AssignedShift[]>([]);
+  const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
   const router = useRouter();
   const pathname = usePathname();
 
+  const checkUserShift = useCallback((firebaseUser: AuthUser | null, schedule: Schedule | null) => {
+    if (!firebaseUser || firebaseUser.role === 'Chủ nhà hàng') {
+      setIsOnActiveShift(true);
+      setActiveShifts([]);
+      setTodaysShifts([]);
+      return;
+    }
+
+    if (!schedule || schedule.status !== 'published') {
+      setIsOnActiveShift(false);
+      setActiveShifts([]);
+      setTodaysShifts([]);
+      return;
+    }
+
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const assignedShiftsToday: AssignedShift[] = schedule.shifts
+      .filter(shift => shift.date === todayKey && shift.assignedUsers.some(u => u.userId === firebaseUser.uid))
+      .sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+    
+    setTodaysShifts(assignedShiftsToday);
+    setIsOnActiveShift(isUserOnActiveShift(assignedShiftsToday));
+    setActiveShifts(getActiveShifts(assignedShiftsToday));
+  }, []);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
@@ -35,45 +66,63 @@ export const useAuth = () => {
             secondaryRoles: userData.secondaryRoles || [],
           } as AuthUser;
           setUser(authUser);
-
-          // Redirect based on role after login or on page load
+           // The schedule subscription will handle the initial shift check
           if (pathname === '/') {
-             if (userRole === 'Phục vụ') {
-                router.replace('/shifts');
-            } else if (userRole === 'Pha chế') {
-                router.replace('/bartender');
-            } else if (userRole === 'Quản lý') {
-                router.replace('/manager');
-            } else if (userRole === 'Chủ nhà hàng') {
-                router.replace('/reports');
-            } else if (userRole === 'Thu ngân') {
-                router.replace('/cashier');
-            }
+             if (userRole === 'Phục vụ') router.replace('/shifts');
+             else if (userRole === 'Pha chế') router.replace('/bartender');
+             else if (userRole === 'Quản lý') router.replace('/manager');
+             else if (userRole === 'Chủ nhà hàng') router.replace('/reports');
+             else if (userRole === 'Thu ngân') router.replace('/cashier');
           }
 
         } else {
-            // This case might happen if user document creation fails after registration.
-            // For now, we log them out.
             await signOut(auth);
             setUser(null);
+            setIsOnActiveShift(false);
+            setActiveShifts([]);
+            setTodaysShifts([]);
+            if (pathname !== '/') router.replace('/');
         }
       } else {
         setUser(null);
-        if (pathname !== '/') {
-            router.replace('/');
-        }
+        setIsOnActiveShift(false);
+        setActiveShifts([]);
+        setTodaysShifts([]);
+        if (pathname !== '/') router.replace('/');
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+
+  useEffect(() => {
+    if (!user) {
+        // When user logs out, reset shift state immediately
+        setIsOnActiveShift(false);
+        setActiveShifts([]);
+        setTodaysShifts([]);
+        return;
+    };
+
+    const today = new Date();
+    const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
+
+    const unsubscribeSchedule = dataStore.subscribeToSchedule(weekId, (schedule) => {
+        checkUserShift(user, schedule);
+    });
+
+    return () => {
+        unsubscribeSchedule();
+    };
+  }, [user, checkUserShift]);
+
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the redirect
       toast.success('Đăng nhập thành công!');
       return true;
     } catch (error: any) {
@@ -92,7 +141,6 @@ export const useAuth = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      // Create user document in Firestore
       await setDoc(doc(db, 'users', firebaseUser.uid), {
         uid: firebaseUser.uid,
         email,
@@ -101,7 +149,6 @@ export const useAuth = () => {
         secondaryRoles: [],
       });
 
-      // onAuthStateChanged will handle the user state update and redirect
        toast.success('Đăng ký thành công! Đang chuyển hướng bạn...');
        return true;
     } catch (error: any) {
@@ -129,6 +176,9 @@ export const useAuth = () => {
   return { 
       user, 
       loading,
+      isOnActiveShift,
+      activeShifts,
+      todaysShifts,
       login, 
       register,
       logout, 

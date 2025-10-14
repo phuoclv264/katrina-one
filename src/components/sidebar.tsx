@@ -20,7 +20,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 
 export function AppSidebar() {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, isOnActiveShift } = useAuth();
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
   
@@ -30,6 +30,9 @@ export function AppSidebar() {
 
   const getMenuItems = () => {
       if (!user) return { primaryItems: [], secondaryItems: [] };
+      
+      const isOwner = user.role === 'Chủ nhà hàng';
+
       const canManageViolations = user.role === 'Quản lý' || user.role === 'Chủ nhà hàng';
       const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
@@ -42,7 +45,7 @@ export function AppSidebar() {
       // Primary role menus
       switch(user?.role) {
           case 'Phục vụ': primaryItems.push(
-            { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare },
+            { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
             commonScheduleMenu,
             commonViolationMenu
           );
@@ -54,13 +57,13 @@ export function AppSidebar() {
           );
           break;
            case 'Thu ngân': primaryItems.push(
-            { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
+            { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
+            commonScheduleMenu,
             commonViolationMenu
           );
           break;
           case 'Quản lý': primaryItems.push(
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
-            { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch },
             { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
             { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
@@ -86,25 +89,21 @@ export function AppSidebar() {
       
       const primaryHrefs = new Set(primaryItems.map(item => item.href));
 
-      // Secondary role menus
-      if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
-          secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
-      }
-      if(user?.secondaryRoles?.includes('Pha chế')) {
-          if (!primaryHrefs.has('/bartender/hygiene-report')) {
-              secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh', icon: ClipboardList } });
+        if (isOnActiveShift) { // Non-owners only see secondary roles if on shift
+          if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
+              secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
           }
-          if (!primaryHrefs.has('/bartender/inventory')) {
-              secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive } });
+          if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
+             secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList } });
+             secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: Archive } });
+          }
+          if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
+              secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileSearch } });
+          }
+           if(user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
+              secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
           }
       }
-      if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager/comprehensive-report')) {
-          secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Kiểm tra toàn diện', icon: FileSearch } });
-      }
-       if(user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
-          secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
-      }
-
 
       return { primaryItems, secondaryItems };
   }
