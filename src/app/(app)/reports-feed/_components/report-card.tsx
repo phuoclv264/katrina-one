@@ -1,9 +1,10 @@
+
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment } from '@/lib/types';
 import Lightbox from "yet-another-react-lightbox";
@@ -13,6 +14,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '@/components/ui/label';
 import CommentDialog from './comment-dialog';
 import { toast } from 'react-hot-toast';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
 
 
 export default function ReportCard({
@@ -55,7 +59,6 @@ export default function ReportCard({
     setIsProcessing(true);
     try {
       await onVote(report.id, voteType);
-      // After vote, determine the new state and show toast
       const currentlyVotedUp = report.upvotes?.includes(currentUser.uid);
       const currentlyVotedDown = report.downvotes?.includes(currentUser.uid);
 
@@ -88,89 +91,128 @@ export default function ReportCard({
     }
   }
 
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start gap-4">
-            <CardTitle>{report.title}</CardTitle>
-            <div className="flex items-center gap-2">
-                {report.reporterId === currentUser.uid && (
-                    <Badge variant="outline" className="border-primary text-primary">Bài đăng của bạn</Badge>
-                )}
-                {report.visibility === 'private' ? (
-                    <Badge variant="secondary"><EyeOff className="mr-1 h-3 w-3"/> Riêng tư</Badge>
-                ) : (
-                    <Badge variant="secondary"><Eye className="mr-1 h-3 w-3"/> Công khai</Badge>
-                )}
-            </div>
-          </div>
-          <CardDescription>
-            Đăng bởi <span className="font-semibold">{report.isAnonymous ? (report.anonymousNameMap?.[report.reporterId] || 'Ẩn danh') : allUsers.find(u => u.uid === report.reporterId)?.displayName || 'Không rõ'}</span> lúc {new Date(report.createdAt as any).toLocaleString('vi-VN')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-             {report.accusedUsers && report.accusedUsers.length > 0 && (
-                <div>
-                    <Label className="text-xs font-semibold">Người bị tố cáo</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                        {report.accusedUsers.map(user => (
-                            <Badge key={user.id} variant="destructive">{user.name}</Badge>
-                        ))}
-                    </div>
-                </div>
-             )}
+  const reporterDisplayName = useMemo(() => {
+    return report.isAnonymous 
+      ? 'Ẩn danh'
+      : allUsers.find(u => u.uid === report.reporterId)?.displayName || 'Không rõ';
+  }, [report, allUsers]);
 
-            <div className="space-y-2">
-                 <Label className="text-xs font-semibold">Nội dung</Label>
-                <div className={cn("text-sm whitespace-pre-wrap", !isExpanded && "line-clamp-3")}>
-                    {report.content}
-                </div>
-                 {report.content.length > 200 && (
-                     <Button variant="link" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="p-0 h-auto">
-                        {isExpanded ? 'Thu gọn' : 'Xem thêm'}
-                    </Button>
-                 )}
+  const reporterAvatarFallback = useMemo(() => {
+    if (reporterDisplayName === 'Ẩn danh') return <User className="h-4 w-4"/>;
+    return reporterDisplayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  }, [reporterDisplayName]);
+
+  return (
+    <TooltipProvider>
+      <Card className="rounded-xl shadow-md border bg-white dark:bg-card transition-all duration-300">
+        <CardHeader className="p-4 sm:p-6 pb-4">
+          {currentUser.role === 'Chủ nhà hàng' && (
+             <div className="flex items-center justify-between mb-2">
+                 <div className="flex items-center gap-2">
+                    <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
+                        {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
+                        {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                    </Badge>
+                     {report.reporterId === currentUser.uid && (
+                        <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>
+                    )}
+                 </div>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
+                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+             </div>
+          )}
+          <CardTitle className="text-xl font-bold leading-tight">{report.title}</CardTitle>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+            <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-xs">{reporterAvatarFallback}</AvatarFallback>
+            </Avatar>
+            <span className="font-semibold">{reporterDisplayName}</span>
+            <span>•</span>
+            <span>{new Date(report.createdAt as any).toLocaleString('vi-VN')}</span>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 py-2">
+          <div className="space-y-4">
+            <div className={cn("text-base whitespace-pre-wrap leading-relaxed", !isExpanded && "line-clamp-4")}>
+                {report.content}
             </div>
+            {report.content.length > 300 && (
+                <Button variant="link" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="p-0 h-auto text-muted-foreground">
+                    {isExpanded ? 'Thu gọn' : 'Xem thêm'}
+                </Button>
+            )}
+
+            {report.accusedUsers && report.accusedUsers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                    <Label className="text-xs font-semibold">Đối tượng:</Label>
+                    {report.accusedUsers.map(user => (
+                        <Badge key={user.id} variant="destructive">{user.name}</Badge>
+                    ))}
+                </div>
+            )}
             
             {report.attachments && report.attachments.length > 0 && (
-                <div>
-                     <Label className="text-xs font-semibold">Đính kèm</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                        {report.attachments.map((url, index) => (
-                             <button key={url} onClick={() => openLightbox(report.attachments!, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
-                                <Image src={url} alt={`Attachment ${index + 1}`} fill className="object-cover" />
-                             </button>
-                        ))}
-                    </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {report.attachments.map((url, index) => (
+                         <button key={url} onClick={() => openLightbox(report.attachments!, index)} className="relative aspect-square w-full rounded-lg overflow-hidden group">
+                            <Image src={url} alt={`Attachment ${index + 1}`} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                         </button>
+                    ))}
                 </div>
             )}
           </div>
         </CardContent>
-        <CardFooter className="justify-between">
-           <div className="flex gap-2">
-             <Button variant={hasVotedUp ? "default" : "outline"} size="sm" onClick={() => handleVote('up')} disabled={isProcessing}>
-                <ThumbsUp className="mr-1 h-3 w-3"/>({report.upvotes?.length || 0})
-            </Button>
-            <Button variant={hasVotedDown ? "destructive" : "outline"} size="sm" onClick={() => handleVote('down')} disabled={isProcessing}>
-                <ThumbsDown className="mr-1 h-3 w-3"/>({report.downvotes?.length || 0})
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setIsCommentDialogOpen(true)}>
-                <MessageSquare className="mr-1 h-2 w-3"/>({report.commentCount || 0})
-            </Button>
+        <CardFooter className="px-4 sm:px-6 py-3 flex justify-between items-center border-t mt-4">
+           <div className="flex items-center gap-1">
+             <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleVote('up')} 
+                        disabled={isProcessing} 
+                        className={cn("flex items-center gap-1.5", hasVotedUp && "text-emerald-600 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/50")}
+                    >
+                        <ThumbsUp className="h-4 w-4"/>
+                        <span className="font-semibold">{report.upvotes?.length || 0}</span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Đồng tình</p></TooltipContent>
+             </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleVote('down')} 
+                        disabled={isProcessing}
+                        className={cn("flex items-center gap-1.5", hasVotedDown && "text-red-600 bg-red-100 dark:text-red-300 dark:bg-red-900/50")}
+                    >
+                        <ThumbsDown className="h-4 w-4"/>
+                        <span className="font-semibold">{report.downvotes?.length || 0}</span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Không đồng tình</p></TooltipContent>
+            </Tooltip>
            </div>
-            {currentUser.role === 'Chủ nhà hàng' && (
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-2 w-2"/></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            )}
+            <Button variant="ghost" size="sm" onClick={() => setIsCommentDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground">
+                <MessageSquare className="h-4 w-4"/>
+                <span>{report.commentCount || 0} bình luận</span>
+            </Button>
         </CardFooter>
       </Card>
       {lightboxOpen && (
@@ -193,6 +235,8 @@ export default function ReportCard({
           onCommentDelete={onCommentDelete}
           onOpenLightbox={openLightbox}
       />
-    </>
+    </TooltipProvider>
   );
 }
+
+    
