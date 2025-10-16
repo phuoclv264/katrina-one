@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
@@ -8,16 +7,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { WhistleblowingReport } from '@/lib/types';
-import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, ExternalLink } from 'lucide-react';
 
 type MySentReportsDialogProps = {
     isOpen: boolean;
     onClose: () => void;
     reports: WhistleblowingReport[];
     userId: string;
+    onViewReport: (reportId: string) => void;
 };
 
-export default function MySentReportsDialog({ isOpen, onClose, reports, userId }: MySentReportsDialogProps) {
+export default function MySentReportsDialog({ isOpen, onClose, reports, userId, onViewReport }: MySentReportsDialogProps) {
 
     const myReports = useMemo(() => {
         return reports.filter(report => report.reporterId === userId);
@@ -83,13 +83,19 @@ export default function MySentReportsDialog({ isOpen, onClose, reports, userId }
                                                     </div>
                                                 </div>
                                             )}
-                                            <div>
-                                                <h4 className="font-semibold mb-1">Tương tác:</h4>
-                                                <div className="flex items-center gap-4 text-sm">
-                                                    <span className="flex items-center gap-1"><ThumbsUp className="h-4 w-4 text-green-500" /> {report.upvotes?.length || 0}</span>
-                                                    <span className="flex items-center gap-1"><ThumbsDown className="h-4 w-4 text-red-500" /> {report.downvotes?.length || 0}</span>
-                                                    <span className="flex items-center gap-1"><MessageSquare className="h-4 w-4 text-blue-500" /> {report.commentCount || 0}</span>
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="font-semibold mb-1">Tương tác:</h4>
+                                                    <div className="flex items-center gap-4 text-sm">
+                                                        <span className="flex items-center gap-1"><ThumbsUp className="h-4 w-4 text-green-500" /> {report.upvotes?.length || 0}</span>
+                                                        <span className="flex items-center gap-1"><ThumbsDown className="h-4 w-4 text-red-500" /> {report.downvotes?.length || 0}</span>
+                                                        <span className="flex items-center gap-1"><MessageSquare className="h-4 w-4 text-blue-500" /> {report.commentCount || 0}</span>
+                                                    </div>
                                                 </div>
+                                                <Button variant="outline" onClick={() => onViewReport(report.id)}>
+                                                    <ExternalLink className="mr-2 h-4 w-4" />
+                                                    Xem bài đăng
+                                                </Button>
                                             </div>
                                         </AccordionContent>
                                     </AccordionItem>

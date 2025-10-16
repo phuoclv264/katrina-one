@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { reportsStore } from '@/lib/reports-store';
@@ -18,6 +17,7 @@ import MySentReportsDialog from './_components/my-sent-reports-dialog';
 export default function ReportsFeedPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const reportRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const [reports, setReports] = useState<WhistleblowingReport[]>([]);
   const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
@@ -149,6 +149,21 @@ export default function ReportsFeedPage() {
   const handleCommentDelete = async (violationId: string, commentId: string) => {
       await reportsStore.deleteComment(violationId, commentId);
   };
+  
+  const handleViewReport = (reportId: string) => {
+    setIsMyReportsDialogOpen(false);
+    setTimeout(() => {
+      const element = reportRefs.current.get(reportId);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Optional: Add a highlight effect
+      if (element) {
+        element.classList.add('ring-2', 'ring-primary', 'transition-all', 'duration-1000');
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-primary');
+        }, 2000);
+      }
+    }, 100);
+  };
 
 
   if (isLoading || authLoading || !user) {
@@ -189,18 +204,19 @@ export default function ReportsFeedPage() {
         {filteredAndSortedReports.length > 0 ? (
             <div className="space-y-6">
             {filteredAndSortedReports.map(report => (
-                <ReportCard
-                    key={report.id}
-                    report={report}
-                    currentUser={user}
-                    allUsers={allUsers}
-                    onVote={handleVote}
-                    onDelete={handleDelete}
-                    onTogglePin={handleTogglePin}
-                    onCommentSubmit={handleCommentSubmit}
-                    onCommentEdit={handleCommentEdit}
-                    onCommentDelete={handleCommentDelete}
-                />
+                <div key={report.id} ref={(el) => reportRefs.current.set(report.id, el)}>
+                    <ReportCard
+                        report={report}
+                        currentUser={user}
+                        allUsers={allUsers}
+                        onVote={handleVote}
+                        onDelete={handleDelete}
+                        onTogglePin={handleTogglePin}
+                        onCommentSubmit={handleCommentSubmit}
+                        onCommentEdit={handleCommentEdit}
+                        onCommentDelete={handleCommentDelete}
+                    />
+                </div>
             ))}
             </div>
         ) : (
@@ -228,6 +244,7 @@ export default function ReportsFeedPage() {
         onClose={() => setIsMyReportsDialogOpen(false)}
         reports={reports}
         userId={user.uid}
+        onViewReport={handleViewReport}
       />
     </>
   );
