@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -106,7 +105,7 @@ export default function ReportCard({
     <TooltipProvider>
       <Card className="rounded-xl shadow-md border bg-white dark:bg-card transition-all duration-300">
         <CardHeader className="p-4 sm:p-6 pb-4">
-          {currentUser.role === 'Chủ nhà hàng' && (
+           {currentUser.role === 'Chủ nhà hàng' && (
              <div className="flex items-center justify-between mb-2">
                  <div className="flex items-center gap-2">
                     <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
@@ -238,5 +237,3 @@ export default function ReportCard({
     </TooltipProvider>
   );
 }
-
-    
