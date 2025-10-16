@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -107,43 +108,34 @@ export default function ReportCard({
     <TooltipProvider>
       <Card className="rounded-xl shadow-md border bg-white dark:bg-card transition-all duration-300">
         <CardHeader className="p-4 sm:p-6 pb-4">
-           { (isMyReport || currentUser.role === 'Chủ nhà hàng') && (
-             <div className="flex items-center justify-between mb-2">
-                 <div className="flex items-center gap-2">
-                    <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
-                        {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
-                        {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
-                    </Badge>
-                    {isMyReport && <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>}
-                 </div>
-                 {currentUser.role === 'Chủ nhà hàng' && (
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
-                                <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                 )}
+          <div className="flex items-center justify-between mb-2">
+             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">{reporterAvatarFallback}</AvatarFallback>
+                </Avatar>
+                <span className="font-semibold text-foreground">{reporterDisplayName}</span>
+                <span>•</span>
+                <span>{new Date(report.createdAt as any).toLocaleString('vi-VN')}</span>
              </div>
-          )}
-          <CardTitle className="text-xl font-bold leading-tight">{report.title}</CardTitle>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
-            <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-xs">{reporterAvatarFallback}</AvatarFallback>
-            </Avatar>
-            <span className="font-semibold">{reporterDisplayName}</span>
-            <span>•</span>
-            <span>{new Date(report.createdAt as any).toLocaleString('vi-VN')}</span>
+             {currentUser.role === 'Chủ nhà hàng' && (
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
+                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+             )}
           </div>
+          <CardTitle className="text-xl font-bold leading-tight">{report.title}</CardTitle>
         </CardHeader>
         <CardContent className="px-4 sm:px-6 py-2">
           <div className="space-y-4">
@@ -156,13 +148,26 @@ export default function ReportCard({
                 </Button>
             )}
 
-            {report.accusedUsers && report.accusedUsers.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                    <Label className="text-xs font-semibold">Đối tượng:</Label>
-                    {report.accusedUsers.map(user => (
-                        <Badge key={user.id} variant="destructive">{user.name}</Badge>
-                    ))}
-                </div>
+            {(report.accusedUsers && report.accusedUsers.length > 0 || (isMyReport || currentUser.role === 'Chủ nhà hàng')) && (
+                 <div className="space-y-2">
+                    {report.accusedUsers && report.accusedUsers.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Label className="text-xs font-semibold">Đối tượng:</Label>
+                            {report.accusedUsers.map(user => (
+                                <Badge key={user.id} variant="destructive">{user.name}</Badge>
+                            ))}
+                        </div>
+                    )}
+                     {(isMyReport || currentUser.role === 'Chủ nhà hàng') && (
+                        <div className="flex items-center gap-2">
+                           <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
+                               {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
+                               {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                           </Badge>
+                           {isMyReport && <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>}
+                        </div>
+                     )}
+                 </div>
             )}
             
             {report.attachments && report.attachments.length > 0 && (
@@ -239,3 +244,4 @@ export default function ReportCard({
     </TooltipProvider>
   );
 }
+
