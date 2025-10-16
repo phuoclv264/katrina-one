@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment } from '@/lib/types';
 import Lightbox from "yet-another-react-lightbox";
@@ -25,6 +25,7 @@ export default function ReportCard({
   allUsers,
   onVote,
   onDelete,
+  onTogglePin,
   onCommentSubmit,
   onCommentEdit,
   onCommentDelete,
@@ -34,6 +35,7 @@ export default function ReportCard({
   allUsers: ManagedUser[];
   onVote: (reportId: string, voteType: 'up' | 'down') => Promise<void>;
   onDelete: (reportId: string) => void;
+  onTogglePin: (reportId: string, currentPinStatus: boolean) => Promise<void>;
   onCommentSubmit: (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => Promise<void>;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
@@ -47,6 +49,7 @@ export default function ReportCard({
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   
   const isMyReport = report.reporterId === currentUser.uid;
+  const isOwner = currentUser.role === 'Chủ nhà hàng';
 
   const openLightbox = (photos: string[], index: number = 0) => {
     setLightboxPhotos(photos);
@@ -84,6 +87,15 @@ export default function ReportCard({
     }
   };
   
+  const handleTogglePin = async () => {
+    setIsProcessing(true);
+    try {
+        await onTogglePin(report.id, !!report.isPinned);
+    } finally {
+        setIsProcessing(false);
+    }
+  }
+
   const handleCommentDialogSubmit = async (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => {
     setIsProcessing(true);
     try {
@@ -106,9 +118,19 @@ export default function ReportCard({
 
   return (
     <TooltipProvider>
-      <Card className="rounded-xl shadow-md border bg-white dark:bg-card transition-all duration-300">
+      <Card className={cn(
+          "rounded-xl shadow-md border bg-card transition-all duration-300",
+          report.isPinned && "border-amber-500/50 ring-2 ring-amber-500/20 bg-amber-100/30 dark:bg-amber-900/10"
+      )}>
         <CardHeader className="p-4 sm:p-6 pb-4">
-          <div className="flex items-center justify-between mb-2">
+          {report.isPinned && (
+              <Badge variant="outline" className="mb-2 w-fit bg-amber-100 border-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700">
+                  <Pin className="mr-1.5 h-3 w-3" />
+                  Đã ghim
+              </Badge>
+          )}
+          <CardTitle className="text-xl font-bold leading-tight">{report.title}</CardTitle>
+           <div className="flex items-center justify-between mt-2">
              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Avatar className="h-6 w-6">
                     <AvatarFallback className="text-xs">{reporterAvatarFallback}</AvatarFallback>
@@ -117,25 +139,7 @@ export default function ReportCard({
                 <span>•</span>
                 <span>{new Date(report.createdAt as any).toLocaleString('vi-VN')}</span>
              </div>
-             {currentUser.role === 'Chủ nhà hàng' && (
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
-                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-             )}
           </div>
-          <CardTitle className="text-xl font-bold leading-tight">{report.title}</CardTitle>
         </CardHeader>
         <CardContent className="px-4 sm:px-6 py-2">
           <div className="space-y-4">
@@ -148,27 +152,25 @@ export default function ReportCard({
                 </Button>
             )}
 
-            {(report.accusedUsers && report.accusedUsers.length > 0 || (isMyReport || currentUser.role === 'Chủ nhà hàng')) && (
-                 <div className="space-y-2">
-                    {report.accusedUsers && report.accusedUsers.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Label className="text-xs font-semibold">Đối tượng:</Label>
-                            {report.accusedUsers.map(user => (
-                                <Badge key={user.id} variant="destructive">{user.name}</Badge>
-                            ))}
-                        </div>
-                    )}
-                     {(isMyReport || currentUser.role === 'Chủ nhà hàng') && (
-                        <div className="flex items-center gap-2">
-                           <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
-                               {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
-                               {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
-                           </Badge>
-                           {isMyReport && <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>}
-                        </div>
-                     )}
-                 </div>
-            )}
+            <div className="space-y-2">
+              {report.accusedUsers && report.accusedUsers.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                      <Label className="text-xs font-semibold">Đối tượng:</Label>
+                      {report.accusedUsers.map(user => (
+                          <Badge key={user.id} variant="destructive">{user.name}</Badge>
+                      ))}
+                  </div>
+              )}
+               {(isMyReport || currentUser.role === 'Chủ nhà hàng') && (
+                <div className="flex items-center gap-2">
+                   <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
+                       {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
+                       {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                   </Badge>
+                   {isMyReport && <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>}
+                </div>
+             )}
+            </div>
             
             {report.attachments && report.attachments.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -215,10 +217,50 @@ export default function ReportCard({
                 <TooltipContent><p>Không đồng tình</p></TooltipContent>
             </Tooltip>
            </div>
-            <Button variant="ghost" size="sm" onClick={() => setIsCommentDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground">
-                <MessageSquare className="h-4 w-4"/>
-                <span>{report.commentCount || 0} bình luận</span>
-            </Button>
+            <div className="flex items-center gap-1">
+                {isOwner && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={handleTogglePin} className="h-8 w-8 text-muted-foreground" disabled={isProcessing}>
+                                {report.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{report.isPinned ? 'Bỏ ghim' : 'Ghim bài đăng'}</p></TooltipContent>
+                    </Tooltip>
+                )}
+                 {isOwner && (
+                    <AlertDialog>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" disabled={isProcessing}><Trash2 className="h-4 w-4"/></Button>
+                                </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Xóa bài đăng</p></TooltipContent>
+                        </Tooltip>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
+                                <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+                <Separator orientation="vertical" className="h-6 mx-1" />
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="ghost" size="sm" onClick={() => setIsCommentDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground">
+                            <MessageSquare className="h-4 w-4"/>
+                            <span>{report.commentCount || 0}</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Bình luận</p></TooltipContent>
+                </Tooltip>
+            </div>
         </CardFooter>
       </Card>
       {lightboxOpen && (
@@ -244,4 +286,3 @@ export default function ReportCard({
     </TooltipProvider>
   );
 }
-

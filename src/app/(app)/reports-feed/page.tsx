@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -7,7 +8,7 @@ import { dataStore } from '@/lib/data-store';
 import type { WhistleblowingReport, ManagedUser, AssignedUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, FileSignature } from 'lucide-react';
+import { Plus, FileSignature, FileWarning } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 import ReportCard from './_components/report-card';
@@ -60,14 +61,22 @@ export default function ReportsFeedPage() {
     }
   }, [user]);
 
-  const filteredReports = useMemo(() => {
+  const filteredAndSortedReports = useMemo(() => {
     if (!user) return [];
-    if (user.role === 'Chủ nhà hàng') {
-      return reports;
+    
+    let reportsToDisplay = reports;
+    if (user.role !== 'Chủ nhà hàng') {
+        reportsToDisplay = reports.filter(report =>
+            report.visibility === 'public' || report.reporterId === user.uid
+        );
     }
-    return reports.filter(report =>
-      report.visibility === 'public' || report.reporterId === user.uid
-    );
+    
+    // Sort so pinned items are always on top, then by date
+    return reportsToDisplay.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
+    });
   }, [reports, user]);
 
   const handleSaveReport = async (data: any) => {
@@ -111,6 +120,17 @@ export default function ReportsFeedPage() {
       }
   };
 
+  const handleTogglePin = async (reportId: string, currentPinStatus: boolean) => {
+    if (user?.role !== 'Chủ nhà hàng') return;
+    try {
+        await reportsStore.togglePin(reportId, currentPinStatus);
+        toast.success(currentPinStatus ? 'Đã bỏ ghim bài đăng.' : 'Đã ghim bài đăng.');
+    } catch (error) {
+        console.error("Failed to toggle pin status:", error);
+        toast.error('Thao tác thất bại.');
+    }
+  };
+
   const handleCommentSubmit = async (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => {
     if (!user) return;
     
@@ -120,7 +140,7 @@ export default function ReportsFeedPage() {
         content: commentText,
     };
     await reportsStore.addComment(reportId, commentData, photoIds);
-};
+  };
   
   const handleCommentEdit = async (violationId: string, commentId: string, newText: string) => {
       await reportsStore.editComment(violationId, commentId, newText);
@@ -166,9 +186,9 @@ export default function ReportsFeedPage() {
             </div>
         </header>
 
-        {filteredReports.length > 0 ? (
+        {filteredAndSortedReports.length > 0 ? (
             <div className="space-y-6">
-            {filteredReports.map(report => (
+            {filteredAndSortedReports.map(report => (
                 <ReportCard
                     key={report.id}
                     report={report}
@@ -176,6 +196,7 @@ export default function ReportsFeedPage() {
                     allUsers={allUsers}
                     onVote={handleVote}
                     onDelete={handleDelete}
+                    onTogglePin={handleTogglePin}
                     onCommentSubmit={handleCommentSubmit}
                     onCommentEdit={handleCommentEdit}
                     onCommentDelete={handleCommentDelete}
@@ -183,8 +204,15 @@ export default function ReportsFeedPage() {
             ))}
             </div>
         ) : (
-             <div className="text-center py-16 text-muted-foreground border-2 border-dashed rounded-lg">
-                <p>Chưa có bài tố cáo nào.</p>
+             <div className="text-center py-24 px-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center">
+                <FileWarning className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <h3 className="text-xl font-semibold">Chưa có bài đăng nào</h3>
+                <p className="mt-2 max-w-xs text-center text-muted-foreground">
+                    Hãy là người đầu tiên tạo một bài đăng để chia sẻ vấn đề của bạn.
+                </p>
+                <Button onClick={() => setIsReportDialogOpen(true)} className="mt-6">
+                  <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
+              </Button>
              </div>
         )}
       </div>
