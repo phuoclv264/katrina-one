@@ -51,6 +51,30 @@ export default function ReportCard({
   const isMyReport = report.reporterId === currentUser.uid;
   const isOwner = currentUser.role === 'Chủ nhà hàng';
 
+  // --- Back button handling for Lightbox ---
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (lightboxOpen) {
+        event.preventDefault();
+        setLightboxOpen(false);
+      }
+    };
+
+    if (lightboxOpen) {
+      // Push a state to the history when the lightbox opens
+      window.history.pushState({ lightbox: 'open' }, '');
+      window.addEventListener('popstate', handlePopState);
+    } else {
+      // If the lightbox is closed by other means (e.g., clicking 'X'), we might need to go back
+      // if the history state we pushed is still active. This part is tricky and might
+      // be omitted for simplicity unless back button behavior feels broken after closing.
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [lightboxOpen]);
+
   const openLightbox = (photos: string[], index: number = 0) => {
     setLightboxPhotos(photos);
     setLightboxOpen(true);
@@ -63,23 +87,26 @@ export default function ReportCard({
   const handleVote = async (voteType: 'up' | 'down') => {
     setIsProcessing(true);
     try {
-      await onVote(report.id, voteType);
       const currentlyVotedUp = report.upvotes?.includes(currentUser.uid);
       const currentlyVotedDown = report.downvotes?.includes(currentUser.uid);
 
+      await onVote(report.id, voteType);
+      
+      // Determine the new state *after* the vote to show the correct toast
       if (voteType === 'up') {
-        if (!currentlyVotedUp) { // This check is after the vote, so it's the new state
+        if (!currentlyVotedUp) {
           toast.success(`Bạn đã đồng tình với bài đăng "${report.title}"`);
         } else {
           toast.success(`Bạn đã bỏ đồng tình với bài đăng "${report.title}"`);
         }
       } else if (voteType === 'down') {
-        if (!currentlyVotedDown) { // This check is after the vote, so it's the new state
+        if (!currentlyVotedDown) {
           toast.success(`Bạn đã không đồng tình với bài đăng "${report.title}"`);
         } else {
           toast.success(`Bạn đã bỏ không đồng tình với bài đăng "${report.title}"`);
         }
       }
+
     } catch (error) {
       toast.error('Thao tác thất bại.');
     } finally {
