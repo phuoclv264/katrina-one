@@ -64,16 +64,16 @@ export default function ReportCard({
       const currentlyVotedDown = report.downvotes?.includes(currentUser.uid);
 
       if (voteType === 'up') {
-        if (currentlyVotedUp) {
-          toast.success(`Bạn đã bỏ đồng tình với bài đăng "${report.title}"`);
-        } else {
+        if (!currentlyVotedUp) { // This check is after the vote, so it's the new state
           toast.success(`Bạn đã đồng tình với bài đăng "${report.title}"`);
+        } else {
+          toast.success(`Bạn đã bỏ đồng tình với bài đăng "${report.title}"`);
         }
       } else if (voteType === 'down') {
-        if (currentlyVotedDown) {
-          toast.success(`Bạn đã bỏ không đồng tình với bài đăng "${report.title}"`);
-        } else {
+        if (!currentlyVotedDown) { // This check is after the vote, so it's the new state
           toast.success(`Bạn đã không đồng tình với bài đăng "${report.title}"`);
+        } else {
+          toast.success(`Bạn đã bỏ không đồng tình với bài đăng "${report.title}"`);
         }
       }
     } catch (error) {
@@ -110,15 +110,11 @@ export default function ReportCard({
            { (isMyReport || currentUser.role === 'Chủ nhà hàng') && (
              <div className="flex items-center justify-between mb-2">
                  <div className="flex items-center gap-2">
-                    {isMyReport && (
-                        <>
-                            <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
-                                {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
-                                {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
-                            </Badge>
-                            <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>
-                        </>
-                    )}
+                    <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
+                        {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
+                        {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                    </Badge>
+                    {isMyReport && <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>}
                  </div>
                  {currentUser.role === 'Chủ nhà hàng' && (
                      <AlertDialog>
