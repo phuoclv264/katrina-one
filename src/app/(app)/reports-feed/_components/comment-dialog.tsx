@@ -181,7 +181,7 @@ export default function CommentDialog({
                      onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}
                 >
                      <div id="comment-lightbox-container"></div>
-                    <DialogHeader className="p-4 pb-2 border-b shrink-0">
+                    <DialogHeader className="p-4 sm:p-6 pb-2 border-b shrink-0">
                         <DialogTitle className="text-xl">Thảo luận về bài đăng</DialogTitle>
                         <DialogDescription className="truncate">
                            "{report.title}"
@@ -192,6 +192,7 @@ export default function CommentDialog({
                         <div className="space-y-4 py-4">
                             {(report.comments || []).map(comment => {
                                 const isMyComment = comment.authorId === currentUser.uid;
+                                const canDelete = isMyComment || currentUser.role === 'Chủ nhà hàng';
                                 const isEditingThis = editingCommentId === comment.id;
                                 const displayName = getCommenterDisplayName(comment, report);
                                 
@@ -204,24 +205,24 @@ export default function CommentDialog({
                                                     <div className="flex items-center gap-0">
                                                         <span>{new Date(comment.createdAt as any).toLocaleString('vi-VN')}</span>
                                                         {isMyComment && !isEditingThis && (
-                                                            <>
-                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}><Edit className="h-3 w-3" /></Button>
-                                                                <AlertDialog>
-                                                                    <AlertDialogTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
-                                                                    </AlertDialogTrigger>
-                                                                    <AlertDialogContent>
-                                                                        <AlertDialogHeader>
-                                                                            <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
-                                                                            <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
-                                                                        </AlertDialogHeader>
-                                                                        <AlertDialogFooter>
-                                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                            <AlertDialogAction onClick={() => onCommentDelete(report.id, comment.id)}>Xóa</AlertDialogAction>
-                                                                        </AlertDialogFooter>
-                                                                    </AlertDialogContent>
-                                                                </AlertDialog>
-                                                            </>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}><Edit className="h-3 w-3" /></Button>
+                                                        )}
+                                                        {canDelete && !isEditingThis && (
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => onCommentDelete(report.id, comment.id)}>Xóa</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
                                                         )}
                                                     </div>
                                                 </div>
@@ -266,21 +267,11 @@ export default function CommentDialog({
                             <div className="flex items-center gap-1 flex-wrap">
                                 {/* Nút AI */}
                                 <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={handleRefineComment}
-                                    disabled={isAiLoading || !commentText}
-                                    className="h-9 w-9"
-                                    >
-                                    {isAiLoading ? (
-                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                    ) : (
-                                        <Wand2 className="h-5 w-5" />
-                                    )}
-                                    </Button>
-                                </TooltipTrigger>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={handleRefineComment} disabled={isAiLoading || !commentText}>
+                                            {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin"/> : <Wand2 className="h-5 w-5" />}
+                                        </Button>
+                                    </TooltipTrigger>
                                 <TooltipContent>Chuốt lại câu từ</TooltipContent>
                                 </Tooltip>
 
@@ -292,7 +283,6 @@ export default function CommentDialog({
                                     size="icon"
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={isSubmitting}
-                                    className="h-9 w-9"
                                     >
                                     <Upload className="h-5 w-5" />
                                     </Button>
