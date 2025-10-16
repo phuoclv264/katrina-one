@@ -12,6 +12,7 @@ import Image from 'next/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import CommentDialog from './comment-dialog';
+import { toast } from 'react-hot-toast';
 
 
 export default function ReportCard({
@@ -52,8 +53,30 @@ export default function ReportCard({
 
   const handleVote = async (voteType: 'up' | 'down') => {
     setIsProcessing(true);
-    await onVote(report.id, voteType);
-    setIsProcessing(false);
+    try {
+      await onVote(report.id, voteType);
+      // After vote, determine the new state and show toast
+      const currentlyVotedUp = report.upvotes?.includes(currentUser.uid);
+      const currentlyVotedDown = report.downvotes?.includes(currentUser.uid);
+
+      if (voteType === 'up') {
+        if (currentlyVotedUp) {
+          toast.success(`Bạn đã bỏ đồng tình với bài đăng "${report.title}"`);
+        } else {
+          toast.success(`Bạn đã đồng tình với bài đăng "${report.title}"`);
+        }
+      } else if (voteType === 'down') {
+        if (currentlyVotedDown) {
+          toast.success(`Bạn đã bỏ không đồng tình với bài đăng "${report.title}"`);
+        } else {
+          toast.success(`Bạn đã không đồng tình với bài đăng "${report.title}"`);
+        }
+      }
+    } catch (error) {
+      toast.error('Thao tác thất bại.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
   
   const handleCommentDialogSubmit = async (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => {
@@ -128,19 +151,19 @@ export default function ReportCard({
         <CardFooter className="justify-between">
            <div className="flex gap-2">
              <Button variant={hasVotedUp ? "default" : "outline"} size="sm" onClick={() => handleVote('up')} disabled={isProcessing}>
-                <ThumbsUp className="mr-2 h-4 w-4"/> Đồng tình ({report.upvotes?.length || 0})
+                <ThumbsUp className="mr-1 h-3 w-3"/>({report.upvotes?.length || 0})
             </Button>
             <Button variant={hasVotedDown ? "destructive" : "outline"} size="sm" onClick={() => handleVote('down')} disabled={isProcessing}>
-                <ThumbsDown className="mr-2 h-4 w-4"/> Không đồng tình ({report.downvotes?.length || 0})
+                <ThumbsDown className="mr-1 h-3 w-3"/>({report.downvotes?.length || 0})
             </Button>
             <Button variant="outline" size="sm" onClick={() => setIsCommentDialogOpen(true)}>
-                <MessageSquare className="mr-2 h-4 w-4"/> Bình luận ({report.commentCount || 0})
+                <MessageSquare className="mr-1 h-2 w-3"/>({report.commentCount || 0})
             </Button>
            </div>
             {currentUser.role === 'Chủ nhà hàng' && (
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4"/></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-2 w-2"/></Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader><AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
