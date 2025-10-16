@@ -1,9 +1,143 @@
 rules_version = '2';
 
+// By default, deny all reads and writes
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     match /{document=**} {
+//       allow read, write: if false;
+//     }
+//   }
+// }
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Chủ nhà hàng';
+    }
+    
+    function isOwnerOrManager() {
+        let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+        return userRole == 'Chủ nhà hàng' || userRole == 'Quản lý';
+    }
+    
+    function isSameUser(userId) {
+        return request.auth.uid == userId;
+    }
+
+    // `users` collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if request.auth != null; // Anyone can create their own user doc upon signup
+      allow update: if isOwner() || isSameUser(userId); // Owner can edit anyone, users can edit themselves
+      allow delete: if isOwner();
+    }
+    
+    // `app-data` collection (read-only for most users)
+    match /app-data/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner();
+    }
+    
+    // `schedules` collection
+    match /schedules/{weekId} {
+        allow read: if isSignedIn();
+        allow write: if isOwnerOrManager();
+    }
+    
+    // `notifications` collection
+    match /notifications/{notificationId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn(); // Handled by transaction logic
+        allow delete: if isOwner();
+    }
+
+    // Reports collections
+    match /reports/{reportId} {
+      allow read: if isOwnerOrManager();
+      allow create, update: if isSignedIn(); // Logic in functions will verify user
+      allow delete: if isOwner();
+    }
+
+    match /inventory-reports/{reportId} {
+      allow read: if isOwnerOrManager();
+      allow create, update: if isSignedIn();
+      allow delete: if isOwner();
+    }
+
+    match /summaries/{summaryId} {
+      allow read: if isOwnerOrManager();
+      allow write: if isOwner();
+    }
+
+    match /issue_notes/{noteId} {
+      allow read: if isOwnerOrManager();
+      allow write: if isOwner();
+    }
+
+    // Cashier related collections
+    match /expense_slips/{slipId} {
+        allow read: if isOwnerOrManager() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Thu ngân';
+        allow create, update: if isOwner() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Thu ngân';
+        allow delete: if isOwner();
+    }
+
+    match /revenue_stats/{statId} {
+        allow read: if isOwnerOrManager() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Thu ngân';
+        allow create, update: if isOwner() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Thu ngân';
+        allow delete: if isOwner();
+    }
+
+    match /handover_reports/{reportId} {
+        allow read: if isOwnerOrManager() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Thu ngân';
+        allow create, update: if isOwner() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Thu ngân';
+        allow delete: if isOwner();
+    }
+
+    // Violation & Whistleblowing collections
+    match /violations/{violationId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isOwnerOrManager();
+        allow delete: if isOwner();
+    }
+    
+    match /reports/{reportId} {
+      // Create: Any signed-in user can create a report.
+      allow create: if isSignedIn();
+      
+      // Read:
+      // - Owners can read everything.
+      // - If it's a public post, anyone signed in can read it.
+      // - If it's private, only the owner OR the original reporter can read it.
+      allow read: if isSignedIn() && (
+                    isOwner() ||
+                    resource.data.visibility == 'public' ||
+                    (resource.data.visibility == 'private' && resource.data.reporterId == request.auth.uid)
+                  );
+                  
+      // Update:
+      // - Only for voting (upvotes/downvotes).
+      // - User must not be in both upvotes and downvotes arrays.
+      allow update: if isSignedIn() &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes', 'downvotes']) &&
+                     !(request.auth.uid in request.resource.data.upvotes && request.auth.uid in request.resource.data.downvotes);
+
+      // Delete: Only the owner can delete.
+      allow delete: if isOwner();
+
+      // Comments subcollection
+      match /report_comments/{commentId} {
+        allow read, create: if isSignedIn();
+        // Allow user to update/delete their own comment, or owner to delete any comment.
+        allow update, delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isOwner());
+      }
     }
   }
 }

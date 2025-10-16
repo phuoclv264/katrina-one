@@ -1,4 +1,4 @@
-
+'use client';
 
 import type { Timestamp } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
@@ -229,21 +229,13 @@ export type ViolationCategory = {
 export type ViolationCategoryData = {
     list: ViolationCategory[];
     generalRules?: FineRule[];
+    generalNote?: string;
 };
 
 
 export type ViolationUser = {
   id: string;
   name: string;
-}
-
-export type ViolationComment = {
-  id: string;
-  commenterId: string;
-  commenterName: string;
-  text: string;
-  photos: string[];
-  createdAt: string | Timestamp;
 }
 
 export type PenaltySubmission = {
@@ -288,7 +280,7 @@ export type DailySummary = {
     id?: string; // date YYYY-MM-DD
     summary: string;
     generatedAt: string | Timestamp;
-}
+};
 
 export type IssueNote = {
   id: string;
@@ -515,4 +507,33 @@ export type InvoiceExtractionResult = {
         items: ExtractedInvoiceItem[];
         totalDiscount: number;
     }[];
+};
+
+// --- Report System Types ---
+
+export type ReportComment = {
+  id: string;
+  authorId: string;
+  isAnonymous: boolean;
+  content: string;
+  createdAt: string | Timestamp;
+  photos?: string[];
+};
+
+export type WhistleblowingReport = {
+  id: string;
+  title: string;
+  content: string;
+  attachments?: string[];
+  accusedUsers: ManagedUser[];
+  reporterId: string;
+  isAnonymous: boolean;
+  visibility: 'public' | 'private';
+  upvotes: string[];
+  downvotes: string[];
+  createdAt: string | Timestamp;
+  updatedAt: string | Timestamp;
+  commentCount?: number;
+  comments?: ReportComment[];
+  anonymousNameMap?: { [userId: string]: string };
 };

@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, Banknote, Loader2, Info, UserCog, ClockIcon } from 'lucide-react';
+import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, Banknote, Loader2, Info, UserCog, ClockIcon, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -91,6 +91,12 @@ export default function ManagerDashboardPage() {
               <Link href="/violations">
                   <ShieldX className="mr-2" />
                   Ghi nhận Vi phạm
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/reports-feed">
+                  <MessageSquare className="mr-2" />
+                  Tố cáo
               </Link>
             </Button>
 

@@ -14,10 +14,14 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature, MessageSquare, Edit2, RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { toast } from "react-hot-toast";
 
 export function AppSidebar() {
   const { user, logout, loading, isOnActiveShift } = useAuth();
@@ -38,6 +42,8 @@ export function AppSidebar() {
 
       const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
       const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
+      const commonReportsFeedMenu = { href: '/reports-feed', label: 'Tố cáo', icon: MessageSquare };
+
 
       let primaryItems: any[] = [];
       let secondaryItems: { role: string; item: any }[] = [];
@@ -47,19 +53,22 @@ export function AppSidebar() {
           case 'Phục vụ': primaryItems.push(
             { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
             commonScheduleMenu,
-            commonViolationMenu
+            commonViolationMenu,
+            commonReportsFeedMenu,
           );
           break;
           case 'Pha chế': primaryItems.push(
             { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
             commonScheduleMenu,
-            commonViolationMenu
+            commonViolationMenu,
+            commonReportsFeedMenu,
           );
           break;
            case 'Thu ngân': primaryItems.push(
             { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
             commonScheduleMenu,
-            commonViolationMenu
+            commonViolationMenu,
+            commonReportsFeedMenu,
           );
           break;
           case 'Quản lý': primaryItems.push(
@@ -67,7 +76,8 @@ export function AppSidebar() {
             { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
             { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
-            commonViolationMenu
+            commonViolationMenu,
+            commonReportsFeedMenu
           );
           break;
           case 'Chủ nhà hàng': primaryItems.push(
@@ -75,6 +85,7 @@ export function AppSidebar() {
             { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
             { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
+            commonReportsFeedMenu,
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
             { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
@@ -169,10 +180,12 @@ export function AppSidebar() {
                 <span className="font-semibold truncate">{displayName}</span>
                 <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
             </div>
+        </div>
+        <div className="flex items-center justify-end group-data-[collapsible=icon]:hidden px-1">
             <SidebarMenuButton
               variant="ghost"
               size="icon"
-              className="ml-auto h-8 w-8 shrink-0"
+              className="h-8 w-8 shrink-0"
               onClick={logout}
               tooltip="Đăng xuất"
               disabled={loading}

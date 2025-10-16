@@ -1,8 +1,9 @@
+
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { dataStore } from '@/lib/data-store';
@@ -16,6 +17,7 @@ export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
   secondaryRoles?: UserRole[];
+  anonymousName?: string;
 }
 
 export const useAuth = () => {
@@ -64,9 +66,10 @@ export const useAuth = () => {
             displayName: userData.displayName,
             role: userRole,
             secondaryRoles: userData.secondaryRoles || [],
+            anonymousName: userData.anonymousName,
           } as AuthUser;
           setUser(authUser);
-           // The schedule subscription will handle the initial shift check
+
           if (pathname === '/') {
              if (userRole === 'Phục vụ') router.replace('/shifts');
              else if (userRole === 'Pha chế') router.replace('/bartender');
@@ -94,13 +97,10 @@ export const useAuth = () => {
     });
 
     return () => unsubscribeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!user) {
-        // When user logs out, reset shift state immediately
         setIsOnActiveShift(false);
         setActiveShifts([]);
         setTodaysShifts([]);
@@ -118,7 +118,6 @@ export const useAuth = () => {
         unsubscribeSchedule();
     };
   }, [user, checkUserShift]);
-
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
@@ -173,6 +172,19 @@ export const useAuth = () => {
     }
   }, [router]);
   
+  const updateUserAnonymousName = async (newAnonymousName: string): Promise<void> => {
+    if (!user) throw new Error("User not authenticated.");
+    try {
+      await dataStore.updateUserAnonymousName(user.uid, newAnonymousName);
+      setUser(prevUser => prevUser ? { ...prevUser, anonymousName: newAnonymousName } : null);
+      toast.success('Đã cập nhật tên ẩn danh!');
+    } catch (error) {
+      console.error("Failed to update anonymous name:", error);
+      toast.error("Lỗi khi cập nhật tên ẩn danh.");
+      throw error;
+    }
+  };
+  
   return { 
       user, 
       loading,
@@ -182,5 +194,6 @@ export const useAuth = () => {
       login, 
       register,
       logout, 
+      updateUserAnonymousName,
   };
 };

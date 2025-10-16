@@ -31,6 +31,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/violations': 'Danh sách Vi phạm',
     '/schedule': 'Lịch làm việc',
     '/shift-scheduling': 'Xếp lịch & Phê duyệt',
+    '/reports-feed': 'Tố cáo',
 };
 
 export function MobileHeader() {

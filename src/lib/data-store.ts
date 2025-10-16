@@ -2100,25 +2100,17 @@ export const dataStore = {
         const violationRef = doc(db, 'violations', violationId);
         await runTransaction(db, async (transaction) => {
             const violationDoc = await transaction.get(violationRef);
-            if (!violationDoc.exists()) {
-                throw new Error("Violation not found.");
-            }
-            const violation = violationDoc.data() as Violation;
-            const comments = violation.comments || [];
-            const commentToDelete = comments.find(c => c.id === commentId);
+            if (!violationDoc.exists()) throw "Report not found.";
 
-            if (!commentToDelete) {
-                // Comment might have already been deleted.
-                return;
-            }
-
-            // Delete associated photos from storage first
-            if (commentToDelete.photos && commentToDelete.photos.length > 0) {
+            const existingViolation = violationDoc.data() as Violation;
+            const existingComments: ViolationComment[] = existingViolation.comments || [];
+            const commentToDelete = existingComments.find(c => c.id === commentId);
+            
+            if (commentToDelete?.photos) {
                 await Promise.all(commentToDelete.photos.map(url => this.deletePhotoFromStorage(url)));
             }
-
-            // Update the comments array in Firestore
-            const updatedComments = comments.filter(c => c.id !== commentId);
+            
+            const updatedComments = existingComments.filter(c => c.id !== commentId);
             transaction.update(violationRef, { comments: updatedComments });
         });
     },
@@ -2175,4 +2167,12 @@ export const dataStore = {
     await photoStore.deletePhotos(photoIds);
     return newPhotoUrls;
   },
+
 };
+
+Object.assign(dataStore, {
+    async updateUserAnonymousName(uid: string, newName: string): Promise<void> {
+        const userRef = doc(db, 'users', uid);
+        await updateDoc(userRef, { anonymousName: newName });
+    },
+});
