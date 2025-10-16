@@ -44,6 +44,8 @@ export default function ReportCard({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
+  
+  const isMyReport = report.reporterId === currentUser.uid;
 
   const openLightbox = (photos: string[], index: number = 0) => {
     setLightboxPhotos(photos);
@@ -105,32 +107,36 @@ export default function ReportCard({
     <TooltipProvider>
       <Card className="rounded-xl shadow-md border bg-white dark:bg-card transition-all duration-300">
         <CardHeader className="p-4 sm:p-6 pb-4">
-           {currentUser.role === 'Chủ nhà hàng' && (
+           { (isMyReport || currentUser.role === 'Chủ nhà hàng') && (
              <div className="flex items-center justify-between mb-2">
                  <div className="flex items-center gap-2">
-                    <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
-                        {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
-                        {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
-                    </Badge>
-                     {report.reporterId === currentUser.uid && (
-                        <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>
+                    {isMyReport && (
+                        <>
+                            <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
+                                {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
+                                {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                            </Badge>
+                            <Badge variant="outline" className="border-primary text-primary">Bài của bạn</Badge>
+                        </>
                     )}
                  </div>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
-                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                 {currentUser.role === 'Chủ nhà hàng' && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
+                                <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(report.id)}>Xóa</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                 )}
              </div>
           )}
           <CardTitle className="text-xl font-bold leading-tight">{report.title}</CardTitle>
