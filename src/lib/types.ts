@@ -529,6 +529,7 @@ export type WhistleblowingReport = {
   reporterId: string;
   isAnonymous: boolean;
   visibility: 'public' | 'private';
+  isPinned?: boolean; // New field for pinning
   upvotes: string[];
   downvotes: string[];
   createdAt: string | Timestamp;

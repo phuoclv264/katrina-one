@@ -64,7 +64,7 @@ export const reportsStore = {
     },
 
     async createReport(
-        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'attachments' | 'accusedUsers'> & { attachmentIds: string[], accusedUsers: {id: string, name: string}[] },
+        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'attachments' | 'accusedUsers' | 'isPinned'> & { attachmentIds: string[], accusedUsers: {id: string, name: string}[] },
     ): Promise<string> {
         const { attachmentIds, ...reportData } = data;
         const newReportRef = doc(collection(db, 'reports-feed'));
@@ -75,6 +75,7 @@ export const reportsStore = {
         const newReport: Omit<WhistleblowingReport, 'id'> = {
             ...reportData,
             attachments: attachmentUrls,
+            isPinned: false, // Default to not pinned
             upvotes: [],
             downvotes: [],
             createdAt: serverTimestamp(),
@@ -94,6 +95,14 @@ export const reportsStore = {
     async deleteReport(reportId: string): Promise<void> {
         // Note: Implement logic to delete associated attachments from Storage if needed.
         await deleteDoc(doc(db, 'reports-feed', reportId));
+    },
+    
+    async togglePin(reportId: string, currentPinStatus: boolean): Promise<void> {
+        const reportRef = doc(db, 'reports-feed', reportId);
+        await updateDoc(reportRef, {
+            isPinned: !currentPinStatus,
+            updatedAt: serverTimestamp(),
+        });
     },
 
     async vote(reportId: string, userId: string, voteType: 'up' | 'down'): Promise<void> {
@@ -188,7 +197,7 @@ export const reportsStore = {
             }
             
             const updatedComments = [...comments];
-            updatedComments[commentIndex].content = newContent;
+            updatedComments[commentIndex].text = newContent;
 
             transaction.update(reportRef, { comments: updatedComments });
         });
