@@ -172,16 +172,16 @@ export function AppSidebar() {
                  </Link>
             </div>
          </div>
-        <div className="flex items-center gap-3 p-2 rounded-md bg-muted group-data-[collapsible=icon]:hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                {getRoleIcon()}
+        <div className="flex items-center justify-between p-2 rounded-md bg-muted group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                    {getRoleIcon()}
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                    <span className="font-semibold truncate">{displayName}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
+                </div>
             </div>
-            <div className="flex flex-col overflow-hidden">
-                <span className="font-semibold truncate">{displayName}</span>
-                <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
-            </div>
-        </div>
-        <div className="flex items-center justify-end group-data-[collapsible=icon]:hidden px-1">
             <SidebarMenuButton
               variant="ghost"
               size="icon"
