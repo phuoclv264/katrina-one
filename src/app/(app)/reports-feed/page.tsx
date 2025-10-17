@@ -254,6 +254,8 @@ export default function ReportsFeedPage() {
         onSave={handleSaveReport}
         allUsers={allUsers}
         reportToEdit={reportToEdit}
+        currentUserName={user.displayName}
+        currentUserRole={user.role}
       />
       <MySentReportsDialog
         isOpen={isMyReportsDialogOpen}

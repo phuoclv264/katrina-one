@@ -23,6 +23,8 @@ type ReportDialogProps = {
     onSave: (data: any, id?: string) => Promise<void>;
     allUsers: ManagedUser[];
     reportToEdit?: WhistleblowingReport | null;
+    currentUserName: string;
+    currentUserRole: string;
 };
 
 type LocalAttachment = {
@@ -31,8 +33,9 @@ type LocalAttachment = {
     file: File;
 };
 
-export default function ReportDialog({ isOpen, onClose, onSave, allUsers, reportToEdit }: ReportDialogProps) {
+export default function ReportDialog({ isOpen, onClose, onSave, allUsers, reportToEdit, currentUserName, currentUserRole }: ReportDialogProps) {
     const isEditMode = !!reportToEdit;
+    const shouldShowAllUsers = currentUserName.includes('Không chọn') || currentUserRole === 'Chủ nhà hàng';
 
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -161,7 +164,7 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
                     <div className="grid gap-4">
                         <div className="space-y-2">
                             <Label>Người bị tố cáo</Label>
-                            <UserMultiSelect users={allUsers} selectedUsers={accusedUsers} onChange={setAccusedUsers} />
+                            <UserMultiSelect users={shouldShowAllUsers ? allUsers : allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'))} selectedUsers={accusedUsers} onChange={setAccusedUsers} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="title">Tiêu đề</Label>
