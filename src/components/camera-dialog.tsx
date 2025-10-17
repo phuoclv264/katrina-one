@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -42,7 +43,7 @@ export default function CameraDialog({
   const recordedChunksRef = useRef<Blob[]>([]);
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [isStarting, setIsStarting] = useState(isStarting);
+  const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [capturedMedia, setCapturedMedia] = useState<{ id: string; url: string; type: 'photo' | 'video' }[]>([]);
   
@@ -120,7 +121,8 @@ export default function CameraDialog({
       capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
       stopCameraStream();
     }
-  }, [isOpen, acceptedMedia, currentMode, stopCameraStream]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, acceptedMedia, currentMode]);
 
 
   useEffect(() => {
