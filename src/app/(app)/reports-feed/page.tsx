@@ -25,6 +25,7 @@ export default function ReportsFeedPage() {
 
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isMyReportsDialogOpen, setIsMyReportsDialogOpen] = useState(false);
+  const [reportToEdit, setReportToEdit] = useState<WhistleblowingReport | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -78,24 +79,34 @@ export default function ReportsFeedPage() {
         return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
     });
   }, [reports, user]);
+  
+  const handleEditReport = (report: WhistleblowingReport) => {
+    setReportToEdit(report);
+    setIsReportDialogOpen(true);
+  };
 
-  const handleSaveReport = async (data: any) => {
+  const handleSaveReport = async (data: any, id?: string) => {
     if (!user) return;
     
-    const accusedUsersForDb: AssignedUser[] = (data.accusedUsers || []).map((u: ManagedUser) => ({ id: u.uid, name: u.displayName }));
-
-    const reportData = {
-      ...data,
-      accusedUsers: accusedUsersForDb,
-      reporterId: user.uid,
-    };
     try {
-      await reportsStore.createReport(reportData);
-      toast.success('Đã gửi bài tố cáo thành công.');
-      setIsReportDialogOpen(false);
+        if (id) {
+            // Update existing report
+            await reportsStore.updateReport(id, data);
+            toast.success('Đã cập nhật bài đăng.');
+        } else {
+            // Create new report
+             const reportData = {
+                ...data,
+                reporterId: user.uid,
+            };
+            await reportsStore.createReport(reportData);
+            toast.success('Đã gửi bài tố cáo thành công.');
+        }
+        setIsReportDialogOpen(false);
+        setReportToEdit(null);
     } catch (error) {
       console.error("Failed to save report:", error);
-      toast.error('Không thể gửi bài tố cáo.');
+      toast.error('Không thể lưu bài đăng.');
     }
   };
 
@@ -110,7 +121,11 @@ export default function ReportsFeedPage() {
   };
   
   const handleDelete = async (reportId: string) => {
-      if (!user || user.role !== 'Chủ nhà hàng') return;
+      if (!user) return;
+      if (user.role !== 'Chủ nhà hàng' && reports.find(r => r.id === reportId)?.reporterId !== user.uid) {
+          toast.error("Bạn không có quyền xóa bài đăng này.");
+          return;
+      }
       try {
         await reportsStore.deleteReport(reportId);
         toast.success("Đã xóa bài tố cáo.");
@@ -155,7 +170,6 @@ export default function ReportsFeedPage() {
     setTimeout(() => {
       const element = reportRefs.current.get(reportId);
       element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Optional: Add a highlight effect
       if (element) {
         element.classList.add('ring-2', 'ring-primary', 'transition-all', 'duration-1000');
         setTimeout(() => {
@@ -195,7 +209,7 @@ export default function ReportsFeedPage() {
               <Button onClick={() => setIsMyReportsDialogOpen(true)} variant="outline" className="w-full sm:w-auto">
                   <FileSignature className="mr-2 h-4 w-4" /> Bài đăng của tôi
               </Button>
-              <Button onClick={() => setIsReportDialogOpen(true)} className="w-full sm:w-auto">
+              <Button onClick={() => { setReportToEdit(null); setIsReportDialogOpen(true); }} className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
               </Button>
             </div>
@@ -215,6 +229,7 @@ export default function ReportsFeedPage() {
                         onCommentSubmit={handleCommentSubmit}
                         onCommentEdit={handleCommentEdit}
                         onCommentDelete={handleCommentDelete}
+                        onEdit={handleEditReport}
                     />
                 </div>
             ))}
@@ -226,7 +241,7 @@ export default function ReportsFeedPage() {
                 <p className="mt-2 max-w-xs text-center text-muted-foreground">
                     Hãy là người đầu tiên tạo một bài đăng để chia sẻ vấn đề của bạn.
                 </p>
-                <Button onClick={() => setIsReportDialogOpen(true)} className="mt-6">
+                <Button onClick={() => { setReportToEdit(null); setIsReportDialogOpen(true); }} className="mt-6">
                   <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
               </Button>
              </div>
@@ -238,6 +253,7 @@ export default function ReportsFeedPage() {
         onClose={() => setIsReportDialogOpen(false)}
         onSave={handleSaveReport}
         allUsers={allUsers}
+        reportToEdit={reportToEdit}
       />
       <MySentReportsDialog
         isOpen={isMyReportsDialogOpen}

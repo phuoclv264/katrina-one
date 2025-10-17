@@ -56,7 +56,7 @@ export default function MySentReportsDialog({ isOpen, onClose, reports, userId, 
                                                     <h4 className="font-semibold mb-1">Người bị tố cáo:</h4>
                                                     <div className="flex flex-wrap gap-1">
                                                         {report.accusedUsers.map(user => (
-                                                            <Badge key={user.id} variant="destructive">{user.name}</Badge>
+                                                            <Badge key={user.uid} variant="destructive">{user.displayName}</Badge>
                                                         ))}
                                                     </div>
                                                 </div>

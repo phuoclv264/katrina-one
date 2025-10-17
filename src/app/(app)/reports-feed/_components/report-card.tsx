@@ -1,10 +1,9 @@
-
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment } from '@/lib/types';
 import Lightbox from "yet-another-react-lightbox";
@@ -29,6 +28,7 @@ export default function ReportCard({
   onCommentSubmit,
   onCommentEdit,
   onCommentDelete,
+  onEdit, // Add this prop
 }: {
   report: WhistleblowingReport;
   currentUser: AuthUser;
@@ -39,6 +39,7 @@ export default function ReportCard({
   onCommentSubmit: (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => Promise<void>;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
+  onEdit: (report: WhistleblowingReport) => void; // Add this prop
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -61,13 +62,8 @@ export default function ReportCard({
     };
 
     if (lightboxOpen) {
-      // Push a state to the history when the lightbox opens
       window.history.pushState({ lightbox: 'open' }, '');
       window.addEventListener('popstate', handlePopState);
-    } else {
-      // If the lightbox is closed by other means (e.g., clicking 'X'), we might need to go back
-      // if the history state we pushed is still active. This part is tricky and might
-      // be omitted for simplicity unless back button behavior feels broken after closing.
     }
 
     return () => {
@@ -92,7 +88,6 @@ export default function ReportCard({
 
       await onVote(report.id, voteType);
       
-      // Determine the new state *after* the vote to show the correct toast
       if (voteType === 'up') {
         if (!currentlyVotedUp) {
           toast.success(`Bạn đã đồng tình với bài đăng "${report.title}"`);
@@ -184,11 +179,11 @@ export default function ReportCard({
                   <div className="flex flex-wrap items-center gap-2">
                       <Label className="text-xs font-semibold">Đối tượng:</Label>
                       {report.accusedUsers.map(user => (
-                          <Badge key={user.id} variant="destructive">{user.name}</Badge>
+                          <Badge key={user.uid} variant="destructive">{user.displayName}</Badge>
                       ))}
                   </div>
               )}
-               {(isMyReport || currentUser.role === 'Chủ nhà hàng') && (
+               {(isMyReport || isOwner) && (
                 <div className="flex items-center gap-2">
                    <Badge variant={report.visibility === 'private' ? 'secondary' : 'outline'}>
                        {report.visibility === 'private' ? <EyeOff className="mr-1 h-3 w-3"/> : <Eye className="mr-1 h-3 w-3"/>}
@@ -245,6 +240,16 @@ export default function ReportCard({
             </Tooltip>
            </div>
             <div className="flex items-center gap-1">
+                {(isMyReport || isOwner) && (
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                           <Button variant="ghost" size="icon" onClick={() => onEdit(report)} className="h-8 w-8 text-muted-foreground" disabled={isProcessing}>
+                                <Edit2 className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Chỉnh sửa</p></TooltipContent>
+                    </Tooltip>
+                )}
                 {isOwner && (
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -255,7 +260,7 @@ export default function ReportCard({
                         <TooltipContent><p>{report.isPinned ? 'Bỏ ghim' : 'Ghim bài đăng'}</p></TooltipContent>
                     </Tooltip>
                 )}
-                 {isOwner && (
+                 {(isMyReport || isOwner) && (
                     <AlertDialog>
                         <Tooltip>
                             <TooltipTrigger asChild>

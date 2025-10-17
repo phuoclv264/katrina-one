@@ -19,7 +19,7 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { photoStore } from './photo-store';
 import { v4 as uuidv4 } from 'uuid';
-import type { WhistleblowingReport, ReportComment } from './types';
+import type { WhistleblowingReport, ReportComment, ManagedUser, AssignedUser } from './types';
 
 
 // Helper function to upload attachments
@@ -64,7 +64,7 @@ export const reportsStore = {
     },
 
     async createReport(
-        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'attachments' | 'accusedUsers' | 'isPinned'> & { attachmentIds: string[], accusedUsers: {id: string, name: string}[] },
+        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'attachments' | 'accusedUsers' | 'isPinned'> & { attachmentIds: string[], accusedUsers: ManagedUser[] },
     ): Promise<string> {
         const { attachmentIds, ...reportData } = data;
         const newReportRef = doc(collection(db, 'reports-feed'));
@@ -90,6 +90,24 @@ export const reportsStore = {
         
         await setDoc(newReportRef, newReport);
         return reportId;
+    },
+    
+    async updateReport(
+        reportId: string,
+        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'reporterId' | 'isPinned' | 'attachments' | 'commentCount' | 'anonymousNameMap'> & { attachmentIds?: string[], existingAttachments?: string[] }
+    ): Promise<void> {
+        const { attachmentIds, existingAttachments, ...reportData } = data;
+        const reportRef = doc(db, 'reports-feed', reportId);
+        
+        const newAttachmentUrls = await uploadAttachments(reportId, attachmentIds || []);
+        
+        const updatedReportData: Partial<WhistleblowingReport> = {
+            ...reportData,
+            attachments: [...(existingAttachments || []), ...newAttachmentUrls],
+            updatedAt: serverTimestamp(),
+        };
+
+        await updateDoc(reportRef, updatedReportData);
     },
 
     async deleteReport(reportId: string): Promise<void> {
@@ -197,7 +215,7 @@ export const reportsStore = {
             }
             
             const updatedComments = [...comments];
-            updatedComments[commentIndex].text = newContent;
+            updatedComments[commentIndex].content = newContent;
 
             transaction.update(reportRef, { comments: updatedComments });
         });

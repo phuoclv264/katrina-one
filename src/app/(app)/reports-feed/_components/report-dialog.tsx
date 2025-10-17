@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Loader2, Wand2, Paperclip, Camera, X } from 'lucide-react';
-import type { ManagedUser } from '@/lib/types';
+import type { ManagedUser, WhistleblowingReport } from '@/lib/types';
 import { refineText } from '@/ai/flows/refine-text-flow';
 import { toast } from 'react-hot-toast';
 import { photoStore } from '@/lib/photo-store';
@@ -20,16 +20,22 @@ import CameraDialog from '@/components/camera-dialog';
 type ReportDialogProps = {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: any) => Promise<void>;
+    onSave: (data: any, id?: string) => Promise<void>;
     allUsers: ManagedUser[];
+    reportToEdit?: WhistleblowingReport | null;
 };
 
-export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: ReportDialogProps) {
+export default function ReportDialog({ isOpen, onClose, onSave, allUsers, reportToEdit }: ReportDialogProps) {
+    const isEditMode = !!reportToEdit;
+
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [accusedUsers, setAccusedUsers] = useState<ManagedUser[]>([]);
     const [isAnonymous, setIsAnonymous] = useState(true);
     const [visibility, setVisibility] = useState<'public' | 'private'>('private');
+    
+    // Photo state
+    const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
     const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
     const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
     
@@ -37,18 +43,29 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: Repo
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-
     useEffect(() => {
         if (isOpen) {
-            setTitle('');
-            setContent('');
-            setAccusedUsers([]);
-            setIsAnonymous(true);
-            setVisibility('private');
+            if (isEditMode) {
+                setTitle(reportToEdit.title);
+                setContent(reportToEdit.content);
+                setAccusedUsers(reportToEdit.accusedUsers);
+                setIsAnonymous(reportToEdit.isAnonymous);
+                setVisibility(reportToEdit.visibility);
+                setExistingAttachments(reportToEdit.attachments || []);
+            } else {
+                setTitle('');
+                setContent('');
+                setAccusedUsers([]);
+                setIsAnonymous(true);
+                setVisibility('private');
+                setExistingAttachments([]);
+            }
+             // Always reset local photos
             setAttachmentIds([]);
+            attachmentUrls.forEach(URL.revokeObjectURL);
             setAttachmentUrls([]);
         }
-    }, [isOpen]);
+    }, [isOpen, reportToEdit, isEditMode]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!event.target.files) return;
@@ -78,14 +95,18 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: Repo
         setAttachmentUrls(prev => [...prev, ...urls]);
     };
 
-    const handleDeleteAttachment = async (urlToDelete: string) => {
-        const index = attachmentUrls.indexOf(urlToDelete);
-        if (index > -1) {
-            const idToDelete = attachmentIds[index];
-            setAttachmentUrls(prev => prev.filter(url => url !== urlToDelete));
-            setAttachmentIds(prev => prev.filter(id => id !== idToDelete));
-            URL.revokeObjectURL(urlToDelete);
-            await photoStore.deletePhoto(idToDelete);
+    const handleDeleteAttachment = async (urlToDelete: string, isExisting: boolean) => {
+        if (isExisting) {
+            setExistingAttachments(prev => prev.filter(url => url !== urlToDelete));
+        } else {
+            const index = attachmentUrls.indexOf(urlToDelete);
+            if (index > -1) {
+                const idToDelete = attachmentIds[index];
+                setAttachmentUrls(prev => prev.filter(url => url !== urlToDelete));
+                setAttachmentIds(prev => prev.filter(id => id !== idToDelete));
+                URL.revokeObjectURL(urlToDelete);
+                await photoStore.deletePhoto(idToDelete);
+            }
         }
     };
 
@@ -111,7 +132,18 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: Repo
             return;
         }
         setIsSaving(true);
-        await onSave({ title, content, accusedUsers, isAnonymous, visibility, attachmentIds });
+
+        const data = {
+            title,
+            content,
+            accusedUsers: accusedUsers,
+            isAnonymous,
+            visibility,
+            attachmentIds,
+            existingAttachments, // Pass existing attachments for update logic
+        };
+
+        await onSave(data, reportToEdit?.id);
         setIsSaving(false);
     };
 
@@ -120,9 +152,9 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: Repo
             <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[625px] bg-white dark:bg-card p-0 h-[90vh] flex flex-col">
                 <DialogHeader className="p-4 sm:p-6 pb-2 shrink-0">
-                    <DialogTitle>Tạo bài tố cáo mới</DialogTitle>
+                    <DialogTitle>{isEditMode ? 'Chỉnh sửa bài đăng' : 'Tạo bài tố cáo mới'}</DialogTitle>
                     <DialogDescription>
-                        Mọi thông tin sẽ được bảo mật theo lựa chọn của bạn.
+                       {isEditMode ? 'Thực hiện các thay đổi cho bài đăng của bạn.' : 'Mọi thông tin sẽ được bảo mật theo lựa chọn của bạn.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow overflow-y-auto px-4 py-2">
@@ -154,12 +186,18 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: Repo
                                     <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
                                 </Button>
                             </div>
-                            {attachmentUrls.length > 0 && (
+                            {(existingAttachments.length > 0 || attachmentUrls.length > 0) && (
                                 <div className="flex flex-wrap gap-2 mt-2">
+                                    {existingAttachments.map((url) => (
+                                        <div key={url} className="relative w-20 h-20">
+                                            <Image src={url} alt="Existing attachment" fill className="object-cover rounded-md"/>
+                                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(url, true)}><X className="h-3 w-3"/></Button>
+                                        </div>
+                                    ))}
                                     {attachmentUrls.map((url) => (
                                         <div key={url} className="relative w-20 h-20">
                                             <Image src={url} alt="Attachment preview" fill className="object-cover rounded-md"/>
-                                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(url)}><X className="h-3 w-3"/></Button>
+                                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(url, false)}><X className="h-3 w-3"/></Button>
                                         </div>
                                     ))}
                                 </div>
@@ -181,7 +219,8 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers }: Repo
                     <div className="flex gap-2 self-end w-full sm:w-auto">
                         <Button variant="outline" onClick={onClose} disabled={isSaving} className="w-full sm:w-auto">Hủy</Button>
                         <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
-                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Gửi
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            {isEditMode ? 'Lưu thay đổi' : 'Gửi'}
                         </Button>
                     </div>
                 </DialogFooter>
