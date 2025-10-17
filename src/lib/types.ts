@@ -511,6 +511,12 @@ export type InvoiceExtractionResult = {
 
 // --- Report System Types ---
 
+export type Attachment = {
+  url: string;
+  name: string;
+  type: string; // MIME type
+};
+
 export type ReportComment = {
   id: string;
   authorId: string;
@@ -524,7 +530,7 @@ export type WhistleblowingReport = {
   id: string;
   title: string;
   content: string;
-  attachments?: string[];
+  attachments?: Attachment[];
   accusedUsers: ManagedUser[];
   reporterId: string;
   isAnonymous: boolean;

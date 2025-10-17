@@ -15,28 +15,31 @@ import {
     arrayUnion,
     arrayRemove,
     runTransaction,
+    getDoc,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, getMetadata } from 'firebase/storage';
 import { photoStore } from './photo-store';
 import { v4 as uuidv4 } from 'uuid';
-import type { WhistleblowingReport, ReportComment, ManagedUser, AssignedUser } from './types';
+import type { WhistleblowingReport, ReportComment, ManagedUser, AssignedUser, Attachment } from './types';
 
 
 // Helper function to upload attachments
-const uploadAttachments = async (reportId: string, photoIds: string[]): Promise<string[]> => {
-    if (photoIds.length === 0) return [];
+const uploadAttachments = async (reportId: string, localAttachments: {id: string, file: File}[]): Promise<Attachment[]> => {
+    if (localAttachments.length === 0) return [];
     
-    const uploadPromises = photoIds.map(async (photoId) => {
-        const photoBlob = await photoStore.getPhoto(photoId);
+    const uploadPromises = localAttachments.map(async (att) => {
+        const photoBlob = await photoStore.getPhoto(att.id);
         if (!photoBlob) return null;
-        const storageRef = ref(storage, `whistleblowing/${reportId}/${uuidv4()}`);
-        await uploadBytes(storageRef, photoBlob);
-        return getDownloadURL(storageRef);
+        const storageRef = ref(storage, `whistleblowing/${reportId}/${uuidv4()}_${att.file.name}`);
+        const metadata = { contentType: att.file.type };
+        await uploadBytes(storageRef, photoBlob, metadata);
+        const url = await getDownloadURL(storageRef);
+        return { url, name: att.file.name, type: att.file.type };
     });
 
-    const urls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-    await photoStore.deletePhotos(photoIds);
-    return urls;
+    const results = (await Promise.all(uploadPromises)).filter((url): url is Attachment => !!url);
+    await photoStore.deletePhotos(localAttachments.map(att => att.id));
+    return results;
 };
 
 // Main data store object
@@ -64,13 +67,13 @@ export const reportsStore = {
     },
 
     async createReport(
-        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'attachments' | 'accusedUsers' | 'isPinned'> & { attachmentIds: string[], accusedUsers: ManagedUser[] },
+        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'attachments' | 'accusedUsers' | 'isPinned'> & { localAttachments: {id: string, file: File}[], accusedUsers: ManagedUser[] },
     ): Promise<string> {
-        const { attachmentIds, ...reportData } = data;
+        const { localAttachments, ...reportData } = data;
         const newReportRef = doc(collection(db, 'reports-feed'));
         const reportId = newReportRef.id;
 
-        const attachmentUrls = await uploadAttachments(reportId, attachmentIds);
+        const attachmentUrls = await uploadAttachments(reportId, localAttachments);
 
         const newReport: Omit<WhistleblowingReport, 'id'> = {
             ...reportData,
@@ -94,12 +97,12 @@ export const reportsStore = {
     
     async updateReport(
         reportId: string,
-        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'reporterId' | 'isPinned' | 'attachments' | 'commentCount' | 'anonymousNameMap'> & { attachmentIds?: string[], existingAttachments?: string[] }
+        data: Omit<WhistleblowingReport, 'id' | 'createdAt' | 'updatedAt' | 'upvotes' | 'downvotes' | 'reporterId' | 'isPinned' | 'attachments' | 'commentCount' | 'anonymousNameMap'> & { localAttachments?: {id: string, file: File}[], existingAttachments?: Attachment[] }
     ): Promise<void> {
-        const { attachmentIds, existingAttachments, ...reportData } = data;
+        const { localAttachments, existingAttachments, ...reportData } = data;
         const reportRef = doc(db, 'reports-feed', reportId);
         
-        const newAttachmentUrls = await uploadAttachments(reportId, attachmentIds || []);
+        const newAttachmentUrls = await uploadAttachments(reportId, localAttachments || []);
         
         const updatedReportData: Partial<WhistleblowingReport> = {
             ...reportData,
@@ -111,8 +114,21 @@ export const reportsStore = {
     },
 
     async deleteReport(reportId: string): Promise<void> {
-        // Note: Implement logic to delete associated attachments from Storage if needed.
-        await deleteDoc(doc(db, 'reports-feed', reportId));
+        const reportRef = doc(db, 'reports-feed', reportId);
+        const reportSnap = await getDoc(reportRef);
+        if (reportSnap.exists()) {
+            const reportData = reportSnap.data() as WhistleblowingReport;
+            const allAttachments = [...(reportData.attachments || []), ...(reportData.comments || []).flatMap(c => c.photos || [])];
+            const deletePromises = allAttachments.map(att => {
+                if(typeof att === 'string') { // handle old string format
+                     return deleteObject(ref(storage, att)).catch(err => console.error(`Failed to delete old attachment ${att}:`, err));
+                }
+                 return deleteObject(ref(storage, att.url)).catch(err => console.error(`Failed to delete attachment ${att.name}:`, err));
+            });
+            await Promise.all(deletePromises);
+        }
+
+        await deleteDoc(reportRef);
     },
     
     async togglePin(reportId: string, currentPinStatus: boolean): Promise<void> {
@@ -160,7 +176,11 @@ export const reportsStore = {
     async addComment(reportId: string, commentData: Omit<ReportComment, 'id' | 'createdAt' | 'photos'>, photoIds: string[]): Promise<void> {
         const reportRef = doc(db, 'reports-feed', reportId);
         
-        const attachmentUrls = await uploadAttachments(`${reportId}/comments`, photoIds);
+        // This is a simplified version, it assumes comments only have images.
+        const attachmentUrls = (await uploadAttachments(
+            `${reportId}/comments`, 
+            photoIds.map(id => ({ id, file: new File([], `${id}.jpg`, { type: 'image/jpeg' }) }))
+        )).map(att => att.url);
 
         await runTransaction(db, async (transaction) => {
             const reportDoc = await transaction.get(reportRef);

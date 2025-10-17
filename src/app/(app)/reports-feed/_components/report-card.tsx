@@ -3,11 +3,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff, Edit2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff, Edit2, File as FileIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment } from '@/lib/types';
+import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, Attachment } from '@/lib/types';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import Video from "yet-another-react-lightbox/plugins/video";
 import Image from 'next/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
@@ -28,7 +29,7 @@ export default function ReportCard({
   onCommentSubmit,
   onCommentEdit,
   onCommentDelete,
-  onEdit, // Add this prop
+  onEdit,
 }: {
   report: WhistleblowingReport;
   currentUser: AuthUser;
@@ -39,7 +40,7 @@ export default function ReportCard({
   onCommentSubmit: (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => Promise<void>;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
-  onEdit: (report: WhistleblowingReport) => void; // Add this prop
+  onEdit: (report: WhistleblowingReport) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -47,7 +48,6 @@ export default function ReportCard({
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   
   const isMyReport = report.reporterId === currentUser.uid;
   const isOwner = currentUser.role === 'Chủ nhà hàng';
@@ -71,10 +71,9 @@ export default function ReportCard({
     };
   }, [lightboxOpen]);
 
-  const openLightbox = (photos: string[], index: number = 0) => {
-    setLightboxPhotos(photos);
-    setLightboxOpen(true);
+  const openLightbox = (index: number = 0) => {
     setLightboxIndex(index);
+    setLightboxOpen(true);
   };
   
   const hasVotedUp = report.upvotes?.includes(currentUser.uid);
@@ -137,6 +136,9 @@ export default function ReportCard({
     if (reporterDisplayName === 'Ẩn danh') return <User className="h-4 w-4"/>;
     return reporterDisplayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   }, [reporterDisplayName]);
+  
+  const mediaAttachments = useMemo(() => (report.attachments || []).filter(att => att.type.startsWith('image/') || att.type.startsWith('video/')), [report.attachments]);
+  const otherAttachments = useMemo(() => (report.attachments || []).filter(att => !att.type.startsWith('image/') && !att.type.startsWith('video/')), [report.attachments]);
 
   return (
     <TooltipProvider>
@@ -194,14 +196,31 @@ export default function ReportCard({
              )}
             </div>
             
-            {report.attachments && report.attachments.length > 0 && (
+             {mediaAttachments.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {report.attachments.map((url, index) => (
-                         <button key={url} onClick={() => openLightbox(report.attachments!, index)} className="relative aspect-square w-full rounded-lg overflow-hidden group">
-                            <Image src={url} alt={`Attachment ${index + 1}`} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                    {mediaAttachments.map((att, index) => (
+                         <button key={att.url} onClick={() => openLightbox(index)} className="relative aspect-square w-full rounded-lg overflow-hidden group">
+                            {att.type.startsWith('image/') ? (
+                                <Image src={att.url} alt={att.name} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                            ) : (
+                                <video src={att.url} className="object-cover h-full w-full" muted playsInline />
+                            )}
                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                          </button>
                     ))}
+                </div>
+            )}
+             {otherAttachments.length > 0 && (
+                <div className="space-y-2 pt-2">
+                    <Label className="text-xs font-semibold">Tệp đính kèm khác:</Label>
+                    <div className="flex flex-col gap-2">
+                        {otherAttachments.map((att, index) => (
+                            <a href={att.url} target="_blank" rel="noopener noreferrer" key={att.url} className="flex items-center gap-2 p-2 rounded-md bg-muted hover:bg-accent transition-colors">
+                                <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                                <span className="text-sm font-medium truncate flex-1">{att.name}</span>
+                            </a>
+                        ))}
+                    </div>
                 </div>
             )}
           </div>
@@ -297,10 +316,15 @@ export default function ReportCard({
       </Card>
       {lightboxOpen && (
         <Lightbox
-          open={lightboxOpen}
-          close={() => setLightboxOpen(false)}
-          slides={lightboxPhotos.map(url => ({ src: url }))}
-          index={lightboxIndex}
+            open={lightboxOpen}
+            close={() => setLightboxOpen(false)}
+            slides={mediaAttachments.map(att => ({
+                type: att.type.startsWith('video') ? 'video' : 'image',
+                sources: att.type.startsWith('video') ? [{ src: att.url, type: att.type }] : undefined,
+                src: att.type.startsWith('image') ? att.url : undefined
+            }))}
+            index={lightboxIndex}
+            plugins={[Video]}
         />
       )}
 

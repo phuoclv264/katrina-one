@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { UserMultiSelect } from '@/components/user-multi-select';
-import { Loader2, Wand2, Paperclip, Camera, X } from 'lucide-react';
-import type { ManagedUser, WhistleblowingReport } from '@/lib/types';
+import { Loader2, Wand2, Paperclip, Camera, X, File as FileIcon } from 'lucide-react';
+import type { ManagedUser, WhistleblowingReport, Attachment } from '@/lib/types';
 import { refineText } from '@/ai/flows/refine-text-flow';
 import { toast } from 'react-hot-toast';
 import { photoStore } from '@/lib/photo-store';
@@ -25,6 +25,12 @@ type ReportDialogProps = {
     reportToEdit?: WhistleblowingReport | null;
 };
 
+type LocalAttachment = {
+    id: string; // for local state management
+    url: string; // Object URL for preview
+    file: File;
+};
+
 export default function ReportDialog({ isOpen, onClose, onSave, allUsers, reportToEdit }: ReportDialogProps) {
     const isEditMode = !!reportToEdit;
 
@@ -34,10 +40,9 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
     const [isAnonymous, setIsAnonymous] = useState(true);
     const [visibility, setVisibility] = useState<'public' | 'private'>('private');
     
-    // Photo state
-    const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
-    const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
-    const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
+    // Attachment state
+    const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+    const [localAttachments, setLocalAttachments] = useState<LocalAttachment[]>([]);
     
     const [isSaving, setIsSaving] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -61,52 +66,47 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
                 setExistingAttachments([]);
             }
              // Always reset local photos
-            setAttachmentIds([]);
-            attachmentUrls.forEach(URL.revokeObjectURL);
-            setAttachmentUrls([]);
+            localAttachments.forEach(att => URL.revokeObjectURL(att.url));
+            setLocalAttachments([]);
         }
     }, [isOpen, reportToEdit, isEditMode]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!event.target.files) return;
         const files = Array.from(event.target.files);
-        const newAttachments: { id: string, url: string }[] = [];
+        const newAttachments: LocalAttachment[] = [];
 
         for (const file of files) {
             const id = uuidv4();
-            await photoStore.addPhoto(id, file);
+            await photoStore.addPhoto(id, file); // Store the file blob
             const url = URL.createObjectURL(file);
-            newAttachments.push({ id, url });
+            newAttachments.push({ id, url, file });
         }
-        setAttachmentIds(prev => [...prev, ...newAttachments.map(a => a.id)]);
-        setAttachmentUrls(prev => [...prev, ...newAttachments.map(a => a.url)]);
+        setLocalAttachments(prev => [...prev, ...newAttachments]);
     };
     
     const handleCameraCapture = async (photoIds: string[]) => {
         setIsCameraOpen(false);
-        const urls: string[] = [];
+        const newAttachments: LocalAttachment[] = [];
         for (const id of photoIds) {
             const blob = await photoStore.getPhoto(id);
             if(blob) {
-                urls.push(URL.createObjectURL(blob));
+                const file = new File([blob], `${id}.jpg`, { type: blob.type });
+                const url = URL.createObjectURL(file);
+                newAttachments.push({ id, url, file });
             }
         }
-        setAttachmentIds(prev => [...prev, ...photoIds]);
-        setAttachmentUrls(prev => [...prev, ...urls]);
+        setLocalAttachments(prev => [...prev, ...newAttachments]);
     };
 
-    const handleDeleteAttachment = async (urlToDelete: string, isExisting: boolean) => {
+    const handleDeleteAttachment = async (attachment: Attachment | LocalAttachment, isExisting: boolean) => {
         if (isExisting) {
-            setExistingAttachments(prev => prev.filter(url => url !== urlToDelete));
+            setExistingAttachments(prev => prev.filter(att => att.url !== attachment.url));
         } else {
-            const index = attachmentUrls.indexOf(urlToDelete);
-            if (index > -1) {
-                const idToDelete = attachmentIds[index];
-                setAttachmentUrls(prev => prev.filter(url => url !== urlToDelete));
-                setAttachmentIds(prev => prev.filter(id => id !== idToDelete));
-                URL.revokeObjectURL(urlToDelete);
-                await photoStore.deletePhoto(idToDelete);
-            }
+            const localAtt = attachment as LocalAttachment;
+            setLocalAttachments(prev => prev.filter(att => att.id !== localAtt.id));
+            URL.revokeObjectURL(localAtt.url);
+            await photoStore.deletePhoto(localAtt.id);
         }
     };
 
@@ -139,7 +139,7 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
             accusedUsers: accusedUsers,
             isAnonymous,
             visibility,
-            attachmentIds,
+            localAttachments: localAttachments,
             existingAttachments, // Pass existing attachments for update logic
         };
 
@@ -179,29 +179,41 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
                             <Label>Đính kèm</Label>
                             <div className="flex flex-col sm:flex-row items-center gap-2">
                                 <Button asChild variant="outline" size="sm" className="w-full">
-                                    <label htmlFor="file-upload"><Paperclip className="mr-2 h-4 w-4"/>Chọn file</label>
+                                    <label htmlFor="file-upload"><Paperclip className="mr-2 h-4 w-4"/>Chọn tệp</label>
                                 </Button>
                                 <input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
                                 <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} className="w-full">
                                     <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
                                 </Button>
                             </div>
-                            {(existingAttachments.length > 0 || attachmentUrls.length > 0) && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {existingAttachments.map((url) => (
-                                        <div key={url} className="relative w-20 h-20">
-                                            <Image src={url} alt="Existing attachment" fill className="object-cover rounded-md"/>
-                                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(url, true)}><X className="h-3 w-3"/></Button>
-                                        </div>
-                                    ))}
-                                    {attachmentUrls.map((url) => (
-                                        <div key={url} className="relative w-20 h-20">
-                                            <Image src={url} alt="Attachment preview" fill className="object-cover rounded-md"/>
-                                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(url, false)}><X className="h-3 w-3"/></Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {existingAttachments.map((att) => (
+                                    <div key={att.url} className="relative w-20 h-20 group">
+                                        {att.type.startsWith('image/') ? (
+                                            <Image src={att.url} alt={att.name} fill className="object-cover rounded-md"/>
+                                        ) : (
+                                            <div className="w-full h-full rounded-md bg-muted flex flex-col items-center justify-center p-1">
+                                                <FileIcon className="h-8 w-8 text-muted-foreground"/>
+                                                <p className="text-xs text-muted-foreground text-center truncate">{att.name}</p>
+                                            </div>
+                                        )}
+                                        <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(att, true)}><X className="h-3 w-3"/></Button>
+                                    </div>
+                                ))}
+                                {localAttachments.map((att) => (
+                                    <div key={att.id} className="relative w-20 h-20 group">
+                                         {att.file.type.startsWith('image/') || att.file.type.startsWith('video/') ? (
+                                            <Image src={att.url} alt={att.file.name} fill className="object-cover rounded-md"/>
+                                         ) : (
+                                             <div className="w-full h-full rounded-md bg-muted flex flex-col items-center justify-center p-1">
+                                                <FileIcon className="h-8 w-8 text-muted-foreground"/>
+                                                <p className="text-xs text-muted-foreground text-center truncate">{att.file.name}</p>
+                                            </div>
+                                         )}
+                                        <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full" onClick={() => handleDeleteAttachment(att, false)}><X className="h-3 w-3"/></Button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
