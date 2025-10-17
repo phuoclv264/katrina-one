@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -12,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
-import { Camera, Video, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2, Record } from 'lucide-react';
+import { Camera, Video, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2, Disc } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -43,7 +42,7 @@ export default function CameraDialog({
   const recordedChunksRef = useRef<Blob[]>([]);
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
+  const [isStarting, setIsStarting] = useState(isStarting);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [capturedMedia, setCapturedMedia] = useState<{ id: string; url: string; type: 'photo' | 'video' }[]>([]);
   
@@ -121,8 +120,6 @@ export default function CameraDialog({
       capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
       stopCameraStream();
     }
-    // The dependency array is now correct. `stopCameraStream` is memoized and `acceptedMedia` changes when the component is re-used.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, acceptedMedia, currentMode, stopCameraStream]);
 
 
@@ -305,7 +302,7 @@ export default function CameraDialog({
 
             {isRecording && (
                 <div className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1 text-white text-sm font-medium">
-                    <Record className="h-4 w-4 animate-pulse" />
+                    <Disc className="h-4 w-4 animate-pulse" />
                     <span>{formatDuration(recordingDuration)}</span>
                 </div>
             )}
@@ -382,3 +379,5 @@ export default function CameraDialog({
     </Dialog>
   );
 }
+
+    
