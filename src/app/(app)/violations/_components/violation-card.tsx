@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -57,9 +58,15 @@ export function ViolationCard({
     setActiveUserForPenalty,
     setIsPenaltyCameraOpen
 }: ViolationCardProps) {
-    const [lightboxOpen, setLightboxOpen] = React.useState(false);
-    const [lightboxSlides, setLightboxSlides] = React.useState<{ src: string; type?: 'image' | 'video'; sources?: { src: string; type: string; }[] }[]>([]);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const [lightboxOpen, setLightboxOpen] = React.useState(searchParams.get(`lightbox_${v.id}`) === 'true');
+    const [lightboxSlides, setLightboxSlides] = React.useState<({ src: string; type?: 'image' } | { type: 'video'; sources: { src: string; type: string; }[] })[]>([]);
     const [lightboxIndex, setLightboxIndex] = React.useState(0);
+
+    useEffect(() => {
+        setLightboxOpen(searchParams.get(`lightbox_${v.id}`) === 'true');
+    }, [searchParams, v.id]);
 
     const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
         const slides = media.map(item => {
@@ -80,10 +87,21 @@ export function ViolationCard({
             }
             return { src: url, type: 'image' as const };
         });
-        setLightboxSlides(slides);
+        setLightboxSlides(slides as any);
         setLightboxIndex(index);
-        setLightboxOpen(true);
+
+        const params = new URLSearchParams(searchParams.toString());
+        params.set(`lightbox_${v.id}`, 'true');
+        router.push(`?${params.toString()}`, { scroll: false });
     };
+
+    const closeLightbox = () => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete(`lightbox_${v.id}`);
+        const newQuery = params.toString();
+        router.push(newQuery ? `?${newQuery}` : window.location.pathname, { scroll: false });
+    };
+
 
     const isItemProcessing = processingViolationId === v.id;
     const isOwner = user?.role === 'Chủ nhà hàng';
@@ -246,7 +264,7 @@ export function ViolationCard({
         {lightboxOpen && (
             <Lightbox
                 open={lightboxOpen}
-                close={() => setLightboxOpen(false)}
+                close={closeLightbox}
                 slides={lightboxSlides}
                 index={lightboxIndex}
                 plugins={[Video]}
