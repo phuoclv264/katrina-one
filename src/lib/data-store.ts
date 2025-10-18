@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { db, auth, storage } from './firebase';
@@ -26,7 +24,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -2115,19 +2113,21 @@ export const dataStore = {
         });
     },
   
-  async submitPenaltyProof(violationId: string, photoIds: string[], user: { userId: string; userName: string; }): Promise<string[]> {
-    const uploadPromises = photoIds.map(async (photoId) => {
-        const photoBlob = await photoStore.getPhoto(photoId);
-        if (!photoBlob) return null;
-        const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
-        return getDownloadURL(storageRef);
+  async submitPenaltyProof(violationId: string, media: { id: string; type: 'photo' | 'video' }[], user: { userId: string; userName: string; }): Promise<void> {
+    const uploadPromises = media.map(async (m) => {
+        const blob = await photoStore.getPhoto(m.id);
+        if (!blob) return null;
+        const fileExtension = m.type === 'photo' ? 'jpg' : 'webm';
+        const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.${fileExtension}`);
+        await uploadBytes(storageRef, blob);
+        const url = await getDownloadURL(storageRef);
+        return { url, type: m.type };
     });
     
-    const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+    const newMediaAttachments = (await Promise.all(uploadPromises)).filter((item): item is MediaAttachment => !!item);
 
-    if (newPhotoUrls.length === 0) {
-        throw new Error("Failed to upload penalty proof photos.");
+    if (newMediaAttachments.length === 0) {
+        throw new Error("Failed to upload penalty proof media.");
     }
     
     const violationRef = doc(db, 'violations', violationId);
@@ -2144,17 +2144,21 @@ export const dataStore = {
       const existingSubmissionIndex = submissions.findIndex(s => s.userId === user.userId);
       
       if (existingSubmissionIndex > -1) {
+        const existingSubmission = submissions[existingSubmissionIndex];
+        const existingMedia = existingSubmission.media || (existingSubmission.photos || []).map(p => ({ url: p, type: 'photo' as const }));
+
         const updatedSubmission: PenaltySubmission = {
-          ...submissions[existingSubmissionIndex],
-          photos: [...submissions[existingSubmissionIndex].photos, ...newPhotoUrls],
+          ...existingSubmission,
+          media: [...existingMedia, ...newMediaAttachments],
           submittedAt: new Date().toISOString(),
         };
+        delete updatedSubmission.photos; // Remove the old field
         submissions[existingSubmissionIndex] = updatedSubmission;
       } else {
         const newSubmission: PenaltySubmission = {
           userId: user.userId,
           userName: user.userName,
-          photos: newPhotoUrls,
+          media: newMediaAttachments,
           submittedAt: new Date().toISOString(),
         };
         submissions.push(newSubmission);
@@ -2163,9 +2167,7 @@ export const dataStore = {
       transaction.update(violationRef, { penaltySubmissions: submissions });
     });
 
-
-    await photoStore.deletePhotos(photoIds);
-    return newPhotoUrls;
+    await photoStore.deletePhotos(media.map(m => m.id));
   },
 
 };

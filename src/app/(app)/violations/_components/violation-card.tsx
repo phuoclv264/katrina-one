@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -6,13 +5,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Eye, FilePlus2, Flag, MessageSquare, Loader2, CheckCircle } from 'lucide-react';
-import type { Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission, ManagedUser } from '@/lib/types';
+import type { Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission, ManagedUser, MediaAttachment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { getSeverityBadgeClass, getSeverityCardClass, getSeverityBorderClass } from '@/lib/violations-utils';
 import { CommentSection } from './comment-section';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Video from "yet-another-react-lightbox/plugins/video";
 
 interface ViolationCardProps {
   violation: Violation;
@@ -29,7 +31,6 @@ interface ViolationCardProps {
   onCommentSubmit: (violationId: string, commentText: string, photoIds: string[]) => void;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
-  onOpenLightbox: (photos: string[], index: number) => void;
   onToggleCommentSection: (violationId: string) => void;
   setActiveViolationForPenalty: (violation: Violation | null) => void;
   setActiveUserForPenalty: (user: ViolationUser | null) => void;
@@ -51,12 +52,39 @@ export function ViolationCard({
     onCommentSubmit, 
     onCommentEdit, 
     onCommentDelete, 
-    onOpenLightbox, 
     onToggleCommentSection,
     setActiveViolationForPenalty,
     setActiveUserForPenalty,
     setIsPenaltyCameraOpen
 }: ViolationCardProps) {
+    const [lightboxOpen, setLightboxOpen] = React.useState(false);
+    const [lightboxSlides, setLightboxSlides] = React.useState<{ src: string; type?: 'image' | 'video'; sources?: { src: string; type: string; }[] }[]>([]);
+    const [lightboxIndex, setLightboxIndex] = React.useState(0);
+
+    const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
+        const slides = media.map(item => {
+            const url = typeof item === 'string' ? item : item.url;
+            const type = typeof item === 'string' ? (url.toLowerCase().includes('.webm') || url.toLowerCase().includes('.mp4') ? 'video' : 'photo') : item.type;
+
+            if (type === 'video') {
+                return {
+                    type: 'video' as const,
+                    sources: [
+                        {
+                            src: url,
+                            type: url.toLowerCase().includes('.webm') ? 'video/webm' : 'video/mp4',
+                        },
+                    ],
+                    src: ''
+                };
+            }
+            return { src: url, type: 'image' as const };
+        });
+        setLightboxSlides(slides);
+        setLightboxIndex(index);
+        setLightboxOpen(true);
+    };
+
     const isItemProcessing = processingViolationId === v.id;
     const isOwner = user?.role === 'Chủ nhà hàng';
     const showCommentButton = isOwner || (v.comments && v.comments.length > 0);
@@ -135,7 +163,7 @@ export function ViolationCard({
             {v.photos && v.photos.length > 0 && (
                 <div className="mt-2 flex gap-2 flex-wrap">
                     {v.photos.map((photo, index) => (
-                        <button key={index} onClick={() => onOpenLightbox(v.photos, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
+                        <button key={index} onClick={() => openLightbox(v.photos, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
                             <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
                         </button>
                     ))}
@@ -160,6 +188,7 @@ export function ViolationCard({
                     }
 
                     if (submission) {
+                        const submissionMedia = submission.media || submission.photos || [];
                         return (
                             <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
@@ -168,7 +197,7 @@ export function ViolationCard({
                                 </div>
                                 {shouldShowActions && (
                                     <div className="flex gap-2 self-start sm:self-center">
-                                        {submission.photos.length > 0 && <Button size="sm" variant="secondary" onClick={() => onOpenLightbox(submission.photos, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submission.photos.length})</Button>}
+                                        {submissionMedia.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submissionMedia, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submissionMedia.length})</Button>}
                                         <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
                                     </div>
                                 )}
@@ -204,7 +233,7 @@ export function ViolationCard({
                     onCommentSubmit={onCommentSubmit}
                     onCommentEdit={onCommentEdit}
                     onCommentDelete={onCommentDelete}
-                    onOpenLightbox={onOpenLightbox}
+                    onOpenLightbox={openLightbox}
                     isProcessing={isItemProcessing}
                 />
             )}
@@ -214,6 +243,15 @@ export function ViolationCard({
                 </div>
             )}
         </CardContent>
+        {lightboxOpen && (
+            <Lightbox
+                open={lightboxOpen}
+                close={() => setLightboxOpen(false)}
+                slides={lightboxSlides}
+                index={lightboxIndex}
+                plugins={[Video]}
+            />
+        )}
     </Card>
     )
 }

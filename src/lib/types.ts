@@ -238,10 +238,17 @@ export type ViolationUser = {
   name: string;
 }
 
+export type MediaAttachment = {
+  url: string;
+  type: 'photo' | 'video';
+};
+
 export type PenaltySubmission = {
   userId: string;
   userName: string;
-  photos: string[];
+  /** @deprecated Use media instead */
+  photos?: string[];
+  media?: MediaAttachment[];
   submittedAt: string | Timestamp;
 };
 

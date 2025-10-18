@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -25,9 +24,9 @@ import { vi } from 'date-fns/locale';
 type CameraDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (mediaIds: string[]) => void | Promise<void>;
+  onSubmit: (media: { id: string; type: 'photo' | 'video' }[]) => void | Promise<void>;
   singlePhotoMode?: boolean;
-  acceptedMedia?: 'photo' | 'video' | 'any';
+  captureMode?: 'photo' | 'video' | 'both';
 };
 
 export default function CameraDialog({ 
@@ -35,7 +34,7 @@ export default function CameraDialog({
     onClose, 
     onSubmit, 
     singlePhotoMode = false,
-    acceptedMedia = 'photo',
+    captureMode = 'photo',
 }: CameraDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -52,7 +51,7 @@ export default function CameraDialog({
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const [currentMode, setCurrentMode] = useState<'photo' | 'video'>(acceptedMedia === 'video' ? 'video' : 'photo');
+  const [currentMode, setCurrentMode] = useState<'photo' | 'video'>(captureMode === 'video' ? 'video' : 'photo');
 
   const stopCameraStream = useCallback(() => {
     if (streamRef.current) {
@@ -80,49 +79,54 @@ export default function CameraDialog({
     return () => clearInterval(timer);
   }, [isOpen]);
 
-  useEffect(() => {
-    const startCamera = async () => {
-        if (isStarting || (streamRef.current && streamRef.current.active)) return;
-        setIsStarting(true);
-        setHasPermission(null);
-        stopCameraStream();
+  const startCamera = useCallback(async () => {
+    if (isStarting || (streamRef.current && streamRef.current.active)) return;
+    setIsStarting(true);
+    setHasPermission(null);
+    stopCameraStream();
 
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error('Camera not supported on this browser.');
-            }
-            
-            const constraints = { video: { facingMode: 'environment' }, audio: currentMode === 'video' };
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            streamRef.current = stream;
-            
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                await videoRef.current.play();
-                setHasPermission(true);
-            }
-        } catch (error: any) {
-            console.error('Error accessing camera:', error);
-            setHasPermission(false);
-            toast.error('Không thể truy cập camera. Vui lòng cấp quyền và thử lại.');
-        } finally {
-            setIsStarting(false);
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Camera not supported on this browser.');
         }
-    };
+        
+        const constraints = { video: { facingMode: 'environment' }, audio: currentMode === 'video' };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = stream;
+        
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            await videoRef.current.play();
+            setHasPermission(true);
+        }
+    } catch (error: any) {
+        console.error('Error accessing camera:', error);
+        setHasPermission(false);
+        toast.error('Không thể truy cập camera. Vui lòng cấp quyền và thử lại.');
+    } finally {
+        setIsStarting(false);
+    }
+  }, [currentMode, isStarting, stopCameraStream]);
 
+  useEffect(() => {
     if (isOpen) {
       setCapturedMedia([]);
       setIsSubmitting(false);
       setIsRecording(false);
       setRecordingDuration(0);
-      setCurrentMode(acceptedMedia === 'video' ? 'video' : 'photo');
-      startCamera();
+      setCurrentMode(captureMode === 'video' ? 'video' : 'photo');
     } else {
       capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
       stopCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, acceptedMedia, currentMode]);
+  }, [isOpen, captureMode]);
+
+  useEffect(() => {
+    if (isOpen) {
+      startCamera();
+    }
+  }, [isOpen, currentMode, startCamera]);
 
 
   useEffect(() => {
@@ -161,7 +165,7 @@ export default function CameraDialog({
                     await photoStore.addPhoto(photoId, blob);
                     const objectUrl = URL.createObjectURL(blob);
                     
-                    if (singlePhotoMode) {
+                    if (captureMode === 'photo' && singlePhotoMode) { // Replace if only one photo is allowed
                         capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
                         setCapturedMedia([{ id: photoId, url: objectUrl, type: 'photo' }]);
                     } else {
@@ -226,7 +230,7 @@ export default function CameraDialog({
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-        await onSubmit(capturedMedia.map(p => p.id));
+        await onSubmit(capturedMedia);
     } finally {
         // Parent component closes the dialog, which triggers cleanup.
     }
@@ -245,7 +249,7 @@ export default function CameraDialog({
         <DialogHeader>
           <DialogTitle>Thêm bằng chứng</DialogTitle>
           <DialogDescription>
-            {singlePhotoMode && currentMode === 'photo' 
+            {singlePhotoMode && captureMode === 'photo'
                 ? 'Chụp ảnh bằng chứng cho hạng mục này.'
                 : 'Chụp ảnh hoặc quay video làm bằng chứng.'
             }
@@ -261,40 +265,8 @@ export default function CameraDialog({
                 {hasPermission === false && (
                     <>
                         <VideoOff className="mb-4 h-12 w-12" />
-                        <p>Không thể truy cập camera. Vui lòng cấp quyền và thử lại.</p>
-                        <Button variant="secondary" size="sm" className="mt-4" onClick={() => {
-                            if (!isStarting) {
-                                const startCamera = async () => {
-                                    if (isStarting || (streamRef.current && streamRef.current.active)) return;
-                                    setIsStarting(true);
-                                    setHasPermission(null);
-                                    stopCameraStream();
-
-                                    try {
-                                        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                                            throw new Error('Camera not supported on this browser.');
-                                        }
-                                        
-                                        const constraints = { video: { facingMode: 'environment' }, audio: currentMode === 'video' };
-                                        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                                        streamRef.current = stream;
-                                        
-                                        if (videoRef.current) {
-                                            videoRef.current.srcObject = stream;
-                                            await videoRef.current.play();
-                                            setHasPermission(true);
-                                        }
-                                    } catch (error: any) {
-                                        console.error('Error accessing camera:', error);
-                                        setHasPermission(false);
-                                        toast.error('Không thể truy cập camera. Vui lòng cấp quyền và thử lại.');
-                                    } finally {
-                                        setIsStarting(false);
-                                    }
-                                };
-                                startCamera();
-                            }
-                        }} disabled={isStarting}>
+                        <p>Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt và thử lại.</p>
+                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={isStarting}>
                             <RefreshCw className={`mr-2 h-4 w-4 ${isStarting ? 'animate-spin' : ''}`} />
                             Thử lại
                         </Button>
@@ -313,7 +285,7 @@ export default function CameraDialog({
             </div>
             
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4">
-                {acceptedMedia === 'any' && (
+                {captureMode === 'both' && (
                   <ToggleGroup 
                     type="single" 
                     value={currentMode}
@@ -381,5 +353,3 @@ export default function CameraDialog({
     </Dialog>
   );
 }
-
-    

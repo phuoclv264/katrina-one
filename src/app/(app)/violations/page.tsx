@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, FilterX, BadgeInfo, Settings } from 'lucide-react';
-import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData } from '@/lib/types';
+import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import Video from "yet-another-react-lightbox/plugins/video";
 import CameraDialog from '@/components/camera-dialog';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
@@ -27,6 +28,7 @@ import { generateSmartAbbreviations } from '@/lib/violations-utils';
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -45,7 +47,7 @@ export default function ViolationsPage() {
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string; type?: 'image' | 'video'; sources?: { src: string; type: string; }[] }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
@@ -55,24 +57,13 @@ export default function ViolationsPage() {
 
   const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
 
-  // --- Back button handling for Lightbox ---
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (lightboxOpen) {
-        event.preventDefault();
+    if (searchParams.get('lightbox') === 'true') {
+        setLightboxOpen(true);
+    } else {
         setLightboxOpen(false);
-      }
-    };
-
-    if (lightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
     }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [lightboxOpen]);
+  }, [searchParams]);
 
 
   useEffect(() => {
@@ -226,9 +217,9 @@ export default function ViolationsPage() {
         }
     };
   
-  const handlePenaltySubmit = async (photoIds: string[]) => {
+  const handlePenaltySubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
     setIsPenaltyCameraOpen(false);
-    if (!activeViolationForPenalty || !activeUserForPenalty || photoIds.length === 0) {
+    if (!activeViolationForPenalty || !activeUserForPenalty || media.length === 0) {
         return;
     }
     
@@ -237,7 +228,7 @@ export default function ViolationsPage() {
     toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
     try {
-        await dataStore.submitPenaltyProof(violationId, photoIds, { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
+        await dataStore.submitPenaltyProof(violationId, media, { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
         toast.success('Đã cập nhật bằng chứng nộp phạt.');
     } catch (error) {
         console.error("Failed to submit penalty proof:", error);
@@ -284,11 +275,31 @@ export default function ViolationsPage() {
     setIsDialogOpen(true);
   }
   
-  const openLightbox = (photos: string[], index: number) => {
-      setLightboxSlides(photos.map(p => ({ src: p })));
-      setLightboxIndex(index);
-      setLightboxOpen(true);
+  const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
+    const slides = media.map(item => {
+        if (typeof item === 'string') {
+            return { src: item }; // Old format
+        }
+        // New format
+        if (item.type === 'video') {
+            const typeMatch = item.url.match(/\.([^.]+)$/);
+            const videoType = typeMatch ? `video/${typeMatch[1]}` : 'video/webm';
+            return {
+                type: 'video' as const,
+                sources: [{ src: item.url, type: videoType }],
+                src: ''
+            };
+        }
+        return { src: item.url, type: 'image' as const };
+    });
+    setLightboxSlides(slides);
+    setLightboxIndex(index);
+    router.push('?lightbox=true');
   };
+
+  const closeLightbox = () => {
+    router.back();
+  }
   
     const toggleCommentSection = (violationId: string) => {
         setOpenCommentSectionIds(prevIds => {
@@ -408,7 +419,6 @@ export default function ViolationsPage() {
                                     onCommentSubmit={handleCommentSubmit}
                                     onCommentEdit={handleCommentEdit}
                                     onCommentDelete={handleCommentDelete}
-                                    onOpenLightbox={openLightbox}
                                     onToggleCommentSection={toggleCommentSection}
                                     setActiveViolationForPenalty={setActiveViolationForPenalty}
                                     setActiveUserForPenalty={setActiveUserForPenalty}
@@ -458,13 +468,15 @@ export default function ViolationsPage() {
         isOpen={isPenaltyCameraOpen}
         onClose={() => setIsPenaltyCameraOpen(false)}
         onSubmit={handlePenaltySubmit}
+        captureMode="both"
       />
 
         <Lightbox
             open={lightboxOpen}
-            close={() => setLightboxOpen(false)}
+            close={closeLightbox}
             index={lightboxIndex}
             slides={lightboxSlides}
+            plugins={[Video]}
             carousel={{ finite: true }}
         />
     </>
