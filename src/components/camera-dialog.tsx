@@ -40,6 +40,8 @@ export default function CameraDialog({
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null); // For video overlay
+  const animationFrameIdRef = useRef<number | null>(null); // To control the drawing loop
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -57,6 +59,10 @@ export default function CameraDialog({
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
+    }
+    if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
     }
     if (videoRef.current) {
         videoRef.current.srcObject = null;
@@ -182,12 +188,43 @@ export default function CameraDialog({
     const handleToggleRecording = () => {
         if (isRecording) {
             mediaRecorderRef.current?.stop();
+            if (animationFrameIdRef.current) {
+                cancelAnimationFrame(animationFrameIdRef.current);
+                animationFrameIdRef.current = null;
+            }
         } else {
-            if (!streamRef.current) {
+            if (!streamRef.current || !videoRef.current) {
                 toast.error("Stream camera không hoạt động.");
                 return;
             }
-            mediaRecorderRef.current = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
+
+            const video = videoRef.current;
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvasRef.current = canvas;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const drawFrame = () => {
+                if (!ctx || !videoRef.current) return;
+                ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+                
+                const timestamp = format(new Date(), 'HH:mm:ss dd/MM/yyyy', { locale: vi });
+                ctx.font = '24px Arial';
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 4;
+                ctx.fillText(timestamp, canvas.width - 10, canvas.height - 10);
+
+                animationFrameIdRef.current = requestAnimationFrame(drawFrame);
+            };
+            drawFrame();
+
+            const canvasStream = canvas.captureStream(30); // 30 FPS
+            mediaRecorderRef.current = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
             recordedChunksRef.current = [];
 
             mediaRecorderRef.current.ondataavailable = (event) => {
@@ -209,6 +246,10 @@ export default function CameraDialog({
                 setIsRecording(false);
                 setRecordingDuration(0);
                 setRecordingStartTime(null);
+                if (animationFrameIdRef.current) {
+                    cancelAnimationFrame(animationFrameIdRef.current);
+                    animationFrameIdRef.current = null;
+                }
             };
 
             mediaRecorderRef.current.start();

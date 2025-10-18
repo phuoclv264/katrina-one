@@ -1755,7 +1755,7 @@ export const dataStore = {
                 ...data,
                 createdAt,
                 penaltySubmittedAt: data.penaltySubmittedAt ? (data.penaltySubmittedAt as Timestamp).toDate().toISOString() : undefined,
-            } as Violation;
+            } as unknown as Violation;
         });
         isInitialViolationsLoad = false;
         processAndCallback();
@@ -2004,11 +2004,17 @@ export const dataStore = {
   
   async deleteViolation(violation: Violation): Promise<void> {
     const allPhotoUrls: string[] = [];
-    if (violation.photos) {
-      allPhotoUrls.push(...violation.photos);
+    if (violation.photos && Array.isArray(violation.photos)) {
+        allPhotoUrls.push(...violation.photos);
     }
     if (violation.penaltySubmissions) {
-        violation.penaltySubmissions.forEach(sub => allPhotoUrls.push(...sub.photos));
+        violation.penaltySubmissions.forEach(sub => {
+            if (sub.media && Array.isArray(sub.media)) {
+                allPhotoUrls.push(...sub.media.map(m => m.url));
+            } else if (sub.photos && Array.isArray(sub.photos)) {
+                allPhotoUrls.push(...sub.photos);
+            }
+        });
     }
     if (violation.comments) {
       violation.comments.forEach(comment => {

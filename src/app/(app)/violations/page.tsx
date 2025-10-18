@@ -236,8 +236,17 @@ export default function ViolationsPage() {
     const violationId = activeViolationForPenalty.id;
     toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
+    // Separate photos and videos for backward compatibility and correct data structure
+    const photosToSubmit = media
+        .filter(m => m.type === 'photo')
+        .map(m => ({ id: m.id, type: m.type as 'photo' | 'video' }));
+
+    const videosToSubmit = media
+        .filter(m => m.type === 'video')
+        .map(m => ({ id: m.id, type: m.type as 'photo' | 'video' }));
+
     try {
-        await dataStore.submitPenaltyProof(violationId, media, { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
+        await dataStore.submitPenaltyProof(violationId, [...photosToSubmit, ...videosToSubmit], { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
         toast.success('Đã cập nhật bằng chứng nộp phạt.');
     } catch (error) {
         console.error("Failed to submit penalty proof:", error);
