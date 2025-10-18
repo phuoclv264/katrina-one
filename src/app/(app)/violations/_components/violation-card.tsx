@@ -28,7 +28,7 @@ interface ViolationCardProps {
   onToggleWaivePenalty: (violation: Violation) => void;
   onEdit: (violation: Violation) => void;
   onDelete: (violation: Violation) => void;
-  onPenaltySubmit: (violation: Violation, user: ViolationUser) => void;
+  onPenaltySubmit: (violation: Violation, user: ViolationUser, mode: 'photo' | 'video' | 'both') => void;
   onCommentSubmit: (violationId: string, commentText: string, photoIds: string[]) => void;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
@@ -216,7 +216,7 @@ export function ViolationCard({
                                 {shouldShowActions && (
                                     <div className="flex gap-2 self-start sm:self-center">
                                         {submissionMedia.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submissionMedia, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submissionMedia.length})</Button>}
-                                        <Button size="sm" variant="outline" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
+                                        <Button size="sm" variant="outline" onClick={() => onPenaltySubmit(v, violatedUser, 'both')}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
                                     </div>
                                 )}
                             </div>
@@ -227,7 +227,7 @@ export function ViolationCard({
                         return (
                             <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                  <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
-                                <Button size="sm" onClick={() => { setActiveViolationForPenalty(v); setActiveUserForPenalty(violatedUser); setIsPenaltyCameraOpen(true); }} className="w-full sm:w-auto">
+                                <Button size="sm" onClick={() => onPenaltySubmit(v, violatedUser, 'video')} className="w-full sm:w-auto">
                                     Xác nhận đã nộp phạt
                                 </Button>
                             </div>

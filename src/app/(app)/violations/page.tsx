@@ -62,6 +62,7 @@ export default function ViolationsPage() {
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
   const [activeUserForPenalty, setActiveUserForPenalty] = useState<ViolationUser | null>(null);
+  const [penaltyCaptureMode, setPenaltyCaptureMode] = useState<'photo' | 'video' | 'both'>('photo');
 
 
   const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
@@ -432,7 +433,12 @@ export default function ViolationsPage() {
                                     onToggleWaivePenalty={handleToggleWaivePenalty}
                                     onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
                                     onDelete={handleDeleteViolation}
-                                    onPenaltySubmit={(violation, user) => { setActiveViolationForPenalty(violation); setActiveUserForPenalty(user); setIsPenaltyCameraOpen(true); }}
+                                    onPenaltySubmit={(violation, user, mode) => { 
+                                        setActiveViolationForPenalty(violation); 
+                                        setActiveUserForPenalty(user); 
+                                        setPenaltyCaptureMode(mode);
+                                        setIsPenaltyCameraOpen(true); 
+                                    }}
                                     onCommentSubmit={handleCommentSubmit}
                                     onCommentEdit={handleCommentEdit}
                                     onCommentDelete={handleCommentDelete}
@@ -485,7 +491,7 @@ export default function ViolationsPage() {
         isOpen={isPenaltyCameraOpen}
         onClose={() => setIsPenaltyCameraOpen(false)}
         onSubmit={handlePenaltySubmit}
-        captureMode="both"
+        captureMode={penaltyCaptureMode}
       />
 
         <Lightbox
