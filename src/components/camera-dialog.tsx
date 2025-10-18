@@ -234,8 +234,17 @@ export default function CameraDialog({
             };
             drawFrame();
 
-            const canvasStream = canvas.captureStream(30); // 30 FPS
-            mediaRecorderRef.current = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+            const canvasStream = canvas.captureStream(30); // This has the video track with overlay
+            const videoTrackWithOverlay = canvasStream.getVideoTracks()[0];
+
+            // Get audio tracks from the original stream, if they exist
+            const audioTracks = streamRef.current.getAudioTracks();
+
+            // Combine video with overlay and original audio
+            const combinedStream = new MediaStream([videoTrackWithOverlay, ...audioTracks]);
+
+            // Now use the combined stream for the recorder
+            mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
             recordedChunksRef.current = [];
 
             mediaRecorderRef.current.ondataavailable = (event) => {
