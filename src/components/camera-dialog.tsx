@@ -122,7 +122,7 @@ export default function CameraDialog({
     } finally {
         setIsStarting(false);
     }
-  }, [currentMode, isStarting, stopCameraStream, hardwareError]);
+  }, [currentMode, stopCameraStream, hardwareError]);
 
   useEffect(() => {
     if (isOpen) {
@@ -322,7 +322,7 @@ export default function CameraDialog({
                         ) : (
                             <p>Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt và thử lại.</p>
                         )}
-                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={isStarting || hardwareError}>
+                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={hardwareError}>
                             <RefreshCw className={`mr-2 h-4 w-4 ${isStarting ? 'animate-spin' : ''}`} />
                             Thử lại
                         </Button>
