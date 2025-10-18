@@ -251,6 +251,15 @@ export type ViolationUserCost = {
   severity: 'low' | 'medium' | 'high';
 };
 
+export type ViolationComment = {
+  id: string;
+  commenterId: string;
+  commenterName: string;
+  text: string;
+  photos: string[];
+  createdAt: string | Timestamp;
+}
+
 export type Violation = {
   id: string;
   content: string;
