@@ -149,10 +149,12 @@ export default function IncidentReportDialog({
         onSave(data, violationToEdit?.id);
     };
     
-    const handleCapturePhotos = async (capturedPhotoIds: string[]) => {
+    const handleCapturePhotos = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         setIsCameraOpen(false);
         const newPhotoObjects: {id: string, url: string}[] = [];
-        for (const photoId of capturedPhotoIds) {
+        // Filter for photos only
+        const photos = media.filter(m => m.type === 'photo');
+        for (const { id: photoId } of photos) {
             const photoBlob = await photoStore.getPhoto(photoId);
             if(photoBlob) {
                 newPhotoObjects.push({ id: photoId, url: URL.createObjectURL(photoBlob) });
@@ -317,6 +319,7 @@ export default function IncidentReportDialog({
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}
                 onSubmit={handleCapturePhotos}
+                captureMode="photo"
             />
              <Lightbox
                 open={isLightboxOpen}

@@ -245,10 +245,12 @@ export default function HandoverDialog({
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handlePhotoCapture = async (photoIds: string[]) => {
+    const handlePhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         setIsCameraOpen(false);
-        if (photoIds.length === 0) return;
-        const photoId = photoIds[0];
+        // Since singlePhotoMode is true, we expect only one photo.
+        const photo = media.find(m => m.type === 'photo');
+        if (!photo) return;
+        const photoId = photo.id;
         try {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) throw new Error("Không tìm thấy ảnh.");
@@ -428,7 +430,7 @@ export default function HandoverDialog({
                 </DialogContent>
             </Dialog>
 
-            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handlePhotoCapture} singlePhotoMode={true} />
+            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handlePhotoCapture} singlePhotoMode={true} captureMode="photo" />
 
             <AlertDialog open={serverErrorDialog.open}>
                 <AlertDialogContent>

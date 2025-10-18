@@ -446,6 +446,7 @@ export type OtherCostCategory = {
 };
 
 export type HandoverReport = {
+  shiftEndTime: null;
   id: string; // cashier-handover-{date}
   date: string;
   handoverImageUrl: string | null;

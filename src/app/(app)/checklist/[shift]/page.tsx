@@ -332,8 +332,11 @@ function ChecklistPageComponent() {
         handleOpinionClose();
     }
   
-  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+  const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
         if (!activeTask) return;
+
+        // Vì captureMode="photo", chúng ta có thể tự tin rằng tất cả media đều là ảnh.
+        const photoIds = media.map(m => m.id);
         
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
@@ -365,7 +368,7 @@ function ChecklistPageComponent() {
         }
         
         handleCameraClose();
-    }, [activeTask, activeCompletionIndex, handleProgressiveCollapse, updateLocalReport, handleCameraClose]);
+    }, [activeTask, activeCompletionIndex, updateLocalReport, handleCameraClose, handleProgressiveCollapse]);
   
   const handleDeletePhoto = async (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => {
        if (isLocal) {
@@ -701,6 +704,7 @@ function ChecklistPageComponent() {
         isOpen={isCameraOpen}
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
+        captureMode="photo"
     />
 
     <OpinionDialog

@@ -178,7 +178,9 @@ function InventoryPageComponent() {
     });
 }, [handleLocalSave, inventoryList]);
   
-  const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+  const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
+    const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
+
     if (!activeItemId || photoIds.length === 0) return;
     
     const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
@@ -617,6 +619,7 @@ function InventoryPageComponent() {
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
+        captureMode="photo"
       />
     <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
     <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">

@@ -223,8 +223,11 @@ function HygieneReportPageComponent() {
         handleOpinionClose();
     }
 
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+    const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
         if (!activeTask) return;
+
+        // Since captureMode="photo", we can be confident all media are photos.
+        const photoIds = media.map(m => m.id);
         
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
@@ -576,6 +579,7 @@ function HygieneReportPageComponent() {
         isOpen={isCameraOpen}
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
+        captureMode="photo"
     />
 
     <OpinionDialog

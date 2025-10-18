@@ -25,6 +25,15 @@ import { ViolationDialog } from './_components/violation-dialog';
 import { ViolationCard } from './_components/violation-card';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
 
+/**
+ * Type guard to check if an item is a MediaAttachment.
+ */
+function isMediaAttachment(item: any): item is MediaAttachment {
+    return typeof item === 'object' && item !== null && 
+           typeof item.url === 'string' && 
+           (item.type === 'photo' || item.type === 'video');
+}
+
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -47,7 +56,7 @@ export default function ViolationsPage() {
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string; type?: 'image' | 'video'; sources?: { src: string; type: string; }[] }[]>([]);
+  const [lightboxSlides, setLightboxSlides] = useState<({ src: string; type?: 'image' } | { type: 'video'; sources: { src: string; type: string; }[] })[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
@@ -277,22 +286,21 @@ export default function ViolationsPage() {
   
   const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
     const slides = media.map(item => {
-        if (typeof item === 'string') {
-            return { src: item }; // Old format
+        if (isMediaAttachment(item)) {
+            // Handle new MediaAttachment format
+            if (item.type === 'video') {
+                const typeMatch = item.url.match(/\.([^.]+)$/);
+                const videoType = typeMatch ? `video/${typeMatch[1]}` : 'video/webm';
+                return { type: 'video' as const, sources: [{ src: item.url, type: videoType }] };
+            }
+            return { src: item.url, type: 'image' as const };
+        } else if (typeof item === 'string') {
+            // This branch is for backward compatibility with old string URLs
+            return { src: item };
         }
-        // New format
-        if (item.type === 'video') {
-            const typeMatch = item.url.match(/\.([^.]+)$/);
-            const videoType = typeMatch ? `video/${typeMatch[1]}` : 'video/webm';
-            return {
-                type: 'video' as const,
-                sources: [{ src: item.url, type: videoType }],
-                src: ''
-            };
-        }
-        return { src: item.url, type: 'image' as const };
-    });
-    setLightboxSlides(slides);
+        return null; // Should not happen with correct data
+    }).filter(Boolean);
+    setLightboxSlides(slides as any);
     setLightboxIndex(index);
     router.push('?lightbox=true');
   };

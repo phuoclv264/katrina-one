@@ -88,10 +88,12 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
         setLocalAttachments(prev => [...prev, ...newAttachments]);
     };
     
-    const handleCameraCapture = async (photoIds: string[]) => {
+    const handleCameraCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         setIsCameraOpen(false);
         const newAttachments: LocalAttachment[] = [];
-        for (const id of photoIds) {
+        // Filter for photos only, as this dialog currently only handles images.
+        const photos = media.filter(m => m.type === 'photo');
+        for (const { id } of photos) {
             const blob = await photoStore.getPhoto(id);
             if(blob) {
                 const file = new File([blob], `${id}.jpg`, { type: blob.type });
@@ -245,6 +247,7 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
             isOpen={isCameraOpen}
             onClose={() => setIsCameraOpen(false)}
             onSubmit={handleCameraCapture}
+            captureMode="photo"
         />
         </>
     );

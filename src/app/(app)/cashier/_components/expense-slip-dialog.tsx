@@ -646,11 +646,13 @@ export default function ExpenseSlipDialog({
         if(attachmentFileInputRef.current) attachmentFileInputRef.current.value = '';
     };
     
-    const handleAttachmentPhotoCapture = async (capturedPhotoIds: string[]) => {
+    const handleAttachmentPhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         setAiError(null);
         setShowMissingAttachmentAlert(false);
         setIsAttachmentCameraOpen(false);
-        for (const photoId of capturedPhotoIds) {
+        // Filter for photos only
+        const photos = media.filter(m => m.type === 'photo');
+        for (const { id: photoId } of photos) {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (photoBlob) {
                 const objectUrl = URL.createObjectURL(photoBlob);
@@ -966,7 +968,11 @@ export default function ExpenseSlipDialog({
             </Dialog>
             
             {/* Attachment Camera Dialog */}
-            <CameraDialog isOpen={isAttachmentCameraOpen} onClose={() => setIsAttachmentCameraOpen(false)} onSubmit={handleAttachmentPhotoCapture} />
+            <CameraDialog 
+                isOpen={isAttachmentCameraOpen} 
+                onClose={() => setIsAttachmentCameraOpen(false)} 
+                onSubmit={handleAttachmentPhotoCapture} 
+                captureMode="photo" />
 
             {extractionResult && (
                 <AiPreviewDialog 

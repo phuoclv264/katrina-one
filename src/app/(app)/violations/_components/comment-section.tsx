@@ -44,8 +44,9 @@ export function CommentSection({
     setCommentPhotoIds([]);
   };
 
-  const handleCapturePhotos = (capturedPhotoIds: string[]) => {
-    setCommentPhotoIds(prev => [...prev, ...capturedPhotoIds]);
+  const handleCapturePhotos = (media: { id: string; type: 'photo' | 'video' }[]) => {
+    const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
+    setCommentPhotoIds(prev => [...prev, ...photoIds]);
     setIsCameraOpen(false);
   };
 
@@ -165,6 +166,7 @@ export function CommentSection({
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
+        captureMode="photo"
       />
     </div>
   );

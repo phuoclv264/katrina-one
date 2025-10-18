@@ -359,7 +359,7 @@ export default function RevenueStatsDialog({
             netRevenue: 0,
             deliveryPartnerPayout: 0,
             revenueByPaymentMethod: initialPaymentMethods,
-            reportTimestamp: null,
+            reportTimestamp: undefined,
         });
     
         setServerErrorDialog({ open: false, imageUri: null });
@@ -383,10 +383,12 @@ export default function RevenueStatsDialog({
         }
     };
     
-    const handlePhotoCapture = async (photoIds: string[]) => {
+    const handlePhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         setIsCameraOpen(false);
-        if (photoIds.length === 0) return;
-        const photoId = photoIds[0];
+        // Since singlePhotoMode is true, we expect only one photo.
+        const photo = media.find(m => m.type === 'photo');
+        if (!photo) return;
+        const photoId = photo.id;
 
         try {
             const photoBlob = await photoStore.getPhoto(photoId);
@@ -644,6 +646,7 @@ export default function RevenueStatsDialog({
                 onClose={() => setIsCameraOpen(false)}
                 onSubmit={handlePhotoCapture}
                 singlePhotoMode={true}
+                captureMode="photo"
             />
             {displayImageDataUri && (
                  <Lightbox

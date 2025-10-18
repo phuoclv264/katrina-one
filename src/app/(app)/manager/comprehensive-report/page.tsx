@@ -232,8 +232,11 @@ function ComprehensiveReportPageComponent() {
     handleOpinionClose();
   }
 
-    const handleCapturePhotos = useCallback(async (photoIds: string[]) => {
+    const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
         if (!activeTask) return;
+
+        // Filter for photos only, as this dialog currently only handles images.
+        const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
 
         const taskId = activeTask.id;
         const completionIndex = activeCompletionIndex;
@@ -545,6 +548,7 @@ function ComprehensiveReportPageComponent() {
         isOpen={isCameraOpen}
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
+        captureMode="photo"
     />
 
     <OpinionDialog

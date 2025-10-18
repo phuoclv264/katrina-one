@@ -113,7 +113,8 @@ export default function HandoverComparisonDialog({
     onFinalSubmit(finalData);
   };
   
-    const handleCapturePhotos = async (capturedPhotoIds: string[]) => {
+    const handleCapturePhotos = async (media: { id: string; type: 'photo' | 'video' }[]) => {
+      const capturedPhotoIds = media.filter(m => m.type === 'photo').map(m => m.id);
       const newUrls: string[] = [];
       for(const id of capturedPhotoIds) {
         const blob = await photoStore.getPhoto(id);
@@ -302,7 +303,7 @@ export default function HandoverComparisonDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} />
+      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} captureMode="photo" />
        <Lightbox
             open={isLightboxOpen}
             close={() => setIsLightboxOpen(false)}

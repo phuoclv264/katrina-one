@@ -129,8 +129,9 @@ export function ViolationDialog({
     onSave(data, violationToEdit?.id);
   };
   
-  const handleCapturePhotos = (capturedPhotoIds: string[]) => {
-      setPhotoIds(prev => [...prev, ...capturedPhotoIds]);
+  const handleCapturePhotos = (media: { id: string; type: 'photo' | 'video' }[]) => {
+      const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
+      setPhotoIds(prev => [...prev, ...photoIds]);
       setIsCameraOpen(false);
   }
 
@@ -238,6 +239,7 @@ export function ViolationDialog({
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
+        captureMode="photo"
     />
     </>
   );
