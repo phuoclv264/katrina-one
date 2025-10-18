@@ -44,6 +44,7 @@ export default function CameraDialog({
   const animationFrameIdRef = useRef<number | null>(null); // To control the drawing loop
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [hardwareError, setHardwareError] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [capturedMedia, setCapturedMedia] = useState<{ id: string; url: string; type: 'photo' | 'video' }[]>([]);
@@ -86,13 +87,14 @@ export default function CameraDialog({
   }, [isOpen]);
 
   const startCamera = useCallback(async () => {
-    if (isStarting || (streamRef.current && streamRef.current.active)) return;
+    if (isStarting || hardwareError || (streamRef.current && streamRef.current.active)) return;
     setIsStarting(true);
     setHasPermission(null);
     stopCameraStream();
 
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setHardwareError(true);
             throw new Error('Camera not supported on this browser.');
         }
         
@@ -104,15 +106,23 @@ export default function CameraDialog({
             videoRef.current.srcObject = stream;
             await videoRef.current.play();
             setHasPermission(true);
+            setHardwareError(false); // Reset on success
         }
     } catch (error: any) {
         console.error('Error accessing camera:', error);
         setHasPermission(false);
-        toast.error('Không thể truy cập camera. Vui lòng cấp quyền và thử lại.');
+        if (error.name === 'NotFoundError') {
+            setHardwareError(true);
+            toast.error('Không tìm thấy camera hoặc micro phù hợp trên thiết bị.');
+        } else if (error.name === 'NotAllowedError') {
+            toast.error('Bạn đã từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.');
+        } else {
+            toast.error('Không thể truy cập camera. Vui lòng thử lại.');
+        }
     } finally {
         setIsStarting(false);
     }
-  }, [currentMode, isStarting, stopCameraStream]);
+  }, [currentMode, isStarting, stopCameraStream, hardwareError]);
 
   useEffect(() => {
     if (isOpen) {
@@ -120,6 +130,7 @@ export default function CameraDialog({
       setIsSubmitting(false);
       setIsRecording(false);
       setRecordingDuration(0);
+      setHardwareError(false); // Reset on open
       setCurrentMode(captureMode === 'video' ? 'video' : 'photo');
     } else {
       capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
@@ -306,8 +317,12 @@ export default function CameraDialog({
                 {hasPermission === false && (
                     <>
                         <VideoOff className="mb-4 h-12 w-12" />
-                        <p>Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt và thử lại.</p>
-                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={isStarting}>
+                        {hardwareError ? (
+                            <p>Không tìm thấy camera hoặc micro phù hợp trên thiết bị của bạn.</p>
+                        ) : (
+                            <p>Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt và thử lại.</p>
+                        )}
+                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={isStarting || hardwareError}>
                             <RefreshCw className={`mr-2 h-4 w-4 ${isStarting ? 'animate-spin' : ''}`} />
                             Thử lại
                         </Button>
