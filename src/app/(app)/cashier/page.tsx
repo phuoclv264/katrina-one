@@ -183,7 +183,7 @@ function CashierDashboardPageComponent() {
     const handlePopState = (event: PopStateEvent) => {
         if (isLightboxOpen) {
             event.preventDefault();
-            setLightboxOpen(false);
+            setIsLightboxOpen(false);
         }
     };
 
@@ -247,7 +247,7 @@ function CashierDashboardPageComponent() {
         
         return () => {
             unsubSlips();
-            unsubIncidents(() => {});
+            unsubIncidents();
             unsubRevenue();
             unsubInventory();
             unsubOtherCostCategories();
@@ -316,23 +316,29 @@ function CashierDashboardPageComponent() {
     }
   }
 
-  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] }, id?: string) => {
-      if (!user) return;
-      setIsProcessing(true);
-      try {
-          await dataStore.addOrUpdateIncident(data, id, user);
-          toast.success(`Đã ${id ? 'cập nhật' : 'ghi nhận'} sự cố.`);
-          if(data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
-              toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
-          }
-          setIsIncidentDialogOpen(false);
-          setIncidentToEdit(null);
-      } catch (error) {
-          console.error("Failed to save incident report", error);
-          toast.error("Không thể lưu báo cáo sự cố.");
-      } finally {
-          setIsProcessing(false);
+  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'> & { photoIds?: string[], photosToDelete?: string[] }, id?: string) => {
+    if (!user) return;
+    setIsProcessing(true);
+    try {
+      // The data object from the dialog uses `photoIds`, but the data store expects `photosToUpload`.
+      // We also ensure it's an array to prevent the .map error.
+      const dataToSave = {
+        ...data,
+        photosToUpload: data.photoIds || [],
+      };
+      await dataStore.addOrUpdateIncident(dataToSave, id, user);
+      toast.success(`Đã ${id ? 'cập nhật' : 'ghi nhận'} sự cố.`);
+      if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
+        toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
       }
+      setIsIncidentDialogOpen(false);
+      setIncidentToEdit(null);
+    } catch (error) {
+      console.error("Failed to save incident report", error);
+      toast.error("Không thể lưu báo cáo sự cố.");
+    } finally {
+      setIsProcessing(false);
+    }
   }, [user]);
 
    const handleDeleteIncident = async (incident: IncidentReport) => {
@@ -921,7 +927,7 @@ function CashierDashboardPageComponent() {
     )}
      <Lightbox
         open={isLightboxOpen}
-        close={() => setLightboxOpen(false)}
+        close={() => setIsLightboxOpen(false)}
         slides={lightboxSlides}
         carousel={{ finite: true }}
     />

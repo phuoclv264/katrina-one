@@ -315,45 +315,56 @@ export const dataStore = {
     },
 
     async addOrUpdateIncident(
-      data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmittedAt' | 'cost' | 'severity'> & { photosToUpload: string[] },
+      data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'> & { photosToUpload?: string[], photosToDelete?: string[] },
       id: string | undefined,
       user: AuthUser
     ): Promise<void> {
-        const { photosToUpload, ...incidentData } = data;
-    
+        const { photosToUpload = [], photosToDelete = [], ...incidentData } = data;
+
         // 1. Upload photos if any
         const uploadPromises = photosToUpload.map(async (photoId) => {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
-            const storageRef = ref(storage, `incidents/${data.reporterId}/${uuidv4()}.jpg`);
+            const storageRef = ref(storage, `incidents/${user.uid}/${uuidv4()}.jpg`);
             await uploadBytes(storageRef, photoBlob);
             return getDownloadURL(storageRef);
         });
         const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
     
         // 2. Prepare data for Firestore
-        const finalData: Partial<Violation> = { ...incidentData };
+        const finalData: Partial<IncidentReport> = { ...incidentData };
     
         if (id) {
-            const docRef = doc(db, 'violations', id);
+            const docRef = doc(db, 'incidents', id);
             const currentDoc = await getDoc(docRef);
             if (currentDoc.exists()) {
                 const existingPhotos = currentDoc.data().photos || [];
-                finalData.photos = [...existingPhotos, ...photoUrls];
+                const remainingPhotos = existingPhotos.filter((p: string) => !photosToDelete.includes(p));
+                finalData.photos = [...remainingPhotos, ...photoUrls];
             } else {
                 finalData.photos = photoUrls;
             }
+
+            if (photosToDelete.length > 0) {
+                await Promise.all(photosToDelete.map(url => this.deletePhotoFromStorage(url)));
+            }
+
+            console.log("Cập nhật data: " + finalData);
+
             await updateDoc(docRef, finalData);
         } else {
-            finalData.createdAt = serverTimestamp();
+            finalData.date = data.date || getTodaysDateKey();
+            finalData.createdAt = serverTimestamp() as Timestamp;
+            finalData.createdBy = { userId: user.uid, userName: user.displayName };
             finalData.photos = photoUrls;
-            const violationRef = await addDoc(collection(db, 'violations'), finalData);
-            id = violationRef.id;
+
+            console.log("Tạo mới: " + finalData.photos);
+
+            const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
+            id = incidentRef.id;
         }
     
         await photoStore.deletePhotos(photosToUpload);
-        
-        await this.recalculateViolationsForCurrentMonth();
   },
 
 
@@ -1989,7 +2000,7 @@ export const dataStore = {
         if (currentDoc.exists()) {
             const existingPhotos = currentDoc.data().photos || [];
             finalData.photos = [...existingPhotos, ...photoUrls];
-            finalData.lastModified = serverTimestamp();
+            finalData.lastModified = serverTimestamp() as Timestamp;
             await updateDoc(docRef, finalData);
         }
     } else {

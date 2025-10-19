@@ -1,11 +1,17 @@
-import { onSchedule } from "firebase-functions/v2/scheduler";
+/* eslint-disable max-len */
+/* eslint-disable indent */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
-import { initializeApp } from "firebase-admin/app";
-import { v1 } from "@google-cloud/firestore";
+import {initializeApp} from "firebase-admin/app";
+import {getFirestore} from "firebase-admin/firestore";
+import {v1} from "@google-cloud/firestore";
+import {onDocumentCreated} from "firebase-functions/v2/firestore";
 
 // Initialize Firebase Admin SDK
 initializeApp();
 const client = new v1.FirestoreAdminClient();
+const db = getFirestore();
 
 // Get project ID from environment variables
 const project = process.env.GCLOUD_PROJECT;
@@ -17,14 +23,17 @@ const bucket = `gs://${project}.appspot.com`;
 
 
 /**
- * A scheduled Cloud Function that automatically backs up the entire Firestore database
+ * A scheduled Cloud Function that automatically
+ *  backs up the entire Firestore database
  * to a Firebase Storage bucket every day.
  *
  * To use this function:
  * 1. Your Firebase project must be on the Blaze (pay-as-you-go) plan.
- * 2. You must enable the "Cloud Datastore Admin API" in the Google Cloud Console for your project.
+ * 2. You must enable the "Cloud Datastore Admin API"
+ *  in the Google Cloud Console for your project.
  *
- * Backups are stored in the `backups` folder in your default Firebase Storage bucket.
+ * Backups are stored in the `backups` folder
+ * in your default Firebase Storage bucket.
  * The folder name will be the date of the backup (e.g., YYYY-MM-DD).
  */
 export const backupFirestore = onSchedule({
@@ -49,13 +58,66 @@ export const backupFirestore = onSchedule({
       outputUriPrefix,
       // Leave collectionIds empty to export all collections
       collectionIds: [],
-    });
+   });
 
     const response = await operation.promise();
     const result = response[0];
     logger.info(`Backup operation completed with response: ${JSON.stringify(result)}`);
-  } catch (error) {
+ } catch (error) {
     logger.error("Backup operation failed:", error);
     throw new Error("Firestore backup failed.");
-  }
+ }
+});
+
+/**
+ * A Cloud Function that triggers whenever a new document is created in the 'incidents' collection.
+ * If the incident has a cost, it automatically creates a corresponding expense slip.
+ */
+export const createExpenseSlipFromIncident = onDocumentCreated("incidents/{incidentId}", async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    logger.log("No data associated with the event, skipping.");
+    return;
+ }
+
+  const incidentData = snapshot.data();
+  const incidentId = event.params.incidentId;
+
+  // Check if the incident has a cost and is not an intangible cost
+  if (
+    !incidentData ||
+    incidentData.cost <= 0 ||
+    incidentData.paymentMethod === "intangible_cost"
+  ) {
+    logger.log(`Incident ${incidentId} has no payable cost. Skipping expense slip creation.`);
+    return;
+ }
+
+  // Prepare the data for the new expense slip
+  const expenseSlipData = {
+    date: incidentData.date,
+    expenseType: "other_cost",
+    items: [{
+      itemId: "other_cost",
+      name: `Chi phí sự cố: ${incidentData.content.substring(0, 50)}`,
+      description: incidentData.content,
+      quantity: 1,
+      unitPrice: incidentData.cost,
+      unit: "lần",
+   }],
+    totalAmount: incidentData.cost,
+    paymentMethod: incidentData.paymentMethod,
+    notes: `Tự động tạo từ báo cáo sự cố ID: ${incidentId}`,
+    createdBy: incidentData.createdBy,
+    createdAt: incidentData.createdAt, // Use the same timestamp as the incident
+    associatedIncidentId: incidentId, // Link the slip to the incident
+    paymentStatus: incidentData.paymentMethod === "cash" ? "paid" : "unpaid",
+ };
+
+  try {
+    await db.collection("expense_slips").add(expenseSlipData);
+    logger.info(`Successfully created expense slip for incident ID: ${incidentId}`);
+ } catch (error) {
+    logger.error(`Failed to create expense slip for incident ID: ${incidentId}`, error);
+ }
 });

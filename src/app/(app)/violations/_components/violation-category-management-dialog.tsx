@@ -357,7 +357,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                 categoryData.list.map(category => (
                   <div
                     key={category.id}
-                    ref={(el) => itemRefs.current.set(category.id, el)}
+                    ref={(el) => {itemRefs.current.set(category.id, el)}}
                     className={cn(
                       "p-3 space-y-3 border rounded-lg",
                        editingCategoryId === category.id ? "bg-muted border-primary" : "bg-card"
