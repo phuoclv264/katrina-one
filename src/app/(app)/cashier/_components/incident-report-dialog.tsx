@@ -26,12 +26,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 type IncidentReportDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] }, id?: string) => void;
+    onSave: (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds: string[], photosToDelete: string[] }, id?: string) => void | Promise<void>;
     isProcessing: boolean;
     categories: IncidentCategory[];
     canManageCategories: boolean;
     reporter: AuthUser | null;
-    violationToEdit: IncidentReport | null; // This should be incidentToEdit
+    incidentToEdit: IncidentReport | null;
     isSelfConfession?: boolean;
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
 };
@@ -44,7 +44,7 @@ export default function IncidentReportDialog({
     categories,
     canManageCategories,
     reporter,
-    violationToEdit, // This should be incidentToEdit
+    incidentToEdit,
     isSelfConfession = false,
     onCategoriesChange,
 }: IncidentReportDialogProps) {
@@ -63,11 +63,11 @@ export default function IncidentReportDialog({
     const [lightboxIndex, setLightboxIndex] = useState(0);
     
     const reporterName = useMemo(() => {
-        if (violationToEdit) {
-            return violationToEdit.createdBy.userName;
+        if (incidentToEdit) {
+            return incidentToEdit.createdBy.userName;
         }
-        return reporter?.displayName || '...';
-    }, [reporter, violationToEdit]);
+        return reporter?.displayName || '...'; // Fallback for new incidents
+    }, [reporter, incidentToEdit]);
 
 
     // --- Back button handling for Lightbox ---
@@ -92,12 +92,12 @@ export default function IncidentReportDialog({
 
     useEffect(() => {
         if (open) {
-            if (violationToEdit) {
-                setContent(violationToEdit.content);
-                setCost(violationToEdit.cost);
-                setSelectedCategory(violationToEdit.category);
-                setExistingPhotos(violationToEdit.photos || []);
-                setPaymentMethod(violationToEdit.paymentMethod || 'cash');
+            if (incidentToEdit) {
+                setContent(incidentToEdit.content);
+                setCost(incidentToEdit.cost);
+                setSelectedCategory(incidentToEdit.category);
+                setExistingPhotos(incidentToEdit.photos || []);
+                setPaymentMethod(incidentToEdit.paymentMethod || 'cash');
             } else {
                 setContent('');
                 setCost(0);
@@ -112,8 +112,7 @@ export default function IncidentReportDialog({
              // Cleanup local photo object URLs when dialog is fully closed
             localPhotos.forEach(p => URL.revokeObjectURL(p.url));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, violationToEdit, reporter]);
+    }, [open, incidentToEdit, reporter]);
 
 
     const handleSave = () => {
@@ -146,7 +145,7 @@ export default function IncidentReportDialog({
             photosToDelete: photosToDelete,
         };
         
-        onSave(data, violationToEdit?.id);
+        onSave(data, incidentToEdit?.id);
     };
     
     const handleCapturePhotos = async (media: { id: string; type: 'photo' | 'video' }[]) => {
@@ -191,7 +190,7 @@ export default function IncidentReportDialog({
         ];
     }, [existingPhotos, localPhotos]);
 
-    const dialogTitle = violationToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Tạo Báo cáo Sự cố');
+    const dialogTitle = incidentToEdit ? 'Chỉnh sửa Báo cáo Sự cố' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Tạo Báo cáo Sự cố');
 
     return (
         <>

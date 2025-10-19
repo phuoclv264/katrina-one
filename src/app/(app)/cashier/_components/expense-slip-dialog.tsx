@@ -1,5 +1,3 @@
-
-
 // Merged from owner-expense-slip-dialog.tsx and expense-slip-dialog.tsx on 2024-07-30 — refactor only
 
 'use client';

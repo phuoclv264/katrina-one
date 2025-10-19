@@ -25,7 +25,6 @@ type HandoverComparisonDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   comparisonResult: ComparisonResult | null;
-  handoverData: any;
   onNavigateToExpenses: () => void;
   onNavigateToRevenue: () => void;
 };
@@ -34,7 +33,6 @@ export default function HandoverComparisonDialog({
   open,
   onOpenChange,
   comparisonResult,
-  handoverData,
   onNavigateToExpenses,
   onNavigateToRevenue,
 }: HandoverComparisonDialogProps) {

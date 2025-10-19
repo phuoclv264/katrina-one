@@ -31,7 +31,7 @@ import isEqual from 'lodash.isequal';
 type RevenueStatsDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => void;
+    onSave: (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => void | Promise<void>;
     isProcessing: boolean;
     existingStats: RevenueStats | null;
     isOwnerView?: boolean;

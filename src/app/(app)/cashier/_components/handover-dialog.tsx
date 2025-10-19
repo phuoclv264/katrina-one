@@ -400,7 +400,11 @@ export default function HandoverDialog({
                                                     key={`ho-${key}`} id={`ho-${key}`} label={handoverFieldLabels[key]}
                                                     value={handoverData?.[key] as number ?? 0}
                                                     onChange={(val) => handleHandoverDataChange(key as any, val)}
-                                                    originalValue={originalData?.[key as keyof typeof originalData]}
+                                                    originalValue={
+                                                        typeof originalData?.[key as keyof typeof originalData] === "number"
+                                                            ? (originalData?.[key as keyof typeof originalData] as number)
+                                                            : undefined
+                                                        }
                                                 />
                                             ))}
                                             <Separator />
@@ -410,7 +414,11 @@ export default function HandoverDialog({
                                                     key={`ho-card-${cardKey}`} id={`ho-card-${cardKey}`} label={handoverFieldLabels[cardKey]}
                                                     value={handoverData?.revenueByCard?.[cardKey] as number ?? 0}
                                                     onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
-                                                    originalValue={originalData?.revenueByCard?.[cardKey as keyof any]}
+                                                    originalValue={
+                                                        typeof originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard] === "number"
+                                                            ? (originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard] as number)
+                                                            : undefined
+                                                        }
                                                 />
                                             ))}
                                         </CardContent>

@@ -445,6 +445,17 @@ export type OtherCostCategory = {
   name: string;
 };
 
+export type CashCount = {
+  id: string;
+  timestamp: string | Timestamp;
+  countedBy: AssignedUser;
+  actualCash: number;
+  expectedCash: number;
+  discrepancy: number;
+  discrepancyReason?: string;
+  discrepancyProofPhotos?: string[];
+};
+
 export type HandoverReport = {
   shiftEndTime: null;
   id: string; // cashier-handover-{date}
@@ -457,6 +468,7 @@ export type HandoverReport = {
   discrepancy: number; // calculated as actualCash - handoverData.expectedCash
   discrepancyReason?: string;
   discrepancyProofPhotos?: string[];
+  cashCounts?: CashCount[]; // Array for multiple cash counts within the day
   
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
@@ -504,6 +516,26 @@ export type RevenueStats = {
   createdAt: string | Timestamp;
   lastModifiedBy?: AssignedUser;
 };
+
+// --- AI Flow Output Types ---
+
+export type ExtractHandoverDataOutput = {
+  isReceipt: boolean;
+  rejectionReason?: string;
+  shiftEndTime?: string;
+  expectedCash?: number;
+  startOfDayCash?: number;
+  cashExpense?: number;
+  cashRevenue?: number;
+  deliveryPartnerPayout?: number;
+  revenueByCard?: {
+    techcombankVietQrPro?: number;
+    shopeeFood?: number;
+    grabFood?: number;
+    bankTransfer?: number;
+  };
+};
+
 
 // --- AI Invoice Extraction Types ---
 export type ExtractedInvoiceItem = {

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format, parseISO } from 'date-fns';
@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
+import CashHandoverDialog from './_components/cash-handover-dialog';
 import HandoverDialog from './_components/handover-dialog';
 import HandoverComparisonDialog from './_components/handover-comparison-dialog';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -155,6 +156,7 @@ function CashierDashboardPageComponent() {
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
   const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
   const [isHandoverDialogOpen, setIsHandoverDialogOpen] = useState(false);
+  const [isCashHandoverDialogOpen, setIsCashHandoverDialogOpen] = useState(false);
   
   const [isComparisonDialogOpen, setIsComparisonDialogOpen] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<any[] | null>(null);
@@ -164,6 +166,7 @@ function CashierDashboardPageComponent() {
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
 
+  const [cashCountToEdit, setCashCountToEdit] = useState<any | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
 
@@ -316,7 +319,7 @@ function CashierDashboardPageComponent() {
     }
   }
 
-  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'> & { photoIds?: string[], photosToDelete?: string[] }, id?: string) => {
+  const handleSaveIncident = useCallback(async (data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photoIds?: string[], photosToDelete?: string[] }, id?: string) => {
     if (!user) return;
     setIsProcessing(true);
     try {
@@ -358,7 +361,7 @@ function CashierDashboardPageComponent() {
     await dataStore.updateIncidentCategories(newCategories);
   };
   
- const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+ const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
     if(!user) return;
     setIsProcessing(true);
     try {
@@ -411,7 +414,7 @@ function CashierDashboardPageComponent() {
   const handleHandoverSubmit = (data: ExtractHandoverDataOutput & {imageDataUri: string}) => {
     setIsHandoverDialogOpen(false); // Close the input dialog
     
-    const receiptData = data.handoverData;
+    const receiptData = data;
     
     const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
     
@@ -427,7 +430,7 @@ function CashierDashboardPageComponent() {
         startOfDayCash: startOfDayCash,
         cashExpense: totalCashExpense,
         cashRevenue: cashRevenue,
-        deliveryPartnerPayout: Math.abs(receiptData.deliveryPartnerPayout), // Use receipt data for comparison
+        deliveryPartnerPayout: Math.abs(receiptData.deliveryPartnerPayout || 0), // Use receipt data for comparison
         revenueByCard: revenueByCardFromApp,
     };
     
@@ -436,39 +439,18 @@ function CashierDashboardPageComponent() {
         { field: 'startOfDayCash', label: 'Tiền mặt đầu ca', appValue: appData.startOfDayCash, receiptValue: receiptData.startOfDayCash },
         { field: 'cashExpense', label: 'Chi tiền mặt', appValue: appData.cashExpense, receiptValue: receiptData.cashExpense },
         { field: 'cashRevenue', label: 'Doanh thu tiền mặt', appValue: appData.cashRevenue, receiptValue: receiptData.cashRevenue },
-        { field: 'deliveryPartnerPayout', label: 'Trả ĐTGH', appValue: appData.deliveryPartnerPayout, receiptValue: Math.abs(receiptData.deliveryPartnerPayout) },
-        { field: 'techcombankVietQrPro', label: 'DT: TCB VietQR', appValue: appData.revenueByCard.techcombankVietQrPro, receiptValue: receiptData.revenueByCard.techcombankVietQrPro },
-        { field: 'shopeeFood', label: 'DT: ShopeeFood', appValue: appData.revenueByCard.shopeeFood, receiptValue: receiptData.revenueByCard.shopeeFood },
-        { field: 'grabFood', label: 'DT: GrabFood', appValue: appData.revenueByCard.grabFood, receiptValue: receiptData.revenueByCard.grabFood },
-        { field: 'bankTransfer', label: 'DT: Chuyển Khoản', appValue: appData.revenueByCard.bankTransfer, receiptValue: receiptData.revenueByCard.bankTransfer },
-    ].map(item => ({ ...item, isMatch: Math.abs(item.appValue - item.receiptValue) < 1 })); // Allow for rounding errors
+        { field: 'deliveryPartnerPayout', label: 'Trả ĐTGH', appValue: appData.deliveryPartnerPayout, receiptValue: Math.abs(receiptData.deliveryPartnerPayout || 0) },
+        { field: 'techcombankVietQrPro', label: 'DT: TCB VietQR', appValue: appData.revenueByCard.techcombankVietQrPro, receiptValue: receiptData.revenueByCard?.techcombankVietQrPro ?? 0 },
+        { field: 'shopeeFood', label: 'DT: ShopeeFood', appValue: appData.revenueByCard.shopeeFood, receiptValue: receiptData.revenueByCard?.shopeeFood ?? 0 },
+        { field: 'grabFood', label: 'DT: GrabFood', appValue: appData.revenueByCard.grabFood, receiptValue: receiptData.revenueByCard?.grabFood ?? 0 },
+        { field: 'bankTransfer', label: 'DT: Chuyển Khoản', appValue: appData.revenueByCard.bankTransfer, receiptValue: receiptData.revenueByCard?.bankTransfer ?? 0 },
+    ].map(item => ({ ...item, isMatch: Math.abs(item.appValue - (item.receiptValue || 0)) < 1 })); // Allow for rounding errors
 
     setComparisonResult(comparison);
     setHandoverReceiptData(data); // Store the full data including image URI
     setIsComparisonDialogOpen(true);
   };
   
-    const handleFinalHandoverSubmit = async (finalData: any) => {
-        if (!user || !handoverReceiptData) return;
-        
-        setIsProcessing(true);
-        try {
-            const reportData = {
-                ...handoverReceiptData, // Includes image URI, AI data, edited status etc.
-                discrepancyReason: finalData.discrepancyReason || null, // Ensure it's not undefined
-                ...finalData, // Includes actualCash, discrepancy, and photo IDs
-            };
-            await dataStore.addHandoverReport(reportData, user);
-            toast.success("Báo cáo bàn giao đã được gửi thành công!");
-            setIsComparisonDialogOpen(false);
-        } catch (error) {
-            console.error("Failed to submit final handover report:", error);
-            toast.error("Lỗi: Không thể gửi báo cáo bàn giao.");
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-    
     const handleNavigateToExpenses = () => {
         setIsComparisonDialogOpen(false);
         setTimeout(() => expenseSlipsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
@@ -478,6 +460,49 @@ function CashierDashboardPageComponent() {
         setIsComparisonDialogOpen(false);
         setTimeout(() => revenueStatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
     }
+
+  const handleCashCountSubmit = async (finalData: any, id?: string) => {
+    if (!user) return;
+    setIsProcessing(true);
+    try {
+      if (id && handoverReport?.id) {
+        if (!user) throw new Error("User not found");
+        await dataStore.updateCashCount(handoverReport.id, id, finalData, user);
+        toast.success("Đã cập nhật kiểm kê tiền mặt.");
+      } else {
+        await dataStore.addCashCount({
+          ...finalData,
+          expectedCash: expectedCashOnHand,
+        }, user);
+        toast.success("Đã ghi nhận kiểm kê tiền mặt.");
+      }
+      setIsCashHandoverDialogOpen(false);
+      setCashCountToEdit(null);
+    } catch (error) {
+      console.error("Failed to save cash count:", error);
+      toast.error("Lỗi: Không thể lưu biên bản kiểm kê.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleEditCashCount = (count: any) => {
+    setCashCountToEdit(count);
+    setIsCashHandoverDialogOpen(true);
+  };
+
+  const handleDeleteCashCount = async (countId: string) => {
+    if (!handoverReport?.id || !user) return;
+    setIsProcessing(true);
+    try {
+      await dataStore.deleteCashCount(handoverReport.id, countId, user);
+      toast.success("Đã xóa lần kiểm kê.");
+    } catch (error) {
+      toast.error("Lỗi: Không thể xóa lần kiểm kê.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
    const openPhotoLightbox = (photos: string[], index: number = 0) => {
         setLightboxSlides(photos.map(p => ({ src: p })));
@@ -570,6 +595,12 @@ function CashierDashboardPageComponent() {
                             <FileWarning className="h-5 w-5"/>
                         </div>
                         Ghi nhận Sự cố
+                    </Button>
+                    <Button onClick={() => { setCashCountToEdit(null); setIsCashHandoverDialogOpen(true); }} className="w-full h-14 justify-start p-4 text-base bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:hover:bg-purple-900 dark:text-purple-200">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-800/50 mr-3">
+                            <ClipboardCheck className="h-5 w-5"/>
+                        </div>
+                        Kiểm kê tiền mặt
                     </Button>
                     <Button onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport} className="w-full h-14 justify-start p-4 text-base" variant={handoverReport ? 'secondary' : 'default'}>
                          <div className={cn("flex items-center justify-center h-8 w-8 rounded-full mr-3", handoverReport ? "bg-muted" : "bg-primary/20")}>
@@ -834,6 +865,68 @@ function CashierDashboardPageComponent() {
             </Card>
 
             <Card className="shadow-lg rounded-2xl">
+                <CardHeader className="border-b border-purple-200 dark:border-purple-800/50 bg-purple-50/50 dark:bg-purple-900/10">
+                    <CardTitle className="text-purple-800 dark:text-purple-300 flex items-center gap-2"><ClipboardCheck /> Lịch sử Kiểm kê Tiền mặt</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                    {handoverReport?.cashCounts && handoverReport.cashCounts.length > 0 ? (
+                        <div className="space-y-3">
+                            {handoverReport.cashCounts
+                                .sort((a, b) => {
+                                    const timeA = a.timestamp ? new Date(a.timestamp as string).getTime() : 0;
+                                    const timeB = b.timestamp ? new Date(b.timestamp as string).getTime() : 0;
+                                    return timeB - timeA;
+                                })
+                                .map(count => (
+                                <div key={count.id}>
+                                <Card key={count.id} className="bg-background">
+                                    <CardContent className="p-3">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div>
+                                                <p className="font-semibold">{count.countedBy.userName}</p>
+                                                <p className="text-xs text-muted-foreground">Lúc {count.timestamp ? format(new Date(count.timestamp as string), 'HH:mm') : 'N/A'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-base">{(count.actualCash).toLocaleString('vi-VN')}đ</p>
+                                                {count.discrepancy !== 0 && (
+                                                    <p className={cn(
+                                                        "text-xs font-semibold",
+                                                        count.discrepancy > 0 ? "text-green-600" : "text-red-600"
+                                                    )}>
+                                                        {count.discrepancy > 0 ? '+' : ''}{count.discrepancy.toLocaleString('vi-VN')}đ
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {(count.discrepancyReason || (count.discrepancyProofPhotos && count.discrepancyProofPhotos.length > 0)) && (
+                                            <div className="mt-2 pt-2 border-t text-sm">
+                                                {count.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {count.discrepancyReason}</p>}
+                                                {count.discrepancyProofPhotos && count.discrepancyProofPhotos.length > 0 && (
+                                                    <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(count.discrepancyProofPhotos!)}>Xem {count.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                                {count.countedBy.userId === user.uid && (
+                                    <div className="flex justify-end gap-1 mt-1">
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleEditCashCount(count)}><Edit className="mr-1 h-3 w-3"/>Sửa</Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="h-7 text-xs text-destructive"><Trash2 className="mr-1 h-3 w-3"/>Xóa</Button></AlertDialogTrigger>
+                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa lần kiểm kê này?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCashCount(count.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-center text-sm text-muted-foreground py-10">Chưa có lần kiểm kê nào trong ngày.</p>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card className="shadow-lg rounded-2xl">
                 <CardHeader className="border-b border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
                     <CardTitle className="text-amber-800 dark:text-amber-300 flex items-center gap-2"><AlertTriangle/> Sự cố trong ngày</CardTitle>
                 </CardHeader>
@@ -897,7 +990,7 @@ function CashierDashboardPageComponent() {
         onCategoriesChange={handleCategoriesChange as any}
         canManageCategories={user.role === 'Chủ nhà hàng'}
         reporter={user}
-        violationToEdit={incidentToEdit as any}
+        incidentToEdit={incidentToEdit}
     />
      <RevenueStatsDialog
         open={isRevenueDialogOpen}
@@ -917,13 +1010,20 @@ function CashierDashboardPageComponent() {
         <HandoverComparisonDialog
             open={isComparisonDialogOpen}
             onOpenChange={setIsComparisonDialogOpen}
-            onFinalSubmit={handleFinalHandoverSubmit}
-            isProcessing={isProcessing}
             comparisonResult={comparisonResult}
-            handoverData={handoverReceiptData.handoverData}
             onNavigateToExpenses={handleNavigateToExpenses}
             onNavigateToRevenue={handleNavigateToRevenue}
         />
+    )}
+    {isCashHandoverDialogOpen && (
+      <CashHandoverDialog
+        open={isCashHandoverDialogOpen}
+        onOpenChange={setIsCashHandoverDialogOpen}
+        onFinalSubmit={handleCashCountSubmit}
+        isProcessing={isProcessing}
+        expectedCash={expectedCashOnHand}
+        countToEdit={cashCountToEdit}
+      />
     )}
      <Lightbox
         open={isLightboxOpen}

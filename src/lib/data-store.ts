@@ -15,6 +15,7 @@ import {
   where,
   getDocs,
   addDoc,
+  limit,
   deleteDoc,
   writeBatch,
   runTransaction,
@@ -24,7 +25,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -132,8 +133,15 @@ export const dataStore = {
         return onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                  const data = docSnap.data();
+                 // Ensure timestamps within cashCounts are converted to ISO strings
+                 const cashCounts = (data.cashCounts || []).map((count: any) => ({
+                    ...count,
+                    timestamp: (count.timestamp as Timestamp)?.toDate?.().toISOString() || count.timestamp,
+                 }));
+
                  callback({
                      ...data,
+                     cashCounts,
                      id: docSnap.id,
                      createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                  } as HandoverReport);
@@ -172,7 +180,131 @@ export const dataStore = {
         return null;
     },
 
-    async addHandoverReport(data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
+    async addCashCount(cashCountData: Omit<CashCount, 'id' | 'timestamp' | 'countedBy'>, user: AuthUser): Promise<void> {
+        const date = getTodaysDateKey();
+        const handoverReportRef = doc(db, 'handover_reports', date);
+
+        let proofPhotos: string[] = [];
+        if (cashCountData.discrepancyProofPhotos && cashCountData.discrepancyProofPhotos.length > 0) {
+            const uploadPromises = cashCountData.discrepancyProofPhotos.map(async (photoId) => {
+                const photoBlob = await photoStore.getPhoto(photoId);
+                if (!photoBlob) return null;
+                const storageRef = ref(storage, `handover-reports/${date}/cash-counts/${uuidv4()}.jpg`);
+                await uploadBytes(storageRef, photoBlob);
+                return getDownloadURL(storageRef);
+            });
+            proofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+            await photoStore.deletePhotos(cashCountData.discrepancyProofPhotos);
+        }
+
+        const newCashCountEntry: Omit<CashCount, 'id'> = {
+            ...cashCountData,
+            discrepancyProofPhotos: proofPhotos,
+            timestamp: Timestamp.now(),
+            countedBy: {
+                userId: user.uid,
+                userName: user.displayName || 'Không rõ',
+            },
+        };
+
+        await runTransaction(db, async (transaction) => {
+            const handoverDoc = await transaction.get(handoverReportRef);
+            if (!handoverDoc.exists()) {
+                // If no report exists for the day, create one with the first cash count.
+                transaction.set(handoverReportRef, {
+                    date: date,
+                    createdAt: serverTimestamp(),
+                    cashCounts: [{ ...newCashCountEntry, id: uuidv4() }],
+                });
+            } else {
+                // If a report exists, add the new cash count to the array.
+                transaction.update(handoverReportRef, {
+                    cashCounts: arrayUnion({ ...newCashCountEntry, id: uuidv4() })
+                });
+            }
+        });
+    },
+
+    async updateCashCount(handoverReportId: string, cashCountId: string, newData: Partial<CashCount> & { discrepancyProofPhotoIds?: string[] }, user: AuthUser): Promise<void> {
+        const handoverReportRef = doc(db, 'handover_reports', handoverReportId);
+
+        await runTransaction(db, async (transaction) => {
+            const handoverDoc = await transaction.get(handoverReportRef);
+            if (!handoverDoc.exists()) {
+                throw new Error("Không tìm thấy báo cáo bàn giao.");
+            }
+
+            const reportData = handoverDoc.data() as HandoverReport;
+            const cashCounts = reportData.cashCounts || [];
+            const countIndex = cashCounts.findIndex(c => c.id === cashCountId);
+
+            if (countIndex === -1) {
+                throw new Error("Không tìm thấy lần kiểm kê tiền mặt để cập nhật.");
+            }
+
+            const originalCount = cashCounts[countIndex];
+
+            // Authorization check
+            if (originalCount.countedBy.userId !== user.uid && user.role !== 'Chủ nhà hàng') {
+                throw new Error("Bạn không có quyền chỉnh sửa lần kiểm kê của người khác.");
+            }
+
+            // Handle photo updates: delete old, upload new
+            if (originalCount.discrepancyProofPhotos && originalCount.discrepancyProofPhotos.length > 0) {
+                await Promise.all(originalCount.discrepancyProofPhotos.map(url => this.deletePhotoFromStorage(url)));
+            }
+
+            let newProofPhotos: string[] = [];
+            if (newData.discrepancyProofPhotoIds && newData.discrepancyProofPhotoIds.length > 0) {
+                const uploadPromises = newData.discrepancyProofPhotoIds.map(async (photoId) => {
+                    const photoBlob = await photoStore.getPhoto(photoId);
+                    if (!photoBlob) return null;
+                    const storageRef = ref(storage, `handover-reports/${handoverReportId}/cash-counts/${uuidv4()}.jpg`);
+                    await uploadBytes(storageRef, photoBlob);
+                    return getDownloadURL(storageRef);
+                });
+                newProofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+                await photoStore.deletePhotos(newData.discrepancyProofPhotoIds);
+            }
+
+            const updatedCount = {
+                ...originalCount,
+                ...newData,
+                discrepancyProofPhotos: newProofPhotos,
+                timestamp: Timestamp.now(), // Update timestamp to reflect the edit time
+            };
+            delete (updatedCount as any).discrepancyProofPhotoIds;
+
+            const updatedCashCounts = [...cashCounts];
+            updatedCashCounts[countIndex] = updatedCount;
+
+            transaction.update(handoverReportRef, { cashCounts: updatedCashCounts });
+        });
+    },
+
+    async deleteCashCount(handoverReportId: string, cashCountId: string, user: AuthUser): Promise<void> {
+        const handoverReportRef = doc(db, 'handover_reports', handoverReportId);
+
+        await runTransaction(db, async (transaction) => {
+            const reportDoc = await transaction.get(handoverReportRef);
+            if (!reportDoc.exists()) {
+                throw new Error("Không tìm thấy báo cáo bàn giao.");
+            }
+
+            const reportData = reportDoc.data() as HandoverReport;
+            const cashCounts = reportData.cashCounts || [];
+            const countToDelete = cashCounts.find(c => c.id === cashCountId);
+
+            if (countToDelete && countToDelete.countedBy.userId !== user.uid && user.role !== 'Chủ nhà hàng') {
+                throw new Error("Bạn không có quyền xóa lần kiểm kê của người khác.");
+            }
+
+            const updatedCashCounts = cashCounts.filter((c: CashCount) => c.id !== cashCountId);
+            transaction.update(handoverReportRef, { cashCounts: updatedCashCounts });
+        });
+    },
+
+    async addHandoverReport(data: Partial<HandoverReport> & { imageDataUri?: string }, user: AuthUser): Promise<void> {
         const date = data.date || getTodaysDateKey();
         const handoverReportRef = doc(db, 'handover_reports', date);
         
@@ -197,21 +329,23 @@ export const dataStore = {
             await photoStore.deletePhotos(data.discrepancyProofPhotos);
         }
 
-        const finalHandoverData = {
+        const finalHandoverData: Partial<HandoverReport> = {
             ...data,
             date,
             handoverImageUrl: handoverImageUrl, // Use the variable which is guaranteed to be string or null
             discrepancyProofPhotos,
             createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-            createdAt: serverTimestamp(),
+            createdAt: serverTimestamp() as Timestamp,
             isVerified: false,
         };
         // The imageDataUri from AI flow is large, don't save it to firestore.
-        if (finalHandoverData.handoverData) {
+        if (finalHandoverData.handoverData && 'imageDataUri' in finalHandoverData.handoverData) {
             delete finalHandoverData.handoverData.imageDataUri;
         }
-         delete (finalHandoverData as any).imageDataUri;
-        await setDoc(handoverReportRef, finalHandoverData);
+        // Also remove it from the top-level object if it exists
+        delete (finalHandoverData as any).imageDataUri;
+
+        await setDoc(handoverReportRef, finalHandoverData, { merge: true });
 
         const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
         if (deliveryPayout > 0) {
@@ -238,7 +372,7 @@ export const dataStore = {
                 paymentMethod: 'bank_transfer',
                 notes: `Tự động tạo từ báo cáo bàn giao cuối ca.`,
                 createdBy: { userId: user.uid, userName: user.displayName },
-                createdAt: serverTimestamp(),
+                createdAt: serverTimestamp() as Timestamp,
                 associatedHandoverReportId: handoverReportRef.id,
                 paymentStatus: 'unpaid'
             };
@@ -315,7 +449,7 @@ export const dataStore = {
     },
 
     async addOrUpdateIncident(
-      data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy'> & { photosToUpload?: string[], photosToDelete?: string[] },
+      data: Omit<IncidentReport, 'id' | 'createdAt' | 'createdBy' | 'date'> & { photosToUpload?: string[], photosToDelete?: string[] },
       id: string | undefined,
       user: AuthUser
     ): Promise<void> {
@@ -353,7 +487,7 @@ export const dataStore = {
 
             await updateDoc(docRef, finalData);
         } else {
-            finalData.date = data.date || getTodaysDateKey();
+            finalData.date = (data as IncidentReport).date || getTodaysDateKey();
             finalData.createdAt = serverTimestamp() as Timestamp;
             finalData.createdBy = { userId: user.uid, userName: user.displayName };
             finalData.photos = photoUrls;
@@ -464,7 +598,7 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
         
         let finalData: Partial<RevenueStats> = {
@@ -488,9 +622,9 @@ export const dataStore = {
             finalData.lastModifiedBy = { userId: user.uid, userName: user.displayName || 'N/A' };
             await updateDoc(docRef, finalData);
         } else {
-            finalData.date = data.date;
+            finalData.date = (data as RevenueStats).date;
             finalData.createdBy = { userId: user.uid, userName: user.displayName || 'N/A' };
-            finalData.createdAt = serverTimestamp();
+            finalData.createdAt = serverTimestamp() as Timestamp;
             await setDoc(docRef, finalData);
         }
     },
@@ -572,12 +706,12 @@ export const dataStore = {
         }
         
         if (id) {
-            finalData.lastModified = serverTimestamp();
+            finalData.lastModified = serverTimestamp() as Timestamp;
             if (slipData.lastModifiedBy) {
                  finalData.lastModifiedBy = { userId: slipData.lastModifiedBy.userId, userName: slipData.lastModifiedBy.userName };
             }
         } else {
-            finalData.createdAt = serverTimestamp();
+            finalData.createdAt = serverTimestamp() as Timestamp;
             finalData.date = slipData.date || getTodaysDateKey();
              if (!slipData.createdBy || !slipData.createdBy.userId) {
                 console.error("Cannot create expense slip: createdBy information is missing or invalid.", slipData.createdBy);
@@ -779,7 +913,7 @@ export const dataStore = {
         const docRef = doc(db, 'summaries', date);
         const data: Omit<DailySummary, 'id'> = {
             summary,
-            generatedAt: serverTimestamp(),
+            generatedAt: serverTimestamp() as Timestamp,
         };
         await setDoc(docRef, data);
     },
@@ -819,7 +953,7 @@ export const dataStore = {
                     shiftName: report.shiftKey, // This is a simplification, may need a map
                     staffName: report.staffName,
                     note: report.issues.trim(),
-                    scannedAt: serverTimestamp(),
+                    scannedAt: serverTimestamp() as Timestamp,
                 });
             }
         });
@@ -1193,7 +1327,7 @@ export const dataStore = {
         return { photoId, downloadURL: await getDownloadURL(storageRef) };
     });
     const uploadResults = await Promise.all(uploadPromises);
-    const photoIdToUrlMap = new Map(uploadResults.map(r => [r.photoId, r.downloadURL]).filter(r => r[1]));
+    const photoIdToUrlMap = new Map(uploadResults.filter((r): r is { photoId: string; downloadURL: string } => !!r.downloadURL).map(r => [r.photoId, r.downloadURL]));
 
     for (const itemId in reportToSubmit.stockLevels) {
         const record = reportToSubmit.stockLevels[itemId];
@@ -2004,7 +2138,7 @@ export const dataStore = {
             await updateDoc(docRef, finalData);
         }
     } else {
-        finalData.createdAt = serverTimestamp();
+        finalData.createdAt = serverTimestamp() as Timestamp;
         finalData.photos = photoUrls;
         await addDoc(collection(db, 'violations'), finalData);
     }
