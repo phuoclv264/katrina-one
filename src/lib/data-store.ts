@@ -1,5 +1,6 @@
 'use client';
 
+import type { CashHandoverReport, HandoverReport } from './types';
 import { db, auth, storage } from './firebase';
 import {
   collection,
@@ -25,7 +26,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, HandoverReport, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -128,27 +129,92 @@ export const dataStore = {
 
      // --- Cashier ---
 
-    subscribeToHandoverReport(date: string, callback: (report: HandoverReport | null) => void): () => void {
-        const docRef = doc(db, 'handover_reports', date);
-        return onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                 const data = docSnap.data();
-                 // Ensure timestamps within cashCounts are converted to ISO strings
-                 const cashCounts = (data.cashCounts || []).map((count: any) => ({
-                    ...count,
-                    timestamp: (count.timestamp as Timestamp)?.toDate?.().toISOString() || count.timestamp,
-                 }));
+    /**
+     * [ĐÃ SỬA ĐỔI] Lắng nghe tất cả dữ liệu bàn giao trong ngày, bao gồm cả cấu trúc cũ và mới.
+     */
+    subscribeToHandoverReport(date: string, callback: (report: HandoverReport | CashHandoverReport[] | null) => void): () => void {
+        let newReports: CashHandoverReport[] | null = null;
+        let oldReport: HandoverReport | null = null;
+        let newReportsReceived = false;
+        let oldReportReceived = false;
 
-                 callback({
-                     ...data,
-                     cashCounts,
-                     id: docSnap.id,
-                     createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                 } as HandoverReport);
+        const processAndCallback = () => {
+            // Chỉ xử lý khi đã nhận được kết quả từ cả hai listener
+            if (!newReportsReceived || !oldReportReceived) return;
+
+            if (newReports && newReports.length > 0) {
+                callback(newReports);
+            } else if (oldReport) {
+                callback(oldReport);
             } else {
                 callback(null);
             }
+        };
+
+        // Listener cho báo cáo mới
+        const newReportsQuery = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'asc'));
+        const unsubNewReports = onSnapshot(newReportsQuery, (snapshot) => {
+            newReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashHandoverReport));
+            newReportsReceived = true;
+            processAndCallback();
+        }, (error) => {
+            console.error("Lỗi khi lắng nghe báo cáo kiểm kê mới:", error);
+            newReports = []; // Coi như không có báo cáo mới nếu lỗi
+            newReportsReceived = true;
+            processAndCallback();
         });
+
+        // Listener cho báo cáo cũ
+        const oldReportRef = doc(db, 'handover_reports', date);
+        const unsubOldReport = onSnapshot(oldReportRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                oldReport = {
+                    ...data,
+                    id: docSnap.id,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                } as HandoverReport;
+            } else {
+                oldReport = null;
+            }
+            oldReportReceived = true;
+            processAndCallback();
+        }, (error) => {
+            console.error("Lỗi khi lắng nghe báo cáo cũ:", error);
+            oldReport = null;
+            oldReportReceived = true;
+            processAndCallback();
+        });
+
+        return () => {
+            unsubNewReports();
+            unsubOldReport();
+        };
+    },
+
+    /**
+     * [ĐÃ SỬA ĐỔI] Lấy dữ liệu bàn giao trong ngày, ưu tiên cấu trúc mới.
+     */
+    async getHandoverReport(date: string): Promise<HandoverReport | CashHandoverReport[] | null> {
+        // Ưu tiên kiểm tra collection mới trước
+        const newReportsQuery = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'asc'));
+        const newReportsSnapshot = await getDocs(newReportsQuery);
+        if (!newReportsSnapshot.empty) {
+            return newReportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashHandoverReport));
+        }
+
+        // Nếu không có, fallback về cấu trúc cũ
+        const docRef = doc(db, 'handover_reports', date);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+             const data = docSnap.data();
+             return {
+                 ...data,
+                 id: docSnap.id,
+                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+             } as HandoverReport;
+        }
+        return null;
     },
 
     subscribeToAllHandoverReports(callback: (reports: HandoverReport[]) => void): () => void {
@@ -164,20 +230,6 @@ export const dataStore = {
             });
             callback(reports);
         });
-    },
-
-     async getHandoverReport(date: string): Promise<HandoverReport | null> {
-        const docRef = doc(db, 'handover_reports', date);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-             const data = docSnap.data();
-             return {
-                 ...data,
-                 id: docSnap.id,
-                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-             } as HandoverReport;
-        }
-        return null;
     },
 
     async addCashCount(cashCountData: Omit<CashCount, 'id' | 'timestamp' | 'countedBy'>, user: AuthUser): Promise<void> {
@@ -2321,6 +2373,99 @@ export const dataStore = {
     await photoStore.deletePhotos(media.map(m => m.id));
   },
 
+  async addCashHandoverReport(
+    data: Omit<CashHandoverReport, 'id' | 'createdAt' | 'createdBy' | 'date' | 'schemaVersion' | 'discrepancyProofPhotos'> & { newPhotoIds?: string[] },
+    user: AuthUser
+  ): Promise<void> {
+    const { newPhotoIds = [], ...reportData } = data;
+    const reportDate = format(new Date(), 'yyyy-MM-dd');
+
+    // 1. Upload new photos
+    const uploadPromises = newPhotoIds.map(async (photoId) => {
+      const photoBlob = await photoStore.getPhoto(photoId);
+      if (!photoBlob) return null;
+      const storageRef = ref(storage, `cash-handover-reports/${reportDate}/${uuidv4()}.jpg`);
+      await uploadBytes(storageRef, photoBlob);
+      return getDownloadURL(storageRef);
+    });
+    const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+
+    // 2. Prepare final data object
+    const finalData: Omit<CashHandoverReport, 'id'> = {
+      ...reportData,
+      date: reportDate,
+      createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+      createdAt: serverTimestamp(),
+      discrepancyProofPhotos: newPhotoUrls,
+      schemaVersion: 2,
+    };
+
+    // 3. Add to Firestore
+    await addDoc(collection(db, 'cash_handover_reports'), finalData);
+
+    // 4. Cleanup local photos
+    await photoStore.deletePhotos(newPhotoIds);
+  },
+
+  async updateCashHandoverReport(
+    reportId: string,
+    data: Partial<Omit<CashHandoverReport, 'id' | 'createdAt' | 'createdBy' | 'date' | 'schemaVersion'>> & { newPhotoIds?: string[], photosToDelete?: string[] },
+    user: AuthUser
+  ): Promise<void> {
+    const { newPhotoIds = [], photosToDelete = [], ...reportData } = data;
+    const docRef = doc(db, 'cash_handover_reports', reportId);
+
+    const currentDoc = await getDoc(docRef);
+    if (!currentDoc.exists()) {
+      throw new Error("Cash handover report not found to update.");
+    }
+    const reportDate = currentDoc.data().date;
+
+    // 1. Upload new photos
+    const uploadPromises = newPhotoIds.map(async (photoId) => {
+      const photoBlob = await photoStore.getPhoto(photoId);
+      if (!photoBlob) return null;
+      const storageRef = ref(storage, `cash-handover-reports/${reportDate}/${uuidv4()}.jpg`);
+      await uploadBytes(storageRef, photoBlob);
+      return getDownloadURL(storageRef);
+    });
+    const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
+
+    // 2. Delete old photos
+    if (photosToDelete.length > 0) {
+      await Promise.all(photosToDelete.map(url => this.deletePhotoFromStorage(url)));
+    }
+
+    // 3. Prepare final data for update
+    const existingPhotos = currentDoc.data().discrepancyProofPhotos || [];
+    const remainingPhotos = existingPhotos.filter((p: string) => !photosToDelete.includes(p));
+    const finalPhotos = [...remainingPhotos, ...newPhotoUrls];
+
+    await updateDoc(docRef, { ...reportData, discrepancyProofPhotos: finalPhotos });
+
+    // 4. Cleanup local photos
+    await photoStore.deletePhotos(newPhotoIds);
+  },
+
+  async deleteCashHandoverReport(reportId: string): Promise<void> {
+    const docRef = doc(db, 'cash_handover_reports', reportId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const reportData = docSnap.data() as CashHandoverReport;
+
+      // Delete associated photos from storage
+      if (reportData.discrepancyProofPhotos && reportData.discrepancyProofPhotos.length > 0) {
+        const photoDeletionPromises = reportData.discrepancyProofPhotos.map(url =>
+          this.deletePhotoFromStorage(url)
+        );
+        await Promise.all(photoDeletionPromises);
+      }
+    }
+
+    // Delete the report document from Firestore
+    await deleteDoc(docRef);
+  },
 };
 
 Object.assign(dataStore, {

@@ -6,15 +6,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton'; 
 import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
 import RevenueStatsDialog from './_components/revenue-stats-dialog';
@@ -35,6 +35,8 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Link from 'next/link';
 import WorkShiftGuard from '@/components/work-shift-guard';
+import type { CashHandoverReport } from '@/lib/types';
+import { Timestamp } from '@google-cloud/firestore';
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -142,7 +144,8 @@ function CashierDashboardPageComponent() {
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [dailyIncidents, setDailyIncidents] = useState<IncidentReport[]>([]);
   const [dailyRevenueStats, setDailyRevenueStats] = useState<RevenueStats[]>([]);
-  const [handoverReport, setHandoverReport] = useState<HandoverReport | null>(null);
+  // State to hold either the old report object or an array of new reports
+  const [handoverReport, setHandoverReport] = useState<HandoverReport | CashHandoverReport[] | null>(null);
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
@@ -462,19 +465,24 @@ function CashierDashboardPageComponent() {
     }
 
   const handleCashCountSubmit = async (finalData: any, id?: string) => {
+    // Refactored logic for cash handover
     if (!user) return;
     setIsProcessing(true);
     try {
-      if (id && handoverReport?.id) {
-        if (!user) throw new Error("User not found");
-        await dataStore.updateCashCount(handoverReport.id, id, finalData, user);
-        toast.success("Đã cập nhật kiểm kê tiền mặt.");
+      if (id) {
+        // Update existing report
+        await dataStore.updateCashHandoverReport(id, finalData, user);
+        toast.success("Đã cập nhật biên bản kiểm kê.");
       } else {
-        await dataStore.addCashCount({
+        // Create new report
+        const latestRevenueStatsId = dailyRevenueStats.length > 0 ? dailyRevenueStats[0].id : null;
+        await dataStore.addCashHandoverReport({
           ...finalData,
-          expectedCash: expectedCashOnHand,
+          startOfDayCash: startOfDayCash,
+          linkedExpenseSlipIds: dailySlips.map(s => s.id),
+          linkedRevenueStatsId: latestRevenueStatsId,
         }, user);
-        toast.success("Đã ghi nhận kiểm kê tiền mặt.");
+        toast.success("Đã ghi nhận biên bản kiểm kê tiền mặt.");
       }
       setIsCashHandoverDialogOpen(false);
       setCashCountToEdit(null);
@@ -486,19 +494,21 @@ function CashierDashboardPageComponent() {
     }
   };
 
-  const handleEditCashCount = (count: any) => {
+  const handleEditCashCount = (count: CashHandoverReport) => {
     setCashCountToEdit(count);
     setIsCashHandoverDialogOpen(true);
   };
 
   const handleDeleteCashCount = async (countId: string) => {
-    if (!handoverReport?.id || !user) return;
+    if (!user) return;
     setIsProcessing(true);
     try {
-      await dataStore.deleteCashCount(handoverReport.id, countId, user);
+      // TODO: Add authorization check before deleting
+      await dataStore.deleteCashHandoverReport(countId);
       toast.success("Đã xóa lần kiểm kê.");
     } catch (error) {
-      toast.error("Lỗi: Không thể xóa lần kiểm kê.");
+      console.error("Failed to delete cash count:", error);
+      toast.error(`Lỗi: Không thể xóa lần kiểm kê. ${(error as Error).message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -509,6 +519,46 @@ function CashierDashboardPageComponent() {
         setIsLightboxOpen(true);
    };
 
+   const displayableCashCounts = useMemo(() => {
+    if (!handoverReport) return [];
+
+    let counts: any[] = [];
+
+    if (Array.isArray(handoverReport)) { // New data structure: CashHandoverReport[]
+      // This logic remains correct for the new structure
+      counts = handoverReport
+      .filter(report => report && report.createdAt)
+      .map(report => ({
+        id: report.id,
+        userName: report.createdBy.userName,
+        timestamp: (report.createdAt as Timestamp).toDate(),
+        actualCash: report.actualCashCounted,
+        discrepancy: report.actualCashCounted - ( (dailyRevenueStats.find(r => r.id === report.linkedRevenueStatsId)?.revenueByPaymentMethod.cash || 0) - (dailySlips.filter(s => report.linkedExpenseSlipIds?.includes(s.id) && s.paymentMethod === 'cash').reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0)) + report.startOfDayCash ),
+        discrepancyReason: report.discrepancyReason,
+        proofPhotos: report.discrepancyProofPhotos,
+        isLegacy: false,
+        canEdit: report.createdBy.userId === user?.uid,
+        originalReport: report,
+      }));
+    } else { // Old data structure: HandoverReport (flat structure)
+      const oldReport = handoverReport as HandoverReport;
+      if (oldReport && oldReport.createdAt) {
+        counts = [{
+          id: oldReport.id,
+          userName: oldReport.createdBy.userName,
+          timestamp: new Date(oldReport.createdAt as string),
+          actualCash: oldReport.actualCash,
+          discrepancy: oldReport.discrepancy,
+          discrepancyReason: oldReport.discrepancyReason,
+          proofPhotos: oldReport.discrepancyProofPhotos,
+          isLegacy: true,
+          canEdit: false,
+        }];
+      }
+    }
+
+    return counts.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [handoverReport, dailySlips, dailyRevenueStats, user]);
 
   if (authLoading || isLoading || !user) {
     return (
@@ -869,56 +919,56 @@ function CashierDashboardPageComponent() {
                     <CardTitle className="text-purple-800 dark:text-purple-300 flex items-center gap-2"><ClipboardCheck /> Lịch sử Kiểm kê Tiền mặt</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                    {handoverReport?.cashCounts && handoverReport.cashCounts.length > 0 ? (
+                    {displayableCashCounts.length > 0 ? (
                         <div className="space-y-3">
-                            {handoverReport.cashCounts
-                                .sort((a, b) => {
-                                    const timeA = a.timestamp ? new Date(a.timestamp as string).getTime() : 0;
-                                    const timeB = b.timestamp ? new Date(b.timestamp as string).getTime() : 0;
-                                    return timeB - timeA;
-                                })
-                                .map(count => (
-                                <div key={count.id}>
-                                <Card key={count.id} className="bg-background">
-                                    <CardContent className="p-3">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <div>
-                                                <p className="font-semibold">{count.countedBy.userName}</p>
-                                                <p className="text-xs text-muted-foreground">Lúc {count.timestamp ? format(new Date(count.timestamp as string), 'HH:mm') : 'N/A'}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-bold text-base">{(count.actualCash).toLocaleString('vi-VN')}đ</p>
-                                                {count.discrepancy !== 0 && (
-                                                    <p className={cn(
-                                                        "text-xs font-semibold",
-                                                        count.discrepancy > 0 ? "text-green-600" : "text-red-600"
-                                                    )}>
-                                                        {count.discrepancy > 0 ? '+' : ''}{count.discrepancy.toLocaleString('vi-VN')}đ
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {(count.discrepancyReason || (count.discrepancyProofPhotos && count.discrepancyProofPhotos.length > 0)) && (
-                                            <div className="mt-2 pt-2 border-t text-sm">
-                                                {count.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {count.discrepancyReason}</p>}
-                                                {count.discrepancyProofPhotos && count.discrepancyProofPhotos.length > 0 && (
-                                                    <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(count.discrepancyProofPhotos!)}>Xem {count.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
-                                                )}
-                                            </div>
+                            {displayableCashCounts.map((count) => {
+                                return (
+                                    <div key={count.id}>
+                                        <Card className="bg-background">
+                                            <CardContent className="p-3">
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <div>
+                                                        <p className="font-semibold">{count.userName}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Lúc {format(count.timestamp, 'HH:mm')}
+                                                            {count.isLegacy && <Badge variant="outline" className="ml-2">Cũ</Badge>}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-base">{(count.actualCash).toLocaleString('vi-VN')}đ</p>
+                                                        {count.discrepancy !== 0 && (
+                                                            <p className={cn("text-xs font-semibold", count.discrepancy > 0 ? "text-green-600" : "text-red-600")}>
+                                                                {count.discrepancy > 0 ? '+' : ''}{count.discrepancy.toLocaleString('vi-VN')}đ
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 pt-2 border-t text-sm">
+                                                    {count.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {count.discrepancyReason}</p>}
+                                                    {count.proofPhotos && count.proofPhotos.length > 0 && (
+                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(count.proofPhotos!)}>Xem {count.proofPhotos.length} ảnh bằng chứng</Button>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        {count.canEdit && !count.isLegacy && (
+                                            <CardFooter className="p-2 pt-0 justify-end gap-1">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(count.originalReport)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCashCount(count.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                </AlertDialog>
+                                            </CardFooter>
                                         )}
-                                    </CardContent>
-                                </Card>
-                                {count.countedBy.userId === user.uid && (
-                                    <div className="flex justify-end gap-1 mt-1">
-                                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleEditCashCount(count)}><Edit className="mr-1 h-3 w-3"/>Sửa</Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="h-7 text-xs text-destructive"><Trash2 className="mr-1 h-3 w-3"/>Xóa</Button></AlertDialogTrigger>
-                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa lần kiểm kê này?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCashCount(count.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                                        </AlertDialog>
+                                        </Card>
                                     </div>
-                                )}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="text-center text-sm text-muted-foreground py-10">Chưa có lần kiểm kê nào trong ngày.</p>
@@ -1019,7 +1069,7 @@ function CashierDashboardPageComponent() {
       <CashHandoverDialog
         open={isCashHandoverDialogOpen}
         onOpenChange={setIsCashHandoverDialogOpen}
-        onFinalSubmit={handleCashCountSubmit}
+        onSubmit={handleCashCountSubmit}
         isProcessing={isProcessing}
         expectedCash={expectedCashOnHand}
         countToEdit={cashCountToEdit}

@@ -19,7 +19,7 @@ import { toast } from 'react-hot-toast';
 type CashHandoverDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onFinalSubmit: (finalData: any, id?: string) => void;
+  onSubmit: (finalData: any, id?: string) => void;
   isProcessing: boolean;
   expectedCash: number;
   countToEdit?: any | null;
@@ -28,12 +28,12 @@ type CashHandoverDialogProps = {
 export default function CashHandoverDialog({
   open,
   onOpenChange,
-  onFinalSubmit: onParentSubmit,
+  onSubmit,
   isProcessing,
   expectedCash,
   countToEdit = null,
 }: CashHandoverDialogProps) {
-  const [actualCash, setActualCash] = useState<number | null>(null);
+  const [actualCashCounted, setActualCashCounted] = useState<number | null>(null);
   const [discrepancyReason, setDiscrepancyReason] = useState('');
   const [discrepancyPhotoIds, setDiscrepancyPhotoIds] = useState<string[]>([]);
   const [discrepancyPhotoUrls, setDiscrepancyPhotoUrls] = useState<string[]>([]);
@@ -44,14 +44,14 @@ export default function CashHandoverDialog({
   useEffect(() => {
     if (open) {
       if (countToEdit) {
-        setActualCash(countToEdit.actualCash);
+        setActualCashCounted(countToEdit.actualCashCounted || countToEdit.actualCash); // Support old and new
         setDiscrepancyReason(countToEdit.discrepancyReason || '');
         // Note: Editing photos is not supported in this version to keep it simple.
         // User needs to re-upload if they want to change.
         setDiscrepancyPhotoIds([]);
         setDiscrepancyPhotoUrls([]);
       } else {
-        setActualCash(null);
+        setActualCashCounted(null);
         setDiscrepancyReason('');
         discrepancyPhotoUrls.forEach(url => URL.revokeObjectURL(url));
         setDiscrepancyPhotoUrls([]);
@@ -61,24 +61,23 @@ export default function CashHandoverDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, countToEdit]);
 
-  const discrepancy = (actualCash !== null && expectedCash !== undefined)
-    ? actualCash - expectedCash
+  // Discrepancy is now calculated on the main page for display, not in the dialog
+  const discrepancy = (actualCashCounted !== null && expectedCash !== undefined)
+    ? actualCashCounted - expectedCash
     : 0;
 
   const handleConfirmAndSave = () => {
-    if (discrepancy !== 0 && !discrepancyReason.trim()) {
+    // The check for discrepancy reason should still happen if there is a difference
+    if (actualCashCounted !== null && actualCashCounted - expectedCash !== 0 && !discrepancyReason.trim()) {
       toast.error('Vui lòng nhập lý do chênh lệch tiền mặt.');
       return;
     }
     const finalData = {
-      actualCash,
-      expectedCash: countToEdit ? countToEdit.expectedCash : expectedCash, // Preserve original expected cash on edit
-      discrepancy,
+      actualCashCounted,
       discrepancyReason: discrepancyReason.trim() || null,
-      // On edit, we only handle new photos. Old photos are not editable in this flow.
-      discrepancyProofPhotoIds: discrepancyPhotoIds,
+      newPhotoIds: discrepancyPhotoIds, // Renaming for clarity in the new structure
     };
-    onParentSubmit(finalData, countToEdit?.id);
+    onSubmit(finalData, countToEdit?.id);
   };
 
   const handleCapturePhotos = async (media: { id: string; type: 'photo' | 'video' }[]) => {
@@ -119,7 +118,7 @@ export default function CashHandoverDialog({
                 </Card>
                 <Card className="border-primary ring-2 ring-primary/50 rounded-xl">
                   <CardHeader className="pb-2"><CardTitle className="text-base text-primary">Tiền mặt thực tế</CardTitle></CardHeader>
-                  <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCash ?? ''} onChange={e => setActualCash(Number(e.target.value))} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()} /></CardContent>
+                  <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCashCounted ?? ''} onChange={e => setActualCashCounted(Number(e.target.value))} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()} /></CardContent>
                 </Card>
                 {discrepancy !== 0 && (
                   <Card className="border-destructive ring-2 ring-destructive/30 mt-6 rounded-xl">
@@ -153,7 +152,7 @@ export default function CashHandoverDialog({
           </div>
           <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-muted/30">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-            <Button onClick={handleConfirmAndSave} disabled={isProcessing || typeof actualCash !== 'number'}>
+            <Button onClick={handleConfirmAndSave} disabled={isProcessing || typeof actualCashCounted !== 'number'}>
               {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
               {isProcessing ? 'Đang lưu...' : (countToEdit ? 'Lưu thay đổi' : 'Hoàn tất & Gửi')}
             </Button>

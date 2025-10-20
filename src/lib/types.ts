@@ -1,6 +1,6 @@
 'use client';
 
-import type { Timestamp } from 'firebase/firestore';
+import type { Timestamp, FieldValue } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
 export type Staff = {
@@ -474,6 +474,23 @@ export type HandoverReport = {
   createdAt: string | Timestamp;
   isVerified: boolean;
 };
+
+/**
+ * [MỚI] Cấu trúc cho một biên bản kiểm kê tiền mặt độc lập (schema v2).
+ */
+export interface CashHandoverReport {
+  id: string;
+  createdAt: Timestamp | FieldValue;
+  createdBy: AssignedUser;
+  date: string; // YYYY-MM-DD
+  actualCashCounted: number;
+  discrepancyReason: string | null;
+  discrepancyProofPhotos: string[];
+  startOfDayCash: number;
+  linkedExpenseSlipIds: string[];
+  linkedRevenueStatsId: string | null;
+  schemaVersion: 2;
+}
 
 export type IncidentCategory = {
   id: string;
