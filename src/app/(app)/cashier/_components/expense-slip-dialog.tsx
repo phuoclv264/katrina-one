@@ -432,12 +432,19 @@ export default function ExpenseSlipDialog({
 
     const handleItemsSelected = (selectedInventoryItems: InventoryItem[]) => {
         const newExpenseItems: ExpenseItem[] = selectedInventoryItems.map(invItem => {
-            const orderUnit = invItem.units.find(u => !u.isBaseUnit) || invItem.units[0];
+            // Default to the largest unit by conversion rate when adding a new item.
+            const largestUnit = (invItem.units && invItem.units.length > 0)
+                ? invItem.units.reduce((largest, current) => 
+                    ((current.conversionRate || 1) > (largest.conversionRate || 1)) ? current : largest, 
+                    invItem.units[0]
+                  )
+                : null;
+
             return {
                 itemId: invItem.id,
                 name: invItem.name,
                 supplier: invItem.supplier,
-                unit: orderUnit.name,
+                unit: largestUnit?.name || invItem.baseUnit,
                 quantity: 1, // default
                 unitPrice: 0 // default
             };

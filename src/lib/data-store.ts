@@ -2467,10 +2467,3 @@ export const dataStore = {
     await deleteDoc(docRef);
   },
 };
-
-Object.assign(dataStore, {
-    async updateUserAnonymousName(uid: string, newName: string): Promise<void> {
-        const userRef = doc(db, 'users', uid);
-        await updateDoc(userRef, { anonymousName: newName });
-    },
-});

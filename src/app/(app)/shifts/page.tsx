@@ -32,16 +32,26 @@ export default function ShiftsPage() {
   const hasCashierSecondaryRole = user?.secondaryRoles?.includes('Thu ngân');
   const isPrimaryServer = user?.role === 'Phục vụ';
 
-  const activeMainShiftKeys = useMemo(() => 
-      activeShifts.map(shift => {
-          const labelLower = shift.label.toLowerCase();
-          if (labelLower.includes('sáng')) return 'sang';
-          if (labelLower.includes('trưa')) return 'trua';
-          if (labelLower.includes('tối')) return 'toi';
-          return null;
-      }).filter((key): key is "sang" | "trua" | "toi" => key !== null),
-      [activeShifts]
-  );
+  const activeMainShiftKeys = useMemo(() => {
+    const keys = activeShifts.map(shift => {
+        if (!shift.timeSlot || !shift.timeSlot.start) {
+            return null;
+        }
+        const startTimeHour = parseInt(shift.timeSlot.start.split(':')[0], 10);
+
+        if (startTimeHour < 12) {
+            return 'sang';
+        } else if (startTimeHour < 17) {
+            return 'trua';
+        } else {
+            return 'toi';
+        }
+    });
+    
+    const uniqueKeys = [...new Set(keys)];
+
+    return uniqueKeys.filter((key): key is "sang" | "trua" | "toi" => key !== null);
+  }, [activeShifts]);
 
   if (authLoading) {
     return (

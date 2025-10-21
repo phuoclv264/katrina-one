@@ -172,19 +172,6 @@ export const useAuth = () => {
     }
   }, [router]);
   
-  const updateUserAnonymousName = async (newAnonymousName: string): Promise<void> => {
-    if (!user) throw new Error("User not authenticated.");
-    try {
-      await dataStore.updateUserAnonymousName(user.uid, newAnonymousName);
-      setUser(prevUser => prevUser ? { ...prevUser, anonymousName: newAnonymousName } : null);
-      toast.success('Đã cập nhật tên ẩn danh!');
-    } catch (error) {
-      console.error("Failed to update anonymous name:", error);
-      toast.error("Lỗi khi cập nhật tên ẩn danh.");
-      throw error;
-    }
-  };
-  
   return { 
       user, 
       loading,
@@ -193,7 +180,6 @@ export const useAuth = () => {
       todaysShifts,
       login, 
       register,
-      logout, 
-      updateUserAnonymousName,
+      logout,
   };
 };
