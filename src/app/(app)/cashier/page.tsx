@@ -1122,7 +1122,7 @@ function CashierDashboardPageComponent() {
         categories={incidentCategories}
         onCategoriesChange={handleCategoriesChange as any}
         canManageCategories={user.role === 'Chủ nhà hàng'}
-        reporter={user}
+        reporter={{userId: user.uid, userName: user.displayName}}
         incidentToEdit={incidentToEdit}
     />
      <RevenueStatsDialog

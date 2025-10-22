@@ -323,18 +323,23 @@ export default function CashierReportsPage() {
     finally { setProcessingItemId(null); }
   }, [user, slipToEdit, dateForNewEntry]);
 
-  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited'>, isEdited: boolean) => {
+  const handleSaveRevenue = useCallback(async (data: Omit<RevenueStats, 'id' | 'createdAt' | 'createdBy' | 'isEdited' | 'date'>, isEdited: boolean, id?: string) => {
     if (!user) return;
-    const docId = revenueStatsToEdit?.id;
+    const docId = id || revenueStatsToEdit?.id;
     setProcessingItemId(docId || 'new-revenue');
     try {
         const revenueDate = dateForNewEntry || revenueStatsToEdit?.date;
         if (!revenueDate) throw new Error("Date for revenue is not defined.");
 
-        await dataStore.addOrUpdateRevenueStats({ ...data, date: revenueDate }, user, isEdited, docId);
+        const revenueData = {
+            ...data,
+            date: revenueDate,
+        };
+
+        await dataStore.addOrUpdateRevenueStats(revenueData, user, isEdited, docId);
         toast.success(`Đã ${docId ? 'cập nhật' : 'tạo'} doanh thu.`);
         setIsRevenueDialogOpen(false);
-    } catch (error) { toast.error("Không thể lưu doanh thu."); }
+    } catch (error) { toast.error("Không thể lưu doanh thu."); console.error(error); }
     finally { setProcessingItemId(null); }
   }, [user, revenueStatsToEdit, dateForNewEntry]);
 
@@ -514,7 +519,7 @@ export default function CashierReportsPage() {
         slipToEdit={slipToEdit}
         isRevenueDialogOpen={isRevenueDialogOpen}
         setIsRevenueDialogOpen={setIsRevenueDialogOpen}
-        handleSaveRevenue={handleSaveRevenue}
+        handleSaveRevenue={(data, isEdited) => handleSaveRevenue(data, isEdited, revenueStatsToEdit?.id)}
         revenueStatsToEdit={revenueStatsToEdit}
         otherCostCategories={otherCostCategories}
         dateForNewEntry={dateForNewEntry}
@@ -530,8 +535,8 @@ export default function CashierReportsPage() {
           categories={incidentCategories}
           onCategoriesChange={handleCategoriesChange as any}
           canManageCategories={user.role === 'Chủ nhà hàng'}
-          reporter={incidentToEdit?.createdBy as AuthUser ?? user}
-          violationToEdit={incidentToEdit as any}
+          reporter={incidentToEdit?.createdBy ? {userId: incidentToEdit?.createdBy.userId, userName: incidentToEdit?.createdBy.userName} : {userId: user.uid, userName: user.displayName}}
+          incidentToEdit={incidentToEdit as any}
         />
       )}
       

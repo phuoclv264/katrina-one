@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser, PaymentMethod } from '@/lib/types';
+import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser, PaymentMethod, AssignedUser } from '@/lib/types';
 import { Loader2, Camera, Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
@@ -30,7 +30,7 @@ type IncidentReportDialogProps = {
     isProcessing: boolean;
     categories: IncidentCategory[];
     canManageCategories: boolean;
-    reporter: AuthUser | null;
+    reporter: AssignedUser | null;
     incidentToEdit: IncidentReport | null;
     isSelfConfession?: boolean;
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
@@ -66,7 +66,7 @@ export default function IncidentReportDialog({
         if (incidentToEdit) {
             return incidentToEdit.createdBy.userName;
         }
-        return reporter?.displayName || '...'; // Fallback for new incidents
+        return reporter?.userName || '...'; // Fallback for new incidents
     }, [reporter, incidentToEdit]);
 
 

@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Upload } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory } from '@/lib/types';
 import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Input } from '@/components/ui/input';
+import { photoStore } from '@/lib/photo-store';
+import { v4 as uuidv4 } from 'uuid';
 
 export function ViolationDialog({
   open,
@@ -48,6 +50,7 @@ export function ViolationDialog({
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photoIds, setPhotoIds] = useState<string[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   const selectedCategory = useMemo(() => {
       return categories.find(c => c.id === selectedCategoryId);
@@ -135,6 +138,24 @@ export function ViolationDialog({
       setIsCameraOpen(false);
   }
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+        const newPhotoIds = await Promise.all(Array.from(files).map(async (file) => {
+            const photoId = uuidv4();
+            await photoStore.addPhoto(photoId, file);
+            return photoId;
+        }));
+        setPhotoIds(prev => [...prev, ...newPhotoIds]);
+    } catch (error) {
+        toast.error("Lỗi khi thêm ảnh.");
+    } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const dialogTitle = violationToEdit ? 'Chỉnh sửa Vi phạm' : (isSelfConfession ? 'Tự ghi nhận sai sót' : 'Thêm Vi phạm mới');
 
   return (
@@ -218,10 +239,15 @@ export function ViolationDialog({
           
            <div className="grid grid-cols-4 items-start gap-4">
                 <Label className="text-right mt-2">Bằng chứng</Label>
-                 <div className="col-span-3">
+                 <div className="col-span-3 space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                     <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
                         <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
                     </Button>
+                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4"/> Tải ảnh lên
+                        </Button>
+                    </div>
                     {photoIds.length > 0 && <p className="text-sm text-muted-foreground mt-2">{photoIds.length} ảnh đã được chọn.</p>}
                  </div>
            </div>
@@ -235,6 +261,7 @@ export function ViolationDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" multiple />
     <CameraDialog
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}

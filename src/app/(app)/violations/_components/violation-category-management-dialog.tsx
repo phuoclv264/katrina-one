@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   Dialog,
   DialogContent,
@@ -182,15 +183,16 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
     };
     
     const newList = [...categoryData.list, newCategory].sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'vi'));
-    handleSave({ list: newList });
-    setNewCategoryName('');
+    
+    flushSync(() => {
+      setCategoryData(prev => ({ ...prev, list: newList }));
+      setNewCategoryName('');
+    });
 
-    setTimeout(() => {
-        const newItemRef = itemRefs.current.get(newCategory.id);
-        newItemRef?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setEditingCategoryId(newCategory.id);
-        setCurrentEditingValues(newCategory);
-    }, 100);
+    handleSave({ list: newList }); // Save to backend
+    setEditingCategoryId(newCategory.id);
+    setCurrentEditingValues(newCategory);
+    itemRefs.current.get(newCategory.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   
   const handleSave = async (newData: Partial<ViolationCategoryData>) => {
