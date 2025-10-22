@@ -11,14 +11,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseSlip, PaymentMethod, InventoryItem, ExpenseItem, AuthUser, ExtractedInvoiceItem, InvoiceExtractionResult, ExpenseType, OtherCostCategory } from '@/lib/types';
-import { Loader2, PlusCircle, Trash2, Camera, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, Edit2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Upload, CheckCircle, XCircle, AlertCircle, X, Wand2, Eye, Edit2 } from 'lucide-react';
 import { ItemMultiSelect } from './item-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { extractInvoiceItems } from '@/ai/flows/extract-invoice-items-flow';
-import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -311,6 +310,7 @@ export default function ExpenseSlipDialog({
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const attachmentCardRef = useRef<HTMLDivElement>(null);
+    const actualPaidAmountInputRef = useRef<HTMLInputElement>(null);
     const attachmentFileInputRef = useRef<HTMLInputElement>(null);
 
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -326,7 +326,6 @@ export default function ExpenseSlipDialog({
     const [localPhotos, setLocalPhotos] = useState<{ id: string, file: File, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     const [showMissingAttachmentAlert, setShowMissingAttachmentAlert] = useState(false);
-    const [isAttachmentCameraOpen, setIsAttachmentCameraOpen] = useState(false);
 
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
@@ -470,6 +469,13 @@ export default function ExpenseSlipDialog({
             setShowMissingAttachmentAlert(true);
             attachmentCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             toast.error("Vui lòng đính kèm ít nhất một ảnh hóa đơn hoặc bằng chứng.");
+            return;
+        }
+
+        if (paymentMethod === 'cash' && actualPaidAmount % 1000 !== 0) {
+            toast.error("Số tiền thực trả có thể không đúng. Vui lòng kiểm tra lại.", { duration: 4000 });
+            actualPaidAmountInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            actualPaidAmountInputRef.current?.focus();
             return;
         }
 
@@ -650,22 +656,6 @@ export default function ExpenseSlipDialog({
 
         if(attachmentFileInputRef.current) attachmentFileInputRef.current.value = '';
     };
-    
-    const handleAttachmentPhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
-        setAiError(null);
-        setShowMissingAttachmentAlert(false);
-        setIsAttachmentCameraOpen(false);
-        // Filter for photos only
-        const photos = media.filter(m => m.type === 'photo');
-        for (const { id: photoId } of photos) {
-            const photoBlob = await photoStore.getPhoto(photoId);
-            if (photoBlob) {
-                const objectUrl = URL.createObjectURL(photoBlob);
-                setLocalPhotos(prev => [...prev, { id: photoId, file: new File([photoBlob], `${photoId}.jpg`, { type: photoBlob.type }), url: objectUrl }]);
-            }
-        }
-    };
-    
     const handleDeleteExistingPhoto = (url: string) => {
         setExistingPhotos(prev => prev.filter(p => p.url !== url));
         setPhotosToDelete(prev => [...prev, url]);
@@ -752,7 +742,7 @@ export default function ExpenseSlipDialog({
                             >
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
-                                    <CardDescription>Tải lên hoặc chụp ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
+                                    <CardDescription>Tải lên ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -760,9 +750,6 @@ export default function ExpenseSlipDialog({
                                             <Upload className="mr-2 h-4 w-4"/> Tải ảnh lên
                                         </Button>
                                         <input type="file" ref={attachmentFileInputRef} onChange={handleAttachmentPhotoUpload} className="hidden" accept="image/*" multiple />
-                                        <Button variant="outline" className="w-full" onClick={() => {setShowMissingAttachmentAlert(false); setIsAttachmentCameraOpen(true)}}>
-                                            <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
-                                        </Button>
                                     </div>
                                     {aiError && (
                                         <Alert variant="destructive" className="mb-4">
@@ -927,12 +914,12 @@ export default function ExpenseSlipDialog({
                             
                             <div className="space-y-2">
                                 <Label>Chiết khấu (nếu có)</Label>
-                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right" onFocus={(e) => e.target.select()} />
+                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right bg-card/95" onFocus={(e) => e.target.select()} />
                             </div>
 
                              <div className="space-y-2">
                                 <Label>Tổng cộng</Label>
-                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-muted" />
+                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-card/95" />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -952,7 +939,7 @@ export default function ExpenseSlipDialog({
                                 {paymentMethod === 'cash' && (
                                      <div className="space-y-2">
                                         <Label htmlFor="actualPaidAmount">Số tiền thực trả</Label>
-                                        <Input id="actualPaidAmount" type="number" value={actualPaidAmount} onChange={(e) => setActualPaidAmount(Number(e.target.value) || 0)} placeholder="0" className="text-right" onFocus={(e) => e.target.select()} />
+                                        <Input id="actualPaidAmount" ref={actualPaidAmountInputRef} type="number" value={actualPaidAmount} onChange={(e) => setActualPaidAmount(Number(e.target.value) || 0)} placeholder="0" className="text-right bg-card" onFocus={(e) => e.target.select()} />
                                      </div>
                                 )}
                             </div>
@@ -972,13 +959,6 @@ export default function ExpenseSlipDialog({
                 </DialogContent>
             </Dialog>
             
-            {/* Attachment Camera Dialog */}
-            <CameraDialog 
-                isOpen={isAttachmentCameraOpen} 
-                onClose={() => setIsAttachmentCameraOpen(false)} 
-                onSubmit={handleAttachmentPhotoCapture} 
-                captureMode="photo" />
-
             {extractionResult && (
                 <AiPreviewDialog 
                     open={showAiPreview} 

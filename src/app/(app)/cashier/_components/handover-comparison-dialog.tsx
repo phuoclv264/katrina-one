@@ -27,6 +27,7 @@ type HandoverComparisonDialogProps = {
   comparisonResult: ComparisonResult | null;
   onNavigateToExpenses: () => void;
   onNavigateToRevenue: () => void;
+  onConfirm: () => void;
 };
 
 export default function HandoverComparisonDialog({
@@ -35,6 +36,7 @@ export default function HandoverComparisonDialog({
   comparisonResult,
   onNavigateToExpenses,
   onNavigateToRevenue,
+  onConfirm,
 }: HandoverComparisonDialogProps) {
   const hasMismatch = comparisonResult && comparisonResult.some(item => !item.isMatch);
 
@@ -137,7 +139,9 @@ export default function HandoverComparisonDialog({
                      <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full md:w-auto h-11 md:h-10 text-base md:text-sm order-1 md:order-2">Hủy</Button>
                 </div>
              ) : (
-                <p>Dữ liệu khớp.</p>
+                <div className="w-full flex justify-end gap-3">
+                    <Button onClick={onConfirm} className="h-11 md:h-10 text-base md:text-sm">Xác nhận & Hoàn tất</Button>
+                </div>
              )}
           </DialogFooter>
         </DialogContent>

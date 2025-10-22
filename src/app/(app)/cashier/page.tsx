@@ -23,7 +23,7 @@ import HandoverDialog from './_components/handover-dialog';
 import HandoverComparisonDialog from './_components/handover-comparison-dialog';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // This seems to be a duplicate import, but let's keep it for safety.
 import { Textarea } from '@/components/ui/textarea';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
@@ -169,9 +169,13 @@ function CashierDashboardPageComponent() {
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
 
-  const [cashCountToEdit, setCashCountToEdit] = useState<any | null>(null);
+  const [cashCountToEdit, setCashCountToEdit] = useState<CashHandoverReport | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  
+  const [linkedRevenueForDialog, setLinkedRevenueForDialog] = useState<RevenueStats | null>(null);
+  const [linkedExpensesForDialog, setLinkedExpensesForDialog] = useState<ExpenseSlip[]>([]);
+  const [expectedCashForDialog, setExpectedCashForDialog] = useState(0);
 
   const getSlipContentName = useCallback((item: ExpenseItem): string => {
     if (item.name?.startsWith('Chi phí sự cố')) return item.name;
@@ -210,6 +214,61 @@ function CashierDashboardPageComponent() {
       setStartOfDayCash(JSON.parse(savedCash).value);
     }
   }, []);
+
+  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue } = useMemo(() => {
+    const { totalCashExpense, totalBankExpense } = dailySlips.reduce((acc, slip) => {
+      if (slip.paymentMethod === 'cash') {
+        const amount = slip.actualPaidAmount ?? slip.totalAmount;
+        acc.totalCashExpense += amount;
+      } else if (slip.paymentMethod === 'bank_transfer') {
+        acc.totalBankExpense += slip.totalAmount;
+      }
+      return acc;
+    }, { totalCashExpense: 0, totalBankExpense: 0 });
+
+    const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
+
+    const totalNetRevenue = latestRevenueStats?.netRevenue || 0;
+    const cashRevenue = latestRevenueStats?.revenueByPaymentMethod.cash || 0;
+    
+    const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
+
+    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue };
+  }, [dailySlips, dailyRevenueStats, startOfDayCash]);
+
+  useEffect(() => {
+    if (isCashHandoverDialogOpen) {
+      if (cashCountToEdit) {
+        // Editing an existing report: calculate historical expected cash
+        const revenue = dailyRevenueStats.find(stat => stat.id === cashCountToEdit.linkedRevenueStatsId) || null;
+        const expenses = dailySlips.filter(slip => cashCountToEdit.linkedExpenseSlipIds?.includes(slip.id));
+        
+        setLinkedRevenueForDialog(revenue);
+        setLinkedExpensesForDialog(expenses);
+
+        const historicalCashRevenue = revenue?.revenueByPaymentMethod.cash || 0;
+        const historicalTotalCashExpense = expenses
+            .filter(slip => slip.paymentMethod === 'cash')
+            .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+        const historicalStartOfDayCash = cashCountToEdit.startOfDayCash;
+        
+        const historicalExpectedCash = historicalCashRevenue - historicalTotalCashExpense + historicalStartOfDayCash;
+        setExpectedCashForDialog(historicalExpectedCash);
+
+      } else {
+        // Creating a new report: use current expected cash
+        const latestRevenue = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
+        setLinkedRevenueForDialog(latestRevenue);
+        setLinkedExpensesForDialog(dailySlips);
+        setExpectedCashForDialog(expectedCashOnHand);
+      }
+    } else {
+      // Reset when dialog is closed
+      setLinkedRevenueForDialog(null);
+      setLinkedExpensesForDialog([]);
+      setExpectedCashForDialog(0);
+    }
+  }, [isCashHandoverDialogOpen, cashCountToEdit, dailyRevenueStats, dailySlips, expectedCashOnHand]);
 
   const handleSaveStartOfDayCash = (newValue: number, reason: string) => {
     const data = { value: newValue, reason: reason, timestamp: new Date().toISOString() };
@@ -262,27 +321,6 @@ function CashierDashboardPageComponent() {
         };
     }
   }, [user]);
-
-  const { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue } = useMemo(() => {
-    const { totalCashExpense, totalBankExpense } = dailySlips.reduce((acc, slip) => {
-      if (slip.paymentMethod === 'cash') {
-        const amount = slip.actualPaidAmount ?? slip.totalAmount;
-        acc.totalCashExpense += amount;
-      } else if (slip.paymentMethod === 'bank_transfer') {
-        acc.totalBankExpense += slip.totalAmount;
-      }
-      return acc;
-    }, { totalCashExpense: 0, totalBankExpense: 0 });
-
-    const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
-
-    const totalNetRevenue = latestRevenueStats?.netRevenue || 0;
-    const cashRevenue = latestRevenueStats?.revenueByPaymentMethod.cash || 0;
-    
-    const expectedCashOnHand = cashRevenue - totalCashExpense + startOfDayCash;
-
-    return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue };
-  }, [dailySlips, dailyRevenueStats, startOfDayCash]);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -450,7 +488,7 @@ function CashierDashboardPageComponent() {
     ].map(item => ({ ...item, isMatch: Math.abs(item.appValue - (item.receiptValue || 0)) < 1 })); // Allow for rounding errors
 
     setComparisonResult(comparison);
-    setHandoverReceiptData(data); // Store the full data including image URI
+    setHandoverReceiptData(data); // Store the full data including image URIs and other details
     setIsComparisonDialogOpen(true);
   };
   
@@ -463,6 +501,25 @@ function CashierDashboardPageComponent() {
         setIsComparisonDialogOpen(false);
         setTimeout(() => revenueStatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
     }
+
+  const handleFinalizeHandover = async () => {
+    if (!user || !handoverReceiptData) return;
+    setIsProcessing(true);
+    setIsComparisonDialogOpen(false);
+    const toastId = toast.loading("Đang hoàn tất bàn giao ca...");
+    try {
+      await dataStore.finalizeHandover(handoverReceiptData, user);
+      toast.success("Đã bàn giao ca thành công!", { id: toastId });
+      // The UI will lock automatically due to the change in `isShiftFinalized`
+    } catch (error) {
+      console.error("Failed to finalize handover:", error);
+      toast.error(`Lỗi: Không thể hoàn tất bàn giao. ${(error as Error).message}`, { id: toastId });
+    } finally {
+      setIsProcessing(false);
+      setHandoverReceiptData(null);
+      setComparisonResult(null);
+    }
+  };
 
   const handleCashCountSubmit = async (finalData: any, id?: string) => {
     // Refactored logic for cash handover
@@ -503,8 +560,7 @@ function CashierDashboardPageComponent() {
     if (!user) return;
     setIsProcessing(true);
     try {
-      // TODO: Add authorization check before deleting
-      await dataStore.deleteCashHandoverReport(countId);
+      await dataStore.deleteCashHandoverReport(countId, user);
       toast.success("Đã xóa lần kiểm kê.");
     } catch (error) {
       console.error("Failed to delete cash count:", error);
@@ -559,6 +615,18 @@ function CashierDashboardPageComponent() {
 
     return counts.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }, [handoverReport, dailySlips, dailyRevenueStats, user]);
+
+  const isShiftFinalized = useMemo(() => {
+    if (!handoverReport) return false; // Không có báo cáo nào
+
+    if (Array.isArray(handoverReport)) { // Cấu trúc mới (CashHandoverReport[])
+      // Ca được coi là đã bàn giao nếu có bất kỳ báo cáo nào trong ngày chứa chi tiết bàn giao cuối cùng.
+      return handoverReport.some(report => !!report.finalHandoverDetails);
+    } else {
+      // Cấu trúc cũ (HandoverReport), sự tồn tại của nó có nghĩa là đã bàn giao.
+      return !!handoverReport;
+    }
+  }, [handoverReport]);
 
   if (authLoading || isLoading || !user) {
     return (
@@ -627,37 +695,46 @@ function CashierDashboardPageComponent() {
                     <CardTitle className="flex items-center gap-3"><Settings className="h-5 w-5"/>Chức năng</CardTitle>
                     <CardDescription>Thực hiện các báo cáo và nghiệp vụ trong ca.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                    <Button onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }} className="w-full h-14 justify-start p-4 text-base bg-green-50 hover:bg-green-100 text-green-800 dark:bg-green-900/50 dark:hover:bg-green-900 dark:text-green-200">
+                <CardContent className="space-y-3 relative">
+                    <Button onClick={() => { setRevenueStatsToEdit(null); setIsRevenueDialogOpen(true); }} disabled={isShiftFinalized} className="w-full h-14 justify-start p-4 text-base bg-green-50 hover:bg-green-100 text-green-800 dark:bg-green-900/50 dark:hover:bg-green-900 dark:text-green-200">
                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-800/50 mr-3">
                             <Receipt className="h-5 w-5"/>
                         </div>
                         Nhập Doanh thu
                     </Button>
-                    <Button onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }} className="w-full h-14 justify-start p-4 text-base bg-blue-50 hover:bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:hover:bg-blue-900 dark:text-blue-200">
+                    <Button onClick={() => { setSlipToEdit(null); setIsExpenseDialogOpen(true); }} disabled={isShiftFinalized} className="w-full h-14 justify-start p-4 text-base bg-blue-50 hover:bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:hover:bg-blue-900 dark:text-blue-200">
                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-800/50 mr-3">
                             <PlusCircle className="h-5 w-5"/>
                         </div>
                         Tạo Phiếu chi
                     </Button>
-                    <Button onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }} className="w-full h-14 justify-start p-4 text-base bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:hover:bg-amber-900 dark:text-amber-200">
+                    <Button onClick={() => { setIsIncidentDialogOpen(true); setIncidentToEdit(null); }} disabled={isShiftFinalized} className="w-full h-14 justify-start p-4 text-base bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:hover:bg-amber-900 dark:text-amber-200">
                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-800/50 mr-3">
                             <FileWarning className="h-5 w-5"/>
                         </div>
                         Ghi nhận Sự cố
                     </Button>
-                    <Button onClick={() => { setCashCountToEdit(null); setIsCashHandoverDialogOpen(true); }} className="w-full h-14 justify-start p-4 text-base bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:hover:bg-purple-900 dark:text-purple-200">
+                    <Button onClick={() => { setCashCountToEdit(null); setIsCashHandoverDialogOpen(true); }} disabled={isShiftFinalized} className="w-full h-14 justify-start p-4 text-base bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:hover:bg-purple-900 dark:text-purple-200">
                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-800/50 mr-3">
                             <ClipboardCheck className="h-5 w-5"/>
                         </div>
                         Kiểm kê tiền mặt
                     </Button>
-                    <Button onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || !!handoverReport} className="w-full h-14 justify-start p-4 text-base" variant={handoverReport ? 'secondary' : 'default'}>
-                         <div className={cn("flex items-center justify-center h-8 w-8 rounded-full mr-3", handoverReport ? "bg-muted" : "bg-primary/20")}>
-                            {handoverReport ? <Lock className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
+                    <Button onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || isShiftFinalized} className="w-full h-14 justify-start p-4 text-base" variant={isShiftFinalized ? 'secondary' : 'default'}>
+                         <div className={cn("flex items-center justify-center h-8 w-8 rounded-full mr-3", isShiftFinalized ? "bg-muted" : "bg-primary/20")}>
+                            {isShiftFinalized ? <Lock className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
                         </div>
-                        {handoverReport ? 'Đã Bàn Giao' : 'Bàn giao cuối ca'}
+                        {isShiftFinalized ? 'Đã Bàn Giao' : 'Bàn giao cuối ca'}
                     </Button>
+                    {isShiftFinalized && (
+                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+                            <div className="text-center p-4">
+                                <Lock className="mx-auto h-12 w-12 text-primary" />
+                                <p className="mt-4 font-semibold text-lg">Ca đã được bàn giao</p>
+                                <p className="text-sm text-muted-foreground">Các thao tác nhập liệu đã được khóa.</p>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -673,7 +750,7 @@ function CashierDashboardPageComponent() {
                             <div className="space-y-3">
                                 {dailyRevenueStats.map((stat, index) => {
                                     const canEdit = stat.createdBy.userId === user.uid;
-                                    const isLatest = index === 0;
+                                    const isLatest = index === 0 && !isShiftFinalized;
                                     const prevStat = dailyRevenueStats[index + 1];
                                     const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                                     const displayTime = stat.reportTimestamp 
@@ -699,7 +776,7 @@ function CashierDashboardPageComponent() {
                                                         <p className="font-bold text-lg text-green-600">{(stat.netRevenue || 0).toLocaleString('vi-VN')}đ</p>
                                                         {difference !== 0 && <ChangeIndicator value={difference} />}
                                                     </div>
-                                                </div>
+                                                </div> 
                                                  {canEdit && (
                                                     <div className="flex justify-end gap-2 mt-2 border-t pt-2">
                                                         <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
@@ -728,7 +805,7 @@ function CashierDashboardPageComponent() {
                                 <TableBody>
                                     {dailyRevenueStats.map((stat, index) => {
                                         const canEdit = stat.createdBy.userId === user.uid;
-                                        const isLatest = index === 0;
+                                        const isLatest = index === 0 && !isShiftFinalized;
                                         const prevStat = dailyRevenueStats[index + 1];
                                         const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                                          const displayTime = stat.reportTimestamp 
@@ -747,7 +824,7 @@ function CashierDashboardPageComponent() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    {canEdit && (
+                                                    {canEdit && !isShiftFinalized && (
                                                         <>
                                                             <Button variant="ghost" size="icon" onClick={() => handleEditRevenue(stat)}><Edit className="h-4 w-4" /></Button>
                                                             <AlertDialog>
@@ -781,7 +858,7 @@ function CashierDashboardPageComponent() {
                        isMobile ? (
                             <div className="space-y-3">
                                 {dailySlips.map(slip => {
-                                    const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
+                                    const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId && !isShiftFinalized;
                                     const actualAmount = slip.paymentMethod === 'cash' ? slip.actualPaidAmount ?? slip.totalAmount : slip.totalAmount;
                                     return (
                                         <Card key={slip.id} className="bg-background">
@@ -837,7 +914,7 @@ function CashierDashboardPageComponent() {
                                </TableHeader>
                                <TableBody>
                                    {dailySlips.map(slip => {
-                                      const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId;
+                                      const canEdit = slip.createdBy.userId === user.uid && !slip.associatedHandoverReportId && !isShiftFinalized;
                                       return (
                                        <TableRow key={slip.id}>
                                            <TableCell>{slip.createdBy.userName}</TableCell>
@@ -951,7 +1028,7 @@ function CashierDashboardPageComponent() {
                                                 </div>
                                             </CardContent>
                                         {count.canEdit && !count.isLegacy && (
-                                            <CardFooter className="p-2 pt-0 justify-end gap-1">
+                                            <CardFooter className="p-2 pt-0 justify-end gap-1" hidden={isShiftFinalized}>
                                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(count.originalReport)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
@@ -984,7 +1061,7 @@ function CashierDashboardPageComponent() {
                     {dailyIncidents.length > 0 ? (
                         <div className="space-y-3">
                             {dailyIncidents.map(incident => {
-                                const canEdit = incident.createdBy.userId === user.uid;
+                                const canEdit = incident.createdBy.userId === user.uid && !isShiftFinalized;
                                 return (
                                     <Card key={incident.id} className="bg-background">
                                         <CardContent className="p-3">
@@ -1063,6 +1140,7 @@ function CashierDashboardPageComponent() {
             comparisonResult={comparisonResult}
             onNavigateToExpenses={handleNavigateToExpenses}
             onNavigateToRevenue={handleNavigateToRevenue}
+            onConfirm={handleFinalizeHandover}
         />
     )}
     {isCashHandoverDialogOpen && (
@@ -1071,8 +1149,10 @@ function CashierDashboardPageComponent() {
         onOpenChange={setIsCashHandoverDialogOpen}
         onSubmit={handleCashCountSubmit}
         isProcessing={isProcessing}
-        expectedCash={expectedCashOnHand}
+        expectedCash={expectedCashForDialog}
         countToEdit={cashCountToEdit}
+        linkedRevenueStats={linkedRevenueForDialog}
+        linkedExpenseSlips={linkedExpensesForDialog}
       />
     )}
      <Lightbox

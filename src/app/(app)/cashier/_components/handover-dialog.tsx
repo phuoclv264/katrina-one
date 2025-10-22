@@ -2,28 +2,23 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
+  DialogTitle, 
   DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ExtractHandoverDataOutput, HandoverReport, AuthUser } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock } from 'lucide-react';
+import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
-import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
-import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
-import { parseISO, isToday, format, isSameDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter as AlertDialogFooterComponent, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import Lightbox from "yet-another-react-lightbox";
@@ -32,6 +27,9 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Separator } from '@/components/ui/separator';
 import isEqual from 'lodash.isequal';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { v4 as uuidv4 } from 'uuid';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { parseISO, format, isSameDay, isToday } from 'date-fns';
 
 
 const initialHandoverData = {
@@ -49,10 +47,10 @@ const initialHandoverData = {
 };
 
 const handoverFieldOrder: (keyof Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime' | 'revenueByCard'>)[] = [
-    'expectedCash', 'startOfDayCash', 'cashExpense', 'cashRevenue', 'deliveryPartnerPayout'
+    'startOfDayCash', 'cashRevenue', 'cashExpense', 'deliveryPartnerPayout', 'expectedCash'
 ];
 const cardRevenueFieldOrder: (keyof typeof initialHandoverData.revenueByCard)[] = [
-    'techcombankVietQrPro', 'shopeeFood', 'grabFood', 'bankTransfer'
+    'techcombankVietQrPro', 'bankTransfer', 'shopeeFood', 'grabFood'
 ];
 
 const handoverFieldLabels: { [key: string]: string } = {
@@ -123,11 +121,14 @@ export default function HandoverDialog({
     const [aiError, setAiError] = useState<string | null>(null);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
     const [handoverData, setHandoverData] = useState<Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime'>>(initialHandoverData);
     const [originalData, setOriginalData] = useState<Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime'> | null>(null);
+
+    const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
+    const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
+    const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
     const displayImageDataUri = newImageDataUri || reportToEdit?.handoverImageUrl;
@@ -146,16 +147,22 @@ export default function HandoverDialog({
         setOriginalData(null);
         setServerErrorDialog({ open: false, imageUri: null });
 
-        if (reportToEdit) {
-            setHandoverData(reportToEdit.handoverData);
-            setOriginalData(reportToEdit.handoverData);
-            setShiftEndTime(reportToEdit.shiftEndTime || null);
-        }
+        setLocalPhotos([]);
+        setPhotosToDelete([]);
 
     }, [reportToEdit]);
 
     useEffect(() => { if (open) resetState(); }, [open, resetState]);
     
+    useEffect(() => {
+        if (reportToEdit) {
+            setHandoverData(reportToEdit.handoverData);
+            setOriginalData(reportToEdit.handoverData);
+            setShiftEndTime(reportToEdit.shiftEndTime || null);
+            setExistingPhotos(reportToEdit.handoverImageUrl ? [{ id: reportToEdit.handoverImageUrl, url: reportToEdit.handoverImageUrl }] : []);
+        }
+    }, [reportToEdit]);
+
     useEffect(() => {
         if (originalData && dataSectionRef.current) {
             setTimeout(() => dataSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
@@ -172,6 +179,33 @@ export default function HandoverDialog({
         }
         return () => { window.removeEventListener('popstate', handlePopState); };
     }, [isLightboxOpen]);
+
+    const validateReportDate = useCallback((shiftEndTime: string): boolean => {
+        try {
+            const reportDate = parseISO(shiftEndTime);
+            const targetDate = parseISO(dateForNewEntry || reportToEdit?.date || new Date().toISOString());
+
+            if (isOwnerView) {
+                if (!isSameDay(reportDate, targetDate)) {
+                    setAiError(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
+                    return false;
+                }
+            } else { // Cashier view
+                if (!isToday(reportDate)) {
+                    setAiError(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
+                    return false;
+                }
+            }
+            return true;
+        } catch (error) {
+            setAiError('Không thể xác thực ngày giờ trên phiếu.');
+            return false;
+        }
+    }, [dateForNewEntry, reportToEdit, isOwnerView]);
+
+    const allPhotos = useMemo(() => {
+        return [...existingPhotos, ...localPhotos];
+    }, [existingPhotos, localPhotos]);
 
 
     const processImage = async (uri: string) => {
@@ -192,19 +226,8 @@ export default function HandoverDialog({
                 return;
             }
             
-            const reportDate = parseISO(result.shiftEndTime);
-            const targetDate = parseISO(dateForNewEntry || reportToEdit?.date || new Date().toISOString());
-
-            if (isOwnerView) {
-                if (!isSameDay(reportDate, targetDate)) {
-                    setAiError(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
-                    return;
-                }
-            } else { // Cashier view
-                if (!isToday(reportDate)) {
-                    setAiError(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
-                    return;
-                }
+            if (!validateReportDate(result.shiftEndTime)) {
+                return;
             }
 
             const aiData = {
@@ -236,32 +259,22 @@ export default function HandoverDialog({
         }
     };
     
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => processImage(reader.result as string);
-        reader.readAsDataURL(file);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
+     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
-    const handlePhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
-        setIsCameraOpen(false);
-        // Since singlePhotoMode is true, we expect only one photo.
-        const photo = media.find(m => m.type === 'photo');
-        if (!photo) return;
-        const photoId = photo.id;
         try {
-            const photoBlob = await photoStore.getPhoto(photoId);
-            if (!photoBlob) throw new Error("Không tìm thấy ảnh.");
-            const reader = new FileReader();
-            reader.onloadend = () => processImage(reader.result as string);
-            reader.readAsDataURL(photoBlob);
+            const newPhotos = await Promise.all(Array.from(files).map(async (file) => {
+                const photoId = uuidv4();
+                await photoStore.addPhoto(photoId, file);
+                const objectUrl = URL.createObjectURL(file);
+                return { id: photoId, url: objectUrl };
+            }));
+            setLocalPhotos(prev => [...prev, ...newPhotos]);
         } catch (error) {
-            console.error('Error processing captured photo:', error);
-            setAiError('Lỗi xử lý ảnh đã chụp.');
+            toast.error("Lỗi khi thêm ảnh.");
         } finally {
-            await photoStore.deletePhoto(photoId);
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -291,7 +304,7 @@ export default function HandoverDialog({
     }
 
     const handleFinalSubmit = () => {
-        if (!displayImageDataUri) {
+        if (allPhotos.length === 0) {
             setAiError("Vui lòng cung cấp ảnh phiếu bàn giao.");
             return;
         }
@@ -300,8 +313,9 @@ export default function HandoverDialog({
         
         const dataToSubmit = {
             handoverData,
-            imageDataUri: newImageDataUri, // Only send if it's a new image
+            newPhotoIds: localPhotos.map(p => p.id),
             shiftEndTime,
+            photosToDelete,
             isEdited,
         };
         
@@ -313,25 +327,100 @@ export default function HandoverDialog({
     }
     
     const handleRescan = async () => {
-        if (!displayImageDataUri) return;
+        if (allPhotos.length === 0) {
+            toast.error("Vui lòng tải lên ít nhất một ảnh để quét.");
+            return;
+        }
         
-        setIsOcrLoading(true); // Set loading state immediately
+        setIsOcrLoading(true);
+        setAiError(null);
+        const toastId = toast.loading('AI đang phân tích các phiếu bàn giao...');
 
-        if (displayImageDataUri.startsWith('https://')) {
-            try {
-                const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(displayImageDataUri)}`);
-                if (!response.ok) throw new Error('Proxy failed');
+        try {
+            const imageUris = await Promise.all(allPhotos.map(async (photo) => {
+                if (photo.url.startsWith('blob:')) {
+                    const blob = await photoStore.getPhoto(photo.id);
+                    if (!blob) return null;
+                    return new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.readAsDataURL(blob);
+                    });
+                }
+                // It's a Firebase URL, proxy it
+                const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
+                if (!response.ok) return null;
                 const { dataUri } = await response.json();
-                await processImage(dataUri);
-            } catch (error) {
-                setAiError("Không thể tải lại ảnh để quét. Vui lòng tải lên lại ảnh mới.");
-                setIsOcrLoading(false);
+                return dataUri;
+            }));
+
+            const validUris = imageUris.filter((uri): uri is string => !!uri);
+            if (validUris.length === 0) {
+                throw new Error("Không thể xử lý bất kỳ ảnh nào.");
             }
-        } else {
-            await processImage(displayImageDataUri);
+
+            const results = await Promise.all(validUris.map(uri => extractHandoverData({ imageDataUri: uri })));
+
+            // Validate each result before proceeding
+            for (const result of results) {
+                if (!result.isReceipt || !result.shiftEndTime) {
+                    setAiError("Một trong các ảnh không phải là phiếu bàn giao hợp lệ hoặc không có ngày giờ.");
+                    return;
+                }
+                if (!validateReportDate(result.shiftEndTime)) {
+                    // validateReportDate will set the specific error message
+                    return;
+                }
+            }
+
+            if (results.length === 0) {
+                setAiError("Không tìm thấy phiếu bàn giao hợp lệ nào trong các ảnh đã tải lên.");
+                return;
+            }
+
+            const combinedData = results.reduce((acc, result) => {
+                handoverFieldOrder.forEach(key => {
+                    acc[key] = (acc[key] || 0) + (result[key] || 0);
+                });
+                cardRevenueFieldOrder.forEach(key => {
+                    acc.revenueByCard[key] = (acc.revenueByCard[key] || 0) + (result.revenueByCard?.[key] || 0);
+                });
+                return acc;
+            }, { ...initialHandoverData });
+
+            const latestReport = results.reduce((latest, current) => 
+                parseISO(current.shiftEndTime!) > parseISO(latest.shiftEndTime!) ? current : latest
+            );
+
+            setHandoverData(combinedData);
+            setOriginalData(combinedData);
+            setShiftEndTime(latestReport.shiftEndTime!);
+
+            toast.success(`Đã tổng hợp dữ liệu từ ${results.length} phiếu. Vui lòng kiểm tra lại.`);
+
+        } catch (error: any) {
+            console.error("OCR Error:", error);
+            setAiError(`Lỗi AI: ${error.message || 'Không thể đọc dữ liệu từ ảnh.'}`);
+        } finally {
+            setIsOcrLoading(false);
+            toast.dismiss(toastId);
         }
     };
     
+    const handleDeleteExistingPhoto = (url: string) => {
+        setExistingPhotos(prev => prev.filter(p => p.url !== url));
+        setPhotosToDelete(prev => [...prev, url]);
+    };
+
+    const handleDeleteLocalPhoto = (id: string) => {
+        setLocalPhotos(prev => {
+            const photoToDelete = prev.find(p => p.id === id);
+            if (photoToDelete) URL.revokeObjectURL(photoToDelete.url);
+            return prev.filter(p => p.id !== id);
+        });
+        photoStore.deletePhoto(id);
+    };
+
     const dialogTitle = isOwnerView 
         ? (isCreating ? 'Tạo Báo cáo Bàn giao' : 'Chi tiết Báo cáo Bàn giao') 
         : 'Nhập Phiếu Bàn Giao Ca';
@@ -339,7 +428,6 @@ export default function HandoverDialog({
     const dialogDescription = isOwnerView && !isCreating
         ? `Ngày: ${format(parseISO(reportToEdit!.date), 'dd/MM/yyyy')} | Lập bởi: ${reportToEdit!.createdBy.userName}`
         : 'Tải hoặc chụp ảnh phiếu bàn giao để AI điền tự động.';
-
 
     return (
         <>
@@ -354,19 +442,29 @@ export default function HandoverDialog({
                     <ScrollArea className="flex-grow">
                         <div className="space-y-6 p-6">
                             <Card>
-                                <CardHeader className="pb-4 flex flex-row items-center justify-between">
+                                <CardHeader className="pb-4 flex flex-col gap-y-2 gap-x-4 sm:flex-row sm:items-center sm:justify-between">
                                     <CardTitle className="text-base">Ảnh phiếu bàn giao (bắt buộc)</CardTitle>
-                                    {displayImageDataUri && (
-                                        <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isOcrLoading}>
-                                            {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
-                                            Quét lại
+                                    {allPhotos.length > 0 && (
+                                        <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isOcrLoading} className="w-full sm:w-auto">
+                                            {isOcrLoading ? <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin"/> : <RefreshCw className="mr-2 h-5 w-5 sm:h-4 sm:w-4"/>}
+                                            Quét dữ liệu bằng AI
                                         </Button>
                                     )}
                                 </CardHeader>
                                 <CardContent>
-                                     {displayImageDataUri ? (
-                                        <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
-                                            <Image src={displayImageDataUri} alt="Ảnh phiếu bàn giao" fill className="object-contain rounded-md" />
+                                     {allPhotos.length > 0 ? (
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                            {allPhotos.map((photo, index) => (
+                                                <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group bg-muted">
+                                                    <button onClick={() => setIsLightboxOpen(true)} className="w-full h-full">
+                                                        <Image src={photo.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover" />
+                                                    </button>
+                                                    <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full opacity-0 group-hover:opacity-100" onClick={() => {
+                                                        const isLocal = localPhotos.some(p => p.id === photo.id);
+                                                        if (isLocal) handleDeleteLocalPhoto(photo.id); else handleDeleteExistingPhoto(photo.url);
+                                                    }}><X className="h-3 w-3" /></Button>
+                                                </div>
+                                            ))}
                                         </div>
                                     ) : (
                                         <div className="w-full h-24 flex items-center justify-center bg-muted rounded-md border-2 border-dashed">
@@ -380,10 +478,9 @@ export default function HandoverDialog({
                                             <AlertDescription>{aiError}</AlertDescription>
                                         </Alert>
                                     )}
-                                    <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm mx-auto mt-4">
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
-                                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                                        <Button variant="secondary" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isProcessing} className="w-full"><Camera className="mr-2 h-4 w-4"/> Chụp ảnh</Button>
+                                     <div className="flex justify-center mt-4">
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full max-w-xs"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
+                                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" multiple />
                                     </div>
                                 </CardContent>
                             </Card>
@@ -412,7 +509,7 @@ export default function HandoverDialog({
                                             {cardRevenueFieldOrder.map((cardKey) => (
                                                 <InputField
                                                     key={`ho-card-${cardKey}`} id={`ho-card-${cardKey}`} label={handoverFieldLabels[cardKey]}
-                                                    value={handoverData?.revenueByCard?.[cardKey] as number ?? 0}
+                                                    value={handoverData?.revenueByCard?.[cardKey as keyof typeof handoverData.revenueByCard] as number ?? 0}
                                                     onChange={(val) => handleCardRevenueChange(cardKey as any, val)}
                                                     originalValue={
                                                         typeof originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard] === "number"
@@ -430,15 +527,13 @@ export default function HandoverDialog({
 
                     <DialogFooter className="shrink-0 p-6 pt-0 border-t bg-muted/30">
                          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                         <Button onClick={handleFinalSubmit} disabled={isProcessing || isOcrLoading || !displayImageDataUri}>
+                         <Button onClick={handleFinalSubmit} disabled={isProcessing || isOcrLoading || allPhotos.length === 0}>
                             {(isProcessing || isOcrLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : (isOwnerView ? <FileText className="mr-2 h-4 w-4"/> : <ArrowRight className="mr-2 h-4 w-4"/>)}
                             {isOwnerView ? 'Lưu báo cáo' : 'Tiếp tục'}
                          </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handlePhotoCapture} singlePhotoMode={true} captureMode="photo" />
 
             <AlertDialog open={serverErrorDialog.open}>
                 <AlertDialogContent>
@@ -462,17 +557,7 @@ export default function HandoverDialog({
                 </AlertDialogContent>
             </AlertDialog>
             
-            {displayImageDataUri && (
-                 <Lightbox
-                    open={isLightboxOpen}
-                    close={() => setIsLightboxOpen(false)}
-                    slides={[{ src: displayImageDataUri }]}
-                    plugins={[Zoom]}
-                    portal={{ root: document.getElementById("handover-lightbox-container") ?? undefined }}
-                    carousel={{ finite: true }}
-                    zoom={{ maxZoomPixelRatio: 5 }}
-                />
-            )}
+            <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} slides={allPhotos.map(p => ({ src: p.url }))} plugins={[Zoom]} portal={{ root: document.getElementById("handover-lightbox-container") ?? undefined }} carousel={{ finite: true }} zoom={{ maxZoomPixelRatio: 5 }} />
         </>
     );
 }

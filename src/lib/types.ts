@@ -490,6 +490,17 @@ export interface CashHandoverReport {
   linkedExpenseSlipIds: string[];
   linkedRevenueStatsId: string | null;
   schemaVersion: 2;
+  finalHandoverDetails?: FinalHandoverDetails;
+}
+
+/**
+ * [MỚI] Cấu trúc cho dữ liệu bàn giao cuối cùng, được lưu vào báo cáo kiểm kê mới nhất.
+ */
+export interface FinalHandoverDetails {
+  receiptData: ExtractHandoverDataOutput & { imageDataUri: string };
+  receiptImageUrl: string | null;
+  finalizedAt: Timestamp | FieldValue;
+  finalizedBy: AssignedUser;
 }
 
 export type IncidentCategory = {

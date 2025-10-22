@@ -1,6 +1,6 @@
 'use client';
 
-import type { CashHandoverReport, HandoverReport } from './types';
+import type { CashHandoverReport, FinalHandoverDetails, HandoverReport } from './types';
 import { db, auth, storage } from './firebase';
 import {
   collection,
@@ -26,7 +26,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -430,6 +430,41 @@ export const dataStore = {
             };
             await this.addOrUpdateExpenseSlip(slipData);
         }
+    },
+
+    async finalizeHandover(
+        handoverReceiptData: ExtractHandoverDataOutput & { imageDataUri: string },
+        user: AuthUser
+    ): Promise<void> {
+        const date = getTodaysDateKey();
+
+        // 1. Find the latest cash handover report for the day
+        const q = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            throw new Error("Không tìm thấy báo cáo kiểm kê tiền mặt nào trong ngày để hoàn tất bàn giao.");
+        }
+        const latestReportDoc = snapshot.docs[0];
+        const latestReportRef = latestReportDoc.ref;
+
+        // 2. Upload the handover receipt image
+        let handoverImageUrl: string | null = null;
+        if (handoverReceiptData.imageDataUri && handoverReceiptData.imageDataUri.startsWith('data:')) {
+            const blob = await (await fetch(handoverReceiptData.imageDataUri)).blob();
+            const storageRef = ref(storage, `final-handover-receipts/${date}/${uuidv4()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            handoverImageUrl = await getDownloadURL(storageRef);
+        }
+
+        // 3. Prepare the final handover details object
+        const finalDetails: FinalHandoverDetails = {
+            receiptData: handoverReceiptData,
+            receiptImageUrl: handoverImageUrl,
+            finalizedAt: serverTimestamp(),
+            finalizedBy: { userId: user.uid, userName: user.displayName || 'N/A' },
+        };
+        await updateDoc(latestReportRef, { finalHandoverDetails: finalDetails });
     },
     
     async updateHandoverReport(id: string, data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
@@ -2447,7 +2482,12 @@ export const dataStore = {
     await photoStore.deletePhotos(newPhotoIds);
   },
 
-  async deleteCashHandoverReport(reportId: string): Promise<void> {
+  async deleteCashHandoverReport(reportId: string, user: AuthUser): Promise<void> {
+    // Authorization check: Only owners can delete.
+    if (user.role !== 'Chủ nhà hàng') {
+      throw new Error("Bạn không có quyền thực hiện hành động này.");
+    }
+
     const docRef = doc(db, 'cash_handover_reports', reportId);
     const docSnap = await getDoc(docRef);
 

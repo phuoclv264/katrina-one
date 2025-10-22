@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertCircle, ArrowRight, Camera, Loader2, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, Loader2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
@@ -15,6 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { toast } from 'react-hot-toast';
+import type { RevenueStats, ExpenseSlip } from '@/lib/types'; // Import types
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 type CashHandoverDialogProps = {
   open: boolean;
@@ -23,6 +24,8 @@ type CashHandoverDialogProps = {
   isProcessing: boolean;
   expectedCash: number;
   countToEdit?: any | null;
+  linkedRevenueStats?: RevenueStats | null; // New prop
+  linkedExpenseSlips?: ExpenseSlip[]; // New prop
 };
 
 export default function CashHandoverDialog({
@@ -32,7 +35,10 @@ export default function CashHandoverDialog({
   isProcessing,
   expectedCash,
   countToEdit = null,
+  linkedRevenueStats = null, // Default value
+  linkedExpenseSlips = [], // Default value
 }: CashHandoverDialogProps) {
+  const discrepancyReasonRef = useRef<HTMLTextAreaElement>(null);
   const [actualCashCounted, setActualCashCounted] = useState<number | null>(null);
   const [discrepancyReason, setDiscrepancyReason] = useState('');
   const [discrepancyPhotoIds, setDiscrepancyPhotoIds] = useState<string[]>([]);
@@ -41,13 +47,53 @@ export default function CashHandoverDialog({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  const formatPaymentMethod = (method: string) => {
+    switch (method) {
+      case 'cash': return 'Tiền mặt';
+      case 'bank_transfer': return 'Chuyển khoản';
+      case 'techcombankVietQrPro': return 'VietQR Pro';
+      case 'shopeeFood': return 'ShopeeFood';
+      case 'grabFood': return 'GrabFood';
+      default: return method;
+    }
+  };
+
+  const revenueOverview = useMemo(() => {
+    if (!linkedRevenueStats) return null;
+    return Object.entries(linkedRevenueStats.revenueByPaymentMethod)
+      .filter(([method, amount]) => method === 'cash' && amount > 0)
+      .map(([method, amount]) => ({
+        method: formatPaymentMethod(method),
+        amount,
+      }));
+  }, [linkedRevenueStats]);
+
+  const expenseOverview = useMemo(() => {
+    if (!linkedExpenseSlips || linkedExpenseSlips.length === 0) return null;
+    const overview = linkedExpenseSlips.reduce((acc, slip) => {
+      const method = slip.paymentMethod;
+      if (method === 'cash' || method === 'bank_transfer') {
+        if (!acc[method]) {
+          acc[method] = 0;
+        }
+        acc[method] += slip.totalAmount;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(overview).map(([method, amount]) => ({
+      method: formatPaymentMethod(method),
+      amount,
+    }));
+  }, [linkedExpenseSlips]);
+
   useEffect(() => {
     if (open) {
       if (countToEdit) {
         setActualCashCounted(countToEdit.actualCashCounted || countToEdit.actualCash); // Support old and new
         setDiscrepancyReason(countToEdit.discrepancyReason || '');
         // Note: Editing photos is not supported in this version to keep it simple.
-        // User needs to re-upload if they want to change.
+        // User needs to re-upload if they want to change.!
         setDiscrepancyPhotoIds([]);
         setDiscrepancyPhotoUrls([]);
       } else {
@@ -70,6 +116,8 @@ export default function CashHandoverDialog({
     // The check for discrepancy reason should still happen if there is a difference
     if (actualCashCounted !== null && actualCashCounted - expectedCash !== 0 && !discrepancyReason.trim()) {
       toast.error('Vui lòng nhập lý do chênh lệch tiền mặt.');
+      discrepancyReasonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      discrepancyReasonRef.current?.focus();
       return;
     }
     const finalData = {
@@ -111,11 +159,50 @@ export default function CashHandoverDialog({
           </DialogHeader>
           <div className="flex-grow overflow-y-auto">
             <ScrollArea>
-              <div className="space-y-6 p-6">
-                <Card className="rounded-xl bg-muted/50 dark:bg-muted/30">
-                  <CardHeader className="pb-2"><CardTitle className="text-base text-muted-foreground">Tiền mặt dự kiến (lúc kiểm kê)</CardTitle></CardHeader>
-                  <CardContent><Input disabled value={expectedCash.toLocaleString('vi-VN') + 'đ'} className="font-bold text-2xl h-14 text-right bg-muted" /></CardContent>
-                </Card>
+              <div className="space-y-4 p-4">
+                {(revenueOverview || expenseOverview) && (
+                  <Card className="rounded-xl">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Tổng quan trong ca</CardTitle>
+                      <CardDescription>Dựa trên các phiếu doanh thu và phiếu chi đã ghi nhận.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {revenueOverview && revenueOverview.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold flex items-center gap-2 text-green-600"><TrendingUp className="h-5 w-5" /> Doanh thu</h3>
+                          <div className="mt-2 space-y-1 text-sm">
+                            {revenueOverview.map(item => (
+                              <div key={item.method} className="flex justify-between">
+                                <span className="text-muted-foreground">{item.method}</span>
+                                <span className="font-medium">{item.amount.toLocaleString('vi-VN')}đ</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {revenueOverview && expenseOverview && <Separator />}
+                      {expenseOverview && expenseOverview.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold flex items-center gap-2 text-red-600"><TrendingDown className="h-5 w-5" /> Chi phí</h3>
+                          <div className="mt-2 space-y-1 text-sm">
+                            {expenseOverview.map(item => (
+                              <div key={item.method} className="flex justify-between">
+                                <span className="text-muted-foreground">{item.method}</span>
+                                <span className="font-medium">{item.amount.toLocaleString('vi-VN')}đ</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <Separator />
+                       <div className="flex justify-between items-center pt-2">
+                          <p className="font-semibold text-base flex items-center gap-2"><Wallet className="h-5 w-5"/>Tiền mặt dự kiến</p>
+                          <p className="text-xl font-bold">{expectedCash.toLocaleString('vi-VN')}đ</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card className="border-primary ring-2 ring-primary/50 rounded-xl">
                   <CardHeader className="pb-2"><CardTitle className="text-base text-primary">Tiền mặt thực tế</CardTitle></CardHeader>
                   <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCashCounted ?? ''} onChange={e => setActualCashCounted(Number(e.target.value))} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()} /></CardContent>
@@ -127,7 +214,7 @@ export default function CashHandoverDialog({
                       <CardDescription>Vui lòng nhập lý do chi tiết và chụp ảnh bằng chứng (nếu cần).</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <Textarea placeholder="Nhập lý do chênh lệch ở đây..." value={discrepancyReason} onChange={e => setDiscrepancyReason(e.target.value)} />
+                      <Textarea ref={discrepancyReasonRef} placeholder="Nhập lý do chênh lệch ở đây..." value={discrepancyReason} onChange={e => setDiscrepancyReason(e.target.value)} />
                        <div className="space-y-2">
                         {countToEdit?.discrepancyProofPhotos?.length > 0 && (
                             <p className="text-xs text-muted-foreground italic">Lưu ý: Sửa sẽ xóa các ảnh bằng chứng cũ. Vui lòng chụp lại ảnh mới nếu cần.</p>
