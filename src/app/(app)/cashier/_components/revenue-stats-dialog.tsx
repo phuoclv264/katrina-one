@@ -9,10 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats, AuthUser } from '@/lib/types';
-import { Loader2, Upload, Camera, AlertCircle, Clock, Info, Edit, Trash2, Eye, FileText, ImageIcon, RefreshCw, ServerCrash } from 'lucide-react';
+import { Loader2, Upload, AlertCircle, Clock, Info, Edit, Eye, FileText, ImageIcon, RefreshCw, ServerCrash } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
-import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -123,7 +122,6 @@ export default function RevenueStatsDialog({
     const [aiOriginalData, setAiOriginalData] = useState<Partial<RevenueStats> | null>(null);
 
     // UI & Flow state
-    const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -383,31 +381,6 @@ export default function RevenueStatsDialog({
         }
     };
     
-    const handlePhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
-        setIsCameraOpen(false);
-        // Since singlePhotoMode is true, we expect only one photo.
-        const photo = media.find(m => m.type === 'photo');
-        if (!photo) return;
-        const photoId = photo.id;
-
-        try {
-            const photoBlob = await photoStore.getPhoto(photoId);
-            if (!photoBlob) throw new Error("Không tìm thấy ảnh.");
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                 const imageUri = reader.result as string;
-                 processImage(imageUri);
-            };
-            reader.readAsDataURL(photoBlob);
-        } catch(error) {
-             console.error('OCR Error:', error);
-             setAiError('Lỗi AI: Không thể đọc dữ liệu.');
-        } finally {
-            await photoStore.deletePhoto(photoId);
-        }
-    }
-    
     const handleRescan = async () => {
         if (!displayImageDataUri) return;
         
@@ -486,10 +459,6 @@ export default function RevenueStatsDialog({
                                                 Tải ảnh phiếu
                                             </Button>
                                             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                                            <Button variant="secondary" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isProcessing} className="w-full">
-                                                <Camera className="mr-2 h-4 w-4" />
-                                                Chụp ảnh phiếu
-                                            </Button>
                                         </div>
                                     )}
                                 </CardContent>
@@ -604,13 +573,6 @@ export default function RevenueStatsDialog({
                              <Upload className="mr-2 h-4 w-4" />
                              Tải ảnh lên
                         </Button>
-                         <Button className="w-full" onClick={() => {
-                            setShowMissingImageAlert(false);
-                            setIsCameraOpen(true);
-                         }}>
-                             <Camera className="mr-2 h-4 w-4" />
-                             Chụp ảnh mới
-                        </Button>
                     </div>
                     <AlertDialogFooter className='sm:justify-start mt-2'>
                         <AlertDialogCancel>Đóng</AlertDialogCancel>
@@ -641,13 +603,6 @@ export default function RevenueStatsDialog({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <CameraDialog 
-                isOpen={isCameraOpen}
-                onClose={() => setIsCameraOpen(false)}
-                onSubmit={handlePhotoCapture}
-                singlePhotoMode={true}
-                captureMode="photo"
-            />
             {displayImageDataUri && (
                  <Lightbox
                     open={isLightboxOpen}

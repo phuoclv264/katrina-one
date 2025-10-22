@@ -414,6 +414,12 @@ function CashierDashboardPageComponent() {
         await dataStore.addOrUpdateRevenueStats(dataToSave, user, isEdited, revenueStatsToEdit?.id);
         toast.success(`Đã ${revenueStatsToEdit ? 'cập nhật' : 'tạo'} phiếu thống kê.`);
         setIsRevenueDialogOpen(false);
+        
+        // Automatically open cash count dialog after saving revenue
+        if (!revenueStatsToEdit) { // Only open for new revenue stats, not for edits
+            setCashCountToEdit(null);
+            setIsCashHandoverDialogOpen(true);
+        }
         setRevenueStatsToEdit(null);
     } catch(error) {
         console.error("Failed to save revenue stats", error);
