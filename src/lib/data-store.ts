@@ -1,6 +1,6 @@
 'use client';
 
-import type { CashHandoverReport, FinalHandoverDetails, HandoverReport } from './types';
+import type { CashHandoverReport, FinalHandoverDetails } from './types';
 import { db, auth, storage } from './firebase';
 import {
   collection,
@@ -132,304 +132,50 @@ export const dataStore = {
     /**
      * [ĐÃ SỬA ĐỔI] Lắng nghe tất cả dữ liệu bàn giao trong ngày, bao gồm cả cấu trúc cũ và mới.
      */
-    subscribeToHandoverReport(date: string, callback: (report: HandoverReport | CashHandoverReport[] | null) => void): () => void {
-        let newReports: CashHandoverReport[] | null = null;
-        let oldReport: HandoverReport | null = null;
-        let newReportsReceived = false;
-        let oldReportReceived = false;
-
-        const processAndCallback = () => {
-            // Chỉ xử lý khi đã nhận được kết quả từ cả hai listener
-            if (!newReportsReceived || !oldReportReceived) return;
-
-            if (newReports && newReports.length > 0) {
-                callback(newReports);
-            } else if (oldReport) {
-                callback(oldReport);
-            } else {
-                callback(null);
-            }
-        };
-
+    subscribeToHandoverReport(date: string, callback: (report: CashHandoverReport | CashHandoverReport[] | null) => void): () => void {
         // Listener cho báo cáo mới
         const newReportsQuery = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'asc'));
         const unsubNewReports = onSnapshot(newReportsQuery, (snapshot) => {
-            newReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashHandoverReport));
-            newReportsReceived = true;
-            processAndCallback();
+            const reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashHandoverReport));
+            callback(reports.length > 0 ? reports : null);
         }, (error) => {
             console.error("Lỗi khi lắng nghe báo cáo kiểm kê mới:", error);
-            newReports = []; // Coi như không có báo cáo mới nếu lỗi
-            newReportsReceived = true;
-            processAndCallback();
-        });
-
-        // Listener cho báo cáo cũ
-        const oldReportRef = doc(db, 'handover_reports', date);
-        const unsubOldReport = onSnapshot(oldReportRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                oldReport = {
-                    ...data,
-                    id: docSnap.id,
-                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                } as HandoverReport;
-            } else {
-                oldReport = null;
-            }
-            oldReportReceived = true;
-            processAndCallback();
-        }, (error) => {
-            console.error("Lỗi khi lắng nghe báo cáo cũ:", error);
-            oldReport = null;
-            oldReportReceived = true;
-            processAndCallback();
+            callback(null);
         });
 
         return () => {
             unsubNewReports();
-            unsubOldReport();
         };
     },
 
     /**
      * [ĐÃ SỬA ĐỔI] Lấy dữ liệu bàn giao trong ngày, ưu tiên cấu trúc mới.
      */
-    async getHandoverReport(date: string): Promise<HandoverReport | CashHandoverReport[] | null> {
+    async getHandoverReport(date: string): Promise<CashHandoverReport | CashHandoverReport[] | null> {
         // Ưu tiên kiểm tra collection mới trước
         const newReportsQuery = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'asc'));
         const newReportsSnapshot = await getDocs(newReportsQuery);
         if (!newReportsSnapshot.empty) {
             return newReportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashHandoverReport));
         }
-
-        // Nếu không có, fallback về cấu trúc cũ
-        const docRef = doc(db, 'handover_reports', date);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-             const data = docSnap.data();
-             return {
-                 ...data,
-                 id: docSnap.id,
-                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-             } as HandoverReport;
-        }
         return null;
     },
 
-    subscribeToAllHandoverReports(callback: (reports: HandoverReport[]) => void): () => void {
-        const q = query(collection(db, 'handover_reports'), orderBy('date', 'desc'));
-        return onSnapshot(q, (snapshot) => {
+    subscribeToAllCashHandoverReports(callback: (reports: CashHandoverReport[]) => void): () => void {
+        const q = query(collection(db, 'cash_handover_reports'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const reports = snapshot.docs.map(doc => {
-                const data = doc.data();
                 return {
                     id: doc.id,
                     ...doc.data(),
-                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                } as HandoverReport;
+                } as CashHandoverReport;
             });
             callback(reports);
+        }, (error) => {
+            console.error("Lỗi khi lắng nghe các biên bản kiểm kê tiền mặt:", error);
+            callback([]);
         });
-    },
-
-    async addCashCount(cashCountData: Omit<CashCount, 'id' | 'timestamp' | 'countedBy'>, user: AuthUser): Promise<void> {
-        const date = getTodaysDateKey();
-        const handoverReportRef = doc(db, 'handover_reports', date);
-
-        let proofPhotos: string[] = [];
-        if (cashCountData.discrepancyProofPhotos && cashCountData.discrepancyProofPhotos.length > 0) {
-            const uploadPromises = cashCountData.discrepancyProofPhotos.map(async (photoId) => {
-                const photoBlob = await photoStore.getPhoto(photoId);
-                if (!photoBlob) return null;
-                const storageRef = ref(storage, `handover-reports/${date}/cash-counts/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
-                return getDownloadURL(storageRef);
-            });
-            proofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-            await photoStore.deletePhotos(cashCountData.discrepancyProofPhotos);
-        }
-
-        const newCashCountEntry: Omit<CashCount, 'id'> = {
-            ...cashCountData,
-            discrepancyProofPhotos: proofPhotos,
-            timestamp: Timestamp.now(),
-            countedBy: {
-                userId: user.uid,
-                userName: user.displayName || 'Không rõ',
-            },
-        };
-
-        await runTransaction(db, async (transaction) => {
-            const handoverDoc = await transaction.get(handoverReportRef);
-            if (!handoverDoc.exists()) {
-                // If no report exists for the day, create one with the first cash count.
-                transaction.set(handoverReportRef, {
-                    date: date,
-                    createdAt: serverTimestamp(),
-                    cashCounts: [{ ...newCashCountEntry, id: uuidv4() }],
-                });
-            } else {
-                // If a report exists, add the new cash count to the array.
-                transaction.update(handoverReportRef, {
-                    cashCounts: arrayUnion({ ...newCashCountEntry, id: uuidv4() })
-                });
-            }
-        });
-    },
-
-    async updateCashCount(handoverReportId: string, cashCountId: string, newData: Partial<CashCount> & { discrepancyProofPhotoIds?: string[] }, user: AuthUser): Promise<void> {
-        const handoverReportRef = doc(db, 'handover_reports', handoverReportId);
-
-        await runTransaction(db, async (transaction) => {
-            const handoverDoc = await transaction.get(handoverReportRef);
-            if (!handoverDoc.exists()) {
-                throw new Error("Không tìm thấy báo cáo bàn giao.");
-            }
-
-            const reportData = handoverDoc.data() as HandoverReport;
-            const cashCounts = reportData.cashCounts || [];
-            const countIndex = cashCounts.findIndex(c => c.id === cashCountId);
-
-            if (countIndex === -1) {
-                throw new Error("Không tìm thấy lần kiểm kê tiền mặt để cập nhật.");
-            }
-
-            const originalCount = cashCounts[countIndex];
-
-            // Authorization check
-            if (originalCount.countedBy.userId !== user.uid && user.role !== 'Chủ nhà hàng') {
-                throw new Error("Bạn không có quyền chỉnh sửa lần kiểm kê của người khác.");
-            }
-
-            // Handle photo updates: delete old, upload new
-            if (originalCount.discrepancyProofPhotos && originalCount.discrepancyProofPhotos.length > 0) {
-                await Promise.all(originalCount.discrepancyProofPhotos.map(url => this.deletePhotoFromStorage(url)));
-            }
-
-            let newProofPhotos: string[] = [];
-            if (newData.discrepancyProofPhotoIds && newData.discrepancyProofPhotoIds.length > 0) {
-                const uploadPromises = newData.discrepancyProofPhotoIds.map(async (photoId) => {
-                    const photoBlob = await photoStore.getPhoto(photoId);
-                    if (!photoBlob) return null;
-                    const storageRef = ref(storage, `handover-reports/${handoverReportId}/cash-counts/${uuidv4()}.jpg`);
-                    await uploadBytes(storageRef, photoBlob);
-                    return getDownloadURL(storageRef);
-                });
-                newProofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-                await photoStore.deletePhotos(newData.discrepancyProofPhotoIds);
-            }
-
-            const updatedCount = {
-                ...originalCount,
-                ...newData,
-                discrepancyProofPhotos: newProofPhotos,
-                timestamp: Timestamp.now(), // Update timestamp to reflect the edit time
-            };
-            delete (updatedCount as any).discrepancyProofPhotoIds;
-
-            const updatedCashCounts = [...cashCounts];
-            updatedCashCounts[countIndex] = updatedCount;
-
-            transaction.update(handoverReportRef, { cashCounts: updatedCashCounts });
-        });
-    },
-
-    async deleteCashCount(handoverReportId: string, cashCountId: string, user: AuthUser): Promise<void> {
-        const handoverReportRef = doc(db, 'handover_reports', handoverReportId);
-
-        await runTransaction(db, async (transaction) => {
-            const reportDoc = await transaction.get(handoverReportRef);
-            if (!reportDoc.exists()) {
-                throw new Error("Không tìm thấy báo cáo bàn giao.");
-            }
-
-            const reportData = reportDoc.data() as HandoverReport;
-            const cashCounts = reportData.cashCounts || [];
-            const countToDelete = cashCounts.find(c => c.id === cashCountId);
-
-            if (countToDelete && countToDelete.countedBy.userId !== user.uid && user.role !== 'Chủ nhà hàng') {
-                throw new Error("Bạn không có quyền xóa lần kiểm kê của người khác.");
-            }
-
-            const updatedCashCounts = cashCounts.filter((c: CashCount) => c.id !== cashCountId);
-            transaction.update(handoverReportRef, { cashCounts: updatedCashCounts });
-        });
-    },
-
-    async addHandoverReport(data: Partial<HandoverReport> & { imageDataUri?: string }, user: AuthUser): Promise<void> {
-        const date = data.date || getTodaysDateKey();
-        const handoverReportRef = doc(db, 'handover_reports', date);
-        
-        let handoverImageUrl: string | null = null;
-        if (data.imageDataUri && data.imageDataUri.startsWith('data:')) {
-            const blob = await (await fetch(data.imageDataUri)).blob();
-            const storageRef = ref(storage, `handover-reports/${date}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, blob);
-            handoverImageUrl = await getDownloadURL(storageRef);
-        }
-        
-        let discrepancyProofPhotos: string[] = [];
-        if (data.discrepancyProofPhotos && data.discrepancyProofPhotos.length > 0) {
-            const uploadPromises = data.discrepancyProofPhotos.map(async (photoId) => {
-                const photoBlob = await photoStore.getPhoto(photoId);
-                if (!photoBlob) return null;
-                const storageRef = ref(storage, `handover-reports/${date}/discrepancy/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
-                return getDownloadURL(storageRef);
-            });
-            discrepancyProofPhotos = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-            await photoStore.deletePhotos(data.discrepancyProofPhotos);
-        }
-
-        const finalHandoverData: Partial<HandoverReport> = {
-            ...data,
-            date,
-            handoverImageUrl: handoverImageUrl, // Use the variable which is guaranteed to be string or null
-            discrepancyProofPhotos,
-            createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-            createdAt: serverTimestamp() as Timestamp,
-            isVerified: false,
-        };
-        // The imageDataUri from AI flow is large, don't save it to firestore.
-        if (finalHandoverData.handoverData && 'imageDataUri' in finalHandoverData.handoverData) {
-            delete finalHandoverData.handoverData.imageDataUri;
-        }
-        // Also remove it from the top-level object if it exists
-        delete (finalHandoverData as any).imageDataUri;
-
-        await setDoc(handoverReportRef, finalHandoverData, { merge: true });
-
-        const deliveryPayout = Math.abs(data.handoverData?.deliveryPartnerPayout || 0);
-        if (deliveryPayout > 0) {
-            let categories = await this.getOtherCostCategories();
-            let payoutCategory = categories.find(c => c.name === 'Chi trả cho Đối tác Giao hàng');
-            if (!payoutCategory) {
-                payoutCategory = { id: uuidv4(), name: 'Chi trả cho Đối tác Giao hàng' };
-                const newCategories = [...categories, payoutCategory];
-                await this.updateOtherCostCategories(newCategories);
-            }
-
-            const slipData: Omit<ExpenseSlip, 'id'> = {
-                date,
-                expenseType: 'other_cost',
-                items: [{
-                    itemId: 'other_cost',
-                    name: payoutCategory.name,
-                    otherCostCategoryId: payoutCategory.id,
-                    quantity: 1,
-                    unitPrice: deliveryPayout,
-                    unit: 'lần',
-                }],
-                totalAmount: deliveryPayout,
-                paymentMethod: 'bank_transfer',
-                notes: `Tự động tạo từ báo cáo bàn giao cuối ca.`,
-                createdBy: { userId: user.uid, userName: user.displayName },
-                createdAt: serverTimestamp() as Timestamp,
-                associatedHandoverReportId: handoverReportRef.id,
-                paymentStatus: 'unpaid'
-            };
-            await this.addOrUpdateExpenseSlip(slipData);
-        }
+        return unsubscribe;
     },
 
     async finalizeHandover(
@@ -467,72 +213,117 @@ export const dataStore = {
         await updateDoc(latestReportRef, { finalHandoverDetails: finalDetails });
     },
     
-    async updateHandoverReport(id: string, data: Partial<HandoverReport>, user: AuthUser): Promise<void> {
-        const handoverReportRef = doc(db, 'handover_reports', id);
-        
-        const { newDiscrepancyPhotos, photosToDelete, ...restData } = data as any;
+    /**
+     * [MỚI] Thêm chi tiết bàn giao cuối ca vào một báo cáo kiểm kê tiền mặt đã có trong quá khứ.
+     * Được sử dụng bởi Chủ nhà hàng.
+     */
+    async addFinalHandoverToPastReport(
+        date: string,
+        handoverReceiptData: ExtractHandoverDataOutput & { newPhotoIds?: string[] },
+        user: AuthUser
+    ): Promise<void> {
+        // 1. Tìm báo cáo kiểm kê tiền mặt mới nhất trong ngày được chỉ định
+        const q = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
+        const snapshot = await getDocs(q);
 
-        const finalUpdateData: any = {
-            ...restData,
-            lastModifiedBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-            lastModifiedAt: serverTimestamp(),
+        if (snapshot.empty) {
+            throw new Error("Không tìm thấy báo cáo kiểm kê tiền mặt nào trong ngày đã chọn. Vui lòng thực hiện kiểm kê tiền mặt trước.");
+        }
+        const latestReportDoc = snapshot.docs[0];
+        const latestReportRef = latestReportDoc.ref;
+
+        // 2. Tải ảnh phiếu bàn giao
+        let handoverImageUrl: string | null = null;
+        if (handoverReceiptData.newPhotoIds && handoverReceiptData.newPhotoIds.length > 0) {
+            const photoId = handoverReceiptData.newPhotoIds[0];
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (photoBlob) {
+                handoverImageUrl = await this.uploadFile(photoBlob, `final-handover-receipts/${date}/${latestReportDoc.id}-${photoId}.jpg`);
+                await photoStore.deletePhoto(photoId);
+            }
+        }
+
+        handoverReceiptData.newPhotoIds = undefined; // Xóa newPhotoIds trước khi lưu
+
+        // 3. Chuẩn bị dữ liệu và cập nhật
+        const finalDetails: Omit<FinalHandoverDetails, 'receiptData'> & { receiptData: ExtractHandoverDataOutput, receiptImageUrl: string | null } = {
+            receiptData: { ...handoverReceiptData},
+            receiptImageUrl: handoverImageUrl,
+            finalizedAt: serverTimestamp(),
+            finalizedBy: { userId: user.uid, userName: user.displayName || 'N/A' },
         };
 
-        // Handle photo deletions
-        if (photosToDelete && photosToDelete.length > 0) {
-            await Promise.all(photosToDelete.map((url: string) => this.deletePhotoFromStorage(url)));
-        }
-        
-        // Handle new photo uploads
-        let newPhotoUrls: string[] = [];
-        if (newDiscrepancyPhotos && newDiscrepancyPhotos.length > 0) {
-            const uploadPromises = newDiscrepancyPhotos.map(async (photoId: string) => {
-                const photoBlob = await photoStore.getPhoto(photoId);
-                if (!photoBlob) return null;
-                const storageRef = ref(storage, `handover-reports/${id}/discrepancy/${uuidv4()}.jpg`);
-                const blob = photoBlob;
-                await uploadBytes(storageRef, blob);
-                return getDownloadURL(storageRef);
-            });
-            newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-            await photoStore.deletePhotos(newDiscrepancyPhotos);
-        }
-
-        if (photosToDelete || newPhotoUrls.length > 0) {
-             const currentDoc = await getDoc(handoverReportRef);
-             const existingPhotos = currentDoc.exists() ? (currentDoc.data().discrepancyProofPhotos || []) : [];
-             const remainingPhotos = photosToDelete ? existingPhotos.filter((p: string) => !photosToDelete.includes(p)) : existingPhotos;
-             finalUpdateData.discrepancyProofPhotos = [...remainingPhotos, ...newPhotoUrls];
-        }
-
-        await updateDoc(handoverReportRef, finalUpdateData);
+        await updateDoc(latestReportRef, { finalHandoverDetails: finalDetails });
     },
 
-    async deleteHandoverReport(id: string): Promise<void> {
-        const handoverReportRef = doc(db, 'handover_reports', id);
-        const docSnap = await getDoc(handoverReportRef);
-        if (!docSnap.exists()) return;
+    /**
+     * Tải một file lên Firebase Storage và trả về URL.
+     * @param fileBlob Dữ liệu Blob của file.
+     * @param path Đường dẫn lưu file trên Storage.
+     * @returns URL của file đã tải lên.
+     */
+    async uploadFile(fileBlob: Blob, path: string): Promise<string> {
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, fileBlob);
+        return getDownloadURL(storageRef);
+    },
 
-        const data = docSnap.data() as HandoverReport;
-        
-        const photoDeletionPromises: Promise<void>[] = [];
-        if(data.handoverImageUrl) {
-            photoDeletionPromises.push(this.deletePhotoFromStorage(data.handoverImageUrl));
+    /**
+     * Xóa một file khỏi Firebase Storage bằng URL của nó.
+     * @param fileUrl URL của file cần xóa.
+     */
+    async deleteFileByUrl(fileUrl: string): Promise<void> {
+        if (typeof window === 'undefined' || !fileUrl.includes('firebasestorage.googleapis.com')) return;
+        try {
+            const fileRef = ref(storage, fileUrl);
+            await deleteObject(fileRef);
+        } catch (error: any) {
+            if (error.code !== 'storage/object-not-found') {
+                console.error("Lỗi khi xóa file từ Storage:", error);
+            }
         }
-        if(data.discrepancyProofPhotos) {
-            data.discrepancyProofPhotos.forEach(url => photoDeletionPromises.push(this.deletePhotoFromStorage(url)));
-        }
-        
-        await Promise.all(photoDeletionPromises);
-        
-        const associatedSlipQuery = query(collection(db, "expense_slips"), where("associatedHandoverReportId", "==", id));
-        const slipsSnapshot = await getDocs(associatedSlipQuery);
-        if(!slipsSnapshot.empty) {
-            const slipDoc = slipsSnapshot.docs[0];
-            await deleteDoc(doc(db, "expense_slips", slipDoc.id));
+    },
+
+    /**
+     * [MỚI] Cập nhật chi tiết của một biên bản bàn giao cuối ca đã tồn tại.
+     * Được sử dụng bởi Chủ nhà hàng từ trang báo cáo.
+     */
+    async updateFinalHandoverDetails(reportId: string, data: any, user: AuthUser): Promise<void> {
+        const { handoverData, newPhotoIds, photosToDelete, isEdited, shiftEndTime } = data;
+        const reportRef = doc(db, 'cash_handover_reports', reportId);
+        const reportSnap = await getDoc(reportRef);
+
+        if (!reportSnap.exists()) {
+            throw new Error("Không tìm thấy báo cáo để cập nhật.");
         }
 
-        await deleteDoc(handoverReportRef);
+        const currentDetails = reportSnap.data().finalHandoverDetails as FinalHandoverDetails;
+        let newImageUrl = currentDetails.receiptImageUrl;
+
+        // 1. Xóa ảnh cũ nếu có yêu cầu
+        if (photosToDelete && photosToDelete.length > 0) {
+            await Promise.all(photosToDelete.map((url: string) => this.deleteFileByUrl(url)));
+            newImageUrl = null; // Assume only one photo, so if deleted, it's gone.
+        }
+
+        // 2. Tải lên ảnh mới nếu có
+        if (newPhotoIds && newPhotoIds.length > 0) {
+            const photoId = newPhotoIds[0]; // Giả sử chỉ có 1 ảnh
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (photoBlob) {
+                newImageUrl = await this.uploadFile(photoBlob, `final-handover-receipts/${reportId}/${photoId}.jpg`);
+                await photoStore.deletePhoto(photoId);
+            }
+        }
+
+        // 3. Chuẩn bị payload để cập nhật
+        const updatePayload: { [key: string]: any } = {};
+        updatePayload['finalHandoverDetails.receiptImageUrl'] = newImageUrl;
+        updatePayload['finalHandoverDetails.receiptData'] = { ...handoverData, shiftEndTime };
+        updatePayload['finalHandoverDetails.finalizedBy'] = { userId: user.uid, userName: user.displayName };
+        updatePayload['finalHandoverDetails.finalizedAt'] = serverTimestamp();
+
+        await updateDoc(reportRef, updatePayload);
     },
 
     async addOrUpdateIncident(

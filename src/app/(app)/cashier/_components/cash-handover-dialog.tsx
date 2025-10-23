@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import { toast } from 'react-hot-toast';
 import type { RevenueStats, ExpenseSlip } from '@/lib/types'; // Import types
+import { v4 as uuidv4 } from 'uuid';
 import { Separator } from '@/components/ui/separator'; // Import Separator
 
 type CashHandoverDialogProps = {
@@ -24,6 +25,7 @@ type CashHandoverDialogProps = {
   isProcessing: boolean;
   expectedCash: number;
   countToEdit?: any | null;
+  isOwnerView?: boolean;
   linkedRevenueStats?: RevenueStats | null; // New prop
   linkedExpenseSlips?: ExpenseSlip[]; // New prop
 };
@@ -35,6 +37,7 @@ export default function CashHandoverDialog({
   isProcessing,
   expectedCash,
   countToEdit = null,
+  isOwnerView = false,
   linkedRevenueStats = null, // Default value
   linkedExpenseSlips = [], // Default value
 }: CashHandoverDialogProps) {
@@ -42,8 +45,10 @@ export default function CashHandoverDialog({
   const [actualCashCounted, setActualCashCounted] = useState<number | null>(null);
   const [discrepancyReason, setDiscrepancyReason] = useState('');
   const [discrepancyPhotoIds, setDiscrepancyPhotoIds] = useState<string[]>([]);
-  const [discrepancyPhotoUrls, setDiscrepancyPhotoUrls] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
+  const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
+  const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -87,30 +92,33 @@ export default function CashHandoverDialog({
     }));
   }, [linkedExpenseSlips]);
 
-  useEffect(() => {
-    if (open) {
-      if (countToEdit) {
-        setActualCashCounted(countToEdit.actualCashCounted || countToEdit.actualCash); // Support old and new
-        setDiscrepancyReason(countToEdit.discrepancyReason || '');
-        // Note: Editing photos is not supported in this version to keep it simple.
-        // User needs to re-upload if they want to change.!
-        setDiscrepancyPhotoIds([]);
-        setDiscrepancyPhotoUrls([]);
-      } else {
-        setActualCashCounted(null);
-        setDiscrepancyReason('');
-        discrepancyPhotoUrls.forEach(url => URL.revokeObjectURL(url));
-        setDiscrepancyPhotoUrls([]);
-        setDiscrepancyPhotoIds([]);
+  const allPhotos = useMemo(() => [...existingPhotos, ...localPhotos], [existingPhotos, localPhotos]);
+
+  const resetState = useCallback(() => {
+    setActualCashCounted(null);
+    setDiscrepancyReason('');
+    setDiscrepancyPhotoIds([]);
+    setExistingPhotos([]);
+    setLocalPhotos([]);
+    setPhotosToDelete([]);
+
+    if (countToEdit) {
+      setActualCashCounted(countToEdit.actualCashCounted);
+      setDiscrepancyReason(countToEdit.discrepancyReason || '');
+      if (isOwnerView && countToEdit.discrepancyProofPhotos) {
+        setExistingPhotos(countToEdit.discrepancyProofPhotos.map((url: string) => ({ id: url, url })));
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, countToEdit]);
+  }, [countToEdit, isOwnerView]);
 
-  // Discrepancy is now calculated on the main page for display, not in the dialog
-  const discrepancy = (actualCashCounted !== null && expectedCash !== undefined)
-    ? actualCashCounted - expectedCash
-    : 0;
+  useEffect(() => {
+    if (open) {
+      resetState();
+    } else {
+      localPhotos.forEach(p => URL.revokeObjectURL(p.url));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, resetState]);
 
   const handleConfirmAndSave = () => {
     // The check for discrepancy reason should still happen if there is a difference
@@ -123,38 +131,54 @@ export default function CashHandoverDialog({
     const finalData = {
       actualCashCounted,
       discrepancyReason: discrepancyReason.trim() || null,
-      newPhotoIds: discrepancyPhotoIds, // Renaming for clarity in the new structure
+      newPhotoIds: localPhotos.map(p => p.id),
+      photosToDelete: photosToDelete,
     };
     onSubmit(finalData, countToEdit?.id);
   };
 
-  const handleCapturePhotos = async (media: { id: string; type: 'photo' | 'video' }[]) => {
-    const capturedPhotoIds = media.filter(m => m.type === 'photo').map(m => m.id);
-    const newUrls: string[] = [];
-    for (const id of capturedPhotoIds) {
-      const blob = await photoStore.getPhoto(id);
-      if (blob) {
-        newUrls.push(URL.createObjectURL(blob));
-      }
-    }
-    setDiscrepancyPhotoIds(prev => [...prev, ...capturedPhotoIds]);
-    setDiscrepancyPhotoUrls(prev => [...prev, ...newUrls]);
+  const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
+    const newPhotos = await Promise.all(
+      media
+        .filter(m => m.type === 'photo')
+        .map(async ({ id }) => {
+          const blob = await photoStore.getPhoto(id);
+          if (!blob) return null;
+          return { id, url: URL.createObjectURL(blob) };
+        })
+    );
+    setLocalPhotos(prev => [...prev, ...newPhotos.filter(Boolean) as { id: string, url: string }[]]);
     setIsCameraOpen(false);
+  }, []);
+
+  const handleDeleteExistingPhoto = (url: string) => {
+    setExistingPhotos(prev => prev.filter(p => p.url !== url));
+    setPhotosToDelete(prev => [...prev, url]);
   };
 
-  const handleDeletePhoto = async (photoId: string, photoUrl: string) => {
-    setDiscrepancyPhotoIds(prev => prev.filter(id => id !== photoId));
-    setDiscrepancyPhotoUrls(prev => prev.filter(url => url !== photoUrl));
-    URL.revokeObjectURL(photoUrl);
+  const handleDeleteLocalPhoto = async (photoId: string) => {
+    setLocalPhotos(prev => {
+      const photoToDelete = prev.find(p => p.id === photoId);
+      if (photoToDelete) {
+        URL.revokeObjectURL(photoToDelete.url);
+      }
+      return prev.filter(p => p.id !== photoId);
+    });
     await photoStore.deletePhoto(photoId);
   };
+
+  const dialogTitle = isOwnerView && countToEdit ? "Chi tiết Kiểm kê" : "Bàn giao tiền mặt";
+  
+  const discrepancy = (actualCashCounted !== null && expectedCash !== undefined)
+    ? actualCashCounted - expectedCash
+    : 0;
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/30">
-            <DialogTitle className="text-2xl flex items-center gap-2"><Wallet /> Bàn giao tiền mặt</DialogTitle>
+            <DialogTitle className="text-2xl flex items-center gap-2"><Wallet /> {dialogTitle}</DialogTitle>
             <DialogDescription>Kiểm đếm và nhập số tiền mặt thực tế trong quầy.</DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto">
@@ -214,18 +238,19 @@ export default function CashHandoverDialog({
                       <CardDescription>Vui lòng nhập lý do chi tiết và chụp ảnh bằng chứng (nếu cần).</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <Textarea ref={discrepancyReasonRef} placeholder="Nhập lý do chênh lệch ở đây..." value={discrepancyReason} onChange={e => setDiscrepancyReason(e.target.value)} />
+                      <Textarea ref={discrepancyReasonRef} placeholder="Nhập lý do chênh lệch ở đây..." value={discrepancyReason} onChange={e => setDiscrepancyReason(e.target.value)} disabled={!isOwnerView && !!countToEdit} />
                        <div className="space-y-2">
-                        {countToEdit?.discrepancyProofPhotos?.length > 0 && (
-                            <p className="text-xs text-muted-foreground italic">Lưu ý: Sửa sẽ xóa các ảnh bằng chứng cũ. Vui lòng chụp lại ảnh mới nếu cần.</p>
+                        {(!countToEdit || isOwnerView) && (
+                          <Button variant="outline" className="w-full h-12" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-5 w-5" /> Chụp ảnh bằng chứng</Button>
                         )}
-                        <Button variant="outline" className="w-full h-12" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-5 w-5" /> Chụp ảnh bằng chứng</Button>
-                        {discrepancyPhotoUrls.length > 0 && (
+                        {allPhotos.length > 0 && (
                           <div className="flex gap-2 flex-wrap">
-                            {discrepancyPhotoUrls.map((url, i) => (
-                              <div key={i} className="relative h-16 w-16 group">
-                                <button onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }} className="w-full h-full rounded-md overflow-hidden"><Image src={url} alt={`proof-${i}`} fill className="object-cover" /></button>
-                                <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full" onClick={() => handleDeletePhoto(discrepancyPhotoIds[i], url)}><X className="h-3 w-3" /></Button>
+                            {allPhotos.map((photo, i) => (
+                              <div key={photo.id} className="relative h-16 w-16 group">
+                                <button onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }} className="w-full h-full rounded-md overflow-hidden"><Image src={photo.url} alt={`proof-${i}`} fill className="object-cover" /></button>
+                                {(!countToEdit || isOwnerView) && (
+                                  <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full" onClick={() => localPhotos.some(p => p.id === photo.id) ? handleDeleteLocalPhoto(photo.id) : handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -238,16 +263,18 @@ export default function CashHandoverDialog({
             </ScrollArea>
           </div>
           <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-muted/30">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-            <Button onClick={handleConfirmAndSave} disabled={isProcessing || typeof actualCashCounted !== 'number'}>
-              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-              {isProcessing ? 'Đang lưu...' : (countToEdit ? 'Lưu thay đổi' : 'Hoàn tất & Gửi')}
-            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
+            {(!countToEdit || isOwnerView) && (
+              <Button onClick={handleConfirmAndSave} disabled={isProcessing || typeof actualCashCounted !== 'number'}>
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                {isProcessing ? 'Đang lưu...' : (countToEdit ? 'Lưu thay đổi' : 'Hoàn tất & Gửi')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
       <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} captureMode="photo" />
-      <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} index={lightboxIndex} slides={discrepancyPhotoUrls.map(url => ({ src: url }))} />
+      <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} index={lightboxIndex} slides={allPhotos.map(p => ({ src: p.url }))} />
     </>
   );
 }

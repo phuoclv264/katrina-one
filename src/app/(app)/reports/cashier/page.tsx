@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
-import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, ExpenseItem, IncidentCategory, ManagedUser, HandoverReport } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, ExpenseItem, IncidentCategory, ManagedUser, CashHandoverReport } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,7 +20,9 @@ import "yet-another-react-lightbox/styles.css";
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
+import CashHandoverDialog from '../../cashier/_components/cash-handover-dialog';
 import HandoverDialog from '../../cashier/_components/handover-dialog';
+import HandoverComparisonDialog from '../../cashier/_components/handover-comparison-dialog';
 import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
 import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
@@ -128,7 +130,7 @@ function AddDocumentDialog({
                          <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
                             <span className="font-semibold">Thêm Sự cố</span>
                             <RadioGroupItem value="incident" id="action-incident" />
-                        </Label>
+                        </Label> 
                          <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
                             <span className="font-semibold">Thêm Phiếu bàn giao</span>
                             <RadioGroupItem value="handover" id="action-handover" />
@@ -144,7 +146,6 @@ function AddDocumentDialog({
     );
 }
 
-
 export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -157,7 +158,7 @@ export default function CashierReportsPage() {
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
   const [incidentCategories, setIncidentCategories] = useState<IncidentCategory[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [handoverReports, setHandoverReports] = useState<HandoverReport[]>([]);
+  const [cashHandoverReports, setCashHandoverReports] = useState<CashHandoverReport[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
@@ -167,15 +168,16 @@ export default function CashierReportsPage() {
   const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
   const [isOtherCostCategoryDialogOpen, setIsOtherCostCategoryDialogOpen] = useState(false);
   const [isIncidentCategoryDialogOpen, setIsIncidentCategoryDialogOpen] = useState(false);
-  const [isHandoverReportDialogOpen, setIsHandoverReportDialogOpen] = useState(false);
+  const [isFinalHandoverViewOpen, setIsFinalHandoverViewOpen] = useState(false);
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
+  const [isCashHandoverDialogOpen, setIsCashHandoverDialogOpen] = useState(false);
   const [isIncidentDetailsDialogOpen, setIsIncidentDetailsDialogOpen] = useState(false);
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false);
   
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
+  const [cashHandoverToEdit, setCashHandoverToEdit] = useState<CashHandoverReport | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
-  const [handoverToEdit, setHandoverToEdit] = useState<HandoverReport | null>(null);
   const [dateForNewEntry, setDateForNewEntry] = useState<string | null>(null);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -184,6 +186,34 @@ export default function CashierReportsPage() {
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
+  // State for CashHandoverDialog
+  const [linkedRevenueForDialog, setLinkedRevenueForDialog] = useState<RevenueStats | null>(null);
+  const [linkedExpensesForDialog, setLinkedExpensesForDialog] = useState<ExpenseSlip[]>([]);
+  const [expectedCashForDialog, setExpectedCashForDialog] = useState(0);
+  
+  const [finalHandoverToView, setFinalHandoverToView] = useState<CashHandoverReport | null>(null);
+
+  useEffect(() => {
+    if (isCashHandoverDialogOpen && cashHandoverToEdit) {
+      // Editing an existing report: calculate historical expected cash
+      const revenue = revenueStats.find(stat => stat.id === cashHandoverToEdit.linkedRevenueStatsId) || null;
+      const expenses = expenseSlips.filter(slip => cashHandoverToEdit.linkedExpenseSlipIds?.includes(slip.id));
+      
+      setLinkedRevenueForDialog(revenue);
+      setLinkedExpensesForDialog(expenses);
+
+      const historicalCashRevenue = revenue?.revenueByPaymentMethod.cash || 0;
+      const historicalTotalCashExpense = expenses
+          .filter(slip => slip.paymentMethod === 'cash')
+          .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+      const historicalStartOfDayCash = cashHandoverToEdit.startOfDayCash;
+      
+      const historicalExpectedCash = historicalCashRevenue - historicalTotalCashExpense + historicalStartOfDayCash;
+      setExpectedCashForDialog(historicalExpectedCash);
+    }
+  }, [isCashHandoverDialogOpen, cashHandoverToEdit, revenueStats, expenseSlips]);
+
+
   useEffect(() => {
     if (lightboxOpen) {
       window.history.pushState(null, '', window.location.href);
@@ -215,7 +245,7 @@ export default function CashierReportsPage() {
       dataStore.subscribeToOtherCostCategories(setOtherCostCategories),
       dataStore.subscribeToIncidentCategories(setIncidentCategories),
       dataStore.subscribeToUsers(setUsers),
-      dataStore.subscribeToAllHandoverReports(setHandoverReports),
+      dataStore.subscribeToAllCashHandoverReports(setCashHandoverReports),
     ];
     const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => {
@@ -226,11 +256,11 @@ export default function CashierReportsPage() {
 
   const allMonthsWithData = useMemo(() => {
     const monthSet = new Set<string>();
-    [...revenueStats, ...expenseSlips, ...incidents, ...handoverReports].forEach(item => {
+    [...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports].forEach(item => {
         monthSet.add(format(parseISO(item.date), 'yyyy-MM'));
     });
     return Array.from(monthSet).sort().reverse();
-  }, [revenueStats, expenseSlips, incidents, handoverReports]);
+  }, [revenueStats, expenseSlips, incidents, cashHandoverReports]);
 
   useEffect(() => {
     if (allMonthsWithData.length > 0 && !initialMonthSet.current) {
@@ -240,26 +270,27 @@ export default function CashierReportsPage() {
   }, [allMonthsWithData]);
 
   const reportsForCurrentMonth = useMemo(() => {
-    const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], handover?: HandoverReport }} = {};
-    const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | HandoverReport)[]) => {
+    const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] }} = {};
+    const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | CashHandoverReport)[]) => {
       items.forEach(item => {
         if (isSameMonth(parseISO(item.date), currentMonth)) {
-          reports[item.date] = reports[item.date] || { revenue: [], expenses: [], incidents: [] };
+          reports[item.date] = reports[item.date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
           if ('netRevenue' in item) reports[item.date].revenue.push(item);
           else if ('expenseType' in item) reports[item.date].expenses.push(item);
           else if ('content' in item) reports[item.date].incidents.push(item);
-          else if ('handoverImageUrl' in item) reports[item.date].handover = item;
+          else if ('actualCashCounted' in item) reports[item.date].cashHandovers.push(item as CashHandoverReport);
         }
       });
     };
-    processItems([...revenueStats, ...expenseSlips, ...incidents, ...handoverReports]);
+    processItems([...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports]);
     for (const date in reports) {
       reports[date].revenue?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+      reports[date].cashHandovers?.sort((a, b) => (b.createdAt as any).toMillis() - (a.createdAt as any).toMillis());
     }
     return reports;
-  }, [currentMonth, revenueStats, expenseSlips, incidents, handoverReports]);
+  }, [currentMonth, revenueStats, expenseSlips, incidents, cashHandoverReports]);
 
   const sortedDatesInMonth = useMemo(() => {
     const today = new Date();
@@ -283,7 +314,12 @@ export default function CashierReportsPage() {
   const handleEditExpense = useCallback((slip: ExpenseSlip) => { setDateForNewEntry(null); setSlipToEdit(slip); setIsExpenseDialogOpen(true); }, []);
   const handleEditRevenue = useCallback((stats: RevenueStats) => { setDateForNewEntry(null); setRevenueStatsToEdit(stats); setIsRevenueDialogOpen(true); }, []);
   const handleEditIncident = useCallback((incident: IncidentReport) => { setDateForNewEntry(null); setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
-  const handleEditHandover = useCallback((handover: HandoverReport) => { setDateForNewEntry(null); setHandoverToEdit(handover); setIsHandoverReportDialogOpen(true); }, []);
+  const handleEditCashHandover = useCallback((handover: CashHandoverReport) => { setDateForNewEntry(null); setCashHandoverToEdit(handover); setIsCashHandoverDialogOpen(true); }, []);
+
+  const handleViewFinalHandover = useCallback((handover: CashHandoverReport) => {
+    setFinalHandoverToView(handover);
+    setIsFinalHandoverViewOpen(true);
+  }, []);
 
    const handleAddDocumentConfirm = (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => {
         setDateForNewEntry(format(date, 'yyyy-MM-dd'));
@@ -300,9 +336,9 @@ export default function CashierReportsPage() {
                 setIncidentToEdit(null);
                 setIsIncidentDialogOpen(true);
                 break;
-            case 'handover':
-                setHandoverToEdit(null);
-                setIsHandoverReportDialogOpen(true);
+            case 'handover': // Mở dialog bàn giao cuối ca
+                setFinalHandoverToView(null);
+                setIsCashHandoverDialogOpen(true);
                 break;
         }
    };
@@ -360,22 +396,51 @@ export default function CashierReportsPage() {
     finally { setProcessingItemId(null); }
   }, [user, incidentToEdit, dateForNewEntry]);
 
-  const handleSaveHandover = useCallback(async (data: any, id?: string) => {
+  const handleSaveCashHandover = useCallback(async (data: any, id?: string) => {
     if (!user) return;
-    setProcessingItemId(id || 'new-handover');
+    setProcessingItemId(id || 'new-cash-handover');
     try {
-        const handoverDate = dateForNewEntry || format(new Date(), 'yyyy-MM-dd');
-        await dataStore.addHandoverReport({ ...data, date: handoverDate }, user);
-        toast.success('Đã tạo báo cáo bàn giao mới.');
-        setIsHandoverReportDialogOpen(false);
-    } catch (error) { 
-        console.error("Failed to save handover report:", error);
-        toast.error('Không thể lưu báo cáo bàn giao.');
-    } finally { 
-        setProcessingItemId(null); 
+        if (id) {
+            await dataStore.updateCashHandoverReport(id, data, user);
+            toast.success('Đã cập nhật biên bản kiểm kê.');
+        }
+        setIsCashHandoverDialogOpen(false);
+    } catch (error) { toast.error('Không thể lưu biên bản kiểm kê.'); console.error(error); }
+    finally { setProcessingItemId(null); }
+  }, [user]);
+
+  const handleSavePastHandover = useCallback(async (data: any) => {
+    if (!user || !dateForNewEntry) return;
+    setProcessingItemId('new-past-handover');
+    try {
+        await dataStore.addFinalHandoverToPastReport(dateForNewEntry, data.handoverData, user);
+        toast.success(`Đã bổ sung phiếu bàn giao cho ngày ${format(parseISO(dateForNewEntry), 'dd/MM/yyyy')}.`);
+        setIsCashHandoverDialogOpen(false);
+        setDateForNewEntry(null);
+    } catch (error) {
+        console.error("Failed to save past handover:", error);
+        toast.error(`Lỗi: ${(error as Error).message}`);
+    } finally {
+        setProcessingItemId(null);
     }
   }, [user, dateForNewEntry]);
-  
+
+  const handleUpdateFinalHandover = useCallback(async (data: any, id?: string) => {
+    if (!user || !id) return;
+    setProcessingItemId(id);
+    try {
+        await dataStore.updateFinalHandoverDetails(id, data, user);
+        toast.success('Đã cập nhật biên bản bàn giao cuối ca.');
+        setIsFinalHandoverViewOpen(false);
+        setFinalHandoverToView(null);
+    } catch (error) {
+        console.error("Failed to update final handover:", error);
+        toast.error(`Lỗi: Không thể cập nhật biên bản. ${(error as Error).message}`);
+    } finally {
+        setProcessingItemId(null);
+    }
+  }, [user]);
+
   const handleDeleteExpense = useCallback((id: string) => {
     const expense = expenseSlips.find(e => e.id === id);
     if (expense && user) {
@@ -403,12 +468,12 @@ export default function CashierReportsPage() {
     .finally(() => setProcessingItemId(null));
   }, [incidents, user]);
 
-  const handleDeleteHandover = useCallback((id: string) => {
-      if (!user) return;
-      setProcessingItemId(id);
-      dataStore.deleteHandoverReport(id).then(() => toast.success(`Đã xóa báo cáo bàn giao.`))
-      .catch(() => toast.error(`Lỗi: Không thể xóa báo cáo bàn giao.`))
-      .finally(() => setProcessingItemId(null));
+  const handleDeleteCashHandover = useCallback((id: string) => {
+    if (!user) return;
+    setProcessingItemId(id);
+    dataStore.deleteCashHandoverReport(id, user).then(() => toast.success(`Đã xóa biên bản kiểm kê.`))
+    .catch(() => toast.error(`Lỗi: Không thể xóa biên bản.`))
+    .finally(() => setProcessingItemId(null));
   }, [user]);
 
   const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
@@ -470,7 +535,7 @@ export default function CashierReportsPage() {
 
             <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0, 1)} className="space-y-4">
               {sortedDatesInMonth.map(date => {
-                const dayReports = reportsForCurrentMonth[date] || { revenue: [], expenses: [], incidents: [], handover: undefined };
+                const dayReports = reportsForCurrentMonth[date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
                 return (
                  <DailyReportAccordionItem
                     key={date}
@@ -483,8 +548,9 @@ export default function CashierReportsPage() {
                     onEditIncident={handleEditIncident}
                     onDeleteIncident={handleDeleteIncident}
                     onOpenLightbox={openPhotoLightbox}
-                    onEditHandover={handleEditHandover}
-                    onDeleteHandover={handleDeleteHandover}
+                    onEditCashHandover={handleEditCashHandover}
+                    onViewFinalHandover={handleViewFinalHandover}
+                    onDeleteCashHandover={handleDeleteCashHandover}
                     processingItemId={processingItemId}
                     inventoryList={inventoryList}
                  />
@@ -540,16 +606,40 @@ export default function CashierReportsPage() {
         />
       )}
       
-      {user && (handoverToEdit || (isHandoverReportDialogOpen && !handoverToEdit)) && (
-          <HandoverDialog
-            open={isHandoverReportDialogOpen}
-            onOpenChange={setIsHandoverReportDialogOpen}
-            onSubmit={handleSaveHandover}
+      {isCashHandoverDialogOpen && (
+        <CashHandoverDialog
+            open={isCashHandoverDialogOpen}
+            onOpenChange={setIsCashHandoverDialogOpen}
+            onSubmit={handleSaveCashHandover}
             isProcessing={!!processingItemId}
-            reportToEdit={handoverToEdit}
-            reporter={user}
-            dateForNewEntry={dateForNewEntry || undefined}
+            expectedCash={expectedCashForDialog}
+            countToEdit={cashHandoverToEdit}
             isOwnerView={true}
+            linkedRevenueStats={linkedRevenueForDialog}
+            linkedExpenseSlips={linkedExpensesForDialog}
+        />
+      )}
+
+      {finalHandoverToView && (
+          <HandoverDialog
+              open={isFinalHandoverViewOpen}
+              onOpenChange={setIsFinalHandoverViewOpen}
+              onSubmit={(data) => handleUpdateFinalHandover(data, finalHandoverToView.id)}
+              id={finalHandoverToView.id}
+              isProcessing={processingItemId === finalHandoverToView.id}
+              reportToEdit={finalHandoverToView.finalHandoverDetails}
+              isOwnerView={true}
+          />
+      )}
+      
+      {isCashHandoverDialogOpen && dateForNewEntry && !cashHandoverToEdit && (
+          <HandoverDialog
+              open={isCashHandoverDialogOpen}
+              onOpenChange={setIsCashHandoverDialogOpen}
+              onSubmit={handleSavePastHandover}
+              isProcessing={!!processingItemId}
+              isOwnerView={true}
+              dateForNewEntry={dateForNewEntry}
           />
       )}
 

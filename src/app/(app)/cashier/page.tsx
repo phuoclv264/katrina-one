@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ExpenseSlip, HandoverReport, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
+import type { ExpenseSlip, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -36,7 +36,7 @@ import "yet-another-react-lightbox/styles.css";
 import Link from 'next/link';
 import WorkShiftGuard from '@/components/work-shift-guard';
 import type { CashHandoverReport } from '@/lib/types';
-import { Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -144,8 +144,7 @@ function CashierDashboardPageComponent() {
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
   const [dailyIncidents, setDailyIncidents] = useState<IncidentReport[]>([]);
   const [dailyRevenueStats, setDailyRevenueStats] = useState<RevenueStats[]>([]);
-  // State to hold either the old report object or an array of new reports
-  const [handoverReport, setHandoverReport] = useState<HandoverReport | CashHandoverReport[] | null>(null);
+  const [cashHandoverReports, setCashHandoverReports] = useState<CashHandoverReport[]>([]);
 
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [otherCostCategories, setOtherCostCategories] = useState<OtherCostCategory[]>([]);
@@ -173,6 +172,9 @@ function CashierDashboardPageComponent() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   
+  const [isFinalHandoverViewOpen, setIsFinalHandoverViewOpen] = useState(false);
+  const [finalHandoverToView, setFinalHandoverToView] = useState<CashHandoverReport | null>(null);
+
   const [linkedRevenueForDialog, setLinkedRevenueForDialog] = useState<RevenueStats | null>(null);
   const [linkedExpensesForDialog, setLinkedExpensesForDialog] = useState<ExpenseSlip[]>([]);
   const [expectedCashForDialog, setExpectedCashForDialog] = useState(0);
@@ -294,7 +296,10 @@ function CashierDashboardPageComponent() {
         const unsubInventory = dataStore.subscribeToInventoryList(setInventoryList);
         const unsubOtherCostCategories = dataStore.subscribeToOtherCostCategories(setOtherCostCategories);
         const unsubIncidentCategories = dataStore.subscribeToIncidentCategories(setIncidentCategories);
-        const unsubHandover = dataStore.subscribeToHandoverReport(date, setHandoverReport);
+        const unsubHandover = dataStore.subscribeToHandoverReport(date, (reports) => {
+            // The callback now consistently provides an array or null.
+            setCashHandoverReports(reports as CashHandoverReport[] || []);
+        });
 
         Promise.all([
             dataStore.getDailyExpenseSlips(date),
@@ -453,12 +458,17 @@ function CashierDashboardPageComponent() {
       setIsIncidentDialogOpen(true);
   };
 
+  const handleViewFinalHandover = useCallback((handover: CashHandoverReport) => {
+    setFinalHandoverToView(handover);
+    setIsFinalHandoverViewOpen(true);
+  }, []);
+
   const handleEditRevenue = (stats: RevenueStats) => {
       setRevenueStatsToEdit(stats);
       setIsRevenueDialogOpen(true);
   }
 
-  const handleHandoverSubmit = (data: ExtractHandoverDataOutput & {imageDataUri: string}) => {
+  const handleHandoverSubmit = (data: any) => {
     setIsHandoverDialogOpen(false); // Close the input dialog
     
     const receiptData = data;
@@ -515,7 +525,7 @@ function CashierDashboardPageComponent() {
     const toastId = toast.loading("Đang hoàn tất bàn giao ca...");
     try {
       await dataStore.finalizeHandover(handoverReceiptData, user);
-      toast.success("Đã bàn giao ca thành công!", { id: toastId });
+      toast.success("Đã bàn giao ca thành công!", { id: toastId, duration: 5000 });
       // The UI will lock automatically due to the change in `isShiftFinalized`
     } catch (error) {
       console.error("Failed to finalize handover:", error);
@@ -527,7 +537,7 @@ function CashierDashboardPageComponent() {
     }
   };
 
-  const handleCashCountSubmit = async (finalData: any, id?: string) => {
+  const handleCashCountSubmit = useCallback(async (finalData: any, id?: string) => {
     // Refactored logic for cash handover
     if (!user) return;
     setIsProcessing(true);
@@ -555,7 +565,7 @@ function CashierDashboardPageComponent() {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [user, dailyRevenueStats, dailySlips, startOfDayCash]);
 
   const handleEditCashCount = (count: CashHandoverReport) => {
     setCashCountToEdit(count);
@@ -582,57 +592,26 @@ function CashierDashboardPageComponent() {
    };
 
    const displayableCashCounts = useMemo(() => {
-    if (!handoverReport) return [];
+    return cashHandoverReports
+        .map(report => {
+            const linkedRevenue = dailyRevenueStats.find(r => r.id === report.linkedRevenueStatsId);
+            const cashRevenue = linkedRevenue?.revenueByPaymentMethod.cash || 0;
+            const cashExpense = dailySlips
+                .filter(s => report.linkedExpenseSlipIds?.includes(s.id) && s.paymentMethod === 'cash')
+                .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+            const expectedCash = cashRevenue - cashExpense + report.startOfDayCash;
 
-    let counts: any[] = [];
-
-    if (Array.isArray(handoverReport)) { // New data structure: CashHandoverReport[]
-      // This logic remains correct for the new structure
-      counts = handoverReport
-      .filter(report => report && report.createdAt)
-      .map(report => ({
-        id: report.id,
-        userName: report.createdBy.userName,
-        timestamp: (report.createdAt as Timestamp).toDate(),
-        actualCash: report.actualCashCounted,
-        discrepancy: report.actualCashCounted - ( (dailyRevenueStats.find(r => r.id === report.linkedRevenueStatsId)?.revenueByPaymentMethod.cash || 0) - (dailySlips.filter(s => report.linkedExpenseSlipIds?.includes(s.id) && s.paymentMethod === 'cash').reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0)) + report.startOfDayCash ),
-        discrepancyReason: report.discrepancyReason,
-        proofPhotos: report.discrepancyProofPhotos,
-        isLegacy: false,
-        canEdit: report.createdBy.userId === user?.uid,
-        originalReport: report,
-      }));
-    } else { // Old data structure: HandoverReport (flat structure)
-      const oldReport = handoverReport as HandoverReport;
-      if (oldReport && oldReport.createdAt) {
-        counts = [{
-          id: oldReport.id,
-          userName: oldReport.createdBy.userName,
-          timestamp: new Date(oldReport.createdAt as string),
-          actualCash: oldReport.actualCash,
-          discrepancy: oldReport.discrepancy,
-          discrepancyReason: oldReport.discrepancyReason,
-          proofPhotos: oldReport.discrepancyProofPhotos,
-          isLegacy: true,
-          canEdit: false,
-        }];
-      }
-    }
-
-    return counts.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [handoverReport, dailySlips, dailyRevenueStats, user]);
+            return {
+                ...report,
+                discrepancy: report.actualCashCounted - expectedCash,
+            };
+        })
+        .sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis());
+  }, [cashHandoverReports, dailySlips, dailyRevenueStats]);
 
   const isShiftFinalized = useMemo(() => {
-    if (!handoverReport) return false; // Không có báo cáo nào
-
-    if (Array.isArray(handoverReport)) { // Cấu trúc mới (CashHandoverReport[])
-      // Ca được coi là đã bàn giao nếu có bất kỳ báo cáo nào trong ngày chứa chi tiết bàn giao cuối cùng.
-      return handoverReport.some(report => !!report.finalHandoverDetails);
-    } else {
-      // Cấu trúc cũ (HandoverReport), sự tồn tại của nó có nghĩa là đã bàn giao.
-      return !!handoverReport;
-    }
-  }, [handoverReport]);
+    return cashHandoverReports.some(report => !!report.finalHandoverDetails);
+  }, [cashHandoverReports]);
 
   if (authLoading || isLoading || !user) {
     return (
@@ -1009,16 +988,15 @@ function CashierDashboardPageComponent() {
                                     <div key={count.id}>
                                         <Card className="bg-background">
                                             <CardContent className="p-3">
-                                                <div className="flex justify-between items-start gap-2">
+                                                <div className="flex justify-between items-start gap-2 mb-2">
                                                     <div>
-                                                        <p className="font-semibold">{count.userName}</p>
+                                                        <p className="font-semibold">{count.createdBy.userName}</p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            Lúc {format(count.timestamp, 'HH:mm')}
-                                                            {count.isLegacy && <Badge variant="outline" className="ml-2">Cũ</Badge>}
+                                                            Lúc {format((count.createdAt as Timestamp).toDate(), 'HH:mm')}
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-base">{(count.actualCash).toLocaleString('vi-VN')}đ</p>
+                                                        <p className="font-bold text-base">{(count.actualCashCounted).toLocaleString('vi-VN')}đ</p>
                                                         {count.discrepancy !== 0 && (
                                                             <p className={cn("text-xs font-semibold", count.discrepancy > 0 ? "text-green-600" : "text-red-600")}>
                                                                 {count.discrepancy > 0 ? '+' : ''}{count.discrepancy.toLocaleString('vi-VN')}đ
@@ -1026,16 +1004,16 @@ function CashierDashboardPageComponent() {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="mt-2 pt-2 border-t text-sm">
+                                                <div className="text-sm">
                                                     {count.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {count.discrepancyReason}</p>}
-                                                    {count.proofPhotos && count.proofPhotos.length > 0 && (
-                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(count.proofPhotos!)}>Xem {count.proofPhotos.length} ảnh bằng chứng</Button>
+                                                    {count.discrepancyProofPhotos && count.discrepancyProofPhotos.length > 0 && (
+                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(count.discrepancyProofPhotos!)}>Xem {count.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
                                                     )}
                                                 </div>
                                             </CardContent>
-                                        {count.canEdit && !count.isLegacy && (
+                                        {count.createdBy.userId === user.uid && (
                                             <CardFooter className="p-2 pt-0 justify-end gap-1" hidden={isShiftFinalized}>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(count.originalReport)}>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(count)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                                 <AlertDialog>
@@ -1143,7 +1121,7 @@ function CashierDashboardPageComponent() {
         <HandoverComparisonDialog
             open={isComparisonDialogOpen}
             onOpenChange={setIsComparisonDialogOpen}
-            comparisonResult={comparisonResult}
+            comparisonResult={comparisonResult as any}
             onNavigateToExpenses={handleNavigateToExpenses}
             onNavigateToRevenue={handleNavigateToRevenue}
             onConfirm={handleFinalizeHandover}
@@ -1167,6 +1145,16 @@ function CashierDashboardPageComponent() {
         slides={lightboxSlides}
         carousel={{ finite: true }}
     />
+    {finalHandoverToView && (
+        <HandoverDialog
+            open={isFinalHandoverViewOpen}
+            onOpenChange={setIsFinalHandoverViewOpen}
+            onSubmit={() => {}} // Read-only, so no-op
+            isProcessing={false}
+            reportToEdit={finalHandoverToView.finalHandoverDetails}
+            isOwnerView={true}
+        />
+      )}
     </>
   );
 }

@@ -456,25 +456,6 @@ export type CashCount = {
   discrepancyProofPhotos?: string[];
 };
 
-export type HandoverReport = {
-  shiftEndTime: null;
-  id: string; // cashier-handover-{date}
-  date: string;
-  handoverImageUrl: string | null;
-  handoverData: any; // Data extracted by AI from the handover image
-  isEdited?: boolean; // Flag to indicate if cashier edited the AI data
-  
-  actualCash: number;
-  discrepancy: number; // calculated as actualCash - handoverData.expectedCash
-  discrepancyReason?: string;
-  discrepancyProofPhotos?: string[];
-  cashCounts?: CashCount[]; // Array for multiple cash counts within the day
-  
-  createdBy: AssignedUser;
-  createdAt: string | Timestamp;
-  isVerified: boolean;
-};
-
 /**
  * [MỚI] Cấu trúc cho một biên bản kiểm kê tiền mặt độc lập (schema v2).
  */

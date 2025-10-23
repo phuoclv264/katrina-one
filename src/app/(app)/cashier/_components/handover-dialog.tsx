@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ExtractHandoverDataOutput, HandoverReport, AuthUser } from '@/lib/types';
+import type { ExtractHandoverDataOutput, AuthUser, FinalHandoverDetails } from '@/lib/types';
 import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
@@ -30,6 +30,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseISO, format, isSameDay, isToday } from 'date-fns';
+import { Timestamp } from '@google-cloud/firestore';
 
 
 const initialHandoverData = {
@@ -98,8 +99,9 @@ type HandoverDialogProps = {
     onOpenChange: (open: boolean) => void;
     onSubmit: (data: any, id?: string) => void;
     isProcessing: boolean;
+    id?: string; // ID của report khi chỉnh sửa
     // For Owner/Manager view
-    reportToEdit?: HandoverReport | null;
+    reportToEdit?: FinalHandoverDetails | null;
     reporter?: AuthUser;
     dateForNewEntry?: string | null;
     isOwnerView?: boolean;
@@ -111,6 +113,7 @@ export default function HandoverDialog({
     onOpenChange,
     onSubmit,
     isProcessing,
+    id,
     reportToEdit = null,
     reporter,
     dateForNewEntry = null,
@@ -131,37 +134,29 @@ export default function HandoverDialog({
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
-    const displayImageDataUri = newImageDataUri || reportToEdit?.handoverImageUrl;
 
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     
-    const isCreating = !reportToEdit;
-
-    const resetState = useCallback(() => {
-        setIsOcrLoading(false);
-        setAiError(null);
-        setNewImageDataUri(null);
-        setShiftEndTime(null);
-        setHandoverData(initialHandoverData);
-        setOriginalData(null);
-        setServerErrorDialog({ open: false, imageUri: null });
-
-        setLocalPhotos([]);
-        setPhotosToDelete([]);
-
-    }, [reportToEdit]);
-
-    useEffect(() => { if (open) resetState(); }, [open, resetState]);
-    
     useEffect(() => {
-        if (reportToEdit) {
-            setHandoverData(reportToEdit.handoverData);
-            setOriginalData(reportToEdit.handoverData);
-            setShiftEndTime(reportToEdit.shiftEndTime || null);
-            setExistingPhotos(reportToEdit.handoverImageUrl ? [{ id: reportToEdit.handoverImageUrl, url: reportToEdit.handoverImageUrl }] : []);
+        if (open) {
+            // Reset all states first
+            setHandoverData(initialHandoverData);
+            setOriginalData(null);
+            setServerErrorDialog({ open: false, imageUri: null });
+            setLocalPhotos([]);
+            setPhotosToDelete([]);
+
+            // Then, if there's a report to edit, populate the states
+            if (reportToEdit) {
+                setHandoverData(reportToEdit.receiptData);
+                setOriginalData(reportToEdit.receiptData);
+                setShiftEndTime(reportToEdit.receiptData.shiftEndTime || null);
+                setExistingPhotos(reportToEdit.receiptImageUrl ? [{ id: reportToEdit.receiptImageUrl, url: reportToEdit.receiptImageUrl }] : []);
+            }
         }
-    }, [reportToEdit]);
+    }, [open, reportToEdit]);
+    const isCreating = !reportToEdit;
 
     useEffect(() => {
         if (originalData && dataSectionRef.current) {
@@ -183,7 +178,7 @@ export default function HandoverDialog({
     const validateReportDate = useCallback((shiftEndTime: string): boolean => {
         try {
             const reportDate = parseISO(shiftEndTime);
-            const targetDate = parseISO(dateForNewEntry || reportToEdit?.date || new Date().toISOString());
+            const targetDate = parseISO(dateForNewEntry || new Date().toISOString());
 
             if (isOwnerView) {
                 if (!isSameDay(reportDate, targetDate)) {
@@ -201,7 +196,7 @@ export default function HandoverDialog({
             setAiError('Không thể xác thực ngày giờ trên phiếu.');
             return false;
         }
-    }, [dateForNewEntry, reportToEdit, isOwnerView]);
+    }, [dateForNewEntry, isOwnerView]);
 
     const allPhotos = useMemo(() => {
         return [...existingPhotos, ...localPhotos];
@@ -320,7 +315,7 @@ export default function HandoverDialog({
         };
         
         if(isOwnerView) {
-            onSubmit(dataToSubmit, reportToEdit?.id);
+            onSubmit(dataToSubmit, id); // Sử dụng id từ props
         } else {
             onSubmit(dataToSubmit);
         }
@@ -426,7 +421,7 @@ export default function HandoverDialog({
         : 'Nhập Phiếu Bàn Giao Ca';
         
     const dialogDescription = isOwnerView && !isCreating
-        ? `Ngày: ${format(parseISO(reportToEdit!.date), 'dd/MM/yyyy')} | Lập bởi: ${reportToEdit!.createdBy.userName}`
+        ? `Lập bởi: ${reportToEdit!.finalizedBy.userName} lúc ${format((reportToEdit!.finalizedAt as Timestamp).toDate(), 'HH:mm, dd/MM/yyyy')}`
         : 'Tải hoặc chụp ảnh phiếu bàn giao để AI điền tự động.';
 
     return (

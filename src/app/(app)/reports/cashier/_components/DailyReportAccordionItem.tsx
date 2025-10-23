@@ -4,16 +4,15 @@
 import React from 'react';
 import { AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import { ClipboardCheck, ClipboardX, Receipt, Wallet, AlertTriangle, PlusCircle } from 'lucide-react';
-import type { RevenueStats, ExpenseSlip, IncidentReport, HandoverReport, InventoryItem } from '@/lib/types';
+import type { RevenueStats, ExpenseSlip, IncidentReport, InventoryItem, CashHandoverReport } from '@/lib/types';
 import RevenueStatsList from './RevenueStatsList';
 import ExpenseList from './ExpenseList';
 import IncidentList from './IncidentList';
 import HandoverReportCard from './HandoverReportCard';
-import { Button } from '@/components/ui/button';
 
 type DailyReportAccordionItemProps = {
   date: string;
@@ -21,17 +20,18 @@ type DailyReportAccordionItemProps = {
     revenue: RevenueStats[];
     expenses: ExpenseSlip[];
     incidents: IncidentReport[];
-    handover?: HandoverReport;
+    cashHandovers: CashHandoverReport[];
   };
-  onEditRevenue: (stats: RevenueStats) => void;
+  onEditRevenue: (stat: RevenueStats) => void;
   onDeleteRevenue: (id: string) => void;
   onEditExpense: (slip: ExpenseSlip) => void;
   onDeleteExpense: (id: string) => void;
   onEditIncident: (incident: IncidentReport) => void;
   onDeleteIncident: (id: string) => void;
   onOpenLightbox: (photos: string[], index?: number) => void;
-  onEditHandover: (handover: HandoverReport) => void;
-  onDeleteHandover: (id: string) => void;
+  onEditCashHandover: (handover: CashHandoverReport) => void;
+  onDeleteCashHandover: (id: string) => void;  
+  onViewFinalHandover: (handover: CashHandoverReport) => void;
   processingItemId: string | null;
   inventoryList: InventoryItem[];
 };
@@ -46,14 +46,16 @@ const DailyReportAccordionItem = React.memo(({
   onEditIncident,
   onDeleteIncident,
   onOpenLightbox,
-  onEditHandover,
-  onDeleteHandover,
+  onEditCashHandover,
+  onDeleteCashHandover,
+  onViewFinalHandover,
   processingItemId,
   inventoryList,
 }: DailyReportAccordionItemProps) => {
 
   const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
   const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
+  const isShiftFinalized = dayReports.cashHandovers.some(h => h.finalHandoverDetails);
 
   const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
 
@@ -63,7 +65,7 @@ const DailyReportAccordionItem = React.memo(({
         <div className="w-full flex justify-between items-center gap-4">
           <div className="flex flex-col text-left">
             <div className="text-lg font-bold flex items-center gap-2">
-              {dayReports.handover ? <ClipboardCheck className="h-5 w-5 text-green-500" /> : <ClipboardX className="h-5 w-5 text-destructive" />}
+              {isShiftFinalized ? <ClipboardCheck className="h-5 w-5 text-green-500" /> : <ClipboardX className="h-5 w-5 text-destructive" />}
               {format(parseISO(date), 'eeee, dd/MM/yyyy', { locale: vi })}
             </div>
             <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1">
@@ -111,8 +113,15 @@ const DailyReportAccordionItem = React.memo(({
               <IncidentList incidents={dayReports.incidents || []} onEdit={onEditIncident} onDelete={onDeleteIncident} onOpenLightbox={onOpenLightbox} processingItemId={processingItemId} />
             </CardContent>
           </Card>
-          {dayReports.handover && (
-            <HandoverReportCard handover={dayReports.handover} onEdit={onEditHandover} onDelete={onDeleteHandover} processingItemId={processingItemId} />
+          {dayReports.cashHandovers.length > 0 && (
+            <HandoverReportCard 
+              cashHandovers={dayReports.cashHandovers}
+              onEditCashHandover={onEditCashHandover}
+              onDeleteCashHandover={onDeleteCashHandover}
+              processingItemId={processingItemId}
+              onViewFinalHandover={onViewFinalHandover}
+              revenueStats={dayReports.revenue}
+              expenseSlips={dayReports.expenses} />
           )}
         </div>
       </AccordionContent>
