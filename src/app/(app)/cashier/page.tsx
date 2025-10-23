@@ -238,24 +238,6 @@ function CashierDashboardPageComponent() {
     return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue };
   }, [dailySlips, dailyRevenueStats, startOfDayCash]);
 
-  const displayableCashCounts = useMemo(() => {
-    return cashHandoverReports
-        .map(report => {
-            const linkedRevenue = dailyRevenueStats.find(r => r.id === report.linkedRevenueStatsId);
-            const cashRevenue = linkedRevenue?.revenueByPaymentMethod.cash || 0;
-            const cashExpense = dailySlips
-                .filter(s => report.linkedExpenseSlipIds?.includes(s.id) && s.paymentMethod === 'cash')
-                .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
-            const expectedCash = cashRevenue - cashExpense + report.startOfDayCash;
-
-            return {
-                ...report,
-                discrepancy: report.actualCashCounted - expectedCash,
-            };
-        })
-        .sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis());
-  }, [cashHandoverReports, dailySlips, dailyRevenueStats]);
-  
   useEffect(() => {
     if (isCashHandoverDialogOpen) {
       if (cashCountToEdit) {
@@ -440,7 +422,7 @@ function CashierDashboardPageComponent() {
         
         // Automatically open cash count dialog after saving revenue
         if (revenueStatsToEdit) {
-          const linkedHandover = displayableCashCounts.find(report => report.linkedRevenueStatsId === revenueStatsToEdit.id);
+          const linkedHandover = cashHandoverReports.find(report => report.linkedRevenueStatsId === revenueStatsToEdit.id);
           setCashCountToEdit(linkedHandover || null);
         } else {
           setCashCountToEdit(null);
@@ -454,7 +436,7 @@ function CashierDashboardPageComponent() {
     } finally {
         setIsProcessing(false);
     }
-  }, [user, revenueStatsToEdit, displayableCashCounts]);
+  }, [user, revenueStatsToEdit, cashHandoverReports]);
 
    const handleDeleteRevenue = async (id: string) => {
     if (!user) return;
@@ -986,39 +968,49 @@ function CashierDashboardPageComponent() {
                     <CardTitle className="text-purple-800 dark:text-purple-300 flex items-center gap-2"><ClipboardCheck /> Lịch sử Kiểm kê Tiền mặt</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                    {displayableCashCounts.length > 0 ? (
+                    {cashHandoverReports.length > 0 ? (
                         <div className="space-y-3">
-                            {displayableCashCounts.map((count) => {
+                            {cashHandoverReports.filter(handover => handover.createdAt).map((handover) => {
+                                const linkedRevenue = dailyRevenueStats.find(r => r.id === handover.linkedRevenueStatsId);
+                                const cashRevenue = linkedRevenue?.revenueByPaymentMethod.cash || 0;
+
+                                const linkedExpenses = dailySlips.filter(e => handover.linkedExpenseSlipIds.includes(e.id) && e.paymentMethod === 'cash');
+                                const cashExpense = linkedExpenses.reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+                                
+                                const startOfDayCash = handover.startOfDayCash;
+                                const expectedCash = cashRevenue - cashExpense + startOfDayCash;
+                                const discrepancy = handover.actualCashCounted - expectedCash;
+
                                 return (
-                                    <div key={count.id}>
+                                    <div key={handover.id}>
                                         <Card className="bg-background">
                                             <CardContent className="p-3">
                                                 <div className="flex justify-between items-start gap-2 mb-2">
                                                     <div>
-                                                        <p className="font-semibold">{count.createdBy.userName}</p>
+                                                        <p className="font-semibold">{handover.createdBy.userName}</p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            Lúc {format((count.createdAt as Timestamp).toDate(), 'HH:mm')}
+                                                            Lúc {format((handover.createdAt as Timestamp).toDate(), 'HH:mm')}
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-base">{(count.actualCashCounted).toLocaleString('vi-VN')}đ</p>
-                                                        {count.discrepancy !== 0 && (
-                                                            <p className={cn("text-xs font-semibold", count.discrepancy > 0 ? "text-green-600" : "text-red-600")}>
-                                                                {count.discrepancy > 0 ? '+' : ''}{count.discrepancy.toLocaleString('vi-VN')}đ
+                                                        <p className="font-bold text-base">{(handover.actualCashCounted).toLocaleString('vi-VN')}đ</p>
+                                                        {discrepancy !== 0 && (
+                                                            <p className={cn("text-xs font-semibold", discrepancy > 0 ? "text-green-600" : "text-red-600")}>
+                                                                {discrepancy > 0 ? '+' : ''}{parseInt(discrepancy.toString()).toLocaleString('vi-VN')}đ
                                                             </p>
                                                         )}
                                                     </div>
                                                 </div>
                                                 <div className="text-sm">
-                                                    {count.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {count.discrepancyReason}</p>}
-                                                    {count.discrepancyProofPhotos && count.discrepancyProofPhotos.length > 0 && (
-                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(count.discrepancyProofPhotos!)}>Xem {count.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
+                                                    {handover.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {handover.discrepancyReason}</p>}
+                                                    {handover.discrepancyProofPhotos && handover.discrepancyProofPhotos.length > 0 && (
+                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(handover.discrepancyProofPhotos!)}>Xem {handover.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
                                                     )}
                                                 </div>
                                             </CardContent>
-                                        {count.createdBy.userId === user.uid && (
+                                        {/* {handover.createdBy.userId === user.uid && (
                                             <CardFooter className="p-2 pt-0 justify-end gap-1" hidden={isShiftFinalized}>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(count)}>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(handover)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                                 <AlertDialog>
@@ -1027,10 +1019,10 @@ function CashierDashboardPageComponent() {
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </AlertDialogTrigger>
-                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCashCount(count.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCashCount(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                                 </AlertDialog>
                                             </CardFooter>
-                                        )}
+                                        )} */}
                                         </Card>
                                     </div>
                                 );

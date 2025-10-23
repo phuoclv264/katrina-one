@@ -134,7 +134,7 @@ export const dataStore = {
      */
     subscribeToHandoverReport(date: string, callback: (report: CashHandoverReport | CashHandoverReport[] | null) => void): () => void {
         // Listener cho báo cáo mới
-        const newReportsQuery = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'asc'));
+        const newReportsQuery = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'desc'));
         const unsubNewReports = onSnapshot(newReportsQuery, (snapshot) => {
             const reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashHandoverReport));
             callback(reports.length > 0 ? reports : null);
