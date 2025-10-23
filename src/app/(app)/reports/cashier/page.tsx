@@ -185,6 +185,29 @@ export default function CashierReportsPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const reportsForCurrentMonth = useMemo(() => {
+    const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] }} = {};
+    const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | CashHandoverReport)[]) => {
+      items.forEach(item => {
+        if (isSameMonth(parseISO(item.date), currentMonth)) {
+          reports[item.date] = reports[item.date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+          if ('netRevenue' in item) reports[item.date].revenue.push(item);
+          else if ('expenseType' in item) reports[item.date].expenses.push(item);
+          else if ('content' in item) reports[item.date].incidents.push(item);
+          else if ('actualCashCounted' in item) reports[item.date].cashHandovers.push(item as CashHandoverReport);
+        }
+      });
+    };
+    processItems([...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports]);
+    for (const date in reports) {
+      reports[date].revenue?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+      reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+      reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+      reports[date].cashHandovers?.sort((a, b) => (b.createdAt as any).toMillis() - (a.createdAt as any).toMillis());
+    }
+    return reports;
+  }, [currentMonth, revenueStats, expenseSlips, incidents, cashHandoverReports]);
   
   // State for CashHandoverDialog
   const [linkedRevenueForDialog, setLinkedRevenueForDialog] = useState<RevenueStats | null>(null);
@@ -194,24 +217,48 @@ export default function CashierReportsPage() {
   const [finalHandoverToView, setFinalHandoverToView] = useState<CashHandoverReport | null>(null);
 
   useEffect(() => {
-    if (isCashHandoverDialogOpen && cashHandoverToEdit) {
-      // Editing an existing report: calculate historical expected cash
-      const revenue = revenueStats.find(stat => stat.id === cashHandoverToEdit.linkedRevenueStatsId) || null;
-      const expenses = expenseSlips.filter(slip => cashHandoverToEdit.linkedExpenseSlipIds?.includes(slip.id));
-      
-      setLinkedRevenueForDialog(revenue);
-      setLinkedExpensesForDialog(expenses);
+      if (isCashHandoverDialogOpen) {
+          const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
+  
+          console.log("cashHandoverToEdit:", cashHandoverToEdit);
+          console.log("relevantDate:", relevantDate);
 
-      const historicalCashRevenue = revenue?.revenueByPaymentMethod.cash || 0;
-      const historicalTotalCashExpense = expenses
-          .filter(slip => slip.paymentMethod === 'cash')
-          .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
-      const historicalStartOfDayCash = cashHandoverToEdit.startOfDayCash;
-      
-      const historicalExpectedCash = historicalCashRevenue - historicalTotalCashExpense + historicalStartOfDayCash;
-      setExpectedCashForDialog(historicalExpectedCash);
-    }
-  }, [isCashHandoverDialogOpen, cashHandoverToEdit, revenueStats, expenseSlips]);
+          if (cashHandoverToEdit) {
+              // Case 1: Editing an existing report.
+              // Reconstruct the historical state from the report's linked data.
+              const revenue = revenueStats.find(stat => stat.id === cashHandoverToEdit.linkedRevenueStatsId) || null;
+              const expenses = expenseSlips.filter(slip => cashHandoverToEdit.linkedExpenseSlipIds?.includes(slip.id));
+              
+              setLinkedRevenueForDialog(revenue);
+              setLinkedExpensesForDialog(expenses);
+  
+              const historicalCashRevenue = revenue?.revenueByPaymentMethod.cash || 0;
+              const historicalTotalCashExpense = expenses
+                  .filter(slip => slip.paymentMethod === 'cash')
+                  .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+              const historicalStartOfDayCash = cashHandoverToEdit.startOfDayCash;
+              
+              const historicalExpectedCash = historicalCashRevenue - historicalTotalCashExpense + historicalStartOfDayCash;
+              setExpectedCashForDialog(historicalExpectedCash);
+          } else if (relevantDate) {
+              // Case 2: Creating a new report for a specific (past) date.
+              // Find the latest revenue and all expenses for that date.
+              const reportsForDate = reportsForCurrentMonth[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+              const latestRevenue = reportsForDate.revenue[0] || null;
+              const expensesForDate = reportsForDate.expenses;
+  
+              setLinkedRevenueForDialog(latestRevenue);
+              setLinkedExpensesForDialog(expensesForDate);
+  
+              const cashRevenue = latestRevenue?.revenueByPaymentMethod.cash || 0;
+              const totalCashExpense = expensesForDate
+                  .filter(slip => slip.paymentMethod === 'cash')
+                  .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+              
+              setExpectedCashForDialog(cashRevenue - totalCashExpense + 1_500_000); // Assume default start of day cash
+          }
+      }
+  }, [isCashHandoverDialogOpen, cashHandoverToEdit, dateForNewEntry, revenueStats, expenseSlips, reportsForCurrentMonth]);
 
 
   useEffect(() => {
@@ -269,29 +316,6 @@ export default function CashierReportsPage() {
     }
   }, [allMonthsWithData]);
 
-  const reportsForCurrentMonth = useMemo(() => {
-    const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] }} = {};
-    const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | CashHandoverReport)[]) => {
-      items.forEach(item => {
-        if (isSameMonth(parseISO(item.date), currentMonth)) {
-          reports[item.date] = reports[item.date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
-          if ('netRevenue' in item) reports[item.date].revenue.push(item);
-          else if ('expenseType' in item) reports[item.date].expenses.push(item);
-          else if ('content' in item) reports[item.date].incidents.push(item);
-          else if ('actualCashCounted' in item) reports[item.date].cashHandovers.push(item as CashHandoverReport);
-        }
-      });
-    };
-    processItems([...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports]);
-    for (const date in reports) {
-      reports[date].revenue?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-      reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-      reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-      reports[date].cashHandovers?.sort((a, b) => (b.createdAt as any).toMillis() - (a.createdAt as any).toMillis());
-    }
-    return reports;
-  }, [currentMonth, revenueStats, expenseSlips, incidents, cashHandoverReports]);
-
   const sortedDatesInMonth = useMemo(() => {
     const today = new Date();
     const monthStart = startOfMonth(currentMonth);
@@ -338,7 +362,7 @@ export default function CashierReportsPage() {
                 break;
             case 'handover': // Mở dialog bàn giao cuối ca
                 setFinalHandoverToView(null);
-                setIsCashHandoverDialogOpen(true);
+                setIsFinalHandoverViewOpen(true);
                 break;
         }
    };
@@ -372,9 +396,23 @@ export default function CashierReportsPage() {
             date: revenueDate,
         };
 
-        await dataStore.addOrUpdateRevenueStats(revenueData, user, isEdited, docId);
+        const newDocId = await dataStore.addOrUpdateRevenueStats(revenueData, user, isEdited, docId);
         toast.success(`Đã ${docId ? 'cập nhật' : 'tạo'} doanh thu.`);
         setIsRevenueDialogOpen(false);
+        
+        // Always open the CashHandoverDialog after saving a revenue stat.
+        // This applies to both creating a new stat and editing an existing one.
+        const relevantDate = revenueDate;
+
+        // Find if a cash handover already exists for this revenue stat.
+        const reportsForDate = reportsForCurrentMonth[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+        const handoverToEdit = reportsForDate.cashHandovers.find(report => report.linkedRevenueStatsId === (docId || newDocId));
+
+        // Set the state needed for the CashHandoverDialog and open it.
+        setCashHandoverToEdit(handoverToEdit || null);
+        setDateForNewEntry(relevantDate); // Pass the date context
+        setIsCashHandoverDialogOpen(true);
+
     } catch (error) { toast.error("Không thể lưu doanh thu."); console.error(error); }
     finally { setProcessingItemId(null); }
   }, [user, revenueStatsToEdit, dateForNewEntry]);
@@ -403,6 +441,24 @@ export default function CashierReportsPage() {
         if (id) {
             await dataStore.updateCashHandoverReport(id, data, user);
             toast.success('Đã cập nhật biên bản kiểm kê.');
+        } else {
+            // Creating a new report for a specific date (past or present)
+            const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
+            if (!relevantDate) {
+                toast.error("Không xác định được ngày để tạo biên bản.");
+                return;
+            }
+            const reportsForDate = reportsForCurrentMonth[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+            const latestRevenueForDate = reportsForDate.revenue[0] || null;
+
+            await dataStore.addCashHandoverReport({
+                ...data,
+                date: relevantDate,
+                startOfDayCash: 1_500_000, // Default for past entries, can be adjusted
+                linkedExpenseSlipIds: reportsForDate.expenses.map(s => s.id),
+                linkedRevenueStatsId: latestRevenueForDate?.id || null,
+            }, user);
+            toast.success(`Đã tạo biên bản kiểm kê cho ngày ${format(parseISO(relevantDate), 'dd/MM/yyyy')}.`);
         }
         setIsCashHandoverDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu biên bản kiểm kê.'); console.error(error); }
@@ -629,17 +685,6 @@ export default function CashierReportsPage() {
               isProcessing={processingItemId === finalHandoverToView.id}
               reportToEdit={finalHandoverToView.finalHandoverDetails}
               isOwnerView={true}
-          />
-      )}
-      
-      {isCashHandoverDialogOpen && dateForNewEntry && !cashHandoverToEdit && (
-          <HandoverDialog
-              open={isCashHandoverDialogOpen}
-              onOpenChange={setIsCashHandoverDialogOpen}
-              onSubmit={handleSavePastHandover}
-              isProcessing={!!processingItemId}
-              isOwnerView={true}
-              dateForNewEntry={dateForNewEntry}
           />
       )}
 

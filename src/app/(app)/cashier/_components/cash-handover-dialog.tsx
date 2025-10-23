@@ -26,6 +26,7 @@ type CashHandoverDialogProps = {
   expectedCash: number;
   countToEdit?: any | null;
   isOwnerView?: boolean;
+  dateForNewEntry?: string | null; // To specify date for new entries in owner view
   linkedRevenueStats?: RevenueStats | null; // New prop
   linkedExpenseSlips?: ExpenseSlip[]; // New prop
 };
@@ -38,6 +39,7 @@ export default function CashHandoverDialog({
   expectedCash,
   countToEdit = null,
   isOwnerView = false,
+  dateForNewEntry = null,
   linkedRevenueStats = null, // Default value
   linkedExpenseSlips = [], // Default value
 }: CashHandoverDialogProps) {

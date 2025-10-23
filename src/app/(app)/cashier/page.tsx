@@ -238,6 +238,24 @@ function CashierDashboardPageComponent() {
     return { totalCashExpense, totalBankExpense, cashRevenue, expectedCashOnHand, totalNetRevenue };
   }, [dailySlips, dailyRevenueStats, startOfDayCash]);
 
+  const displayableCashCounts = useMemo(() => {
+    return cashHandoverReports
+        .map(report => {
+            const linkedRevenue = dailyRevenueStats.find(r => r.id === report.linkedRevenueStatsId);
+            const cashRevenue = linkedRevenue?.revenueByPaymentMethod.cash || 0;
+            const cashExpense = dailySlips
+                .filter(s => report.linkedExpenseSlipIds?.includes(s.id) && s.paymentMethod === 'cash')
+                .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+            const expectedCash = cashRevenue - cashExpense + report.startOfDayCash;
+
+            return {
+                ...report,
+                discrepancy: report.actualCashCounted - expectedCash,
+            };
+        })
+        .sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis());
+  }, [cashHandoverReports, dailySlips, dailyRevenueStats]);
+  
   useEffect(() => {
     if (isCashHandoverDialogOpen) {
       if (cashCountToEdit) {
@@ -413,18 +431,22 @@ function CashierDashboardPageComponent() {
     try {
         const dataToSave = { ...data };
         if (!revenueStatsToEdit) {
-            (dataToSave as any).date = format(new Date(), 'yyyy-MM-dd');
+            (dataToSave as any).date = format(new Date(), 'yyyy-MM-dd'); // Ensure date is set for new entries
         }
 
-        await dataStore.addOrUpdateRevenueStats(dataToSave, user, isEdited, revenueStatsToEdit?.id);
+        const docId = await dataStore.addOrUpdateRevenueStats(dataToSave, user, isEdited, revenueStatsToEdit?.id);
         toast.success(`Đã ${revenueStatsToEdit ? 'cập nhật' : 'tạo'} phiếu thống kê.`);
         setIsRevenueDialogOpen(false);
         
         // Automatically open cash count dialog after saving revenue
-        if (!revenueStatsToEdit) { // Only open for new revenue stats, not for edits
-            setCashCountToEdit(null);
-            setIsCashHandoverDialogOpen(true);
+        if (revenueStatsToEdit) {
+          const linkedHandover = displayableCashCounts.find(report => report.linkedRevenueStatsId === revenueStatsToEdit.id);
+          setCashCountToEdit(linkedHandover || null);
+        } else {
+          setCashCountToEdit(null);
         }
+        setIsCashHandoverDialogOpen(true);
+
         setRevenueStatsToEdit(null);
     } catch(error) {
         console.error("Failed to save revenue stats", error);
@@ -432,7 +454,7 @@ function CashierDashboardPageComponent() {
     } finally {
         setIsProcessing(false);
     }
-  }, [user, revenueStatsToEdit]);
+  }, [user, revenueStatsToEdit, displayableCashCounts]);
 
    const handleDeleteRevenue = async (id: string) => {
     if (!user) return;
@@ -591,23 +613,6 @@ function CashierDashboardPageComponent() {
         setIsLightboxOpen(true);
    };
 
-   const displayableCashCounts = useMemo(() => {
-    return cashHandoverReports
-        .map(report => {
-            const linkedRevenue = dailyRevenueStats.find(r => r.id === report.linkedRevenueStatsId);
-            const cashRevenue = linkedRevenue?.revenueByPaymentMethod.cash || 0;
-            const cashExpense = dailySlips
-                .filter(s => report.linkedExpenseSlipIds?.includes(s.id) && s.paymentMethod === 'cash')
-                .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
-            const expectedCash = cashRevenue - cashExpense + report.startOfDayCash;
-
-            return {
-                ...report,
-                discrepancy: report.actualCashCounted - expectedCash,
-            };
-        })
-        .sort((a, b) => (b.createdAt as Timestamp).toMillis() - (a.createdAt as Timestamp).toMillis());
-  }, [cashHandoverReports, dailySlips, dailyRevenueStats]);
 
   const isShiftFinalized = useMemo(() => {
     return cashHandoverReports.some(report => !!report.finalHandoverDetails);

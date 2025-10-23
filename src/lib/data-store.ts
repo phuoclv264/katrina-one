@@ -476,7 +476,7 @@ export const dataStore = {
         } as RevenueStats));
     },
     
-    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<void> {
+    async addOrUpdateRevenueStats(data: Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, user: AuthUser, isEdited: boolean, documentId?: string): Promise<string> {
         const docRef = documentId ? doc(db, 'revenue_stats', documentId) : doc(collection(db, 'revenue_stats'));
         
         let finalData: Partial<RevenueStats> = {
@@ -505,6 +505,8 @@ export const dataStore = {
             finalData.createdAt = serverTimestamp() as Timestamp;
             await setDoc(docRef, finalData);
         }
+
+        return docRef.id;
     },
 
     async deleteRevenueStats(id: string, user: AuthUser): Promise<void> {
