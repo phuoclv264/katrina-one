@@ -214,49 +214,6 @@ export const dataStore = {
     },
     
     /**
-     * [MỚI] Thêm chi tiết bàn giao cuối ca vào một báo cáo kiểm kê tiền mặt đã có trong quá khứ.
-     * Được sử dụng bởi Chủ nhà hàng.
-     */
-    async addFinalHandoverToPastReport(
-        date: string,
-        handoverReceiptData: ExtractHandoverDataOutput & { newPhotoIds?: string[] },
-        user: AuthUser
-    ): Promise<void> {
-        // 1. Tìm báo cáo kiểm kê tiền mặt mới nhất trong ngày được chỉ định
-        const q = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-            throw new Error("Không tìm thấy báo cáo kiểm kê tiền mặt nào trong ngày đã chọn. Vui lòng thực hiện kiểm kê tiền mặt trước.");
-        }
-        const latestReportDoc = snapshot.docs[0];
-        const latestReportRef = latestReportDoc.ref;
-
-        // 2. Tải ảnh phiếu bàn giao
-        let handoverImageUrl: string | null = null;
-        if (handoverReceiptData.newPhotoIds && handoverReceiptData.newPhotoIds.length > 0) {
-            const photoId = handoverReceiptData.newPhotoIds[0];
-            const photoBlob = await photoStore.getPhoto(photoId);
-            if (photoBlob) {
-                handoverImageUrl = await this.uploadFile(photoBlob, `final-handover-receipts/${date}/${latestReportDoc.id}-${photoId}.jpg`);
-                await photoStore.deletePhoto(photoId);
-            }
-        }
-
-        handoverReceiptData.newPhotoIds = undefined; // Xóa newPhotoIds trước khi lưu
-
-        // 3. Chuẩn bị dữ liệu và cập nhật
-        const finalDetails: Omit<FinalHandoverDetails, 'receiptData'> & { receiptData: ExtractHandoverDataOutput, receiptImageUrl: string | null } = {
-            receiptData: { ...handoverReceiptData},
-            receiptImageUrl: handoverImageUrl,
-            finalizedAt: serverTimestamp(),
-            finalizedBy: { userId: user.uid, userName: user.displayName || 'N/A' },
-        };
-
-        await updateDoc(latestReportRef, { finalHandoverDetails: finalDetails });
-    },
-
-    /**
      * Tải một file lên Firebase Storage và trả về URL.
      * @param fileBlob Dữ liệu Blob của file.
      * @param path Đường dẫn lưu file trên Storage.
@@ -285,45 +242,61 @@ export const dataStore = {
     },
 
     /**
-     * [MỚI] Cập nhật chi tiết của một biên bản bàn giao cuối ca đã tồn tại.
-     * Được sử dụng bởi Chủ nhà hàng từ trang báo cáo.
+     * [MỚI] Tạo hoặc Cập nhật chi tiết của một biên bản bàn giao cuối ca.
+     * - Nếu có `reportId`, cập nhật báo cáo đó.
+     * - Nếu không có `reportId` nhưng có `date`, tìm báo cáo mới nhất trong ngày đó và thêm chi tiết vào.
      */
-    async updateFinalHandoverDetails(reportId: string, data: any, user: AuthUser): Promise<void> {
-        const { handoverData, newPhotoIds, photosToDelete, isEdited, shiftEndTime } = data;
-        const reportRef = doc(db, 'cash_handover_reports', reportId);
-        const reportSnap = await getDoc(reportRef);
+    async saveFinalHandoverDetails(
+        data: any,
+        user: AuthUser,
+        reportId?: string,
+        date?: string
+    ): Promise<void> {
+        const { handoverData, newPhotoIds, photosToDelete, shiftEndTime } = data;
 
-        if (!reportSnap.exists()) {
-            throw new Error("Không tìm thấy báo cáo để cập nhật.");
+        let reportRef;
+        let reportDate = date;
+
+        if (reportId) {
+            reportRef = doc(db, 'cash_handover_reports', reportId);
+            const reportSnap = await getDoc(reportRef);
+            if (!reportSnap.exists()) throw new Error("Không tìm thấy báo cáo để cập nhật.");
+            reportDate = reportSnap.data().date;
+        } else if (date) {
+            const q = query(collection(db, 'cash_handover_reports'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) throw new Error("Không tìm thấy báo cáo kiểm kê tiền mặt nào trong ngày đã chọn.");
+            reportRef = snapshot.docs[0].ref;
+            reportId = snapshot.docs[0].id;
+        } else {
+            throw new Error("Cần `reportId` hoặc `date` để lưu chi tiết bàn giao.");
         }
 
-        const currentDetails = reportSnap.data().finalHandoverDetails as FinalHandoverDetails;
-        let newImageUrl = currentDetails.receiptImageUrl;
+        let imageUrl = (await getDoc(reportRef)).data()?.finalHandoverDetails?.receiptImageUrl || null;
 
-        // 1. Xóa ảnh cũ nếu có yêu cầu
         if (photosToDelete && photosToDelete.length > 0) {
             await Promise.all(photosToDelete.map((url: string) => this.deleteFileByUrl(url)));
-            newImageUrl = null; // Assume only one photo, so if deleted, it's gone.
+            imageUrl = null;
         }
 
-        // 2. Tải lên ảnh mới nếu có
         if (newPhotoIds && newPhotoIds.length > 0) {
-            const photoId = newPhotoIds[0]; // Giả sử chỉ có 1 ảnh
+            const photoId = newPhotoIds[0];
             const photoBlob = await photoStore.getPhoto(photoId);
             if (photoBlob) {
-                newImageUrl = await this.uploadFile(photoBlob, `final-handover-receipts/${reportId}/${photoId}.jpg`);
+                if (imageUrl) await this.deleteFileByUrl(imageUrl); // Delete old image if a new one is uploaded
+                imageUrl = await this.uploadFile(photoBlob, `final-handover-receipts/${reportDate}/${reportId}-${photoId}.jpg`);
                 await photoStore.deletePhoto(photoId);
             }
         }
 
-        // 3. Chuẩn bị payload để cập nhật
-        const updatePayload: { [key: string]: any } = {};
-        updatePayload['finalHandoverDetails.receiptImageUrl'] = newImageUrl;
-        updatePayload['finalHandoverDetails.receiptData'] = { ...handoverData, shiftEndTime };
-        updatePayload['finalHandoverDetails.finalizedBy'] = { userId: user.uid, userName: user.displayName };
-        updatePayload['finalHandoverDetails.finalizedAt'] = serverTimestamp();
+        const finalDetailsPayload = {
+            'finalHandoverDetails.receiptImageUrl': imageUrl,
+            'finalHandoverDetails.receiptData': { ...handoverData, shiftEndTime },
+            'finalHandoverDetails.finalizedBy': { userId: user.uid, userName: user.displayName },
+            'finalHandoverDetails.finalizedAt': serverTimestamp(),
+        };
 
-        await updateDoc(reportRef, updatePayload);
+        await updateDoc(reportRef, finalDetailsPayload);
     },
 
     async addOrUpdateIncident(

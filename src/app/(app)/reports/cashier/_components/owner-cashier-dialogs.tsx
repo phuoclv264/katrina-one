@@ -40,7 +40,7 @@ const OwnerCashierDialogs = React.memo(({
     linkedExpensesForDialog,
     isFinalHandoverViewOpen,
     setIsFinalHandoverViewOpen,
-    handleUpdateFinalHandover,
+    handleSaveFinalHandover,
     finalHandoverToView,
     dateForNewEntry,
     reporter,
@@ -73,7 +73,7 @@ const OwnerCashierDialogs = React.memo(({
     linkedExpensesForDialog: ExpenseSlip[],
     isFinalHandoverViewOpen: boolean,
     setIsFinalHandoverViewOpen: (open: boolean) => void,
-    handleUpdateFinalHandover: (data: any, id: string) => void,
+    handleSaveFinalHandover: (data: any, id?: string) => void,
     finalHandoverToView: (CashHandoverReport & { finalHandoverDetails: FinalHandoverDetails }) | null,
     dateForNewEntry: string | null,
     reporter: any,
@@ -130,11 +130,12 @@ const OwnerCashierDialogs = React.memo(({
             <HandoverDialog
                 open={isFinalHandoverViewOpen}
                 onOpenChange={setIsFinalHandoverViewOpen}
-                onSubmit={(data, id) => handleUpdateFinalHandover(data, id!)}
-                id={finalHandoverToView?.id!}
+                onSubmit={(data, id) => handleSaveFinalHandover(data, id)}
+                id={finalHandoverToView?.id}
                 isProcessing={isProcessing}
                 reportToEdit={finalHandoverToView?.finalHandoverDetails}
                 isOwnerView={true}
+                dateForNewEntry={dateForNewEntry}
             />
         </>
     );

@@ -45,6 +45,7 @@ export default function CashHandoverDialog({
 }: CashHandoverDialogProps) {
   const discrepancyReasonRef = useRef<HTMLTextAreaElement>(null);
   const [actualCashCounted, setActualCashCounted] = useState<number | null>(null);
+  const [formattedActualCash, setFormattedActualCash] = useState('');
   const [discrepancyReason, setDiscrepancyReason] = useState('');
   const [discrepancyPhotoIds, setDiscrepancyPhotoIds] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -99,6 +100,7 @@ export default function CashHandoverDialog({
 
   const resetState = useCallback(() => {
     setActualCashCounted(null);
+    setFormattedActualCash('');
     setDiscrepancyReason('');
     setDiscrepancyPhotoIds([]);
     setExistingPhotos([]);
@@ -107,6 +109,7 @@ export default function CashHandoverDialog({
 
     if (countToEdit) {
       setActualCashCounted(countToEdit.actualCashCounted);
+      setFormattedActualCash(countToEdit.actualCashCounted.toLocaleString('vi-VN'));
       setDiscrepancyReason(countToEdit.discrepancyReason || '');
       if (isOwnerView && countToEdit.discrepancyProofPhotos) {
         setExistingPhotos(countToEdit.discrepancyProofPhotos.map((url: string) => ({ id: url, url })));
@@ -122,6 +125,20 @@ export default function CashHandoverDialog({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resetState]);
+
+  const handleActualCashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    // Remove non-digit characters to get the number
+    const numericValue = parseInt(rawValue.replace(/[^0-9]/g, ''), 10);
+
+    if (isNaN(numericValue)) {
+      setActualCashCounted(null);
+      setFormattedActualCash('');
+    } else {
+      setActualCashCounted(numericValue);
+      setFormattedActualCash(numericValue.toLocaleString('vi-VN'));
+    }
+  };
 
   const handleConfirmAndSave = () => {
     // The check for discrepancy reason should still happen if there is a difference
@@ -233,7 +250,7 @@ export default function CashHandoverDialog({
 
                 <Card className="border-primary ring-2 ring-primary/50 rounded-xl">
                   <CardHeader className="pb-2"><CardTitle className="text-base text-primary">Tiền mặt thực tế</CardTitle></CardHeader>
-                  <CardContent><Input type="number" placeholder="Nhập số tiền..." value={actualCashCounted ?? ''} onChange={e => setActualCashCounted(Number(e.target.value))} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()} /></CardContent>
+                  <CardContent><Input type="text" placeholder="Nhập số tiền..." value={formattedActualCash ? formattedActualCash + '' : ''} onChange={handleActualCashChange} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()} /></CardContent>
                 </Card>
                 {discrepancy !== 0 && (
                   <Card className="border-destructive ring-2 ring-destructive/30 mt-6 rounded-xl">

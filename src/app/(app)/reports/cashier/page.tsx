@@ -460,37 +460,22 @@ export default function CashierReportsPage() {
     finally { setProcessingItemId(null); }
   }, [user, dateForNewEntry, cashHandoverToEdit, reportsForCurrentMonth]);
 
-  const handleSavePastHandover = useCallback(async (data: any) => {
-    if (!user || !dateForNewEntry) return;
-    setProcessingItemId('new-past-handover');
+  const handleSaveFinalHandover = useCallback(async (data: any, id?: string) => {
+    if (!user) return;
+    setProcessingItemId(id || 'new-final-handover');
     try {
-        await dataStore.addFinalHandoverToPastReport(dateForNewEntry, data.handoverData, user);
-        toast.success(`Đã bổ sung phiếu bàn giao cho ngày ${format(parseISO(dateForNewEntry), 'dd/MM/yyyy')}.`);
-        setIsCashHandoverDialogOpen(false);
+        await dataStore.saveFinalHandoverDetails(data, user, id, dateForNewEntry ?? undefined);
+        toast.success(id ? 'Đã cập nhật biên bản bàn giao.' : 'Đã bổ sung biên bản bàn giao.');
+        setIsFinalHandoverViewOpen(false);
+        setFinalHandoverToView(null);
         setDateForNewEntry(null);
     } catch (error) {
-        console.error("Failed to save past handover:", error);
-        toast.error(`Lỗi: ${(error as Error).message}`);
+        toast.error(`Lỗi: Không thể lưu biên bản. ${(error as Error).message}`);
+        console.error("Failed to save final handover:", error);
     } finally {
         setProcessingItemId(null);
     }
   }, [user, dateForNewEntry]);
-
-  const handleUpdateFinalHandover = useCallback(async (data: any, id?: string) => {
-    if (!user || !id) return;
-    setProcessingItemId(id);
-    try {
-        await dataStore.updateFinalHandoverDetails(id, data, user);
-        toast.success('Đã cập nhật biên bản bàn giao cuối ca.');
-        setIsFinalHandoverViewOpen(false);
-        setFinalHandoverToView(null);
-    } catch (error) {
-        console.error("Failed to update final handover:", error);
-        toast.error(`Lỗi: Không thể cập nhật biên bản. ${(error as Error).message}`);
-    } finally {
-        setProcessingItemId(null);
-    }
-  }, [user]);
 
   const handleDeleteExpense = useCallback((id: string) => {
     const expense = expenseSlips.find(e => e.id === id);
@@ -652,7 +637,7 @@ export default function CashierReportsPage() {
         linkedExpensesForDialog={linkedExpensesForDialog}
         isFinalHandoverViewOpen={isFinalHandoverViewOpen}
         setIsFinalHandoverViewOpen={setIsFinalHandoverViewOpen}
-        handleUpdateFinalHandover={(data, id) => handleUpdateFinalHandover(data, id)}
+        handleSaveFinalHandover={(data, id) => handleSaveFinalHandover(data, id)}
         finalHandoverToView={finalHandoverToView as any}
         otherCostCategories={otherCostCategories}
         incidentCategories={incidentCategories}
