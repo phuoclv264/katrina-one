@@ -57,7 +57,8 @@ const DailyReportAccordionItem = React.memo(({
   const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
   const isShiftFinalized = dayReports.cashHandovers.some(h => h.finalHandoverDetails);
 
-  const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0) + (dayReports.incidents || []).reduce((sum, i) => sum + i.cost, 0);
+  const totalDailyExpense = (dayReports.expenses || []).reduce((sum, e) => sum + e.totalAmount, 0);
+  const totalIntangibleIncidentCost = (dayReports.incidents || []).filter(incident => incident.paymentMethod === 'intangible_cost').reduce((sum, i) => sum + i.cost, 0);
 
   return (
     <AccordionItem value={date} key={date} className="border rounded-xl shadow-md bg-white dark:bg-card">
@@ -71,6 +72,7 @@ const DailyReportAccordionItem = React.memo(({
             <div className="text-sm text-muted-foreground font-normal flex flex-wrap gap-x-4 gap-y-1 mt-1">
               <span>Thu: <span className="font-semibold text-green-600">{totalDailyRevenue.toLocaleString('vi-VN')}đ</span></span>
               <span>Chi: <span className="font-semibold text-red-600">{totalDailyExpense.toLocaleString('vi-VN')}đ</span></span>
+              {totalIntangibleIncidentCost > 0 && <span>Sự cố: <span className="font-semibold text-yellow-600">{totalIntangibleIncidentCost.toLocaleString('vi-VN')}đ</span></span>}
             </div>
           </div>
         </div>

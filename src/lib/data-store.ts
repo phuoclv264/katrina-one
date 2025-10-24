@@ -361,16 +361,12 @@ export const dataStore = {
                 await Promise.all(photosToDelete.map(url => this.deletePhotoFromStorage(url)));
             }
 
-            console.log("Cập nhật data: " + finalData);
-
             await updateDoc(docRef, finalData);
         } else {
             finalData.date = (data as IncidentReport).date || getTodaysDateKey();
             finalData.createdAt = serverTimestamp() as Timestamp;
             finalData.createdBy = { userId: user.uid, userName: user.displayName };
             finalData.photos = photoUrls;
-
-            console.log("Tạo mới: " + finalData.photos);
 
             const incidentRef = await addDoc(collection(db, 'incidents'), finalData);
             id = incidentRef.id;

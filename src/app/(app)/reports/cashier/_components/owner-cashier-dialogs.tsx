@@ -107,7 +107,7 @@ const OwnerCashierDialogs = React.memo(({
                     open={isIncidentDialogOpen}
                     onOpenChange={setIsIncidentDialogOpen}
                     onSave={handleSaveIncident}
-                    isProcessing={isProcessing && processingItemId === incidentToEdit?.id}
+                    isProcessing={isProcessing && (processingItemId === incidentToEdit?.id || processingItemId === 'new')}
                     categories={incidentCategories}
                     onCategoriesChange={handleCategoriesChange as any}
                     canManageCategories={canManageCategories}

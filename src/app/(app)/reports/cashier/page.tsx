@@ -216,9 +216,6 @@ export default function CashierReportsPage() {
   useEffect(() => {
       if (isCashHandoverDialogOpen) {
           const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
-  
-          console.log("cashHandoverToEdit:", cashHandoverToEdit);
-          console.log("relevantDate:", relevantDate);
 
           if (cashHandoverToEdit) {
               // Case 1: Editing an existing report.
@@ -441,7 +438,6 @@ export default function CashierReportsPage() {
         } else {
             // Creating a new report for a specific date (past or present)
             const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
-            console.log("dateForNewEntry in handleSaveCashHandover:", dateForNewEntry);
             if (!relevantDate) {
                 toast.error("Không xác định được ngày để tạo biên bản.");
                 return;

@@ -142,6 +142,7 @@ export default function IncidentReportDialog({
             category: selectedCategory, 
             photos: existingPhotos,
             photoIds: localPhotos.map(p => p.id),
+            photosToUpload: localPhotos.map(p => p.id),
             photosToDelete: photosToDelete,
         };
         
