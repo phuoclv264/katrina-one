@@ -41,7 +41,7 @@ const HandoverReportCard = React.memo(({
             </CardHeader>
             <CardContent className="p-4 pt-0 relative">
                 <div className="space-y-3">
-                    {cashHandovers.map(handover => {
+                    {cashHandovers.filter(handover => handover.createdAt).map(handover => {
                         const isProcessing = processingItemId === handover.id;
 
                         // Calculate expected cash dynamically

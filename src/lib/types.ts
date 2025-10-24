@@ -470,7 +470,6 @@ export interface CashHandoverReport {
   startOfDayCash: number;
   linkedExpenseSlipIds: string[];
   linkedRevenueStatsId: string | null;
-  schemaVersion: 2;
   finalHandoverDetails?: FinalHandoverDetails;
 }
 

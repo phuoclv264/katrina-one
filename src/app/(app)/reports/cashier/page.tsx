@@ -20,12 +20,8 @@ import "yet-another-react-lightbox/styles.css";
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
-import CashHandoverDialog from '../../cashier/_components/cash-handover-dialog';
-import HandoverDialog from '../../cashier/_components/handover-dialog';
 import HandoverComparisonDialog from '../../cashier/_components/handover-comparison-dialog';
-import IncidentDetailsDialog from './_components/IncidentDetailsDialog';
 import IncidentCategoryDialog from '../../cashier/_components/incident-category-dialog';
-import IncidentReportDialog from '../../cashier/_components/incident-report-dialog';
 import OtherCostCategoryDialog from '../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './_components/MonthlySummary';
 import DailyReportAccordionItem from './_components/DailyReportAccordionItem';
@@ -179,6 +175,7 @@ export default function CashierReportsPage() {
   const [cashHandoverToEdit, setCashHandoverToEdit] = useState<CashHandoverReport | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
   const [dateForNewEntry, setDateForNewEntry] = useState<string | null>(null);
+  const [dateForCashHandover, setDateForCashHandover] = useState<string | null>(null);
   
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -410,12 +407,12 @@ export default function CashierReportsPage() {
 
         // Set the state needed for the CashHandoverDialog and open it.
         setCashHandoverToEdit(handoverToEdit || null);
-        setDateForNewEntry(relevantDate); // Pass the date context
+        setDateForNewEntry(format(relevantDate, 'yyyy-MM-dd')); // Pass the date context
         setIsCashHandoverDialogOpen(true);
 
     } catch (error) { toast.error("Không thể lưu doanh thu."); console.error(error); }
     finally { setProcessingItemId(null); }
-  }, [user, revenueStatsToEdit, dateForNewEntry]);
+  }, [user, revenueStatsToEdit, dateForNewEntry, reportsForCurrentMonth]);
 
   const handleSaveIncident = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -444,6 +441,7 @@ export default function CashierReportsPage() {
         } else {
             // Creating a new report for a specific date (past or present)
             const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
+            console.log("dateForNewEntry in handleSaveCashHandover:", dateForNewEntry);
             if (!relevantDate) {
                 toast.error("Không xác định được ngày để tạo biên bản.");
                 return;
@@ -460,10 +458,11 @@ export default function CashierReportsPage() {
             }, user);
             toast.success(`Đã tạo biên bản kiểm kê cho ngày ${format(parseISO(relevantDate), 'dd/MM/yyyy')}.`);
         }
+        setDateForNewEntry(null);
         setIsCashHandoverDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu biên bản kiểm kê.'); console.error(error); }
     finally { setProcessingItemId(null); }
-  }, [user]);
+  }, [user, dateForNewEntry, cashHandoverToEdit, reportsForCurrentMonth]);
 
   const handleSavePastHandover = useCallback(async (data: any) => {
     if (!user || !dateForNewEntry) return;
@@ -638,62 +637,33 @@ export default function CashierReportsPage() {
         setIsExpenseDialogOpen={setIsExpenseDialogOpen}
         handleSaveSlip={handleSaveSlip}
         isProcessing={!!processingItemId}
+        processingItemId={processingItemId}
         slipToEdit={slipToEdit}
         isRevenueDialogOpen={isRevenueDialogOpen}
         setIsRevenueDialogOpen={setIsRevenueDialogOpen}
         handleSaveRevenue={(data, isEdited) => handleSaveRevenue(data, isEdited, revenueStatsToEdit?.id)}
         revenueStatsToEdit={revenueStatsToEdit}
+        isIncidentDialogOpen={isIncidentDialogOpen}
+        setIsIncidentDialogOpen={setIsIncidentDialogOpen}
+        handleSaveIncident={handleSaveIncident}
+        incidentToEdit={incidentToEdit}
+        isCashHandoverDialogOpen={isCashHandoverDialogOpen}
+        setIsCashHandoverDialogOpen={setIsCashHandoverDialogOpen}
+        handleSaveCashHandover={handleSaveCashHandover}
+        cashHandoverToEdit={cashHandoverToEdit}
+        expectedCashForDialog={expectedCashForDialog}
+        linkedRevenueForDialog={linkedRevenueForDialog}
+        linkedExpensesForDialog={linkedExpensesForDialog}
+        isFinalHandoverViewOpen={isFinalHandoverViewOpen}
+        setIsFinalHandoverViewOpen={setIsFinalHandoverViewOpen}
+        handleUpdateFinalHandover={(data, id) => handleUpdateFinalHandover(data, id)}
+        finalHandoverToView={finalHandoverToView as any}
         otherCostCategories={otherCostCategories}
+        incidentCategories={incidentCategories}
+        handleCategoriesChange={handleCategoriesChange}
+        canManageCategories={user?.role === 'Chủ nhà hàng'}
         dateForNewEntry={dateForNewEntry}
         reporter={user}
-      />
-
-      {user && (
-        <IncidentReportDialog
-          open={isIncidentDialogOpen}
-          onOpenChange={setIsIncidentDialogOpen}
-          onSave={handleSaveIncident}
-          isProcessing={!!processingItemId}
-          categories={incidentCategories}
-          onCategoriesChange={handleCategoriesChange as any}
-          canManageCategories={user.role === 'Chủ nhà hàng'}
-          reporter={incidentToEdit?.createdBy ? {userId: incidentToEdit?.createdBy.userId, userName: incidentToEdit?.createdBy.userName} : {userId: user.uid, userName: user.displayName}}
-          incidentToEdit={incidentToEdit as any}
-        />
-      )}
-      
-      {isCashHandoverDialogOpen && (
-        <CashHandoverDialog
-            open={isCashHandoverDialogOpen}
-            onOpenChange={setIsCashHandoverDialogOpen}
-            onSubmit={handleSaveCashHandover}
-            isProcessing={!!processingItemId}
-            expectedCash={expectedCashForDialog}
-            countToEdit={cashHandoverToEdit}
-            isOwnerView={true}
-            linkedRevenueStats={linkedRevenueForDialog}
-            linkedExpenseSlips={linkedExpensesForDialog}
-        />
-      )}
-
-      {finalHandoverToView && (
-          <HandoverDialog
-              open={isFinalHandoverViewOpen}
-              onOpenChange={setIsFinalHandoverViewOpen}
-              onSubmit={(data) => handleUpdateFinalHandover(data, finalHandoverToView.id)}
-              id={finalHandoverToView.id}
-              isProcessing={processingItemId === finalHandoverToView.id}
-              reportToEdit={finalHandoverToView.finalHandoverDetails}
-              isOwnerView={true}
-          />
-      )}
-
-      <IncidentDetailsDialog
-        isOpen={isIncidentDetailsDialogOpen}
-        onClose={() => setIsIncidentDetailsDialogOpen(false)}
-        incidents={monthlyIncidents}
-        onOpenLightbox={openPhotoLightbox}
-        currentMonth={currentMonth}
       />
 
       <Lightbox open={lightboxOpen} close={() => setLightboxOpen(false)} index={lightboxIndex} slides={lightboxSlides} carousel={{ finite: true }} />

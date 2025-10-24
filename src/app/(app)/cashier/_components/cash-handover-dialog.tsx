@@ -79,7 +79,8 @@ export default function CashHandoverDialog({
     if (!linkedExpenseSlips || linkedExpenseSlips.length === 0) return null;
     const overview = linkedExpenseSlips.reduce((acc, slip) => {
       const method = slip.paymentMethod;
-      if (method === 'cash' || method === 'bank_transfer') {
+      // if (method === 'cash' || method === 'bank_transfer') {
+      if (method === 'cash') {
         if (!acc[method]) {
           acc[method] = 0;
         }
@@ -135,6 +136,7 @@ export default function CashHandoverDialog({
       discrepancyReason: discrepancyReason.trim() || null,
       newPhotoIds: localPhotos.map(p => p.id),
       photosToDelete: photosToDelete,
+      date: dateForNewEntry, // Pass the date for new entries
     };
     onSubmit(finalData, countToEdit?.id);
   };

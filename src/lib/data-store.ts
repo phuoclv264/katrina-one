@@ -2202,11 +2202,11 @@ export const dataStore = {
   },
 
   async addCashHandoverReport(
-    data: Omit<CashHandoverReport, 'id' | 'createdAt' | 'createdBy' | 'date' | 'schemaVersion' | 'discrepancyProofPhotos'> & { newPhotoIds?: string[] },
+    data: Omit<CashHandoverReport, 'id' | 'createdAt' | 'createdBy' | 'date' | 'discrepancyProofPhotos'> & { newPhotoIds?: string[] },
     user: AuthUser
   ): Promise<void> {
     const { newPhotoIds = [], ...reportData } = data;
-    const reportDate = format(new Date(), 'yyyy-MM-dd');
+    const reportDate = (reportData as CashHandoverReport).date || format(new Date(), 'yyyy-MM-dd');
 
     // 1. Upload new photos
     const uploadPromises = newPhotoIds.map(async (photoId) => {
@@ -2225,7 +2225,6 @@ export const dataStore = {
       createdBy: { userId: user.uid, userName: user.displayName || 'N/A' },
       createdAt: serverTimestamp(),
       discrepancyProofPhotos: newPhotoUrls,
-      schemaVersion: 2,
     };
 
     // 3. Add to Firestore
@@ -2237,7 +2236,7 @@ export const dataStore = {
 
   async updateCashHandoverReport(
     reportId: string,
-    data: Partial<Omit<CashHandoverReport, 'id' | 'createdAt' | 'createdBy' | 'date' | 'schemaVersion'>> & { newPhotoIds?: string[], photosToDelete?: string[] },
+    data: Partial<Omit<CashHandoverReport, 'id' | 'createdAt' | 'createdBy' | 'date' >> & { newPhotoIds?: string[], photosToDelete?: string[] },
     user: AuthUser
   ): Promise<void> {
     const { newPhotoIds = [], photosToDelete = [], ...reportData } = data;
