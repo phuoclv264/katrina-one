@@ -27,6 +27,7 @@ type CameraDialogProps = {
   onSubmit: (media: { id: string; type: 'photo' | 'video' }[]) => void | Promise<void>;
   singlePhotoMode?: boolean;
   captureMode?: 'photo' | 'video' | 'both';
+  isHD?: boolean;
 };
 
 export default function CameraDialog({ 
@@ -35,6 +36,7 @@ export default function CameraDialog({
     onSubmit, 
     singlePhotoMode = false,
     captureMode = 'photo',
+    isHD = false,
 }: CameraDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -98,7 +100,11 @@ export default function CameraDialog({
             throw new Error('Camera not supported on this browser.');
         }
         
-        const constraints = { video: { facingMode: 'environment' }, audio: currentMode === 'video' };
+        const videoConstraints: MediaTrackConstraints = isHD && currentMode === 'photo'
+            ? { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+            : { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } };
+
+        const constraints = { video: videoConstraints, audio: currentMode === 'video' };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         streamRef.current = stream;
         
@@ -122,7 +128,7 @@ export default function CameraDialog({
     } finally {
         setIsStarting(false);
     }
-  }, [currentMode, stopCameraStream, hardwareError]);
+  }, [hardwareError, stopCameraStream, currentMode, isHD]);
 
   useEffect(() => {
     if (isOpen) {
@@ -143,7 +149,7 @@ export default function CameraDialog({
     if (isOpen) {
       startCamera();
     }
-  }, [isOpen, currentMode, startCamera]);
+  }, [isOpen, currentMode, isHD, startCamera]);
 
 
   useEffect(() => {
@@ -192,7 +198,7 @@ export default function CameraDialog({
                     toast.error("Lỗi lưu ảnh tạm thời.");
                 }
             }
-        }, 'image/jpeg', 0.95);
+        }, 'image/jpeg', isHD ? 1.0 : 0.95);
     }
   };
   
