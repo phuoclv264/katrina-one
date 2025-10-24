@@ -109,18 +109,19 @@ export default function CameraDialog({
         streamRef.current = stream;
         
         if (videoRef.current) {
+            console.log("Camera start: ...");
             videoRef.current.srcObject = stream;
             await videoRef.current.play();
             setHasPermission(true);
             setHardwareError(false); // Reset on success
         }
     } catch (error: any) {
-        console.error('Error accessing camera:', error);
         setHasPermission(false);
         if (error.name === 'NotFoundError') {
             setHardwareError(true);
             toast.error('Không tìm thấy camera hoặc micro phù hợp trên thiết bị.');
         } else if (error.name === 'NotAllowedError') {
+            setHasPermission(null);
             toast.error('Bạn đã từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.');
         } else {
             toast.error('Không thể truy cập camera. Vui lòng thử lại.');
@@ -128,7 +129,7 @@ export default function CameraDialog({
     } finally {
         setIsStarting(false);
     }
-  }, [hardwareError, stopCameraStream, currentMode, isHD]);
+  }, [isStarting, hardwareError, stopCameraStream, isHD, currentMode, videoRef]);
 
   useEffect(() => {
     if (isOpen) {
@@ -149,7 +150,7 @@ export default function CameraDialog({
     if (isOpen) {
       startCamera();
     }
-  }, [isOpen, currentMode, isHD, startCamera]);
+  }, [isOpen, startCamera]);
 
 
   useEffect(() => {
