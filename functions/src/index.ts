@@ -1,3 +1,4 @@
+/* eslint-disable linebreak-style */
 /* eslint-disable max-len */
 /* eslint-disable indent */
 /* eslint-disable @typescript-eslint/no-unused-vars */
