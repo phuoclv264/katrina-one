@@ -475,7 +475,7 @@ function CashierDashboardPageComponent() {
   const handleHandoverSubmit = (data: any) => {
     setIsHandoverDialogOpen(false); // Close the input dialog
     
-    const receiptData = data;
+    const receiptData = data.handoverData;
     
     const latestRevenueStats = dailyRevenueStats.length > 0 ? dailyRevenueStats[0] : null;
     
@@ -528,7 +528,10 @@ function CashierDashboardPageComponent() {
     setIsComparisonDialogOpen(false);
     const toastId = toast.loading("Đang hoàn tất bàn giao ca...");
     try {
-      await dataStore.finalizeHandover(handoverReceiptData, user);
+      // Find the latest cash handover report for today to attach the final details to.
+      const latestReport = cashHandoverReports.length > 0 ? cashHandoverReports[0] : null;
+      
+      await dataStore.saveFinalHandoverDetails(handoverReceiptData, user, latestReport?.id);
       toast.success("Đã bàn giao ca thành công!", { id: toastId, duration: 5000 });
       // The UI will lock automatically due to the change in `isShiftFinalized`
     } catch (error) {

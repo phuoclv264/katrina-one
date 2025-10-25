@@ -335,6 +335,7 @@ export default function CashierReportsPage() {
   const handleEditCashHandover = useCallback((handover: CashHandoverReport) => { setDateForNewEntry(null); setCashHandoverToEdit(handover); setIsCashHandoverDialogOpen(true); }, []);
 
   const handleViewFinalHandover = useCallback((handover: CashHandoverReport) => {
+    console.log(handover.finalHandoverDetails);
     setFinalHandoverToView(handover);
     setIsFinalHandoverViewOpen(true);
   }, []);
