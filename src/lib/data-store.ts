@@ -199,7 +199,10 @@ export const dataStore = {
         if (handoverReceiptData.imageDataUri && handoverReceiptData.imageDataUri.startsWith('data:')) {
             const blob = await (await fetch(handoverReceiptData.imageDataUri)).blob();
             const storageRef = ref(storage, `final-handover-receipts/${date}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, blob);
+            const metadata = {
+                cacheControl: 'public,max-age=31536000,immutable',
+            };
+            await uploadBytes(storageRef, blob, metadata);
             handoverImageUrl = await getDownloadURL(storageRef);
         }
 
@@ -221,7 +224,10 @@ export const dataStore = {
      */
     async uploadFile(fileBlob: Blob, path: string): Promise<string> {
         const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, fileBlob);
+        const metadata = {
+            cacheControl: 'public,max-age=31536000,immutable',
+        };
+        await uploadBytes(storageRef, fileBlob, metadata);
         return getDownloadURL(storageRef);
     },
 
@@ -311,7 +317,10 @@ export const dataStore = {
             const photoBlob = await photoStore.getPhoto(photoId);
             if (!photoBlob) return null;
             const storageRef = ref(storage, `incidents/${user.uid}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, photoBlob);
+            const metadata = {
+                cacheControl: 'public,max-age=31536000,immutable',
+            };
+            await uploadBytes(storageRef, photoBlob, metadata);
             return getDownloadURL(storageRef);
         });
         const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -457,7 +466,10 @@ export const dataStore = {
             const date = finalData.date || getTodaysDateKey();
             const blob = await (await fetch(data.invoiceImageUrl)).blob();
             const storageRef = ref(storage, `revenue-invoices/${date}/${uuidv4()}.jpg`);
-            await uploadBytes(storageRef, blob);
+            const metadata = {
+                cacheControl: 'public,max-age=31536000,immutable',
+            };
+            await uploadBytes(storageRef, blob, metadata);
             finalData.invoiceImageUrl = await getDownloadURL(storageRef);
         } else if (data.invoiceImageUrl === null) {
              finalData.invoiceImageUrl = null;
@@ -527,7 +539,10 @@ export const dataStore = {
                 const photoBlob = await photoStore.getPhoto(photoId);
                 if (!photoBlob) return null;
                 const storageRef = ref(storage, `expense-slips/${slipData.date || getTodaysDateKey()}/${uuidv4()}.jpg`);
-                await uploadBytes(storageRef, photoBlob);
+                const metadata = {
+                    cacheControl: 'public,max-age=31536000,immutable',
+                };
+                await uploadBytes(storageRef, photoBlob, metadata);
                 return getDownloadURL(storageRef);
             });
             newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -727,17 +742,6 @@ export const dataStore = {
         const shiftReportsSnapshot = await getDocs(shiftReportsQuery);
         for (const reportDoc of shiftReportsSnapshot.docs) {
             await this.deleteShiftReport(reportDoc.id);
-            deletedCount++;
-        }
-
-        // Query and delete old inventory reports
-        const inventoryReportsQuery = query(
-            collection(db, "inventory-reports"),
-            where("submittedAt", "<", cutoffTimestamp)
-        );
-        const inventoryReportsSnapshot = await getDocs(inventoryReportsQuery);
-        for (const reportDoc of inventoryReportsSnapshot.docs) {
-            await this.deleteInventoryReport(reportDoc.id);
             deletedCount++;
         }
         
@@ -1172,7 +1176,10 @@ export const dataStore = {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return { photoId, downloadURL: null };
         const storageRef = ref(storage, `inventory-reports/${report.date}/${report.staffName}/${photoId}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
+        const metadata = {
+            cacheControl: 'public,max-age=31536000,immutable',
+        };
+        await uploadBytes(storageRef, photoBlob, metadata);
         return { photoId, downloadURL: await getDownloadURL(storageRef) };
     });
     const uploadResults = await Promise.all(uploadPromises);
@@ -1416,7 +1423,10 @@ export const dataStore = {
             return { photoId, downloadURL: null };
         }
         const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${photoId}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
+        const metadata = {
+          cacheControl: 'public,max-age=31536000,immutable',
+        };
+        await uploadBytes(storageRef, photoBlob, metadata);
         const downloadURL = await getDownloadURL(storageRef);
         return { photoId, downloadURL };
     });
@@ -1970,7 +1980,10 @@ export const dataStore = {
       const photoBlob = await photoStore.getPhoto(photoId);
       if (!photoBlob) return null;
       const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-      await uploadBytes(storageRef, photoBlob);
+      const metadata = {
+            cacheControl: 'public,max-age=31536000,immutable',
+        };
+      await uploadBytes(storageRef, photoBlob, metadata);
       return getDownloadURL(storageRef);
     });
     const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -2049,7 +2062,10 @@ export const dataStore = {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) return null;
         const storageRef = ref(storage, `violations/${violationId}/comments/${uuidv4()}.jpg`);
-        await uploadBytes(storageRef, photoBlob);
+        const metadata = {
+            cacheControl: 'public,max-age=31536000,immutable',
+        };
+        await uploadBytes(storageRef, photoBlob, metadata);
         return getDownloadURL(storageRef);
     });
     const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -2118,8 +2134,11 @@ export const dataStore = {
         const blob = await photoStore.getPhoto(m.id);
         if (!blob) return null;
         const fileExtension = m.type === 'photo' ? 'jpg' : 'webm';
-        const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.${fileExtension}`);
-        await uploadBytes(storageRef, blob);
+        const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.${fileExtension}`);        
+        const metadata = {
+            cacheControl: 'public,max-age=31536000,immutable',
+        };
+        await uploadBytes(storageRef, blob, metadata);
         const url = await getDownloadURL(storageRef);
         return { url, type: m.type };
     });
@@ -2182,7 +2201,10 @@ export const dataStore = {
       const photoBlob = await photoStore.getPhoto(photoId);
       if (!photoBlob) return null;
       const storageRef = ref(storage, `cash-handover-reports/${reportDate}/${uuidv4()}.jpg`);
-      await uploadBytes(storageRef, photoBlob);
+      const metadata = {
+        cacheControl: 'public,max-age=31536000,immutable',
+      };
+      await uploadBytes(storageRef, photoBlob, metadata);
       return getDownloadURL(storageRef);
     });
     const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
@@ -2222,7 +2244,10 @@ export const dataStore = {
       const photoBlob = await photoStore.getPhoto(photoId);
       if (!photoBlob) return null;
       const storageRef = ref(storage, `cash-handover-reports/${reportDate}/${uuidv4()}.jpg`);
-      await uploadBytes(storageRef, photoBlob);
+      const metadata = {
+        cacheControl: 'public,max-age=31536000,immutable',
+      };
+      await uploadBytes(storageRef, photoBlob, metadata);
       return getDownloadURL(storageRef);
     });
     const newPhotoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
