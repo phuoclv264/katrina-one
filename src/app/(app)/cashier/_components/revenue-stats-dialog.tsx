@@ -55,6 +55,8 @@ const paymentMethodLabels: { [key in keyof typeof initialPaymentMethods]: string
     bankTransfer: "Chuyển Khoản",
 };
 
+const paymentMethodOrder = Object.keys(paymentMethodLabels) as (keyof typeof initialPaymentMethods)[];
+
 const InputField = React.memo(({ id, label, value, onChange, originalValue, isImportant, isSubtle, inputClassName, disabled }: {
     id: string;
     label: string;
@@ -534,14 +536,14 @@ export default function RevenueStatsDialog({
                                             <CardTitle className="text-base">Doanh thu theo PTTT</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-3">
-                                            {Object.entries(revenueByPaymentMethod).map(([key, value]) =>
+                                            {paymentMethodOrder.map((key) =>
                                                 <InputField
                                                     key={`pm-${key}`}
                                                     id={`pm-${key}`}
-                                                    label={paymentMethodLabels[key as keyof typeof paymentMethodLabels]}
-                                                    value={value}
+                                                    label={paymentMethodLabels[key]}
+                                                    value={revenueByPaymentMethod[key]}
                                                     onChange={(val) => handlePaymentMethodChange(key as any, val)}
-                                                    originalValue={aiOriginalData?.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]}
+                                                    originalValue={aiOriginalData?.revenueByPaymentMethod?.[key]}
                                                     isSubtle={true}
                                                     disabled={!canEdit}
                                                 />

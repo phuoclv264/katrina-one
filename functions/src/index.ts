@@ -1,13 +1,12 @@
 /* eslint-disable linebreak-style */
 /* eslint-disable max-len */
 /* eslint-disable indent */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { v1 } from "@google-cloud/firestore";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentWritten, onDocumentCreated } from "firebase-functions/v2/firestore";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -74,17 +73,24 @@ export const backupFirestore = onSchedule({
  * A Cloud Function that triggers whenever a new document is created in the 'incidents' collection.
  * If the incident has a cost, it automatically creates a corresponding expense slip.
  */
-export const createExpenseSlipFromIncident = onDocumentCreated("incidents/{incidentId}", async (event) => {
+export const createExpenseSlipFromIncident = onDocumentWritten("incidents/{incidentId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) {
     logger.log("No data associated with the event, skipping.");
     return;
  }
 
-  const incidentData = snapshot.data();
+  // If the incident is deleted, we don't need to do anything with expense slips here.
+  // The app logic handles deleting the associated expense slip.
+  if (!snapshot.after.exists) {
+    logger.log(`Incident ${event.params.incidentId} was deleted. No action taken.`);
+    return;
+  }
+
+  const incidentData = snapshot.after.data();
   const incidentId = event.params.incidentId;
 
-  // Check if the incident has a cost and is not an intangible cost
+  // Check if the incident has a cost, is not an intangible cost, and if the cost has changed.
   if (
     !incidentData ||
     incidentData.cost <= 0 ||
@@ -93,6 +99,14 @@ export const createExpenseSlipFromIncident = onDocumentCreated("incidents/{incid
     logger.log(`Incident ${incidentId} has no payable cost. Skipping expense slip creation.`);
     return;
  }
+
+  // Find an existing expense slip to update it, or create a new one.
+  const expenseSlipsRef = db.collection("expense_slips");
+  const q = expenseSlipsRef
+    .where("associatedIncidentId", "==", incidentId)
+    .limit(1);
+  const querySnapshot = await q.get();
+  const existingSlip = querySnapshot.docs.length > 0 ? querySnapshot.docs[0] : null;
 
   // Prepare the data for the new expense slip
   const expenseSlipData = {
@@ -110,33 +124,50 @@ export const createExpenseSlipFromIncident = onDocumentCreated("incidents/{incid
     paymentMethod: incidentData.paymentMethod,
     notes: `Tự động tạo từ báo cáo sự cố ID: ${incidentId}`,
     createdBy: incidentData.createdBy,
-    createdAt: incidentData.createdAt, // Use the same timestamp as the incident
     associatedIncidentId: incidentId, // Link the slip to the incident
     paymentStatus: incidentData.paymentMethod === "cash" ? "paid" : "unpaid",
  };
 
   try {
-    await db.collection("expense_slips").add(expenseSlipData);
-    logger.info(`Successfully created expense slip for incident ID: ${incidentId}`);
+    if (existingSlip) {
+      await existingSlip.ref.update(expenseSlipData);
+      logger.info(`Successfully updated expense slip ${existingSlip.id} for incident ID: ${incidentId}`);
+    } else {
+      const newSlipData = { ...expenseSlipData, createdAt: incidentData.createdAt };
+      await expenseSlipsRef.add(newSlipData);
+      logger.info(`Successfully created expense slip for incident ID: ${incidentId}`);
+    }
  } catch (error) {
-    logger.error(`Failed to create expense slip for incident ID: ${incidentId}`, error);
+    logger.error(`Failed to create/update expense slip for incident ID: ${incidentId}`, error);
  }
 });
 
 /**
- * A Cloud Function that triggers when a new revenue statistics document is created.
+ * A Cloud Function that triggers when a revenue statistics document is created or updated.
  * If the document includes a `deliveryPartnerPayout`, it automatically creates
  * a corresponding expense slip for "Trả cho đối tác giao hàng".
  */
-export const createExpenseSlipForDeliveryPayout = onDocumentCreated("revenue_stats/{statsId}", async (event) => {
+export const createExpenseSlipForDeliveryPayout = onDocumentWritten("revenue_stats/{statsId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) {
     logger.log("No data associated with the event, skipping.");
     return;
   }
 
-  const revenueData = snapshot.data();
+  // Handle deletion of a revenue stat -> do nothing
+  if (!snapshot.after.exists) {
+    return;
+  }
+
+  const revenueData = snapshot.after.data();
+  // const beforeData = snapshot.before.data();
   const statsId = event.params.statsId;
+
+   if (!revenueData) {
+    logger.log("Revenue data is undefined, skipping.");
+    return;
+  }
+
   const payoutAmount = revenueData.deliveryPartnerPayout || 0;
 
   // Find an existing auto-generated expense slip for this date
@@ -148,6 +179,12 @@ export const createExpenseSlipForDeliveryPayout = onDocumentCreated("revenue_sta
 
   const querySnapshot = await q.get();
   const existingSlip = querySnapshot.docs.length > 0 ? querySnapshot.docs[0] : null;
+
+  // If the payout amount hasn't changed, do nothing.
+  // if (beforeData && beforeData.deliveryPartnerPayout === payoutAmount) {
+  //   logger.log(`Payout amount for ${statsId} has not changed. Skipping.`);
+  //   return;
+  // }
 
   if (payoutAmount <= 0) {
     // If the new payout is zero but a slip exists, delete the slip.
