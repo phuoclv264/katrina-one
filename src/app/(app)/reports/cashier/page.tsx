@@ -201,7 +201,11 @@ export default function CashierReportsPage() {
       reports[date].revenue?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].expenses?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
       reports[date].incidents?.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-      reports[date].cashHandovers?.sort((a, b) => (b.createdAt as any).toMillis() - (a.createdAt as any).toMillis());
+      reports[date].cashHandovers?.sort((a, b) => {
+        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
     }
     return reports;
   }, [currentMonth, revenueStats, expenseSlips, incidents, cashHandoverReports]);

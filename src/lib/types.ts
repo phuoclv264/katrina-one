@@ -238,6 +238,11 @@ export type ViolationUser = {
   name: string;
 }
 
+export type MediaItem = {
+  id: string; // local ID from photoStore
+  type: 'photo' | 'video';
+};
+
 export type MediaAttachment = {
   url: string;
   type: 'photo' | 'video';

@@ -13,8 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ExtractHandoverDataOutput, AuthUser, FinalHandoverDetails } from '@/lib/types';
-import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock, X } from 'lucide-react';
+import type { ExtractHandoverDataOutput, AuthUser, FinalHandoverDetails, MediaItem } from '@/lib/types';
+import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock, X, Camera } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
 import { photoStore } from '@/lib/photo-store';
@@ -31,6 +31,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseISO, format, isSameDay, isToday } from 'date-fns';
 import { Timestamp } from '@google-cloud/firestore';
+import CameraDialog from '@/components/camera-dialog';
 
 
 const initialHandoverData = {
@@ -137,6 +138,13 @@ export default function HandoverDialog({
 
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [shouldRescanAfterPhoto, setShouldRescanAfterPhoto] = useState(false);
+    const [isManualEntry, setIsManualEntry] = useState(false);
+
+    const allPhotos = useMemo(() => {
+        return [...existingPhotos, ...localPhotos];
+    }, [existingPhotos, localPhotos]);
     
     useEffect(() => {
         if (open) {
@@ -159,10 +167,18 @@ export default function HandoverDialog({
     const isCreating = !reportToEdit;
 
     useEffect(() => {
-        if (originalData && dataSectionRef.current) {
+        if ((originalData || isManualEntry) && dataSectionRef.current) {
             setTimeout(() => dataSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
         }
     }, [originalData]);
+
+    useEffect(() => {
+        // This effect runs when `allPhotos` changes and the flag is set.
+        if (shouldRescanAfterPhoto && allPhotos.length > 0) {
+            handleRescan();
+            setShouldRescanAfterPhoto(false); // Reset the flag
+        }
+    }, [allPhotos, shouldRescanAfterPhoto]);
     
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
@@ -197,11 +213,6 @@ export default function HandoverDialog({
             return false;
         }
     }, [dateForNewEntry, isOwnerView]);
-
-    const allPhotos = useMemo(() => {
-        return [...existingPhotos, ...localPhotos];
-    }, [existingPhotos, localPhotos]);
-
 
     const processImage = async (uri: string) => {
         setIsOcrLoading(true);
@@ -270,6 +281,24 @@ export default function HandoverDialog({
             toast.error("Lỗi khi thêm ảnh.");
         } finally {
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleCapturePhoto = async (media: MediaItem[]) => {
+        setIsCameraOpen(false);
+        try {
+            const newPhotos = (await Promise.all(media.filter(m => m.type === 'photo').map(async (photo) => {
+                const photoBlob = await photoStore.getPhoto(photo.id);
+                if (!photoBlob) return null;
+                const objectUrl = URL.createObjectURL(photoBlob);
+                return { id: photo.id, url: objectUrl };
+            }))).filter(Boolean) as { id: string, url: string }[];
+
+            // setLocalPhotos(prev => [...prev, ...newPhotos]); // Add new photos to old photos
+            setLocalPhotos([...newPhotos]); // Use new photos only
+            setShouldRescanAfterPhoto(true); // Set the flag to trigger rescan
+        } catch (error) {
+            toast.error("Lỗi khi thêm ảnh.");
         }
     };
 
@@ -467,20 +496,36 @@ export default function HandoverDialog({
                                         </div>
                                     )}
                                     {aiError && (
-                                        <Alert variant="destructive" className="mt-4">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertTitle>Lỗi</AlertTitle>
-                                            <AlertDescription>{aiError}</AlertDescription>
-                                        </Alert>
+                                        <div className="mt-4 space-y-2">
+                                            <Alert variant="destructive">
+                                                <AlertCircle className="h-4 w-4" />
+                                                <AlertTitle>Lỗi</AlertTitle>
+                                                <AlertDescription>{aiError}</AlertDescription>
+                                            </Alert>
+                                            {!originalData && !isManualEntry && (
+                                                <Button variant="secondary" className="w-full" onClick={() => setIsManualEntry(true)}>
+                                                    <FileText className="mr-2 h-4 w-4" />
+                                                    Nhập thủ công
+                                                </Button>
+                                            )}
+                                        </div>
                                     )}
-                                     <div className="flex justify-center mt-4">
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full max-w-xs"><Upload className="mr-2 h-4 w-4"/> Tải ảnh</Button>
+                                     <div className="flex justify-center mt-4 w-full">
+                                        {isOwnerView ? (
+                                            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full max-w-xs">
+                                                <Upload className="mr-2 h-4 w-4"/> Tải ảnh
+                                            </Button>
+                                        ) : (
+                                            <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isProcessing} className="w-full max-w-xs">
+                                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
+                                            </Button>
+                                        )}
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" multiple />
                                     </div>
                                 </CardContent>
                             </Card>
                             
-                            {(originalData || handoverData) && (
+                            {(originalData || isManualEntry) && (
                                 <div ref={dataSectionRef} className="space-y-4 rounded-md border bg-muted/30 shadow-inner p-4">
                                     {shiftEndTime && (
                                         <Card><CardContent className="p-3 text-center text-sm font-semibold flex items-center justify-center gap-2"><Clock className="h-4 w-4"/>Thời gian trên phiếu: {format(parseISO(shiftEndTime), 'HH:mm:ss, dd/MM/yyyy')}</CardContent></Card>
@@ -529,6 +574,14 @@ export default function HandoverDialog({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <CameraDialog
+                isOpen={isCameraOpen}
+                onClose={() => setIsCameraOpen(false)}
+                onSubmit={handleCapturePhoto}
+                captureMode="photo"
+                isHD={true}
+            />
 
             <AlertDialog open={serverErrorDialog.open}>
                 <AlertDialogContent>

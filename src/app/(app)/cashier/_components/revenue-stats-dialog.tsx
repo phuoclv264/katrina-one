@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { RevenueStats, AuthUser } from '@/lib/types';
-import { Loader2, Upload, AlertCircle, Clock, Info, Edit, Eye, FileText, ImageIcon, RefreshCw, ServerCrash } from 'lucide-react';
+import type { RevenueStats, AuthUser, MediaItem } from '@/lib/types';
+import { Loader2, Upload, AlertCircle, Clock, Info, Edit, Eye, FileText, ImageIcon, RefreshCw, ServerCrash, Camera } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
 import { photoStore } from '@/lib/photo-store';
@@ -25,6 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
+import CameraDialog from '@/components/camera-dialog';
 
 
 type RevenueStatsDialogProps = {
@@ -130,6 +131,7 @@ export default function RevenueStatsDialog({
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
     
@@ -285,6 +287,7 @@ export default function RevenueStatsDialog({
         setAiError(null);
         const toastId = toast.loading('AI đang phân tích phiếu...');
         setServerErrorDialog({ open: false, imageUri: null });
+        setNewImageDataUri(imageUri);
 
         try {
             const result = await extractRevenueFromImage({ imageDataUri: imageUri });
@@ -313,7 +316,6 @@ export default function RevenueStatsDialog({
                  return;
             }
             
-            setNewImageDataUri(imageUri);
             setReportTimestamp(result.reportTimestamp || null);
 
             const aiData = {
@@ -381,6 +383,20 @@ export default function RevenueStatsDialog({
         }
     };
     
+    const handleCapturePhoto = async (media: MediaItem[]) => {
+        setIsCameraOpen(false);
+        const photo = media.find(m => m.type === 'photo');
+        if (!photo) return;
+
+        const photoBlob = await photoStore.getPhoto(photo.id);
+        if (photoBlob) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                processImage(reader.result as string);
+            };
+            reader.readAsDataURL(photoBlob);
+        }
+    };
     const handleRescan = async () => {
         if (!displayImageDataUri) return;
         
@@ -403,6 +419,18 @@ export default function RevenueStatsDialog({
         }
     }
 
+    const handleManualEntryFromError = () => {
+        if (!displayImageDataUri) {
+            toast.error("Không có ảnh để nhập thủ công.");
+            return;
+        }
+        setAiError(null);
+        setNetRevenue(0);
+        setDeliveryPartnerPayout(0);
+        setRevenueByPaymentMethod(initialPaymentMethods);
+        setAiOriginalData({ netRevenue: 0, deliveryPartnerPayout: 0, revenueByPaymentMethod: initialPaymentMethods, reportTimestamp: reportTimestamp || undefined });
+        toast.success("Chuyển sang nhập thủ công. Vui lòng điền các số liệu.");
+    };
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -446,19 +474,31 @@ export default function RevenueStatsDialog({
                                         </div>
                                     )}
                                     {aiError && (
-                                        <Alert variant="destructive" className="w-full">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertTitle>Lỗi</AlertTitle>
-                                            <AlertDescription>{aiError}</AlertDescription>
-                                        </Alert>
+                                        <div className="w-full space-y-2">
+                                            <Alert variant="destructive">
+                                                <AlertCircle className="h-4 w-4" />
+                                                <AlertTitle>Lỗi</AlertTitle>
+                                                <AlertDescription>{aiError}</AlertDescription>
+                                            </Alert>
+                                            <Button variant="secondary" className="w-full" onClick={handleManualEntryFromError}><FileText className="mr-2 h-4 w-4" /> Nhập thủ công</Button>
+                                        </div>
                                      )}
                                     {canEdit && (
                                         <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
-                                            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full">
-                                                {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                                Tải ảnh phiếu
-                                            </Button>
-                                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                                            {isOwnerView ? (
+                                                <>
+                                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full">
+                                                        {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                                        Tải ảnh phiếu
+                                                    </Button>
+                                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                                                </>
+                                            ) : (
+                                                <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isProcessing} className="w-full">
+                                                    {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                                                    Chụp ảnh phiếu
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </CardContent>
@@ -553,6 +593,15 @@ export default function RevenueStatsDialog({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <CameraDialog
+                isOpen={isCameraOpen}
+                onClose={() => setIsCameraOpen(false)}
+                onSubmit={handleCapturePhoto}
+                captureMode="photo"
+                singlePhotoMode={true}
+                isHD={true}
+            />
 
             <AlertDialog open={showMissingImageAlert} onOpenChange={setShowMissingImageAlert}>
                 <AlertDialogContent>

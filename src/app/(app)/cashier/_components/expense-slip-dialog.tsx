@@ -30,12 +30,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import { Camera } from 'lucide-react';
 import Counter from "yet-another-react-lightbox/plugins/counter";
 import "yet-another-react-lightbox/plugins/counter.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import CameraDialog from '@/components/camera-dialog';
 
 
 function EditItemPopover({ item, onSave, children, inventoryItem }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode, inventoryItem: InventoryItem | undefined }) {
@@ -175,10 +177,15 @@ function AiPreviewDialog({
             <CardContent className="p-3">
               <div className="flex justify-between items-start gap-3">
                  <div className="flex-1">
-                    <p className="font-semibold whitespace-normal">{item.itemName}</p>
+                    <p className="font-semibold whitespace-normal">
+                      {item.itemName}
+                    </p>
                     {inventoryItem && <p className="text-xs text-green-600 dark:text-green-400">→ {inventoryItem.name}</p>}
                  </div>
                  <div className="text-right ml-2 shrink-0">
+
+
+
                      <p className="font-semibold text-base">{(item.totalAmount).toLocaleString('vi-VN')}đ</p>
                  </div>
               </div>
@@ -326,11 +333,13 @@ export default function ExpenseSlipDialog({
     const [localPhotos, setLocalPhotos] = useState<{ id: string, file: File, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
     const [showMissingAttachmentAlert, setShowMissingAttachmentAlert] = useState(false);
+    const [isAttachmentCameraOpen, setIsAttachmentCameraOpen] = useState(false);
 
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [extractionResult, setExtractionResult] = useState<InvoiceExtractionResult | null>(null);
     const [showAiPreview, setShowAiPreview] = useState(false);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
     
     // State to hold the data as scanned by AI, before any user edits.
     const [aiOriginalData, setAiOriginalData] = useState<{ items: ExpenseItem[], discount: number } | null>(null);
@@ -656,6 +665,22 @@ export default function ExpenseSlipDialog({
 
         if(attachmentFileInputRef.current) attachmentFileInputRef.current.value = '';
     };
+
+    const handleAttachmentPhotoCapture = async (media: { id: string; type: 'photo' | 'video' }[]) => {
+        setAiError(null);
+        setShowMissingAttachmentAlert(false);
+        setIsAttachmentCameraOpen(false);
+        // Filter for photos only
+        const photos = media.filter(m => m.type === 'photo');
+        for (const { id: photoId } of photos) {
+            const photoBlob = await photoStore.getPhoto(photoId);
+            if (photoBlob) {
+                const objectUrl = URL.createObjectURL(photoBlob);
+                setLocalPhotos(prev => [...prev, { id: photoId, file: new File([photoBlob], `${photoId}.jpg`, { type: photoBlob.type }), url: objectUrl }]);
+            }
+        }
+    };
+
     const handleDeleteExistingPhoto = (url: string) => {
         setExistingPhotos(prev => prev.filter(p => p.url !== url));
         setPhotosToDelete(prev => [...prev, url]);
@@ -750,9 +775,13 @@ export default function ExpenseSlipDialog({
                                             <Upload className="mr-2 h-4 w-4"/> Tải ảnh lên
                                         </Button>
                                         <input type="file" ref={attachmentFileInputRef} onChange={handleAttachmentPhotoUpload} className="hidden" accept="image/*" multiple />
+                                        <Button variant="outline" className="w-full" onClick={() => {setShowMissingAttachmentAlert(false); setIsAttachmentCameraOpen(true)}}>
+                                            <Camera className="mr-2 h-4 w-4"/> Chụp ảnh mới
+                                        </Button>
                                     </div>
                                     {aiError && (
                                         <Alert variant="destructive" className="mb-4">
+
                                             <AlertCircle className="h-4 w-4" />
                                             <AlertTitle>Lỗi AI</AlertTitle>
                                             <AlertDescription>{aiError}</AlertDescription>
@@ -959,6 +988,13 @@ export default function ExpenseSlipDialog({
                 </DialogContent>
             </Dialog>
             
+            <CameraDialog 
+                isOpen={isAttachmentCameraOpen} 
+                onClose={() => setIsAttachmentCameraOpen(false)} 
+                onSubmit={handleAttachmentPhotoCapture} 
+                captureMode="photo" 
+                isHD={true}
+            />
             {extractionResult && (
                 <AiPreviewDialog 
                     open={showAiPreview} 
