@@ -2,12 +2,12 @@
 /* eslint-disable max-len */
 /* eslint-disable indent */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import {onSchedule} from "firebase-functions/v2/scheduler";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
-import {initializeApp} from "firebase-admin/app";
-import {getFirestore} from "firebase-admin/firestore";
-import {v1} from "@google-cloud/firestore";
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import { initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { v1 } from "@google-cloud/firestore";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -121,4 +121,71 @@ export const createExpenseSlipFromIncident = onDocumentCreated("incidents/{incid
  } catch (error) {
     logger.error(`Failed to create expense slip for incident ID: ${incidentId}`, error);
  }
+});
+
+/**
+ * A Cloud Function that triggers when a new cash handover report is created.
+ * It first checks for duplicates created by the same user within a short time frame (e.g., 2 minutes).
+ * If a duplicate is found (same data, different timestamp), the newly created document is deleted.
+ */
+export const preventDuplicateCashHandover = onDocumentCreated("cash_handover_reports/{reportId}", async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    logger.log("No data associated with the event, skipping.");
+    return;
+  }
+
+  const newReport = snapshot.data();
+  const newReportId = event.params.reportId;
+
+  // Define a time window to check for duplicates (e.g., 2 minutes)
+  const twoMinutes = 2 * 60 * 1000;
+  const checkWindowStart = new Date(newReport.createdAt.toDate().getTime() - twoMinutes);
+
+  // Query for documents from the same user on the same date within the time window
+  const query = db.collection("cash_handover_reports")
+    .where("date", "==", newReport.date)
+    .where("createdBy.userId", "==", newReport.createdBy.userId)
+    .where("createdAt", ">=", checkWindowStart)
+    .where("createdAt", "<", newReport.createdAt);
+
+  const querySnapshot = await query.get();
+
+  if (querySnapshot.empty) {
+    logger.log(`No potential duplicates found for report ${newReportId}.`);
+    return;
+  }
+
+  // Function to compare two reports, ignoring timestamps and IDs
+  const areReportsEqual = (report1: any, report2: any) => {
+    // Sort arrays to ensure order doesn't affect comparison
+    const sortedExpenses1 = [...(report1.linkedExpenseSlipIds || [])].sort();
+    const sortedExpenses2 = [...(report2.linkedExpenseSlipIds || [])].sort();
+    const sortedPhotos1 = [...(report1.discrepancyProofPhotos || [])].sort();
+    const sortedPhotos2 = [...(report2.discrepancyProofPhotos || [])].sort();
+
+    return (
+      report1.actualCashCounted === report2.actualCashCounted &&
+      report1.discrepancyReason === report2.discrepancyReason &&
+      report1.startOfDayCash === report2.startOfDayCash &&
+      report1.linkedRevenueStatsId === report2.linkedRevenueStatsId &&
+      JSON.stringify(sortedExpenses1) === JSON.stringify(sortedExpenses2) &&
+      JSON.stringify(sortedPhotos1) === JSON.stringify(sortedPhotos2)
+    );
+  };
+
+  // Check if any of the recent documents is a duplicate
+  for (const doc of querySnapshot.docs) {
+    const existingReport = doc.data();
+    if (areReportsEqual(newReport, existingReport)) {
+      logger.warn(`Duplicate cash handover report detected. Deleting new report ${newReportId}. It is a duplicate of ${doc.id}.`);
+      try {
+        await db.collection("cash_handover_reports").doc(newReportId).delete();
+        logger.info(`Successfully deleted duplicate report ${newReportId}.`);
+      } catch (error) {
+        logger.error(`Failed to delete duplicate report ${newReportId}.`, error);
+      }
+      return; // Stop after finding the first duplicate
+    }
+  }
 });
