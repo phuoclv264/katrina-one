@@ -4,8 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ChevronLeft, ChevronRight, UserCheck, RefreshCw, Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';import { ArrowLeft, ChevronLeft, ChevronRight, UserCheck, RefreshCw, Loader2, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule } from '@/lib/types';
@@ -14,6 +13,8 @@ import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AttendanceTable from './_components/attendance-table';
 import AttendanceCards from './_components/attendance-cards';
+import EditAttendanceDialog from './_components/edit-attendance-dialog';
+import BulkSalaryDialog from './_components/bulk-salary-dialog';
 import { toast } from 'react-hot-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -29,6 +30,10 @@ export default function AttendancePage() {
     const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isResolving, setIsResolving] = useState(false);
+    const [recordToEdit, setRecordToEdit] = useState<AttendanceRecord | null>(null);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isBulkSalaryDialogOpen, setIsBulkSalaryDialogOpen] = useState(false);
+    const [isSavingSalaries, setIsSavingSalaries] = useState(false);
 
     useEffect(() => {
         if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -64,11 +69,55 @@ export default function AttendancePage() {
     }, [user, currentMonth]);
 
     const totalSalary = useMemo(() => {
-        return attendanceRecords.reduce((total, record) => total + (record.salary || 0), 0);
-    }, [attendanceRecords]);
+        return attendanceRecords.reduce((total, record) => {
+            const user = allUsers.find(u => u.uid === record.userId);
+            const hourlyRate = user?.hourlyRate || 0;
+            const recordTotalHours = record.totalHours || 0;
+            const recordSalary = hourlyRate * recordTotalHours;
+            return total + recordSalary;
+        }, 0);
+    }, [attendanceRecords, allUsers]);
     
     const handleMonthChange = (direction: 'prev' | 'next') => {
         setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
+    };
+
+    const handleEditRecord = (record: AttendanceRecord) => {
+        setRecordToEdit(record);
+        setIsEditDialogOpen(true);
+    };
+
+    const handleSaveRecord = async (id: string, data: { checkInTime: Date, checkOutTime?: Date }) => {
+        const toastId = toast.loading("Đang cập nhật...");
+        try {
+            await dataStore.updateAttendanceRecordDetails(id, data);
+            toast.success("Đã cập nhật bản ghi chấm công.", { id: toastId });
+        } catch (error) {
+            toast.error("Lỗi khi cập nhật.", { id: toastId });
+        }
+    };
+
+    const handleDeleteRecord = async (id: string) => {
+        const toastId = toast.loading("Đang xóa...");
+        try {
+            await dataStore.deleteAttendanceRecord(id);
+            toast.success("Đã xóa bản ghi chấm công.", { id: toastId });
+        } catch (error) {
+            toast.error("Lỗi khi xóa.", { id: toastId });
+        }
+    };
+
+    const handleSaveBulkRates = async (rates: { [userId: string]: number }) => {
+        setIsSavingSalaries(true);
+        const toastId = toast.loading("Đang cập nhật lương...");
+        try {
+            await dataStore.bulkUpdateUserRates(rates);
+            toast.success("Đã cập nhật lương cho tất cả nhân viên.", { id: toastId });
+        } catch (error) {
+            toast.error("Lỗi khi cập nhật lương.", { id: toastId });
+        } finally {
+            setIsSavingSalaries(false);
+        }
     };
 
     const handleResolveUnfinished = async () => {
@@ -100,7 +149,7 @@ export default function AttendancePage() {
     }
     
     return (
-        <div className="container mx-auto p-4 sm:p-6 md:p-8">
+        <>
             <header className="mb-8">
                  <Button asChild variant="ghost" className="-ml-4 mb-4">
                     <Link href="/reports">
@@ -114,6 +163,10 @@ export default function AttendancePage() {
                         <p className="text-muted-foreground mt-2">Xem lại lịch sử chấm công và chi phí lương của nhân viên.</p>
                     </div>
                      <div className="flex flex-col sm:flex-row items-center gap-2">
+                         <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
+                            <DollarSign className="mr-2 h-4 w-4" />
+                            Quản lý Lương
+                         </Button>
                          <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="outline" disabled={isResolving}>
@@ -156,14 +209,33 @@ export default function AttendancePage() {
                     records={attendanceRecords} 
                     users={allUsers} 
                     schedules={schedules} 
+                    onEdit={handleEditRecord}
+                    onDelete={handleDeleteRecord}
                 />
             ) : (
                 <AttendanceTable 
                     records={attendanceRecords} 
                     users={allUsers} 
                     schedules={schedules} 
+                    onEdit={handleEditRecord}
+                    onDelete={handleDeleteRecord}
                 />
             )}
-        </div>
+
+            <EditAttendanceDialog
+                isOpen={isEditDialogOpen}
+                onClose={() => setIsEditDialogOpen(false)}
+                record={recordToEdit}
+                onSave={handleSaveRecord}
+            />
+
+            <BulkSalaryDialog
+                isOpen={isBulkSalaryDialogOpen}
+                onClose={() => setIsBulkSalaryDialogOpen(false)}
+                users={allUsers}
+                onSave={handleSaveBulkRates}
+                isSaving={isSavingSalaries}
+            />
+        </>
     )
 }

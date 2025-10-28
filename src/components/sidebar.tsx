@@ -179,7 +179,7 @@ export function AppSidebar() {
                     {getRoleIcon()}
                 </div>
                 <div className="flex flex-col overflow-hidden">
-                    <span className="font-semibold truncate">{displayName}</span>
+                    <span className="font-semibold">{displayName}</span>
                     <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
                 </div>
             </div>

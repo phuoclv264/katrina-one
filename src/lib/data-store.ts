@@ -299,6 +299,15 @@ export const dataStore = {
     await updateDoc(userRef, data);
   },
 
+  async bulkUpdateUserRates(rates: { [userId: string]: number }): Promise<void> {
+    const batch = writeBatch(db);
+    for (const userId in rates) {
+        const userRef = doc(db, 'users', userId);
+        batch.update(userRef, { hourlyRate: rates[userId] });
+    }
+    await batch.commit();
+  },
+
   async deleteUser(uid: string): Promise<void> {
     
     // 1. Find and delete all reports by this user

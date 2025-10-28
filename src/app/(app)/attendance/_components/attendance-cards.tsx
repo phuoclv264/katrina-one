@@ -3,24 +3,36 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { getStatusInfo, getShiftDetails } from '@/lib/attendance-utils';
-import { Button } from '@/components/ui/button';
-import { Edit2 } from 'lucide-react';
+import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
+import { Edit2, MoreVertical, Trash2 } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
+import { Timestamp } from '@google-cloud/firestore';
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function AttendanceCards({
   records,
   users,
   schedules,
+  onEdit,
+  onDelete,
 }: {
   records: AttendanceRecord[];
   users: ManagedUser[];
   schedules: Record<string, Schedule>;
+  onEdit: (record: AttendanceRecord) => void;
+  onDelete: (id: string) => void;
 }) {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
@@ -41,7 +53,7 @@ export default function AttendanceCards({
     }
   };
 
-  const sortedRecords = [...records].sort((a, b) => new Date(b.checkInTime as string).getTime() - new Date(a.checkInTime as string).getTime());
+  const sortedRecords = [...records].sort((a, b) => (b.checkInTime as Timestamp).toMillis() - (a.checkInTime as Timestamp).toMillis());
 
   if (records.length === 0) {
     return <div className="text-center py-10 text-muted-foreground">Không có dữ liệu chấm công cho tháng này.</div>;
@@ -52,7 +64,7 @@ export default function AttendanceCards({
       <div className="space-y-4">
         {sortedRecords.map(record => {
           const user = users.find(u => u.uid === record.userId);
-          const { shift } = getShiftDetails(record.shiftId, schedules);
+          const shift = findShiftForRecord(record, schedules);
           const statusInfo = getStatusInfo(record, shift);
 
           return (
@@ -68,16 +80,37 @@ export default function AttendanceCards({
                             </Button>
                         </div>
                     </div>
-                    <div className={cn("text-sm font-semibold flex items-center gap-1", statusInfo.color)}>
-                        {statusInfo.icon}
-                        {statusInfo.text}
-                    </div>
+                     <div className="flex items-center">
+                        <div className={cn("text-sm font-semibold flex items-center gap-1", statusInfo.color)}>
+                            {statusInfo.icon}
+                            {statusInfo.text}
+                        </div>
+                        <AlertDialog>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => onEdit(record)}><Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa</DropdownMenuItem>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(record.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                     </div>
                 </div>
               </CardHeader>
               <CardContent className="text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ngày</span>
-                  <span>{format(parseISO(record.checkInTime as string), 'dd/MM/yyyy', { locale: vi })}</span>
+                  <span>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'dd/MM/yyyy', { locale: vi })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ca</span>
@@ -85,7 +118,7 @@ export default function AttendanceCards({
                 </div>
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Giờ vào/ra</span>
-                  <span>{format(parseISO(record.checkInTime as string), 'HH:mm')} - {record.checkOutTime ? format(parseISO(record.checkOutTime as string), 'HH:mm') : '--:--'}</span>
+                  <span>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')} - {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : '--:--'}</span>
                 </div>
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Tổng giờ</span>

@@ -8,6 +8,7 @@ import {
   onSnapshot,
   query,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
   where,
@@ -17,14 +18,17 @@ import {
   writeBatch,
   orderBy,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
+import { ref } from 'firebase/storage';
 import type { AssignedShift, AttendanceRecord, AuthUser, Schedule } from './types';
-import { getISOWeek, startOfMonth, endOfMonth, format, startOfToday } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes } from 'date-fns';
 import { getActiveShifts } from './schedule-utils';
 import { photoStore } from './photo-store';
 import { getSchedule } from './schedule-store';
 import { uploadFile } from './data-store-helpers';
 
+import { differenceInHours } from 'date-fns';
+import { withCoalescedInvoke } from 'next/dist/lib/coalesced-function';
 export async function getActiveShiftForUser(userId: string): Promise<AssignedShift | null> {
     const today = new Date();
     const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
@@ -40,33 +44,44 @@ export async function getActiveShiftForUser(userId: string): Promise<AssignedShi
     return activeShifts[0] || null; // Return the first active shift if any
 }
 
-export function subscribeToAttendanceRecord(userId: string, shiftId: string, callback: (record: AttendanceRecord | null) => void): () => void {
+export function subscribeToLatestAttendanceRecord(userId: string, callback: (record: AttendanceRecord | null) => void): () => void {
     const attendanceCollection = collection(db, 'attendance_records');
-    const q = query(attendanceCollection, where('userId', '==', userId), where('shiftId', '==', shiftId), limit(1));
+    const q = query(
+        attendanceCollection,
+        where('userId', '==', userId),
+        orderBy('checkInTime', 'desc'),
+        limit(1)
+    );
     
     return onSnapshot(q, (snapshot) => {
+        // This will find the most recent record for the user. We then check if
+        // it is 'in-progress' on the client. This avoids needing a composite index.
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
-            callback({ id: doc.id, ...doc.data() } as AttendanceRecord);
+            const record = { id: doc.id, ...doc.data() } as AttendanceRecord;
+            if (record.status === 'in-progress') {
+                callback(record);
+            } else {
+                callback(null);
+            }
         } else {
             callback(null);
         }
     }, (error) => {
-        console.error(`[Firestore Read Error] Could not read attendance record: ${error.code}`);
+        console.error(`[Firestore Read Error] Could not read attendance record: ${error}`);
         callback(null);
     });
 }
 
-export async function createAttendanceRecord(user: AuthUser, shift: AssignedShift, photoId: string): Promise<void> {
+export async function createAttendanceRecord(user: AuthUser, photoId: string): Promise<void> {
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-in.");
 
-    const storagePath = `attendance/${shift.date}/${user.uid}/${shift.id}-in.jpg`;
+    const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${user.uid}/${uuidv4()}-in.jpg`;
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const newRecord: Omit<AttendanceRecord, 'id'> = {
         userId: user.uid,
-        shiftId: shift.id,
         checkInTime: serverTimestamp() as Timestamp,
         photoInUrl: photoUrl,
         status: 'in-progress',
@@ -87,11 +102,22 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-out.");
 
-    const storagePath = `attendance/${recordData.date}/${recordData.userId}/${recordData.shiftId}-out.jpg`;
+    const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${recordData.userId}/${uuidv4()}-out.jpg`;
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
+    const checkInTime = recordData.checkInTime.toDate();
+    const checkOutTime = new Date(); // Use new Date() for consistency
+    const totalHours = differenceInMinutes(checkOutTime, checkInTime) / 60;
+
+    // Fetch user data to get hourly rate
+    const userDoc = await getDoc(doc(db, 'users', recordData.userId));
+    const hourlyRate = userDoc.exists() ? (userDoc.data().hourlyRate || 0) : 0;
+    const salary = totalHours * hourlyRate;
+
     await updateDoc(recordRef, {
-        checkOutTime: serverTimestamp(),
+        checkOutTime: checkOutTime,
+        totalHours: totalHours,
+        salary: salary,
         photoOutUrl: photoUrl,
         status: 'completed',
         updatedAt: serverTimestamp(),
@@ -99,11 +125,59 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     await photoStore.deletePhoto(photoId);
 }
 
+export async function updateAttendanceRecordDetails(recordId: string, data: { checkInTime: Date, checkOutTime?: Date }): Promise<void> {
+    const recordRef = doc(db, 'attendance_records', recordId);
+    const recordSnap = await getDoc(recordRef);
+    if (!recordSnap.exists()) throw new Error("Attendance record not found.");
+
+    const totalHours = data.checkOutTime ? differenceInMinutes(data.checkOutTime, data.checkInTime)/60 : 0;
+    const status = data.checkOutTime ? 'completed' : 'in-progress';
+
+    const userDoc = await getDoc(doc(db, 'users', recordSnap.data().userId));
+    const hourlyRate = userDoc.exists() ? (userDoc.data().hourlyRate || 0) : 0;
+    const salary = totalHours * hourlyRate;
+
+    await updateDoc(recordRef, {
+        checkInTime: data.checkInTime,
+        checkOutTime: data.checkOutTime || null,
+        totalHours: totalHours,
+        salary: salary,
+        status: status,
+        updatedAt: serverTimestamp(),
+    });
+}
+
+export async function deleteAttendanceRecord(recordId: string): Promise<void> {
+    await deleteDoc(doc(db, 'attendance_records', recordId));
+}
+
 export function subscribeToAllAttendanceRecordsForMonth(date: Date, callback: (records: AttendanceRecord[]) => void): () => void {
     const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', startOfMonth(date)), where('checkInTime', '<=', endOfMonth(date)), orderBy('checkInTime', 'desc'));
     return onSnapshot(q, (snapshot) => {
         const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
         callback(records);
+    });
+}
+
+export function subscribeToUserAttendanceForToday(userId: string, callback: (records: AttendanceRecord[]) => void): () => void {
+    const attendanceCollection = collection(db, 'attendance_records');
+    const todayStart = startOfToday();
+    const todayEnd = endOfToday();
+
+    const q = query(
+        attendanceCollection,
+        where('userId', '==', userId),
+        where('checkInTime', '>=', todayStart),
+        where('checkInTime', '<=', todayEnd),
+        orderBy('checkInTime', 'desc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        callback(records);
+    }, (error) => {
+        console.error(`[Firestore Read Error] Could not read today's attendance records: ${error}`);
+        callback([]);
     });
 }
 

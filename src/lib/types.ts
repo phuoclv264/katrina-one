@@ -612,7 +612,6 @@ export type WhistleblowingReport = {
 export type AttendanceRecord = {
   id: string;
   userId: string;
-  shiftId: string;
   checkInTime: string | Timestamp;
   photoInUrl: string;
   checkOutTime?: string | Timestamp;

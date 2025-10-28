@@ -3,24 +3,35 @@
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { getStatusInfo, getShiftDetails } from '@/lib/attendance-utils';
-import { Eye, Edit2 } from 'lucide-react';
+import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';import { Edit2, Trash2, MoreVertical } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
+import { Timestamp } from '@google-cloud/firestore';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function AttendanceTable({
   records,
   users,
   schedules,
+  onEdit,
+  onDelete,
 }: {
   records: AttendanceRecord[];
   users: ManagedUser[];
   schedules: Record<string, Schedule>;
+  onEdit: (record: AttendanceRecord) => void;
+  onDelete: (id: string) => void;
 }) {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
@@ -41,7 +52,7 @@ export default function AttendanceTable({
     }
   };
 
-  const sortedRecords = [...records].sort((a, b) => new Date(b.checkInTime as string).getTime() - new Date(a.checkInTime as string).getTime());
+  const sortedRecords = [...records].sort((a, b) => (b.checkInTime as Timestamp).toMillis() - (a.checkInTime as Timestamp).toMillis());
 
   return (
     <>
@@ -56,12 +67,13 @@ export default function AttendanceTable({
               <TableHead>Tổng giờ</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="text-right">Lương</TableHead>
+              <TableHead className="text-right">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedRecords.map(record => {
               const user = users.find(u => u.uid === record.userId);
-              const { shift, weekId } = getShiftDetails(record.shiftId, schedules);
+              const shift = findShiftForRecord(record, schedules);
               const statusInfo = getStatusInfo(record, shift);
 
               return (
@@ -75,14 +87,14 @@ export default function AttendanceTable({
                         </Button>
                     </div>
                   </TableCell>
-                  <TableCell>{format(parseISO(record.checkInTime as string), 'dd/MM/yyyy', { locale: vi })}</TableCell>
+                  <TableCell>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'dd/MM/yyyy', { locale: vi })}</TableCell>
                   <TableCell>
                     <div>{shift?.label}</div>
                     <div className="text-xs text-muted-foreground">{shift?.timeSlot.start} - {shift?.timeSlot.end}</div>
                   </TableCell>
                   <TableCell>
-                    <div>Vào: {format(parseISO(record.checkInTime as string), 'HH:mm')}</div>
-                    <div>Ra: {record.checkOutTime ? format(parseISO(record.checkOutTime as string), 'HH:mm') : '--:--'}</div>
+                    <div>Vào: {format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')}</div>
+                    <div>Ra: {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : '--:--'}</div>
                   </TableCell>
                   <TableCell>{record.totalHours?.toFixed(2) || 'N/A'}</TableCell>
                   <TableCell>
@@ -93,6 +105,31 @@ export default function AttendanceTable({
                   </TableCell>
                   <TableCell className="text-right font-semibold">
                     {record.salary?.toLocaleString('vi-VN')}đ
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => onEdit(record)}>
+                                    <Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa
+                                </DropdownMenuItem>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                                    </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(record.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               );

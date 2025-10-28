@@ -109,7 +109,6 @@ export default function CameraDialog({
         streamRef.current = stream;
         
         if (videoRef.current) {
-            console.log("Camera start: ...");
             videoRef.current.srcObject = stream;
             await videoRef.current.play();
             setHasPermission(true);
