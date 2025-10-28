@@ -26,12 +26,12 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval } from 'date-fns';
-import { hasTimeConflict } from './schedule-utils';
+import { hasTimeConflict, getActiveShifts } from './schedule-utils';
 import isEqual from 'lodash.isequal';
 import * as scheduleStore from './schedule-store';
 
@@ -73,6 +73,81 @@ const severityOrder: Record<ViolationCategory['severity'], number> = {
 export const dataStore = {
     ...scheduleStore, // Spread all functions from schedule-store
     
+    // --- Attendance ---
+    async getActiveShiftForUser(userId: string): Promise<AssignedShift | null> {
+        const today = new Date();
+        const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
+        const schedule = await this.getSchedule(weekId);
+        if (!schedule || schedule.status !== 'published') {
+            return null;
+        }
+        const todayKey = format(today, 'yyyy-MM-dd');
+        const assignedShiftsToday = schedule.shifts.filter(
+            shift => shift.date === todayKey && shift.assignedUsers.some(u => u.userId === userId)
+        );
+        const activeShifts = getActiveShifts(assignedShiftsToday);
+        return activeShifts[0] || null; // Return the first active shift if any
+    },
+
+    subscribeToAttendanceRecord(userId: string, shiftId: string, callback: (record: AttendanceRecord | null) => void): () => void {
+        const attendanceCollection = collection(db, 'attendance_records');
+        const q = query(attendanceCollection, where('userId', '==', userId), where('shiftId', '==', shiftId), limit(1));
+        
+        return onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+                const doc = snapshot.docs[0];
+                callback({ id: doc.id, ...doc.data() } as AttendanceRecord);
+            } else {
+                callback(null);
+            }
+        }, (error) => {
+            console.error(`[Firestore Read Error] Could not read attendance record: ${error.code}`);
+            callback(null);
+        });
+    },
+
+    async createAttendanceRecord(user: AuthUser, shift: AssignedShift, photoId: string): Promise<void> {
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) throw new Error("Local photo not found for check-in.");
+
+        const storagePath = `attendance/${shift.date}/${user.uid}/${shift.id}-in.jpg`;
+        const photoUrl = await this.uploadFile(photoBlob, storagePath);
+
+        const newRecord: Omit<AttendanceRecord, 'id'> = {
+            userId: user.uid,
+            shiftId: shift.id,
+            checkInTime: serverTimestamp(),
+            photoInUrl: photoUrl,
+            status: 'in-progress',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        };
+
+        await addDoc(collection(db, 'attendance_records'), newRecord);
+        await photoStore.deletePhoto(photoId);
+    },
+    
+    async updateAttendanceRecord(recordId: string, photoId: string): Promise<void> {
+        const recordRef = doc(db, 'attendance_records', recordId);
+        const recordSnap = await getDoc(recordRef);
+        if (!recordSnap.exists()) throw new Error("Attendance record not found.");
+        const recordData = recordSnap.data();
+
+        const photoBlob = await photoStore.getPhoto(photoId);
+        if (!photoBlob) throw new Error("Local photo not found for check-out.");
+
+        const storagePath = `attendance/${recordData.date}/${recordData.userId}/${recordData.shiftId}-out.jpg`;
+        const photoUrl = await this.uploadFile(photoBlob, storagePath);
+
+        await updateDoc(recordRef, {
+            checkOutTime: serverTimestamp(),
+            photoOutUrl: photoUrl,
+            status: 'completed',
+            updatedAt: serverTimestamp(),
+        });
+        await photoStore.deletePhoto(photoId);
+    },
+
     // --- Global Units ---
     subscribeToGlobalUnits(callback: (units: GlobalUnit[]) => void): () => void {
         const docRef = doc(db, 'app-data', 'unitDefinitions');

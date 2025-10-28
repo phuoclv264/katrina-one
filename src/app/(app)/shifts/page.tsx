@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -10,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import CheckInCard from '../_components/check-in-card';
 
 const mainShiftInfo = {
     sang: { name: "Ca Sáng", icon: Sun, href: "/checklist/sang" },
@@ -73,6 +73,7 @@ export default function ShiftsPage() {
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md space-y-6">
+        <CheckInCard />
         <Card>
           <CardHeader>
             <CardTitle>Checklist Công việc</CardTitle>
