@@ -168,7 +168,7 @@ export const createExpenseSlipForDeliveryPayout = onDocumentWritten("revenue_sta
     return;
   }
 
-  const payoutAmount = revenueData.deliveryPartnerPayout || 0;
+  const payoutAmount = revenueData.deliveryPartnerPayout ? Math.abs(revenueData.deliveryPartnerPayout) : 0;
 
   // Find an existing auto-generated expense slip for this date
   const expenseSlipsRef = db.collection("expense_slips");
@@ -186,7 +186,7 @@ export const createExpenseSlipForDeliveryPayout = onDocumentWritten("revenue_sta
   //   return;
   // }
 
-  if (payoutAmount <= 0) {
+  if (payoutAmount === 0) {
     // If the new payout is zero but a slip exists, delete the slip.
     if (existingSlip) {
       logger.log(`Payout for ${revenueData.date} is now 0. Deleting existing auto-generated expense slip ${existingSlip.id}.`);

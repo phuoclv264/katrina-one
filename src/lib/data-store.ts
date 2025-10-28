@@ -26,14 +26,16 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval } from 'date-fns';
-import { hasTimeConflict } from './schedule-utils';
+import { hasTimeConflict, getActiveShifts } from './schedule-utils';
 import isEqual from 'lodash.isequal';
 import * as scheduleStore from './schedule-store';
+import * as attendanceStore from './attendance-store';
+import { deleteFileByUrl } from './data-store-helpers';
 
 
 const getTodaysDateKey = () => {
@@ -72,6 +74,7 @@ const severityOrder: Record<ViolationCategory['severity'], number> = {
 
 export const dataStore = {
     ...scheduleStore, // Spread all functions from schedule-store
+    ...attendanceStore, // Spread all functions from attendance-store
     
     // --- Global Units ---
     subscribeToGlobalUnits(callback: (units: GlobalUnit[]) => void): () => void {
@@ -232,22 +235,6 @@ export const dataStore = {
     },
 
     /**
-     * Xóa một file khỏi Firebase Storage bằng URL của nó.
-     * @param fileUrl URL của file cần xóa.
-     */
-    async deleteFileByUrl(fileUrl: string): Promise<void> {
-        if (typeof window === 'undefined' || !fileUrl.includes('firebasestorage.googleapis.com')) return;
-        try {
-            const fileRef = ref(storage, fileUrl);
-            await deleteObject(fileRef);
-        } catch (error: any) {
-            if (error.code !== 'storage/object-not-found') {
-                console.error("Lỗi khi xóa file từ Storage:", error);
-            }
-        }
-    },
-
-    /**
      * [MỚI] Tạo hoặc Cập nhật chi tiết của một biên bản bàn giao cuối ca.
      * - Nếu có `reportId`, cập nhật báo cáo đó.
      * - Nếu không có `reportId` nhưng có `date`, tìm báo cáo mới nhất trong ngày đó và thêm chi tiết vào.
@@ -281,7 +268,7 @@ export const dataStore = {
         let imageUrl = (await getDoc(reportRef)).data()?.finalHandoverDetails?.receiptImageUrl || null;
 
         if (photosToDelete && photosToDelete.length > 0) {
-            await Promise.all(photosToDelete.map((url: string) => this.deleteFileByUrl(url)));
+            await Promise.all(photosToDelete.map((url: string) => deleteFileByUrl(url)));
             imageUrl = null;
         }
 
@@ -289,7 +276,7 @@ export const dataStore = {
             const photoId = newPhotoIds[0];
             const photoBlob = await photoStore.getPhoto(photoId);
             if (photoBlob) {
-                if (imageUrl) await this.deleteFileByUrl(imageUrl); // Delete old image if a new one is uploaded
+                if (imageUrl) await deleteFileByUrl(imageUrl); // Delete old image if a new one is uploaded
                 imageUrl = await this.uploadFile(photoBlob, `final-handover-receipts/${reportDate}/${reportId}-${photoId}.jpg`);
                 await photoStore.deletePhoto(photoId);
             }

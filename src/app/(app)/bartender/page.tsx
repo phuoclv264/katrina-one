@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -10,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import CheckInCard from '../_components/check-in-card';
 
 export default function BartenderDashboardPage() {
   const { user, loading, isOnActiveShift, todaysShifts } = useAuth();
@@ -41,6 +41,7 @@ export default function BartenderDashboardPage() {
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md space-y-6">
+        <CheckInCard />
         <Card>
           <CardHeader>
             <CardTitle>Danh mục Báo cáo Pha chế</CardTitle>

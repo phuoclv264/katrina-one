@@ -19,13 +19,14 @@ import {
   addDoc,
   deleteDoc,
   writeBatch,
+  collectionGroup,
   runTransaction,
   or,
   and,
   arrayUnion,
 } from 'firebase/firestore';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot } from './types';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 
 
@@ -99,6 +100,8 @@ export function subscribeToAllSchedules(callback: (schedules: Schedule[]) => voi
         console.warn(`[Firestore Read Error] Could not read all schedules: ${error.code}`);
         callback([]);
     });
+
+    return unsubscribe;
 }
 
 export async function getSchedulesForMonth(date: Date): Promise<Schedule[]> {
@@ -118,6 +121,29 @@ export async function getSchedulesForMonth(date: Date): Promise<Schedule[]> {
     return scheduleDocs
         .filter(docSnap => docSnap.exists())
         .map(docSnap => ({...docSnap.data(), weekId: docSnap.id} as Schedule));
+}
+
+export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: Schedule[]) => void): () => void {
+    const monthStart = startOfMonth(date);
+    const monthEnd = endOfMonth(date);
+
+    const weeks = eachWeekOfInterval({
+        start: monthStart,
+        end: monthEnd,
+    }, { weekStartsOn: 1 });
+
+    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+
+    if (weekIds.length === 0) {
+        callback([]);
+        return () => {}; // Return a no-op unsubscribe function
+    }
+
+    const q = query(collection(db, 'schedules'), where('weekId', 'in', weekIds));
+    return onSnapshot(q, (snapshot) => {
+        const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+        callback(schedules);
+    });
 }
 
 export async function updateSchedule(weekId: string, data: Partial<Schedule>): Promise<void> {
@@ -305,7 +331,7 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
     const newNotification: Omit<Notification, 'id'> = {
         type: 'pass_request',
         status: 'pending',
-        createdAt: serverTimestamp(),
+        createdAt: serverTimestamp() as Timestamp,
         payload: {
             weekId: weekId,
             shiftId: shiftToPass.id,
@@ -404,7 +430,7 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
     const newNotification: Omit<Notification, 'id'> = {
         type: 'pass_request',
         status: 'pending',
-        createdAt: serverTimestamp(),
+        createdAt: serverTimestamp() as Timestamp,
         payload: payload
     };
     await addDoc(collection(db, "notifications"), newNotification);

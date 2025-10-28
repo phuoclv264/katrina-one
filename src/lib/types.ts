@@ -17,6 +17,7 @@ export type ManagedUser = {
   role: UserRole;
   secondaryRoles?: UserRole[];
   notes?: string;
+  hourlyRate?: number; // Added for payroll
 };
 
 export type AppSettings = {
@@ -605,4 +606,20 @@ export type WhistleblowingReport = {
   commentCount?: number;
   comments?: ReportComment[];
   anonymousNameMap?: { [userId: string]: string };
+};
+
+// --- Attendance Types ---
+export type AttendanceRecord = {
+  id: string;
+  userId: string;
+  shiftId: string;
+  checkInTime: string | Timestamp;
+  photoInUrl: string;
+  checkOutTime?: string | Timestamp;
+  photoOutUrl?: string;
+  status: 'in-progress' | 'completed' | 'auto-completed';
+  totalHours?: number;
+  salary?: number;
+  createdAt: string | Timestamp;
+  updatedAt: string | Timestamp;
 };

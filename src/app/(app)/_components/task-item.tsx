@@ -170,7 +170,7 @@ const TaskItemComponent = ({
                     <TooltipProvider>
                         <Tooltip>
                         <TooltipTrigger asChild>
-                             <Button size="xs" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => onPhotoAction(task, cIndex)}>
+                             <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => onPhotoAction(task, cIndex)}>
                                 <FilePlus2 className="h-3 w-3" />
                             </Button>
                         </TooltipTrigger>
@@ -183,7 +183,7 @@ const TaskItemComponent = ({
                   {!isReadonly && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild disabled={isReadonly}>
-                      <Button size="xs" variant="ghost" className="text-destructive hover:bg-destructive/10">
+                      <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10">
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </AlertDialogTrigger>

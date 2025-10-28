@@ -32,6 +32,7 @@ const pathToTitleMap: { [key: string]: string } = {
     '/schedule': 'Lịch làm việc',
     '/shift-scheduling': 'Xếp lịch & Phê duyệt',
     '/reports-feed': 'Tố cáo',
+    '/attendance': 'Quản lý Chấm công', // Added this line
 };
 
 export function MobileHeader() {

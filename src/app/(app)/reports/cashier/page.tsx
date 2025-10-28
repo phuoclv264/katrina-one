@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion } from '@/components/ui/accordion';
-import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus } from 'lucide-react';
+import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus, ChevronsUpDown } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
@@ -183,6 +183,19 @@ export default function CashierReportsPage() {
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  const sortedDatesInMonth = useMemo(() => {
+    const today = new Date();
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const effectiveEndDate = isSameMonth(currentMonth, today) && isBefore(today, monthEnd) ? today : monthEnd;
+
+    const allDays = eachDayOfInterval({ start: monthStart, end: effectiveEndDate });
+    
+    return allDays.map(day => format(day, 'yyyy-MM-dd')).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  }, [currentMonth]);
+
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
   const reportsForCurrentMonth = useMemo(() => {
     const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] }} = {};
     const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | CashHandoverReport)[]) => {
@@ -314,21 +327,27 @@ export default function CashierReportsPage() {
     }
   }, [allMonthsWithData]);
 
-  const sortedDatesInMonth = useMemo(() => {
-    const today = new Date();
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-    const effectiveEndDate = isSameMonth(currentMonth, today) && isBefore(today, monthEnd) ? today : monthEnd;
-
-    const allDays = eachDayOfInterval({ start: monthStart, end: effectiveEndDate });
-    
-    return allDays.map(day => format(day, 'yyyy-MM-dd')).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-  }, [currentMonth]);
+  useEffect(() => {
+    if (sortedDatesInMonth.length > 0) {
+      setOpenAccordionItems(sortedDatesInMonth.slice(0, 1));
+    } else {
+      setOpenAccordionItems([]);
+    }
+  }, [sortedDatesInMonth]);
   
   const monthlyRevenueStats = useMemo(() => revenueStats.filter(stat => isSameMonth(parseISO(stat.date), currentMonth)), [revenueStats, currentMonth]);
   const monthlyExpenseSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth)), [expenseSlips, currentMonth]);
   const monthlyIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth)), [incidents, currentMonth]);
 
+  const handleToggleAllAccordions = () => {
+    if (openAccordionItems.length === sortedDatesInMonth.length) {
+      // If all are open, close all
+      setOpenAccordionItems([]);
+    } else {
+      // Otherwise, open all
+      setOpenAccordionItems(sortedDatesInMonth);
+    }
+  };
 
   const handleMonthChange = (direction: 'prev' | 'next') => setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
   const isNextMonthButtonDisabled = useMemo(() => allMonthsWithData.length > 0 && format(currentMonth, 'yyyy-MM') === allMonthsWithData[0], [currentMonth, allMonthsWithData]);
@@ -574,7 +593,14 @@ export default function CashierReportsPage() {
               onOpenUnpaidDialog={() => setIsUnpaidSlipsDialogOpen(true)}
             />
 
-            <Accordion type="multiple" defaultValue={sortedDatesInMonth.slice(0, 1)} className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={handleToggleAllAccordions} disabled={sortedDatesInMonth.length === 0}>
+                <ChevronsUpDown className="mr-2 h-4 w-4" />
+                {openAccordionItems.length === sortedDatesInMonth.length ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+              </Button>
+            </div>
+
+            <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="space-y-4">
               {sortedDatesInMonth.map(date => {
                 const dayReports = reportsForCurrentMonth[date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
                 return (
