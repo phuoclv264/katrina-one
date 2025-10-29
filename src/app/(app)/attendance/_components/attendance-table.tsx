@@ -78,8 +78,8 @@ export default function AttendanceTable({
           <TableBody>
             {sortedRecords.map(record => {
               const user = users.find(u => u.uid === record.userId);
-              const shift = findShiftForRecord(record, schedules);
-              const statusInfo = getStatusInfo(record, shift);
+              const shifts = findShiftForRecord(record, schedules);
+              const statusInfo = getStatusInfo(record, shifts[0] || null);
 
               return (
                 <TableRow key={record.id}>
@@ -94,8 +94,12 @@ export default function AttendanceTable({
                   </TableCell>
                   <TableCell>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'dd/MM/yyyy', { locale: vi })}</TableCell>
                   <TableCell>
-                    <div>{shift?.label}</div>
-                    <div className="text-xs text-muted-foreground">{shift?.timeSlot.start} - {shift?.timeSlot.end}</div>
+                    {shifts.map(shift => (
+                        <div key={shift.id}>
+                            <div>{shift.label}</div>
+                            <div className="text-xs text-muted-foreground">{shift.timeSlot.start} - {shift.timeSlot.end}</div>
+                        </div>
+                    ))}
                   </TableCell>
                   <TableCell>
                     <div>Vào: {format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')}</div>

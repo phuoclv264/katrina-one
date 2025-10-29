@@ -67,8 +67,8 @@ export default function AttendanceCards({
       <div className="space-y-4">
         {sortedRecords.map(record => {
           const user = users.find(u => u.uid === record.userId);
-          const shift = findShiftForRecord(record, schedules);
-          const statusInfo = getStatusInfo(record, shift);
+          const shifts = findShiftForRecord(record, schedules);
+          const statusInfo = getStatusInfo(record, shifts[0] || null);
 
           return (
             <Card key={record.id}>
@@ -117,7 +117,7 @@ export default function AttendanceCards({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ca</span>
-                  <span>{shift?.label} ({shift?.timeSlot.start} - {shift?.timeSlot.end})</span>
+                  <span>{shifts.map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`).join(', ')}</span>
                 </div>
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Giờ vào/ra</span>

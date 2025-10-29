@@ -17,31 +17,37 @@ export function getShiftDetails(shiftId: string, schedules: Record<string, Sched
     return { shift: null, weekId: null };
 }
 
-export function findShiftForRecord(record: AttendanceRecord, schedules: Record<string, Schedule>): AssignedShift | null {
+export function findShiftForRecord(record: AttendanceRecord, schedules: Record<string, Schedule>): AssignedShift[] {
     const checkInTime = (record.checkInTime as Timestamp).toDate();
+    const checkOutTime = record.checkOutTime ? (record.checkOutTime as Timestamp).toDate() : null;
     const recordDate = format(checkInTime, 'yyyy-MM-dd');
+    const allMatchingShifts: AssignedShift[] = [];
 
     for (const weekId in schedules) {
         const schedule = schedules[weekId];
-        const matchingShift = schedule.shifts.find(shift => {
+        const matchingShiftsInWeek = schedule.shifts.filter(shift => {
             if (shift.date !== recordDate || !shift.assignedUsers.some(u => u.userId === record.userId)) {
                 return false;
             }
 
             const [startHour, startMinute] = shift.timeSlot.start.split(':').map(Number);
             const [endHour, endMinute] = shift.timeSlot.end.split(':').map(Number);
-            
-            const shiftDate = new Date(shift.date);
-            const validStartTime = set(shiftDate, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
-            validStartTime.setHours(validStartTime.getHours() - 1);
-            const validEndTime = set(shiftDate, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
-            validEndTime.setHours(validEndTime.getHours() + 1);
 
-            return isWithinInterval(checkInTime, { start: validStartTime, end: validEndTime });
+            const shiftDate = new Date(shift.date);
+            const shiftStartTime = set(shiftDate, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
+            const shiftEndTime = set(shiftDate, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
+
+            // If there's a check-out time, check if the attendance record interval overlaps with the shift interval.
+            if (checkOutTime) {
+                return checkInTime < shiftEndTime && checkOutTime > shiftStartTime;
+            }
+
+            // If only check-in, check if it's within an hour of the shift start.
+            return isWithinInterval(checkInTime, { start: shiftStartTime, end: shiftEndTime });
         });
-        if (matchingShift) return matchingShift;
+        allMatchingShifts.push(...matchingShiftsInWeek);
     }
-    return null;
+    return allMatchingShifts;
 }
 
 export function getStatusInfo(record: AttendanceRecord, shift: AssignedShift | null): { text: string; icon: React.ReactNode; color: string } {

@@ -105,8 +105,8 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
 
     if (width <= 0) return null;
 
-    const shift = findShiftForRecord(record, {}); // Note: Schedules are handled at the day level
-    const statusInfo = getStatusInfo(record, shift);
+    const shifts = findShiftForRecord(record, {}); // Note: Schedules are handled at the day level
+    const statusInfo = getStatusInfo(record, shifts[0] || null);
 
     return (
         <TooltipProvider delayDuration={100}>
@@ -127,7 +127,7 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
                 <TooltipContent className="bg-card border-primary text-foreground">
                     <div className="p-2 text-sm space-y-1">
                         <p><strong>Nhân viên:</strong> {user?.displayName}</p>
-                        {shift && <p><strong>Ca làm:</strong> {shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})</p>}
+                        {shifts.length > 0 && <p><strong>Ca làm:</strong> {shifts.map(s => `${s.label} (${s.timeSlot.start} - ${s.timeSlot.end})`).join(', ')}</p>}
                         <p><strong>Giờ vào:</strong> {format(checkInTime, 'HH:mm')}</p>
                         <p><strong>Giờ ra:</strong> {format(checkOutTime, 'HH:mm')}</p>
                         <p><strong>Tổng giờ:</strong> {record.totalHours?.toFixed(2) || 'N/A'} giờ</p>
@@ -213,36 +213,36 @@ export default function AttendanceTimeline({
     return (
         <Card className="w-full max-w-screen-xl mx-auto">
             <CardContent className="p-0">
-                    <div className="flex w-full">
-                        {/* Sticky Date Column Header */}
-                        <div className="left-0 w-48 shrink-0 border-r bg-card">
-                            <div className="flex h-14 items-center justify-center border-b p-2 text-center font-semibold">
-                                Ngày
-                            </div>
-                        </div>
-
-                        {/* Timeline Area */}
-                        <div className="w-full">
-                            {/* Timeline Header */}
-                            <div className="top-0 flex h-14 items-center border-b bg-card">
-                                {Array.from({ length: TOTAL_HOURS_DISPLAYED }, (_, i) => i + 5).map((hour) => (
-                                    <div key={hour} className="relative flex-1 shrink-0 text-center text-xs text-muted-foreground" style={{ minWidth: '20px' }}>
-                                        <span className="absolute -left-px top-0 h-full border-l border-dashed" />
-                                        <span className="inline-block pt-1">{hour.toString().padStart(2, '0')}</span>
-                                    </div>
-                                ))}
-                            </div>
+                <div className="flex w-full">
+                    {/* Sticky Date Column Header */}
+                    <div className="left-0 w-48 shrink-0 border-r bg-card">
+                        <div className="flex h-14 items-center justify-center border-b p-2 text-center font-semibold">
+                            Ngày
                         </div>
                     </div>
 
-                    {/* Body */}
+                    {/* Timeline Area */}
                     <div className="w-full">
+                        {/* Timeline Header */}
+                        <div className="top-0 flex h-14 items-center border-b bg-card">
+                            {Array.from({ length: TOTAL_HOURS_DISPLAYED }, (_, i) => i + 5).map((hour) => (
+                                <div key={hour} className="relative flex-1 shrink-0 text-center text-xs text-muted-foreground" style={{ minWidth: '20px' }}>
+                                    <span className="absolute -left-px top-0 h-full border-l border-dashed" />
+                                    <span className="inline-block pt-1">{hour.toString().padStart(2, '0')}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="w-full">
                     {sortedDays.map((day) => {
                         const dayDate = new Date(day);
                         const weekId = `${getYear(dayDate)}-W${getISOWeek(dayDate)}`;
                         const scheduleForDay = schedules[weekId];
                         const shiftsForDay = scheduleForDay?.shifts.filter((s) => s.date === day) || [];
-                        
+
                         return (
                             <div key={day} className="flex border-b">
                                 <div className="left-0 w-48 shrink-0 border-r bg-card py-2 px-3">
@@ -288,26 +288,26 @@ export default function AttendanceTimeline({
                                                 return acc;
                                             }, {} as Record<string, AttendanceRecord[]>)
                                         )
-                                        .sort(([userIdA], [userIdB]) => {
-                                            const userA = users.find(u => u.uid === userIdA);
-                                            const userB = users.find(u => u.uid === userIdB);
-                                            const roleAOrder = userA?.role ? roleOrder[userA.role] || 99 : 99;
-                                            const roleBOrder = userB?.role ? roleOrder[userB.role] || 99 : 99;
-                                            return roleAOrder - roleBOrder;
-                                        })
-                                        .map(([userId, userRecords]) => (
-                                            <div key={userId} className="relative h-7">
-                                                {userRecords.map(record => (
-                                                    <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} />
-                                                ))}
-                                            </div>
-                                        ))}
+                                            .sort(([userIdA], [userIdB]) => {
+                                                const userA = users.find(u => u.uid === userIdA);
+                                                const userB = users.find(u => u.uid === userIdB);
+                                                const roleAOrder = userA?.role ? roleOrder[userA.role] || 99 : 99;
+                                                const roleBOrder = userB?.role ? roleOrder[userB.role] || 99 : 99;
+                                                return roleAOrder - roleBOrder;
+                                            })
+                                            .map(([userId, userRecords]) => (
+                                                <div key={userId} className="relative h-7">
+                                                    {userRecords.map(record => (
+                                                        <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} />
+                                                    ))}
+                                                </div>
+                                            ))}
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
-                    </div>
+                </div>
             </CardContent>
         </Card>
     );
