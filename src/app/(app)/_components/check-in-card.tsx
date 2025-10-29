@@ -11,6 +11,9 @@ import CameraDialog from '@/components/camera-dialog';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { Timestamp } from '@google-cloud/firestore';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
 export default function CheckInCard() {
     const { user, loading: authLoading } = useAuth();
@@ -20,6 +23,10 @@ export default function CheckInCard() {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
     
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -27,6 +34,27 @@ export default function CheckInCard() {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000 * 60);
         return () => clearInterval(timer);
     }, []);
+
+    // Back button handling for Lightbox
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (isLightboxOpen) {
+                event.preventDefault();
+                setIsLightboxOpen(false);
+            }
+        };
+
+        if (isLightboxOpen) {
+            window.history.pushState({ lightbox: 'open' }, '');
+            window.addEventListener('popstate', handlePopState);
+        } else {
+            if (window.history.state?.lightbox) {
+                window.history.back();
+            }
+        }
+
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isLightboxOpen]);
 
     useEffect(() => {
         if (!user || authLoading) return;
@@ -103,17 +131,35 @@ export default function CheckInCard() {
         return null;
     }
 
+    const handleOpenLightbox = (slides: { src: string }[], index: number) => {
+        setLightboxSlides(slides);
+        setLightboxIndex(index);
+        setIsLightboxOpen(true);
+    };
+
     const renderStatus = () => {
         if (latestRecord && latestRecord.status === 'completed') {
             const checkInTime = new Date((latestRecord.checkInTime as Timestamp).seconds * 1000);
             const checkOutTime = new Date((latestRecord.checkOutTime as Timestamp).seconds * 1000);
             return (
-                 <div className="text-center py-4">
+                 <div className="text-center">
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                     <p className="font-semibold text-lg">Ca làm việc đã kết thúc</p>
                     <p className="text-sm text-muted-foreground">
                         Vào: {checkInTime ? format(checkInTime, 'HH:mm') : '--:--'} - Ra: {checkOutTime ? format(checkOutTime, 'HH:mm') : '--:--'}
                     </p>
+                    <div className="flex justify-center gap-4 mt-4">
+                        <button onClick={() => handleOpenLightbox([{src: latestRecord.photoInUrl}], 0)} className="relative h-24 w-24 rounded-lg overflow-hidden cursor-pointer">
+                            <Image src={latestRecord.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                            <div className="absolute bottom-0 w-full bg-black/50 text-white text-xs text-center py-0.5">Ảnh vào</div>
+                        </button>
+                        {latestRecord.photoOutUrl && (
+                            <button onClick={() => handleOpenLightbox([{src: latestRecord.photoOutUrl!}], 0)} className="relative h-24 w-24 rounded-lg overflow-hidden cursor-pointer">
+                                <Image src={latestRecord.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                                <div className="absolute bottom-0 w-full bg-black/50 text-white text-xs text-center py-0.5">Ảnh ra</div>
+                            </button>
+                        )}
+                    </div>
                 </div>
             );
         }
@@ -165,9 +211,9 @@ export default function CheckInCard() {
             <Card className="mb-6 shadow-lg border-primary/20 bg-gradient-to-br from-card to-primary/5">
                 <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
                     {latestRecord && (
-                        <div className="relative h-16 w-16 rounded-full overflow-hidden shrink-0">
-                            <Image src={latestRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" />
-                        </div>
+                        <button onClick={() => handleOpenLightbox([{src: latestRecord.photoInUrl}], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
+                            <Image src={latestRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                        </button>
                     )}
                     <div className="flex-1">
                         <CardTitle className="text-xl">{user?.displayName}</CardTitle>
@@ -188,6 +234,13 @@ export default function CheckInCard() {
                 captureMode="photo"
                 singlePhotoMode={true}
                 isHD={true}
+            />
+            <Lightbox
+                open={isLightboxOpen}
+                close={() => setIsLightboxOpen(false)}
+                slides={lightboxSlides}
+                index={lightboxIndex}
+                plugins={[Zoom]}
             />
         </>
     );

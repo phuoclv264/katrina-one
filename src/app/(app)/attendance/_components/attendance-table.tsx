@@ -6,7 +6,9 @@ import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/l
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';import { Edit2, Trash2, MoreVertical } from 'lucide-react';
+import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
+import { Edit2, Trash2, MoreVertical } from 'lucide-react';
+import Image from 'next/image';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
@@ -26,12 +28,14 @@ export default function AttendanceTable({
   schedules,
   onEdit,
   onDelete,
+  onOpenLightbox,
 }: {
   records: AttendanceRecord[];
   users: ManagedUser[];
   schedules: Record<string, Schedule>;
   onEdit: (record: AttendanceRecord) => void;
   onDelete: (id: string) => void;
+  onOpenLightbox: (slides: { src: string }[], index: number) => void;
 }) {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
@@ -65,6 +69,7 @@ export default function AttendanceTable({
               <TableHead>Ca làm việc</TableHead>
               <TableHead>Giờ vào / ra</TableHead>
               <TableHead>Tổng giờ</TableHead>
+              <TableHead>Ảnh</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="text-right">Lương</TableHead>
               <TableHead className="text-right">Hành động</TableHead>
@@ -97,6 +102,18 @@ export default function AttendanceTable({
                     <div>Ra: {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : '--:--'}</div>
                   </TableCell>
                   <TableCell>{record.totalHours?.toFixed(2) || 'N/A'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => onOpenLightbox([{src: record.photoInUrl}], 0)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
+                            <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                        </button>
+                        {record.photoOutUrl && (
+                            <button onClick={() => onOpenLightbox([{src: record.photoOutUrl!}], 0)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
+                                <Image src={record.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                            </button>
+                        )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className={cn("flex items-center gap-2 text-sm", statusInfo.color)}>
                         {statusInfo.icon}

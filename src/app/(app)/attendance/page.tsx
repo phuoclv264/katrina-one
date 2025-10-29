@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,9 @@ import AttendanceCards from './_components/attendance-cards';
 import EditAttendanceDialog from './_components/edit-attendance-dialog';
 import BulkSalaryDialog from './_components/bulk-salary-dialog';
 import { toast } from 'react-hot-toast';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
@@ -34,6 +37,10 @@ export default function AttendancePage() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isBulkSalaryDialogOpen, setIsBulkSalaryDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
+
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
 
     useEffect(() => {
         if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -67,6 +74,28 @@ export default function AttendancePage() {
             clearTimeout(timer);
         };
     }, [user, currentMonth]);
+
+    // Back button handling for Lightbox
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (isLightboxOpen) {
+                event.preventDefault();
+                setIsLightboxOpen(false);
+            }
+        };
+
+        if (isLightboxOpen) {
+            window.history.pushState({ lightbox: 'open' }, '');
+            window.addEventListener('popstate', handlePopState);
+        } else {
+            if (window.history.state?.lightbox) {
+                window.history.back();
+            }
+        }
+
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isLightboxOpen]);
+
 
     const totalSalary = useMemo(() => {
         return attendanceRecords.reduce((total, record) => {
@@ -137,6 +166,12 @@ export default function AttendancePage() {
             setIsResolving(false);
         }
     };
+
+    const handleOpenLightbox = useCallback((slides: { src: string }[], index: number) => {
+        setLightboxSlides(slides);
+        setLightboxIndex(index);
+        setIsLightboxOpen(true);
+    }, []);
 
 
     if (isLoading || authLoading) {
@@ -211,6 +246,7 @@ export default function AttendancePage() {
                     schedules={schedules} 
                     onEdit={handleEditRecord}
                     onDelete={handleDeleteRecord}
+                    onOpenLightbox={handleOpenLightbox}
                 />
             ) : (
                 <AttendanceTable 
@@ -219,6 +255,7 @@ export default function AttendancePage() {
                     schedules={schedules} 
                     onEdit={handleEditRecord}
                     onDelete={handleDeleteRecord}
+                    onOpenLightbox={handleOpenLightbox}
                 />
             )}
 
@@ -235,6 +272,14 @@ export default function AttendancePage() {
                 users={allUsers}
                 onSave={handleSaveBulkRates}
                 isSaving={isSavingSalaries}
+            />
+
+            <Lightbox
+                open={isLightboxOpen}
+                close={() => setIsLightboxOpen(false)}
+                slides={lightboxSlides}
+                index={lightboxIndex}
+                plugins={[Zoom]}
             />
         </>
     )

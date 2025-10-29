@@ -6,6 +6,7 @@ import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/l
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
 import { Edit2, MoreVertical, Trash2 } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
@@ -27,12 +28,14 @@ export default function AttendanceCards({
   schedules,
   onEdit,
   onDelete,
+  onOpenLightbox,
 }: {
   records: AttendanceRecord[];
   users: ManagedUser[];
   schedules: Record<string, Schedule>;
   onEdit: (record: AttendanceRecord) => void;
   onDelete: (id: string) => void;
+  onOpenLightbox: (slides: { src: string }[], index: number) => void;
 }) {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
@@ -123,6 +126,22 @@ export default function AttendanceCards({
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Tổng giờ</span>
                   <span>{record.totalHours?.toFixed(2) || 'N/A'}</span>
+                </div>
+                <div className="flex justify-around pt-2 gap-2">
+                    <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Ảnh vào</p>
+                        <button onClick={() => onOpenLightbox([{src: record.photoInUrl}], 0)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
+                            <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                        </button>
+                    </div>
+                    {record.photoOutUrl && (
+                        <div className="text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Ảnh ra</p>
+                            <button onClick={() => onOpenLightbox([{src: record.photoOutUrl!}], 0)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
+                                <Image src={record.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <div className="flex justify-between items-center border-t pt-2 mt-2">
                   <span className="text-muted-foreground font-semibold">Lương</span>
