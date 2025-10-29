@@ -104,9 +104,11 @@ export default function AttendanceTable({
                   <TableCell>{record.totalHours?.toFixed(2) || 'N/A'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => onOpenLightbox([{src: record.photoInUrl}], 0)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
-                            <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                        </button>
+                        {record.photoInUrl && (
+                            <button onClick={() => onOpenLightbox([{src: record.photoInUrl!}], 0)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
+                              <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                            </button>
+                        )}
                         {record.photoOutUrl && (
                             <button onClick={() => onOpenLightbox([{src: record.photoOutUrl!}], 0)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
                                 <Image src={record.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />

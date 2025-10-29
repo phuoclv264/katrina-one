@@ -14,7 +14,7 @@ type TotalHoursTrackerProps = {
   schedule: Schedule | null;
   allUsers: ManagedUser[];
   onUserClick: (user: ManagedUser) => void;
-  currentUserRole: UserRole;
+  currentUserRole: UserRole | null;
 };
 
 const roleOrder: Record<UserRole, number> = {
@@ -22,6 +22,7 @@ const roleOrder: Record<UserRole, number> = {
   'Pha chế': 2,
   'Quản lý': 3,
   'Chủ nhà hàng': 4,
+  'Thu ngân': 5
 };
 
 
@@ -54,7 +55,7 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick, cur
   const sortedUsers = useMemo(() => {
     let activeUsers = allUsers;
 
-    if (currentUserRole === 'Quản lý') {
+    if (currentUserRole && currentUserRole === 'Quản lý') {
         activeUsers = allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'));
     }
 

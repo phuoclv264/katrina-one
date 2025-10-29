@@ -613,7 +613,7 @@ export type AttendanceRecord = {
   id: string;
   userId: string;
   checkInTime: string | Timestamp;
-  photoInUrl: string;
+  photoInUrl?: string;
   checkOutTime?: string | Timestamp;
   photoOutUrl?: string;
   status: 'in-progress' | 'completed' | 'auto-completed';

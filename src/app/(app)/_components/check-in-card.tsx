@@ -149,10 +149,12 @@ export default function CheckInCard() {
                         Vào: {checkInTime ? format(checkInTime, 'HH:mm') : '--:--'} - Ra: {checkOutTime ? format(checkOutTime, 'HH:mm') : '--:--'}
                     </p>
                     <div className="flex justify-center gap-4 mt-4">
-                        <button onClick={() => handleOpenLightbox([{src: latestRecord.photoInUrl}], 0)} className="relative h-24 w-24 rounded-lg overflow-hidden cursor-pointer">
-                            <Image src={latestRecord.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                            <div className="absolute bottom-0 w-full bg-black/50 text-white text-xs text-center py-0.5">Ảnh vào</div>
-                        </button>
+                        {latestRecord.photoInUrl && (
+                            <button onClick={() => handleOpenLightbox([{src: latestRecord.photoInUrl!}], 0)} className="relative h-24 w-24 rounded-lg overflow-hidden cursor-pointer">
+                                <Image src={latestRecord.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                                <div className="absolute bottom-0 w-full bg-black/50 text-white text-xs text-center py-0.5">Ảnh vào</div>
+                            </button>
+                        )}
                         {latestRecord.photoOutUrl && (
                             <button onClick={() => handleOpenLightbox([{src: latestRecord.photoOutUrl!}], 0)} className="relative h-24 w-24 rounded-lg overflow-hidden cursor-pointer">
                                 <Image src={latestRecord.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
@@ -210,8 +212,8 @@ export default function CheckInCard() {
         <>
             <Card className="mb-6 shadow-lg border-primary/20 bg-gradient-to-br from-card to-primary/5">
                 <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
-                    {latestRecord && (
-                        <button onClick={() => handleOpenLightbox([{src: latestRecord.photoInUrl}], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
+                    {latestRecord && latestRecord.photoInUrl && (
+                        <button onClick={() => handleOpenLightbox([{src: latestRecord.photoInUrl!}], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
                             <Image src={latestRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                         </button>
                     )}

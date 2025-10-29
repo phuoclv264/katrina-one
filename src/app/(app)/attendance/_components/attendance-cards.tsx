@@ -128,12 +128,14 @@ export default function AttendanceCards({
                   <span>{record.totalHours?.toFixed(2) || 'N/A'}</span>
                 </div>
                 <div className="flex justify-around pt-2 gap-2">
-                    <div className="text-center">
-                        <p className="text-xs text-muted-foreground mb-1">Ảnh vào</p>
-                        <button onClick={() => onOpenLightbox([{src: record.photoInUrl}], 0)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
-                            <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                        </button>
-                    </div>
+                    {record.photoInUrl && (
+                      <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Ảnh vào</p>
+                          <button onClick={() => onOpenLightbox([{src: record.photoInUrl!}], 0)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
+                              <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                          </button>
+                      </div>
+                    )}
                     {record.photoOutUrl && (
                         <div className="text-center">
                             <p className="text-xs text-muted-foreground mb-1">Ảnh ra</p>

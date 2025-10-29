@@ -1041,7 +1041,7 @@ export default function ScheduleView() {
                         schedule={localSchedule} 
                         allUsers={allUsers}
                         onUserClick={handleUserClick}
-                        currentUserRole={user.role}
+                        currentUserRole={user?.role || null}
                     />
                 </div>
             </div>

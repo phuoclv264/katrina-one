@@ -125,6 +125,32 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     await photoStore.deletePhoto(photoId);
 }
 
+export async function createManualAttendanceRecord(
+    data: { userId: string; checkInTime: Date; checkOutTime: Date },
+    creator: AuthUser
+): Promise<void> {
+    const totalHours = differenceInMinutes(data.checkOutTime, data.checkInTime) / 60;
+
+    const userDoc = await getDoc(doc(db, 'users', data.userId));
+    const hourlyRate = userDoc.exists() ? (userDoc.data().hourlyRate || 0) : 0;
+    const salary = totalHours * hourlyRate;
+
+    const newRecord: Omit<AttendanceRecord, 'id'> = {
+        userId: data.userId,
+        checkInTime: Timestamp.fromDate(data.checkInTime),
+        checkOutTime: Timestamp.fromDate(data.checkOutTime),
+        photoInUrl: '', // No photo for manual entry
+        photoOutUrl: '', // No photo for manual entry
+        status: 'completed',
+        totalHours: totalHours,
+        salary: salary,
+        createdAt: serverTimestamp() as Timestamp,
+        updatedAt: serverTimestamp() as Timestamp,
+    };
+
+    await addDoc(collection(db, 'attendance_records'), newRecord);
+}
+
 export async function updateAttendanceRecordDetails(recordId: string, data: { checkInTime: Date, checkOutTime?: Date }): Promise<void> {
     const recordRef = doc(db, 'attendance_records', recordId);
     const recordSnap = await getDoc(recordRef);
