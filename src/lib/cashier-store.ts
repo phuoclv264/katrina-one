@@ -649,7 +649,7 @@ export async function updateCashHandoverReport(
     const remainingPhotos = existingPhotos.filter((p: string) => !photosToDelete.includes(p));
     const finalPhotos = [...remainingPhotos, ...newPhotoUrls];
 
-    await updateDoc(docRef, { ...reportData, discrepancyProofPhotos: finalPhotos });
+    await updateDoc(docRef, { ...reportData, date: reportDate, discrepancyProofPhotos: finalPhotos });
 
     await photoStore.deletePhotos(newPhotoIds);
 }

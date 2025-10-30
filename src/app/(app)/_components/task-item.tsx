@@ -166,20 +166,39 @@ const TaskItemComponent = ({
                       {completion.value ? "Đảm bảo" : "Không đảm bảo"}
                     </Badge>
                   )}
-                  {!isReadonly && task.type === 'photo' && (
-                    <TooltipProvider>
-                        <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => onPhotoAction(task, cIndex)}>
-                                <FilePlus2 className="h-3 w-3" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>Thêm ảnh</p>
-                        </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                  )}
+                  {!isReadonly &&
+                    task.type === 'photo' &&
+                    (() => {
+                      const today = new Date();
+                      const [hours, minutes] = completion.timestamp.split(":").map(Number);
+                      const completionDate = new Date(
+                        today.getFullYear(),
+                        today.getMonth(),
+                        today.getDate(),
+                        hours,
+                        minutes
+                      );
+
+                      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+                      if (completionDate > tenMinutesAgo) {
+                        return (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => onPhotoAction(task, cIndex)}>
+                                  <FilePlus2 className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Thêm ảnh</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      }
+                      return null;
+                    })()}
                   {!isReadonly && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild disabled={isReadonly}>
