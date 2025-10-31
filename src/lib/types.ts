@@ -619,6 +619,7 @@ export type AttendanceRecord = {
   status: 'in-progress' | 'completed' | 'auto-completed';
   totalHours?: number;
   salary?: number;
+  isOffShift?: boolean;
   createdAt: string | Timestamp;
   updatedAt: string | Timestamp;
 };

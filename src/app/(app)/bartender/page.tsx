@@ -6,14 +6,16 @@ import { Button } from '@/components/ui/button';
 import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch, Banknote, Loader2, Info, ClockIcon, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
 export default function BartenderDashboardPage() {
-  const { user, loading, isOnActiveShift, todaysShifts } = useAuth();
+  const { user, loading, todaysShifts } = useAuth();
   const router = useRouter();
+  const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
 
   useEffect(() => {
     if (!loading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
@@ -41,7 +43,7 @@ export default function BartenderDashboardPage() {
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md space-y-6">
-        <CheckInCard />
+        {showCheckInCardOnTop && <CheckInCard />}
         <Card>
           <CardHeader>
             <CardTitle>Danh mục Báo cáo Pha chế</CardTitle>
@@ -52,7 +54,7 @@ export default function BartenderDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-            {isOnActiveShift ? (
+            {isCheckedIn ? (
               <>
                 <Button asChild size="lg">
                   <Link href="/bartender/hygiene-report">
@@ -70,9 +72,9 @@ export default function BartenderDashboardPage() {
             ) : (
                <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
                 <Info className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-amber-800 dark:text-amber-300">Không trong ca làm việc</AlertTitle>
+                <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>
                 <AlertDescription className="text-amber-700 dark:text-amber-400">
-                  Các chức năng báo cáo chỉ khả dụng khi bạn đang trong ca làm việc.
+                  Vui lòng chấm công để bắt đầu thực hiện báo cáo.
                 </AlertDescription>
               </Alert>
             )}
@@ -98,9 +100,9 @@ export default function BartenderDashboardPage() {
               </Link>
             </Button>
             
-            {isOnActiveShift && (hasServerSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
+            {isCheckedIn && (hasServerSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
 
-            {isOnActiveShift && hasServerSecondaryRole && (
+            {isCheckedIn && hasServerSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
                 <Button asChild size="lg" variant="outline">
@@ -112,7 +114,7 @@ export default function BartenderDashboardPage() {
               </>
             )}
 
-            {isOnActiveShift && hasManagerSecondaryRole && (
+            {isCheckedIn && hasManagerSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
                  <Button asChild size="lg" variant="outline">
@@ -124,7 +126,7 @@ export default function BartenderDashboardPage() {
               </>
             )}
 
-            {isOnActiveShift && hasCashierSecondaryRole && (
+            {isCheckedIn && hasCashierSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
                  <Button asChild size="lg" variant="outline">
@@ -138,6 +140,7 @@ export default function BartenderDashboardPage() {
 
           </CardContent>
         </Card>
+        {!showCheckInCardOnTop && <CheckInCard />}
       </div>
     </div>
   );

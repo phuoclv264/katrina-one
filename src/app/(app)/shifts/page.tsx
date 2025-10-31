@@ -7,19 +7,21 @@ import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, CheckSquare, C
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
-const mainShiftInfo = {
+const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, href: string } } = {
     sang: { name: "Ca Sáng", icon: Sun, href: "/checklist/sang" },
     trua: { name: "Ca Trưa", icon: Sunset, href: "/checklist/trua" },
     toi: { name: "Ca Tối", icon: Moon, href: "/checklist/toi" },
 };
 
 export default function ShiftsPage() {
-  const { user, loading: authLoading, isOnActiveShift, activeShifts, todaysShifts } = useAuth();
+  const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
   const router = useRouter();
+  const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
 
   useEffect(() => {
     if (!authLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
@@ -73,18 +75,18 @@ export default function ShiftsPage() {
   return (
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md space-y-6">
-        <CheckInCard />
+        {showCheckInCardOnTop && <CheckInCard />}
         <Card>
           <CardHeader>
             <CardTitle>Checklist Công việc</CardTitle>
             <CardDescription>
               {todaysShifts.length > 0
                 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn ca để báo cáo.`
-                : "Bạn không có ca làm việc nào hôm nay."}
+                : "Bạn không có ca làm việc nào hôm nay, liên hệ chủ quán để thay đổi lịch làm."}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-              {isOnActiveShift && activeMainShiftKeys.length > 0 ? (
+              {isCheckedIn && activeMainShiftKeys.length > 0 ? (
                   activeMainShiftKeys.map((key) => {
                     const info = mainShiftInfo[key];
                     if (!info) return null;
@@ -103,7 +105,10 @@ export default function ShiftsPage() {
                     <Info className="h-4 w-4 text-amber-600" />
                     <AlertTitle className="text-amber-800 dark:text-amber-300">Không trong ca làm việc</AlertTitle>
                     <AlertDescription className="text-amber-700 dark:text-amber-400">
-                      Vui lòng kiểm tra lịch và quay lại khi đến giờ làm việc của bạn.
+                      {(!isCheckedIn && activeMainShiftKeys.length > 0) ? 
+                      `Chấm công vào để thực hiện báo cáo công việc.` :
+                      `Vui lòng kiểm tra lịch và quay lại khi đến giờ làm việc của bạn.`
+                    }
                     </AlertDescription>
                   </Alert>
               )}
@@ -132,9 +137,9 @@ export default function ShiftsPage() {
               </>
             )}
 
-            {isOnActiveShift && (hasBartenderSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
+            {isCheckedIn && (hasBartenderSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
 
-            {isOnActiveShift && hasBartenderSecondaryRole && (
+            {isCheckedIn && hasBartenderSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
                 <Button asChild size="lg" variant="outline">
@@ -152,7 +157,7 @@ export default function ShiftsPage() {
               </>
             )}
 
-            {isOnActiveShift && hasManagerSecondaryRole && (
+            {isCheckedIn && hasManagerSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
                  <Button asChild size="lg" variant="outline">
@@ -164,7 +169,7 @@ export default function ShiftsPage() {
               </>
             )}
             
-            {isOnActiveShift && hasCashierSecondaryRole && (
+            {isCheckedIn && hasCashierSecondaryRole && (
                 <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
                  <Button asChild size="lg" variant="outline">
@@ -178,6 +183,7 @@ export default function ShiftsPage() {
 
           </CardContent>
         </Card>
+        {!showCheckInCardOnTop && <CheckInCard />}
       </div>
     </div>
   );

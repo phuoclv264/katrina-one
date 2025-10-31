@@ -44,7 +44,7 @@ export async function getActiveShiftForUser(userId: string): Promise<AssignedShi
     return activeShifts[0] || null; // Return the first active shift if any
 }
 
-export function subscribeToLatestAttendanceRecord(userId: string, callback: (record: AttendanceRecord | null) => void): () => void {
+export function subscribeToLatestInProgressAttendanceRecord(userId: string, callback: (record: AttendanceRecord | null) => void): () => void {
     const attendanceCollection = collection(db, 'attendance_records');
     const q = query(
         attendanceCollection,
@@ -73,7 +73,7 @@ export function subscribeToLatestAttendanceRecord(userId: string, callback: (rec
     });
 }
 
-export async function createAttendanceRecord(user: AuthUser, photoId: string): Promise<void> {
+export async function createAttendanceRecord(user: AuthUser, photoId: string, isOffShift: boolean = false): Promise<void> {
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-in.");
 
@@ -87,6 +87,7 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string): P
         status: 'in-progress',
         createdAt: serverTimestamp() as Timestamp,
         updatedAt: serverTimestamp() as Timestamp,
+        ...(isOffShift && { isOffShift: true }),
     };
 
     await addDoc(collection(db, 'attendance_records'), newRecord);
@@ -206,6 +207,29 @@ export function subscribeToUserAttendanceForToday(userId: string, callback: (rec
         callback([]);
     });
 }
+
+export function subscribeToUserCheckInStatus(userId: string, callback: (isCheckedIn: boolean) => void): () => void {
+    const attendanceCollection = collection(db, 'attendance_records');
+    const todayStart = startOfToday();
+    const todayEnd = endOfToday();
+
+    const q = query(
+        attendanceCollection,
+        where('userId', '==', userId),
+        where('status', '==', 'in-progress'),
+        where('checkInTime', '>=', todayStart),
+        where('checkInTime', '<=', todayEnd),
+        limit(1)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        callback(!snapshot.empty);
+    }, (error) => {
+        console.error(`[Firestore Read Error] Could not read user check-in status: ${error}`);
+        callback(false);
+    });
+}
+
 
 export async function resolveUnfinishedAttendances(): Promise<number> {
     const q = query(collection(db, 'attendance_records'), where('status', '==', 'in-progress'), where('checkInTime', '<', startOfToday()));

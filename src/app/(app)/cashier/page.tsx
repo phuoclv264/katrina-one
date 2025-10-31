@@ -36,7 +36,6 @@ import Link from 'next/link';
 import WorkShiftGuard from '@/components/work-shift-guard';
 import type { CashHandoverReport } from '@/lib/types';
 import { Timestamp } from 'firebase/firestore';
-import CheckInCard from '../_components/check-in-card';
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -637,7 +636,6 @@ function CashierDashboardPageComponent() {
         </header>
 
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-             <CheckInCard />
             <Card className="lg:col-span-2 shadow-xl rounded-2xl border-primary/20 bg-gradient-to-br from-white to-blue-50 dark:from-card dark:to-primary/10">
                 <CardHeader>
                     <CardTitle className="text-primary">Tổng quan trong ngày</CardTitle>

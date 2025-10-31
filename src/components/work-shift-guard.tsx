@@ -1,14 +1,12 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { dataStore } from '@/lib/data-store';
-import { isUserOnActiveShift } from '@/lib/schedule-utils';
-import type { AssignedShift, Schedule } from '@/lib/types';
-import { format, getISOWeek } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
+import { getHomePathForRole } from '@/lib/navigation';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
 type WorkShiftGuardProps = {
   children: React.ReactNode;
@@ -16,57 +14,19 @@ type WorkShiftGuardProps = {
 };
 
 export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuardProps) {
-  const { user, loading: isAuthLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { isCheckedIn } = useCheckInCardPlacement();
+  const [isReady, setIsReady] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [canAccess, setCanAccess] = useState(false);
-
-  const weekId = useMemo(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-W${getISOWeek(today)}`;
-  }, []);
-
+  // We need to wait for both auth state and check-in status to be resolved.
   useEffect(() => {
-    if (isAuthLoading || !user) {
-      return;
+    if (!authLoading) {
+      setIsReady(true);
     }
+  }, [authLoading]);
 
-    let isMounted = true;
-
-    const checkShift = async () => {
-      try {
-        const schedule: Schedule | null = await dataStore.getSchedule(weekId);
-        
-        if (!schedule || schedule.status !== 'published') {
-          if (isMounted) setCanAccess(false);
-          return;
-        }
-
-        const todayKey = format(new Date(), 'yyyy-MM-dd');
-        const todaysShifts: AssignedShift[] = schedule.shifts
-          .filter(shift => shift.date === todayKey && shift.assignedUsers.some(u => u.userId === user.uid));
-          
-        const hasAccess = isUserOnActiveShift(todaysShifts);
-        if (isMounted) setCanAccess(hasAccess);
-
-      } catch (error) {
-        console.error("Error checking user shift:", error);
-        if (isMounted) setCanAccess(false); // Default to no access on error
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    checkShift();
-
-    return () => {
-      isMounted = false;
-    };
-
-  }, [isAuthLoading, user, weekId]);
-
-  if (isLoading || isAuthLoading) {
+  if (!isReady) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
         <div className="flex flex-col items-center gap-2">
@@ -77,18 +37,18 @@ export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuar
     );
   }
 
-  if (!canAccess) {
+  if (!isCheckedIn) {
     return (
       <AlertDialog open={true} onOpenChange={() => {}}>
-        <AlertDialogContent onInteractOutside={(e) => e.preventDefault()}>
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Không có ca làm việc</AlertDialogTitle>
+            <AlertDialogTitle>Chưa chấm công</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn không có ca làm việc nào được phân công vào thời điểm này. Bạn không thể truy cập chức năng này.
+              Bạn cần phải chấm công để truy cập chức năng này.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => router.replace(redirectPath)}>Đã hiểu</AlertDialogAction>
+            <AlertDialogAction onClick={() => router.replace(getHomePathForRole(user?.role))}>Đã hiểu</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
