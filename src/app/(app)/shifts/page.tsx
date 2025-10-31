@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { isWithinInterval, set } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, CheckSquare, ClipboardList, Archive, FileSearch, Banknote, Coffee, UserCog, ClockIcon, MessageSquare } from 'lucide-react';
@@ -16,6 +17,12 @@ const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, h
     sang: { name: "Ca Sáng", icon: Sun, href: "/checklist/sang" },
     trua: { name: "Ca Trưa", icon: Sunset, href: "/checklist/trua" },
     toi: { name: "Ca Tối", icon: Moon, href: "/checklist/toi" },
+};
+
+const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; end: number } } = {
+  sang: { start: 6, end: 12 },   // 6:00 AM - 12:00 PM
+  trua: { start: 12, end: 17 },  // 12:00 PM - 5:00 PM
+  toi: { start: 17, end: 22 },   // 5:00 PM - 10:00 PM
 };
 
 export default function ShiftsPage() {
@@ -35,25 +42,26 @@ export default function ShiftsPage() {
   const isPrimaryServer = user?.role === 'Phục vụ';
 
   const activeMainShiftKeys = useMemo(() => {
-    const keys = activeShifts.map(shift => {
-        if (!shift.timeSlot || !shift.timeSlot.start) {
-            return null;
-        }
-        const startTimeHour = parseInt(shift.timeSlot.start.split(':')[0], 10);
-
-        if (startTimeHour < 12) {
-            return 'sang';
-        } else if (startTimeHour < 17) {
-            return 'trua';
-        } else {
-            return 'toi';
-        }
-    });
+    const now = new Date();
+    const currentHour = now.getHours();
+    const keys = new Set<"sang" | "trua" | "toi">();
     
-    const uniqueKeys = [...new Set(keys)];
+    // We check a window from 1 hour before the shift starts to 1 hour after it ends.
+    for (const key in mainShiftTimeFrames) {
+      const shiftKey = key as "sang" | "trua" | "toi";
+      const frame = mainShiftTimeFrames[shiftKey];
+      
+      const validStartTime = frame.start - 1;
+      const validEndTime = frame.end + 1;
+      
+      // Check if the current hour is within the valid window for the shift
+      if (currentHour >= validStartTime && currentHour < validEndTime) {
+        keys.add(shiftKey);
+      }
+    }
 
-    return uniqueKeys.filter((key): key is "sang" | "trua" | "toi" => key !== null);
-  }, [activeShifts]);
+    return Array.from(keys);
+  }, []);
 
   if (authLoading) {
     return (

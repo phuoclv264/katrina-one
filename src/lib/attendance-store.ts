@@ -73,7 +73,7 @@ export function subscribeToLatestInProgressAttendanceRecord(userId: string, call
     });
 }
 
-export async function createAttendanceRecord(user: AuthUser, photoId: string, isOffShift: boolean = false): Promise<void> {
+export async function createAttendanceRecord(user: AuthUser, photoId: string, isOffShift: boolean = false, offShiftReason?: string): Promise<void> {
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-in.");
 
@@ -88,6 +88,7 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
         createdAt: serverTimestamp() as Timestamp,
         updatedAt: serverTimestamp() as Timestamp,
         ...(isOffShift && { isOffShift: true }),
+        ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
     };
 
     await addDoc(collection(db, 'attendance_records'), newRecord);

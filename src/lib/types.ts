@@ -620,6 +620,7 @@ export type AttendanceRecord = {
   totalHours?: number;
   salary?: number;
   isOffShift?: boolean;
+  offShiftReason?: string;
   createdAt: string | Timestamp;
   updatedAt: string | Timestamp;
 };

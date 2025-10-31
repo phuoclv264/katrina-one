@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
@@ -14,6 +15,7 @@ import { Timestamp } from 'firebase/firestore';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import { Textarea } from '@/components/ui/textarea';
 
 export default function CheckInCard() {
     const { user, loading: authLoading, activeShifts } = useAuth();
@@ -23,6 +25,9 @@ export default function CheckInCard() {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+    
+    const [isOffShiftReasonDialogOpen, setIsOffShiftReasonDialogOpen] = useState(false);
+    const [offShiftReason, setOffShiftReason] = useState('');
 
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
@@ -89,6 +94,20 @@ export default function CheckInCard() {
     }, [user, authLoading]);
 
     const handleCheckInOrOut = () => {
+        if (!latestInProgressRecord && !activeShift) {
+            setOffShiftReason(''); // Reset reason
+            setIsOffShiftReasonDialogOpen(true);
+        } else {
+            setIsCameraOpen(true);
+        }
+    };
+
+    const handleReasonSubmit = () => {
+        if (!offShiftReason.trim()) {
+            toast.error('Vui lòng nhập lý do chấm công ngoài giờ.');
+            return;
+        }
+        setIsOffShiftReasonDialogOpen(false);
         setIsCameraOpen(true);
     };
 
@@ -110,7 +129,7 @@ export default function CheckInCard() {
             } else {
                 // This is a check-in. We need an active shift to proceed.
                 const isOffShiftCheckIn = !activeShift;
-                await dataStore.createAttendanceRecord(user, photoId, isOffShiftCheckIn);
+                await dataStore.createAttendanceRecord(user, photoId, isOffShiftCheckIn, offShiftReason);
                 toast.success(
                     isOffShiftCheckIn ? 'Chấm công ngoài giờ thành công!' : 'Chấm công vào thành công!',
                     { id: toastId }
@@ -191,9 +210,10 @@ export default function CheckInCard() {
                     {attendanceRecords.map(record => {
                         const checkIn = new Date((record.checkInTime as any).seconds * 1000);
                         const checkOut = record.checkOutTime ? new Date((record.checkOutTime as any).seconds * 1000) : null;
+                        const isOffShift = record.isOffShift;
                         return (
                             <li key={record.id} className="text-sm flex justify-between items-center bg-muted/50 p-2 rounded-md">
-                                <span>Vào: <span className="font-mono font-medium">{format(checkIn, 'HH:mm')}</span></span>
+                                <span>Vào{isOffShift ? ' ngoài giờ' : ''}: <span className="font-mono font-medium">{format(checkIn, 'HH:mm')}</span></span>
                                 <span>Ra: <span className="font-mono font-medium">{checkOut ? format(checkOut, 'HH:mm') : '--:--'}</span></span>
                             </li>
                         );
@@ -239,6 +259,22 @@ export default function CheckInCard() {
                 index={lightboxIndex}
                 plugins={[Zoom]}
             />
+            <AlertDialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Lý do chấm công ngoài giờ</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Vui lòng cung cấp lý do bạn cần chấm công khi không có trong ca làm việc đã được phân công. (VD: Tăng ca, làm thay,...)
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <Textarea
+                        value={offShiftReason}
+                        onChange={(e) => setOffShiftReason(e.target.value)}
+                        placeholder="Nhập lý do của bạn ở đây..."
+                    />
+                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleReasonSubmit}>Tiếp tục</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
