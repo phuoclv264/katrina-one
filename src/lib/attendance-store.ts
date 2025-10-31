@@ -30,6 +30,7 @@ import { uploadFile } from './data-store-helpers';
 
 import { differenceInHours } from 'date-fns';
 import { withCoalescedInvoke } from 'next/dist/lib/coalesced-function';
+import { DateRange } from 'react-day-picker';
 export async function getActiveShiftForUser(userId: string): Promise<AssignedShift | null> {
     const today = new Date();
     const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
@@ -363,8 +364,36 @@ export async function deleteAttendanceRecord(recordId: string): Promise<void> {
     await deleteDoc(doc(db, 'attendance_records', recordId));
 }
 
-export function subscribeToAllAttendanceRecordsForMonth(date: Date, callback: (records: AttendanceRecord[]) => void): () => void {
-    const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', startOfMonth(date)), where('checkInTime', '<=', endOfMonth(date)), orderBy('checkInTime', 'desc'));
+export function subscribeToAttendanceRecordsForDateRange(
+    dateRange: DateRange | undefined,
+    callback: (records: AttendanceRecord[]) => void
+): () => void {
+    if (!dateRange || !dateRange.from || !dateRange.to) {
+        callback([]);
+        return () => {}; // Return a no-op unsubscribe function
+    }
+
+    // dateRange.from is from beginning of the date, dateRange.to is the end of the date
+    const fromDate = dateRange.from;
+    const toDate = dateRange.to;
+
+    // Adjust toDate to include the entire day
+    toDate.setHours(23, 59, 59, 999);
+
+
+    const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', fromDate), where('checkInTime', '<=', toDate), orderBy('checkInTime', 'desc'));
+
+    return onSnapshot(q, (snapshot) => {
+        const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        callback(records);
+    });
+}
+
+export function subscribeToAllAttendanceRecords(
+    callback: (records: AttendanceRecord[]) => void
+): () => void {
+    const q = query(collection(db, 'attendance_records'), orderBy('checkInTime', 'desc'));
+
     return onSnapshot(q, (snapshot) => {
         const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
         callback(records);

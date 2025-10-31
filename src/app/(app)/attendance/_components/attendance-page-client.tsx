@@ -55,6 +55,9 @@ export default function AttendancePageComponent() {
     const [viewMode, setViewMode] = useState<'table' | 'timeline'>('table');
     const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });
+    
+    const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
+    const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(dateRange);
 
 
     useEffect(() => {
@@ -63,22 +66,22 @@ export default function AttendancePageComponent() {
         }
     }, [user, authLoading, router]);
     
+    // This useEffect will now handle all data subscriptions based on the dateRange.
     useEffect(() => {
-        if (!user) return;
+        if (!user || !dateRange?.from || !dateRange?.to) return;
         setIsLoading(true);
 
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
         
-        const unsubSchedules = dataStore.subscribeToSchedulesForMonth(currentMonth, (schedules) => {
+        const unsubSchedules = dataStore.subscribeToSchedulesForDateRange(dateRange, (schedules) => {
             const scheduleMap = schedules.reduce((acc, s) => {
                 acc[s.weekId] = s;
                 return acc;
             }, {} as Record<string, Schedule>);
             setSchedules(scheduleMap);
         });
-
-        // The logic is now inside subscribeToAllAttendanceRecordsForMonth
-        const unsubRecords = dataStore.subscribeToAllAttendanceRecordsForMonth(currentMonth, setAttendanceRecords);
+        
+        const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
 
         const timer = setTimeout(() => setIsLoading(false), 1500);
 
@@ -88,12 +91,23 @@ export default function AttendancePageComponent() {
             unsubSchedules();
             clearTimeout(timer);
         };
-    }, [user, currentMonth]); // Keep this dependency array to refetch on month change
+    }, [user, dateRange]);
 
     useEffect(() => {
         setDateRange({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });
         setSelectedUsers([]); // Reset employee filter on month change
     }, [currentMonth]);
+
+    useEffect(() => {
+        if (isDatePopoverOpen) {
+            setTempDateRange(dateRange);
+        }
+    }, [isDatePopoverOpen, dateRange]);
+
+    const handleDateRangeSave = () => {
+        setDateRange(tempDateRange);
+        setIsDatePopoverOpen(false);
+    };
 
     // Back button handling for Lightbox
     useEffect(() => {
@@ -290,8 +304,8 @@ export default function AttendancePageComponent() {
                             />
 
                             {/* Date Range Filter */}
-                            <Popover>
-                                <PopoverTrigger asChild>
+                            <Popover open={isDatePopoverOpen} onOpenChange={setIsDatePopoverOpen}>
+                                <PopoverTrigger asChild> 
                                     <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {dateRange?.from ? (
@@ -307,15 +321,18 @@ export default function AttendancePageComponent() {
                                         )}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0" align="start"> 
                                     <Calendar
                                         initialFocus
                                         mode="range"
-                                        defaultMonth={dateRange?.from}
-                                        selected={dateRange}
-                                        onSelect={setDateRange}
-                                        numberOfMonths={2}
+                                        defaultMonth={tempDateRange?.from}
+                                        selected={tempDateRange}
+                                        onSelect={setTempDateRange}
+                                        numberOfMonths={1}
                                     />
+                                    <div className="p-2 border-t flex justify-end">
+                                        <Button onClick={handleDateRangeSave}>Lưu</Button>
+                                    </div>
                                 </PopoverContent>
                             </Popover>
 

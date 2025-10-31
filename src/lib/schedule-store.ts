@@ -28,6 +28,7 @@ import {
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot } from './types';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
+import { DateRange } from 'react-day-picker';
 
 
 // --- Schedule Functions ---
@@ -137,6 +138,40 @@ export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: S
     if (weekIds.length === 0) {
         callback([]);
         return () => {}; // Return a no-op unsubscribe function
+    }
+
+    const q = query(collection(db, 'schedules'), where('weekId', 'in', weekIds));
+    return onSnapshot(q, (snapshot) => {
+        const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+        callback(schedules);
+    });
+}
+
+export function subscribeToSchedulesForDateRange(
+    dateRange: DateRange | undefined,
+    callback: (schedules: Schedule[]) => void
+): () => void {
+    if (!dateRange || !dateRange.from || !dateRange.to) {
+        callback([]);
+        return () => {}; // Return a no-op unsubscribe function
+    }
+
+    const fromDate = dateRange.from;
+    const toDate = dateRange.to;
+
+    // Adjust toDate to include the entire day
+    toDate.setHours(23, 59, 59, 999);
+
+    const weeks = eachWeekOfInterval({
+        start: fromDate,
+        end: toDate,
+    }, { weekStartsOn: 1 });
+
+    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+
+    if (weekIds.length === 0) {
+        callback([]);
+        return () => {};
     }
 
     const q = query(collection(db, 'schedules'), where('weekId', 'in', weekIds));
