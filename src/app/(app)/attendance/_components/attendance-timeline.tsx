@@ -113,7 +113,7 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div
-                        className={cn("absolute h-6 rounded-md transition-all duration-200 cursor-pointer", getRoleBarColor(user?.role))}
+                        className={cn("top-1/2 -translate-y-1/2 absolute h-6 rounded-md transition-all duration-200 cursor-pointer", getRoleBarColor(user?.role))}
                         style={{
                             left: `${left}%`,
                             width: `${width}%`,
@@ -295,13 +295,33 @@ export default function AttendanceTimeline({
                                                 const roleBOrder = userB?.role ? roleOrder[userB.role] || 99 : 99;
                                                 return roleAOrder - roleBOrder;
                                             })
-                                            .map(([userId, userRecords]) => (
-                                                <div key={userId} className="relative h-7">
-                                                    {userRecords.map(record => (
-                                                        <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} />
-                                                    ))}
-                                                </div>
-                                            ))}
+                                            .map(([userId, userRecords]) => {
+                                                const userShifts = shiftsForDay.filter(s => s.assignedUsers.some(u => u.userId === userId));
+                                                return (
+                                                    <div key={userId} className="relative h-7">
+                                                        {/* Assigned Shift Markers */}
+                                                        {userShifts.map(shift => {
+                                                            const dayStart = new Date(day);
+                                                            const [startH, startM] = shift.timeSlot.start.split(':').map(Number);
+                                                            const [endH, endM] = shift.timeSlot.end.split(':').map(Number);
+                                                            const shiftStart = new Date(new Date(dayStart).setHours(startH, startM, 0, 0));
+                                                            const shiftEnd = new Date(new Date(dayStart).setHours(endH, endM, 0, 0));
+
+                                                            const startPercentage = timeToPercentage(shiftStart);
+                                                            const widthPercentage = timeToPercentage(shiftEnd) - startPercentage;
+
+                                                            return (
+                                                                <div
+                                                                    key={shift.id}
+                                                                    className="absolute top-1/2 -translate-y-1/2 h-1 bg-orange-200 dark:bg-gray-700/50 rounded-sm"
+                                                                    style={{ left: `${startPercentage}%`, width: `${widthPercentage}%` }}
+                                                                />
+                                                            );
+                                                        })}
+                                                        {userRecords.map(record => <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} />)}
+                                                    </div>
+                                                );
+                                            })}
                                     </div>
                                 </div>
                             </div>
