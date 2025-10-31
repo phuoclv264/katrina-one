@@ -5,34 +5,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ManagedUser } from '@/lib/types';
+import type { AttendanceRecord, ManagedUser } from '@/lib/types';
 import { toast } from 'react-hot-toast';
 
 export default function HourlyRateDialog({
   isOpen,
   onClose,
-  user,
+  record,
   onSave,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  user: ManagedUser;
-  onSave: (newRate: number) => void;
+  record: AttendanceRecord;
+  onSave: (recordId: string, newRate: number) => void;
 }) {
-  const [rate, setRate] = useState(user.hourlyRate || 0);
+  const [rate, setRate] = useState(record.hourlyRate || 0);
 
   useEffect(() => {
     if (isOpen) {
-      setRate(user.hourlyRate || 0);
+      setRate(record.hourlyRate || 0);
     }
-  }, [isOpen, user]);
+  }, [isOpen, record]);
 
   const handleSave = () => {
     if (rate <= 0) {
       toast.error('Mức lương phải lớn hơn 0.');
       return;
     }
-    onSave(rate);
+    onSave(record.id, rate);
     onClose();
   };
 
@@ -42,7 +42,7 @@ export default function HourlyRateDialog({
         <DialogHeader>
           <DialogTitle>Chỉnh sửa lương theo giờ</DialogTitle>
           <DialogDescription>
-            Cập nhật mức lương cho nhân viên: <span className="font-semibold">{user.displayName}</span>
+            Cập nhật mức lương cho bản ghi chấm công này.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">

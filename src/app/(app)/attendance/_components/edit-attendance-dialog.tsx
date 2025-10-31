@@ -18,15 +18,18 @@ export default function EditAttendanceDialog({
   isOpen: boolean;
   onClose: () => void;
   record: AttendanceRecord | null;
-  onSave: (id: string, data: { checkInTime: Date, checkOutTime?: Date }) => void;
+  onSave: (id: string, data: { checkInTime: Date, checkOutTime?: Date, hourlyRate?: number }) => void;
 }) {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const [hourlyRate, setHourlyRate] = useState<number | string>('');
 
   useEffect(() => {
     if (record) {
-      const checkInDate = (record.checkInTime as Timestamp).toDate();
-      setCheckIn(format(checkInDate, "yyyy-MM-dd'T'HH:mm"));
+      if (record.checkInTime) {
+        const checkInDate = (record.checkInTime as Timestamp).toDate();
+        setCheckIn(format(checkInDate, "yyyy-MM-dd'T'HH:mm"));
+      }
 
       if (record.checkOutTime) {
         const checkOutDate = (record.checkOutTime as Timestamp).toDate();
@@ -34,6 +37,7 @@ export default function EditAttendanceDialog({
       } else {
         setCheckOut('');
       }
+      setHourlyRate(record.hourlyRate || '');
     }
   }, [record]);
 
@@ -43,13 +47,14 @@ export default function EditAttendanceDialog({
     try {
       const checkInDate = parseISO(checkIn);
       const checkOutDate = checkOut ? parseISO(checkOut) : undefined;
+      const rate = Number(hourlyRate);
 
       if (checkOutDate && checkOutDate < checkInDate) {
         toast.error('Giờ ra không thể sớm hơn giờ vào.');
         return;
       }
 
-      onSave(record.id, { checkInTime: checkInDate, checkOutTime: checkOutDate });
+      onSave(record.id, { checkInTime: checkInDate, checkOutTime: checkOutDate, hourlyRate: rate });
       onClose();
     } catch (error) {
       toast.error('Định dạng ngày giờ không hợp lệ.');
@@ -84,6 +89,16 @@ export default function EditAttendanceDialog({
               type="datetime-local"
               value={checkOut}
               onChange={(e) => setCheckOut(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="hourly-rate">Lương/giờ</Label>
+            <Input
+              id="hourly-rate"
+              type="number"
+              value={hourlyRate}
+              onChange={(e) => setHourlyRate(e.target.value)}
+              placeholder="Mức lương theo giờ..."
             />
           </div>
         </div>

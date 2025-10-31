@@ -37,21 +37,21 @@ export default function AttendanceCards({
   onDelete: (id: string) => void;
   onOpenLightbox: (slides: { src: string }[], index: number) => void;
 }) {
-  const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  const [recordToEditRate, setRecordToEditRate] = useState<AttendanceRecord | null>(null);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
 
-  const handleEditRate = (user: ManagedUser) => {
-    setEditingUser(user);
+  const handleEditRate = (record: AttendanceRecord) => {
+    setRecordToEditRate(record);
     setIsRateDialogOpen(true);
   };
 
-  const handleSaveRate = async (newRate: number) => {
-    if (editingUser) {
+  const handleSaveRate = async (recordId: string, newRate: number) => {
+    if (recordToEditRate) {
       try {
-        await dataStore.updateUserData(editingUser.uid, { hourlyRate: newRate });
-        toast.success(`Đã cập nhật lương cho ${editingUser.displayName}.`);
+        await dataStore.updateAttendanceRecordRate(recordId, newRate);
+        toast.success(`Đã cập nhật lương cho bản ghi.`);
       } catch {
-        toast.error('Không thể cập nhật lương.');
+        toast.error('Không thể cập nhật lương cho bản ghi.');
       }
     }
   };
@@ -77,8 +77,8 @@ export default function AttendanceCards({
                     <div>
                         <CardTitle className="text-base">{user?.displayName || 'Không rõ'}</CardTitle>
                         <div className="text-xs text-muted-foreground flex items-center">
-                            {user?.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
-                             <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleEditRate(user!)}>
+                            {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
+                             <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleEditRate(record)}>
                                 <Edit2 className="h-3 w-3" />
                             </Button>
                         </div>
@@ -154,11 +154,11 @@ export default function AttendanceCards({
           );
         })}
       </div>
-      {editingUser && (
+      {recordToEditRate && (
         <HourlyRateDialog
             isOpen={isRateDialogOpen}
             onClose={() => setIsRateDialogOpen(false)}
-            user={editingUser}
+            record={recordToEditRate}
             onSave={handleSaveRate}
         />
       )}

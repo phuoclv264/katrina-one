@@ -609,18 +609,31 @@ export type WhistleblowingReport = {
 };
 
 // --- Attendance Types ---
+export type BreakRecord = {
+  breakStartTime: string | Timestamp;
+  breakStartPhotoUrl?: string;
+  breakEndTime?: string | Timestamp;
+  breakEndPhotoUrl?: string;
+};
+
 export type AttendanceRecord = {
   id: string;
   userId: string;
-  checkInTime: string | Timestamp;
+  checkInTime?: string | Timestamp;
   photoInUrl?: string;
   checkOutTime?: string | Timestamp;
   photoOutUrl?: string;
-  status: 'in-progress' | 'completed' | 'auto-completed';
+  status: 'in-progress' | 'completed' | 'auto-completed' | 'pending_late';
   totalHours?: number;
   salary?: number;
+  hourlyRate?: number;
   isOffShift?: boolean;
   offShiftReason?: string;
+  estimatedLateMinutes?: number;
+  lateReason?: string;
+  lateReasonPhotoUrl?: string;
+  onBreak?: boolean;
+  breaks?: BreakRecord[];
   createdAt: string | Timestamp;
   updatedAt: string | Timestamp;
 };

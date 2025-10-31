@@ -147,7 +147,7 @@ export default function AttendancePageComponent() {
         setIsEditDialogOpen(true);
     };
 
-    const handleSaveRecord = async (id: string, data: { checkInTime: Date, checkOutTime?: Date }) => {
+    const handleSaveRecord = async (id: string, data: { checkInTime: Date, checkOutTime?: Date, hourlyRate?: number }) => {
         const toastId = toast.loading("Đang cập nhật...");
         try {
             await dataStore.updateAttendanceRecordDetails(id, data);
