@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { format, startOfDay, addMinutes, differenceInMinutes, getISOWeek, getYear } from 'date-fns';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { vi } from 'date-fns/locale';
-import { Users } from 'lucide-react';
+import { Clock, Users } from 'lucide-react';
 import Image from 'next/image';
 import { ScrollAreaViewport } from '@radix-ui/react-scroll-area';
 
@@ -99,17 +99,24 @@ const AttendanceBar = ({
     record, 
     user, 
     nameInShort,
+    currentTime,
     onOpenLightbox,
 }: { 
-    record: AttendanceRecord; user: ManagedUser | undefined; nameInShort: string | undefined,
-    onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void; }) => {
-    if (!record.checkOutTime) return null;
+    record: AttendanceRecord; 
+    user: ManagedUser | undefined; 
+    nameInShort: string | undefined;
+    currentTime: Date;
+    onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void; 
+}) => {
+    const isInProgress = record.status === 'in-progress' && !record.checkOutTime;
+    if (!record.checkInTime) return null;
+    if (!isInProgress && !record.checkOutTime) return null;
 
     const checkInTime = (record.checkInTime as Timestamp).toDate();
-    const checkOutTime = (record.checkOutTime as Timestamp).toDate();
+    const checkOutTime = isInProgress ? currentTime : (record.checkOutTime as Timestamp).toDate();
 
     const left = timeToPercentage(checkInTime);
-    const width = timeToPercentage(checkOutTime) - left;
+    let width = timeToPercentage(checkOutTime) - left;
 
     if (width <= 0) return null;
 
@@ -147,8 +154,11 @@ const AttendanceBar = ({
                             width: `${width}%`,
                         }}
                     >
-                        <span className="text-xs text-white font-medium truncate px-1.5 py-0.5 block">
-                            {nameInShort ?? user?.displayName}
+                        <span className="flex items-center text-xs text-white font-medium px-1.5 py-0.5">
+                            <span className="truncate">{nameInShort ?? user?.displayName} ({format(checkInTime, 'HH:mm')} - {isInProgress ? '' : format(checkOutTime, 'HH:mm')})</span>
+                            {isInProgress && (
+                                <Clock className="ml-1 h-3 w-3 flex-shrink-0 animate-pulse [animation-duration:3s]" />
+                            )}
                         </span>
                     </div>
                 </TooltipTrigger>
@@ -157,8 +167,8 @@ const AttendanceBar = ({
                         <p><strong>Nhân viên:</strong> {user?.displayName}</p>
                         {shifts.length > 0 && <p><strong>Ca làm:</strong> {shifts.map(s => `${s.label} (${s.timeSlot.start} - ${s.timeSlot.end})`).join(', ')}</p>}
                         {record.isOffShift && <p><strong>Ngoài giờ:</strong> {record.offShiftReason || 'Có'}</p>}
-                        <p><strong>Giờ vào:</strong> {format(checkInTime, 'HH:mm')}</p>
-                        <p><strong>Giờ ra:</strong> {format(checkOutTime, 'HH:mm')}</p>
+                        <p><strong>Giờ vào:</strong> {format(checkInTime, 'HH:mm')}</p> 
+                        <p><strong>Giờ ra:</strong> {isInProgress ? 'Đang làm việc...' : format(checkOutTime, 'HH:mm')}</p>
                         {record.breaks && record.breaks.length > 0 && (
                             <div className="text-sm">
                                 <p><strong>Nghỉ giải lao:</strong></p>
@@ -227,6 +237,14 @@ export default function AttendanceTimeline({
     filteredUserIds: Set<string>;
     onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void;
 }) {
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    useEffect(() => {
+        // Update the current time every minute to make in-progress bars grow
+        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+        return () => clearInterval(timer);
+    }, []);
+
     const userAbbreviations = useMemo(() => generateSmartAbbreviations(users), [users]);
     const shiftDefinitions = useMemo(() => {
         const uniqueShifts = new Map<string, { templateId: string; start: string; end: string }>();
@@ -392,8 +410,8 @@ export default function AttendanceTimeline({
                                                                     </Tooltip>
                                                                 </TooltipProvider>
                                                             );
-                                                        })}
-                                                        {userRecords.map(record => <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} onOpenLightbox={onOpenLightbox} />)}
+                                                        })} 
+                                                        {userRecords.map(record => <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} currentTime={currentTime} onOpenLightbox={onOpenLightbox} />)}
                                                     </div>
                                                 );
                                             })}

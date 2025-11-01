@@ -42,8 +42,7 @@ export function findShiftForRecord(record: AttendanceRecord, schedules: Record<s
                 return checkInTime < shiftEndTime && checkOutTime > shiftStartTime;
             }
 
-            // If only check-in, check if it's within an hour of the shift start.
-            return isWithinInterval(checkInTime, { start: shiftStartTime, end: shiftEndTime });
+            return isWithinInterval(checkInTime, { start: shiftStartTime.setHours(shiftStartTime.getHours() - 1), end: shiftEndTime });         
         });
         allMatchingShifts.push(...matchingShiftsInWeek);
     }
