@@ -236,7 +236,7 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     const currentUserHourlyRate = userDoc.exists() ? userDoc.data().hourlyRate : 0;
     // Use the hourlyRate snapshotted on the record for calculation.
     const hourlyRate = recordData.hourlyRate ?? currentUserHourlyRate ?? 0;
-    const salary = totalHours * hourlyRate;
+    const salary = Math.round(totalHours * hourlyRate);
 
     await updateDoc(recordRef, {
         checkOutTime: checkOutTime,
@@ -304,7 +304,7 @@ export async function createManualAttendanceRecord(
 
     const userDoc = await getDoc(doc(db, 'users', data.userId));
     const hourlyRate = userDoc.exists() ? (userDoc.data().hourlyRate || 0) : 0;
-    const salary = totalHours * hourlyRate;
+    const salary = Math.round(totalHours * hourlyRate);
 
     const newRecord: Omit<AttendanceRecord, 'id'> = {
         userId: data.userId,
@@ -333,7 +333,7 @@ export async function updateAttendanceRecordDetails(recordId: string, data: { ch
     
     // Prioritize the rate from the edit form, then the one on the record, then fallback to current user rate
     const hourlyRate = data.hourlyRate ?? recordSnap.data().hourlyRate ?? 0;
-    const salary = totalHours * hourlyRate;
+    const salary = Math.round(totalHours * hourlyRate);
 
     await updateDoc(recordRef, {
         checkInTime: data.checkInTime,
@@ -353,7 +353,7 @@ export async function updateAttendanceRecordRate(recordId: string, newRate: numb
 
     const recordData = recordSnap.data();
     const totalHours = recordData.totalHours || 0;
-    const newSalary = totalHours * newRate;
+    const newSalary = Math.round(totalHours * newRate);
 
     await updateDoc(recordRef, {
         hourlyRate: newRate,

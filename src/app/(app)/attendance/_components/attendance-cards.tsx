@@ -178,7 +178,7 @@ export default function AttendanceCards({
                         )}
                     </div>
                 )}
-                <div className="flex justify-around pt-2 gap-2">
+                <div className="flex flex-wrap justify-between pt-2 gap-2">
                     {record.photoInUrl && (
                       <div className="text-center">
                           <p className="text-xs text-muted-foreground mb-1">Ảnh vào</p>

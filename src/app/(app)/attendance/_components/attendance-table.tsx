@@ -15,10 +15,10 @@ import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Timestamp } from 'firebase/firestore';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +30,7 @@ export default function AttendanceTable({
   schedules,
   onEdit,
   onDelete,
-  onOpenLightbox, 
+  onOpenLightbox,
 }: {
   records: AttendanceRecord[];
   users: ManagedUser[];
@@ -62,21 +62,22 @@ export default function AttendanceTable({
 
   return (
     <>
-      <div className="border rounded-lg overflow-hidden">
+      <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-gray-50 text-gray-700">
             <TableRow>
-              <TableHead>Nhân viên</TableHead>
+              <TableHead className="w-48">Nhân viên</TableHead>
               <TableHead>Ngày</TableHead>
               <TableHead>Ca làm việc</TableHead>
-              <TableHead>Giờ vào / ra</TableHead>
+              <TableHead>Giờ làm</TableHead>
               <TableHead>Tổng giờ</TableHead>
-              <TableHead>Ảnh</TableHead>
+              <TableHead>Ảnh chấm công</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="text-right">Lương</TableHead>
               <TableHead className="text-right">Hành động</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {sortedRecords.map(record => {
               const user = users.find(u => u.uid === record.userId);
@@ -84,139 +85,200 @@ export default function AttendanceTable({
               const statusInfo = getStatusInfo(record, shifts[0] || null);
 
               const allRecordPhotos = [
-                ...(record.photoInUrl ? [{
+                ...(record.photoInUrl
+                  ? [{
                     src: record.photoInUrl,
-                    description: `Ảnh vào ca của ${user?.displayName} lúc ${format((record.checkInTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`
-                }] : []),
+                    description: `Ảnh vào ca của ${user?.displayName} lúc ${format((record.checkInTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
+                  }]
+                  : []),
                 ...(record.breaks?.flatMap(b => [
-                    ...(b.breakStartPhotoUrl ? [{ src: b.breakStartPhotoUrl, description: `Ảnh bắt đầu nghỉ của ${user?.displayName} lúc ${format((b.breakStartTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : []),
-                    ...(b.breakEndPhotoUrl ? [{ src: b.breakEndPhotoUrl, description: `Ảnh kết thúc nghỉ của ${user?.displayName} lúc ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : [])
+                  ...(b.breakStartPhotoUrl
+                    ? [{
+                      src: b.breakStartPhotoUrl,
+                      description: `Ảnh bắt đầu nghỉ của ${user?.displayName} lúc ${format((b.breakStartTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
+                    }]
+                    : []),
+                  ...(b.breakEndPhotoUrl
+                    ? [{
+                      src: b.breakEndPhotoUrl,
+                      description: `Ảnh kết thúc nghỉ của ${user?.displayName} lúc ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
+                    }]
+                    : []),
                 ]) || []),
-                ...(record.photoOutUrl ? [{
+                ...(record.photoOutUrl
+                  ? [{
                     src: record.photoOutUrl,
-                    description: `Ảnh ra ca của ${user?.displayName} lúc ${format((record.checkOutTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`
-                }] : [])
+                    description: `Ảnh ra ca của ${user?.displayName} lúc ${format((record.checkOutTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
+                  }]
+                  : []),
               ];
 
               const openLightboxForRecord = (photoSrc: string) => {
-                  const photoIndex = allRecordPhotos.findIndex(p => p.src === photoSrc);
-                  onOpenLightbox(allRecordPhotos, photoIndex >= 0 ? photoIndex : 0);
+                const index = allRecordPhotos.findIndex(p => p.src === photoSrc);
+                onOpenLightbox(allRecordPhotos, index >= 0 ? index : 0);
               };
 
               return (
-                <TableRow key={record.id}>
-                  <TableCell>
+                <TableRow key={record.id} className="hover:bg-gray-50">
+                  {/* Nhân viên */}
+                  <TableCell className="align-top">
                     <div className="space-y-1">
-                        <div className="font-medium">{user?.displayName || 'Không rõ'}</div>
-                        <div className="text-xs text-muted-foreground flex items-center">
-                            {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
-                            <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleEditRate(record)}>
-                                <Edit2 className="h-3 w-3" />
-                            </Button>
+                      <div className="font-semibold text-gray-900">{user?.displayName || 'Không rõ'}</div>
+                      <div className="text-xs text-gray-500 flex items-center">
+                        {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-1 h-6 w-6"
+                          onClick={() => handleEditRate(record)}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {record.isOffShift && (
+                        <Badge variant="outline" className="text-amber-700 border-amber-500">
+                          Ngoài giờ
+                        </Badge>
+                      )}
+                      {record.offShiftReason && (
+                        <p className="text-xs text-gray-500 italic">Lý do: {record.offShiftReason}</p>
+                      )}
+                      {record.lateReason && (
+                        <div className="text-xs text-red-500 italic space-y-0.5">
+                          <p>Xin trễ: {record.estimatedLateMinutes} phút</p>
+                          <p>Lý do: {record.lateReason}</p>
+                          {record.lateReasonPhotoUrl && (
+                            <button
+                              onClick={() => onOpenLightbox([{ src: record.lateReasonPhotoUrl! }], 0)}
+                              className="text-blue-500 hover:underline"
+                            >
+                              Xem ảnh
+                            </button>
+                          )}
                         </div>
-                        {record.isOffShift && (
-                            <Badge variant="outline" className="text-amber-600 border-amber-500">Ngoài giờ</Badge>
-                        )}
-                        {record.offShiftReason && (
-                            <p className="text-xs text-muted-foreground italic">Lý do: {record.offShiftReason}</p>
-                        )}
-                        {record.lateReason && (
-                            <div className="text-xs text-destructive italic space-y-0.5">
-                                <p>Xin trễ: {record.estimatedLateMinutes} phút</p>
-                                <p>Lý do: {record.lateReason}</p>
-                                {record.lateReasonPhotoUrl && <button onClick={() => onOpenLightbox([{src: record.lateReasonPhotoUrl!}], 0)} className="text-blue-500 hover:underline">Xem ảnh</button>}
-                            </div>
-                        )}
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'dd/MM/yyyy', { locale: vi })}</TableCell>
-                  <TableCell>
+
+                  {/* Ngày */}
+                  <TableCell className="align-top text-sm text-gray-700">
+                    {format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'dd/MM/yyyy', { locale: vi })}
+                  </TableCell>
+
+                  {/* Ca làm việc */}
+                  <TableCell className="align-top">
                     {shifts.map(shift => (
-                        <div key={shift.id}>
-                            <div>{shift.label}</div>
-                            <div className="text-xs text-muted-foreground">{shift.timeSlot.start} - {shift.timeSlot.end}</div>
-                        </div>
+                      <div key={shift.id} className="text-sm">
+                        <div className="font-medium text-gray-800">{shift.label}</div>
+                        <div className="text-xs text-gray-500">{shift.timeSlot.start} - {shift.timeSlot.end}</div>
+                      </div>
                     ))}
                   </TableCell>
-                  <TableCell>
+
+                  {/* Giờ làm */}
+                  <TableCell className="align-top text-sm text-gray-700">
                     <div>Vào: {format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')}</div>
                     {record.breaks && record.breaks.length > 0 && (
-                        <div className="text-xs text-blue-600 space-y-0.5 mt-1">
-                            {record.breaks.map((breakItem, index) => (
-                                <div key={index}>
-                                    Nghỉ {index + 1}: {format((breakItem.breakStartTime as Timestamp).toDate(), 'HH:mm')}
-                                    {breakItem.breakEndTime ? ` - ${format((breakItem.breakEndTime as Timestamp).toDate(), 'HH:mm')}` : ' - ...'}
-                                </div>
-                            ))}
-                        </div>
+                      <div className="mt-1 text-xs text-blue-600 space-y-0.5">
+                        {record.breaks.map((b, i) => (
+                          <div key={i}>
+                            Nghỉ {i + 1}: {format((b.breakStartTime as Timestamp).toDate(), 'HH:mm')}
+                            {b.breakEndTime ? ` - ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm')}` : ' - ...'}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                    <div>Ra: {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : (
-                        record.onBreak ? <Badge variant="secondary">Đang nghỉ</Badge> : (
-                            record.status === 'in-progress' ? <Badge variant="secondary">Đang làm</Badge> : '--:--'
-                        )
-                    )}</div>
+                    <div>
+                      Ra: {record.checkOutTime
+                        ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm')
+                        : record.onBreak
+                          ? <Badge variant="secondary">Đang nghỉ</Badge>
+                          : record.status === 'in-progress'
+                            ? <Badge variant="secondary">Đang làm</Badge>
+                            : '--:--'}
+                    </div>
                   </TableCell>
-                  <TableCell>{record.totalHours?.toFixed(2) || 'N/A'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                        {record.photoInUrl && (
-                            <button onClick={() => openLightboxForRecord(record.photoInUrl!)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
-                              <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                            </button>
-                        )}
-                        {record.photoOutUrl && (
-                            <button onClick={() => openLightboxForRecord(record.photoOutUrl!)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer">
-                                <Image src={record.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                            </button>
-                        )}
-                        {record.breaks?.map((breakItem, breakIndex) => (
-                            <React.Fragment key={`break-${breakIndex}`}>
-                                {breakItem.breakStartPhotoUrl && (
-                                    <button onClick={() => openLightboxForRecord(breakItem.breakStartPhotoUrl!)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer border-2 border-blue-400">
-                                        <Image src={breakItem.breakStartPhotoUrl} alt={`Break start ${breakIndex + 1}`} layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                                    </button>
-                                )}
-                                {breakItem.breakEndPhotoUrl && (
-                                    <button onClick={() => openLightboxForRecord(breakItem.breakEndPhotoUrl!)} className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 cursor-pointer border-2 border-green-400">
-                                        <Image src={breakItem.breakEndPhotoUrl} alt={`Break end ${breakIndex + 1}`} layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                                    </button>
-                                )}
-                            </React.Fragment>
+
+                  {/* Tổng giờ */}
+                  <TableCell className="align-top text-sm font-medium text-gray-700">
+                    {record.totalHours?.toFixed(2) || 'N/A'}
+                  </TableCell>
+
+                  {/* Ảnh */}
+                  <TableCell className="align-top">
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        record.photoInUrl && { url: record.photoInUrl, border: '' },
+                        record.photoOutUrl && { url: record.photoOutUrl, border: '' },
+                        ...(record.breaks?.flatMap(b => [
+                          b.breakStartPhotoUrl && { url: b.breakStartPhotoUrl, border: 'border-2 border-blue-400' },
+                          b.breakEndPhotoUrl && { url: b.breakEndPhotoUrl, border: 'border-2 border-green-400' },
+                        ]) || []),
+                      ]
+                        .filter(Boolean)
+                        .map((p, i) => (
+                          <button
+                            key={i} // Use a unique key for each photo
+                            onClick={() => openLightboxForRecord(p ? p.url : '')}
+                            className={`relative h-12 w-12 rounded-md overflow-hidden cursor-pointer border ${p ? p.border : ''} hover:ring-2 hover:ring-blue-400 transition`}
+                          >
+                            <Image
+                              src={p ? p.url : ''}
+                              alt="Record photo"
+                              fill
+                              className="object-cover hover:scale-110 transition-transform duration-200"
+                            />
+                          </button>
                         ))}
                     </div>
                   </TableCell>
-                  <TableCell>
+
+                  {/* Trạng thái */}
+                  <TableCell className="align-top">
                     <div className={cn("flex items-center gap-2 text-sm", statusInfo.color)}>
-                        {statusInfo.icon}
-                        {statusInfo.text}
+                      {statusInfo.icon}
+                      {statusInfo.text}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-semibold">
+
+                  {/* Lương */}
+                  <TableCell className="align-top text-right font-semibold text-gray-900">
                     {record.salary?.toLocaleString('vi-VN')}đ
                   </TableCell>
-                  <TableCell className="text-right">
+
+                  {/* Hành động */}
+                  <TableCell className="align-top text-right">
                     <AlertDialog>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <MoreVertical className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => onEdit(record)}>
-                                    <Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa
-                                </DropdownMenuItem>
-                                <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive focus:text-destructive">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                                    </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                        <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(record.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
-                        </AlertDialogContent>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEdit(record)}>
+                            <Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa
+                          </DropdownMenuItem>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Hủy</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onDelete(record.id)}>Xóa</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
                     </AlertDialog>
                   </TableCell>
                 </TableRow>
@@ -224,21 +286,21 @@ export default function AttendanceTable({
             })}
           </TableBody>
         </Table>
+
         {records.length === 0 && (
-            <div className="text-center py-10 text-muted-foreground">Không có dữ liệu chấm công cho tháng này.</div>
+          <div className="py-10 text-center text-gray-500">Không có dữ liệu chấm công cho tháng này.</div>
         )}
       </div>
 
       {recordToEditRate && (
         <HourlyRateDialog
-            isOpen={isRateDialogOpen}
-            onClose={() => setIsRateDialogOpen(false)}
-            record={recordToEditRate}
-            onSave={handleSaveRate}
+          isOpen={isRateDialogOpen}
+          onClose={() => setIsRateDialogOpen(false)}
+          record={recordToEditRate}
+          onSave={handleSaveRate}
         />
       )}
     </>
+
   );
 }
-
-    
