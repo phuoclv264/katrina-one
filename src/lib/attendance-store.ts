@@ -191,7 +191,9 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             photoInUrl: photoUrl,
             status: 'in-progress',
             hourlyRate: hourlyRate,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            ...(isOffShift && { isOffShift: true }),
+            ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
         });
     } else {
         // Create a new record

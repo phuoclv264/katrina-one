@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
 import { Edit2, MoreVertical, Trash2 } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
-import { dataStore } from '@/lib/data-store';
+import { dataStore } from '@/lib/data-store'; 
 import { toast } from 'react-hot-toast';
 import { Timestamp } from '@google-cloud/firestore';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 
 export default function AttendanceCards({
   records,
@@ -82,6 +83,9 @@ export default function AttendanceCards({
                                 <Edit2 className="h-3 w-3" />
                             </Button>
                         </div>
+                        <div>
+                            {record.isOffShift && <Badge variant="outline" className="text-amber-600 border-amber-500">Ngoài giờ</Badge>}
+                        </div>
                     </div>
                      <div className="flex items-center">
                         <div className={cn("text-sm font-semibold flex items-center gap-1", statusInfo.color)}>
@@ -121,12 +125,26 @@ export default function AttendanceCards({
                 </div>
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Giờ vào/ra</span>
-                  <span>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')} - {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : '--:--'}</span>
+                  <span>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')} - {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : (
+                      record.onBreak ? <Badge variant="secondary">Đang nghỉ</Badge> : (
+                          record.status === 'in-progress' ? <Badge variant="secondary">Đang làm</Badge> : '--:--'
+                      )
+                  )}</span>
                 </div>
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Tổng giờ</span>
                   <span>{record.totalHours?.toFixed(2) || 'N/A'}</span>
                 </div>
+                {record.offShiftReason && <div className="text-xs italic text-muted-foreground">Lý do ngoài giờ: {record.offShiftReason}</div>}
+                {record.lateReason && (
+                    <div className="text-xs text-destructive italic border-t pt-2 mt-2">
+                        <p>Xin trễ: {record.estimatedLateMinutes} phút</p>
+                        <p>Lý do: {record.lateReason}</p>
+                        {record.lateReasonPhotoUrl && (
+                            <button onClick={() => onOpenLightbox([{src: record.lateReasonPhotoUrl!}], 0)} className="text-blue-500 hover:underline">Xem ảnh bằng chứng</button>
+                        )}
+                    </div>
+                )}
                 <div className="flex justify-around pt-2 gap-2">
                     {record.photoInUrl && (
                       <div className="text-center">

@@ -128,13 +128,20 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
                     <div className="p-2 text-sm space-y-1">
                         <p><strong>Nhân viên:</strong> {user?.displayName}</p>
                         {shifts.length > 0 && <p><strong>Ca làm:</strong> {shifts.map(s => `${s.label} (${s.timeSlot.start} - ${s.timeSlot.end})`).join(', ')}</p>}
+                        {record.isOffShift && <p><strong>Ngoài giờ:</strong> {record.offShiftReason || 'Có'}</p>}
                         <p><strong>Giờ vào:</strong> {format(checkInTime, 'HH:mm')}</p>
                         <p><strong>Giờ ra:</strong> {format(checkOutTime, 'HH:mm')}</p>
+                        {record.breaks && record.breaks.length > 0 && <p><strong>Nghỉ giải lao:</strong> {record.breaks.length} lần</p>}
                         <p><strong>Tổng giờ:</strong> {record.totalHours?.toFixed(2) || 'N/A'} giờ</p>
-                        <p><strong>Lương:</strong> {record.salary?.toLocaleString('vi-VN')}đ</p>
+                        <p><strong>Lương:</strong> {record.salary?.toLocaleString('vi-VN')}đ ({record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ)</p>
                         <div className={cn("flex items-center gap-1", statusInfo.color)}>
                             {statusInfo.icon} {statusInfo.text}
                         </div>
+                        {record.lateReason && (
+                            <div className="text-xs text-destructive italic border-t pt-1 mt-1">
+                                <p>Xin trễ {record.estimatedLateMinutes} phút: {record.lateReason}</p>
+                            </div>
+                        )}
                     </div>
                 </TooltipContent>
             </Tooltip>

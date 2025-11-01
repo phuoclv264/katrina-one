@@ -21,14 +21,14 @@ import { Label } from '@/components/ui/label';
 import { photoStore } from '@/lib/photo-store';
 
 export default function CheckInCard() {
-    const { user, loading: authLoading, activeShifts } = useAuth();
+    const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
     const [activeShift, setActiveShift] = useState<AssignedShift | null>(null);
     const [latestInProgressRecord, setLatestInProgressRecord] = useState<AttendanceRecord | null>(null);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-    
+
     const [cameraAction, setCameraAction] = useState<'check-in-out' | 'break' | 'late-request'>('check-in-out');
     const [isOffShiftReasonDialogOpen, setIsOffShiftReasonDialogOpen] = useState(false);
     const [offShiftReason, setOffShiftReason] = useState('');
@@ -42,7 +42,7 @@ export default function CheckInCard() {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState(0);
-    
+
     const [currentTime, setCurrentTime] = useState(new Date());
 
     // The active shift is now derived from the useAuth hook
@@ -171,7 +171,7 @@ export default function CheckInCard() {
         }
     };
 
-    const handleCameraSubmit = async (media: {id: string; type: 'photo' | 'video'}[]) => {
+    const handleCameraSubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         const photoId = media.find(m => m.type === 'photo')?.id;
         if (!photoId) return;
 
@@ -218,7 +218,7 @@ export default function CheckInCard() {
             setIsProcessing(false);
         }
     };
-    
+
     // Don't show the card if loading, or if there's no active shift AND no in-progress record to check out from.
     // This ensures the user can always check out.
     const handleOpenLightbox = (slides: { src: string }[], index: number = 0) => {
@@ -234,7 +234,37 @@ export default function CheckInCard() {
     };
 
     const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
-    const showLateRequestButton = activeShift && !latestInProgressRecord;
+
+    const renderRequestLateButton = () => {
+        if (todaysShifts.length === 0) return null;
+        if (hasPendingLateRequest) {
+            return (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                    <p className="text-blue-800 font-semibold text-base mb-2">Đã ghi nhận yêu cầu đi trễ:</p>
+                    <div className="space-y-2 text-left text-blue-900/80">
+                        <p><strong>Lý do:</strong> {attendanceRecords[0].lateReason}</p>
+                        <p><strong>Dự kiến trễ:</strong> {attendanceRecords[0].estimatedLateMinutes} phút</p>
+                        {attendanceRecords[0].lateReasonPhotoUrl && (
+                            <div className="flex items-start gap-2">
+                                <strong>Bằng chứng:</strong>
+                                <button onClick={() => handleOpenLightbox([{ src: attendanceRecords[0].lateReasonPhotoUrl! }])} className="relative h-16 w-16 rounded-md overflow-hidden cursor-pointer shrink-0">
+                                    <Image src={attendanceRecords[0].lateReasonPhotoUrl} alt="Ảnh bằng chứng đi trễ" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-center text-blue-800 font-semibold mt-3 pt-3 border-t border-blue-200">Vui lòng chấm công khi bạn đến nơi.</p>
+                </div>
+            )
+        } else {
+            return (
+                <Button onClick={handleOpenLateRequestDialog} disabled={isProcessing} variant="outline" className="w-full">
+                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
+                    Xin đi trễ
+                </Button>
+            );
+        }
+    }
 
     const renderStatus = () => {
         if (latestInProgressRecord && latestInProgressRecord.status === 'completed') {
@@ -248,7 +278,7 @@ export default function CheckInCard() {
                 <div className="text-center">
                     <p className="text-sm text-muted-foreground">Bạn đã chấm công vào lúc</p>
                     <p className="text-4xl font-bold font-mono mb-4">{format(checkInTime, 'HH:mm')}</p>
-                    
+
                     {latestInProgressRecord.onBreak ? (
                         <p className="text-lg font-semibold text-blue-600">Đang trong giờ nghỉ...</p>
                     ) : (
@@ -259,7 +289,7 @@ export default function CheckInCard() {
                     )}
 
                     {(user?.role === 'Quản lý') && (
-                         <Button onClick={handleToggleBreak} disabled={isProcessing} variant="outline" className="w-full mt-2">
+                        <Button onClick={handleToggleBreak} disabled={isProcessing} variant="outline" className="w-full mt-2">
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (latestInProgressRecord.onBreak ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <Info className="mr-2 h-4 w-4 text-blue-500" />)}
                             {latestInProgressRecord.onBreak ? 'Tiếp tục vào làm việc' : 'Tạm nghỉ'}
                         </Button>
@@ -270,11 +300,13 @@ export default function CheckInCard() {
 
         if (!latestInProgressRecord && !activeShift) {
             return (
-                <div className="text-center">
+                <div className="space-y-2">
                     <Button onClick={handleCheckInOrOut} disabled={isProcessing} className="w-full h-12 text-base" variant="outline">
                         {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
                         Chấm công ngoài giờ làm việc
                     </Button>
+
+                    {renderRequestLateButton()}
                 </div>
             );
         }
@@ -289,29 +321,7 @@ export default function CheckInCard() {
                     {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
                     Chấm công vào
                 </Button>
-                {hasPendingLateRequest ? (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                        <p className="text-blue-800 font-semibold text-base mb-2">Đã ghi nhận yêu cầu đi trễ:</p>
-                        <div className="space-y-2 text-left text-blue-900/80">
-                            <p><strong>Lý do:</strong> {attendanceRecords[0].lateReason}</p>
-                            <p><strong>Dự kiến trễ:</strong> {attendanceRecords[0].estimatedLateMinutes} phút</p>
-                            {attendanceRecords[0].lateReasonPhotoUrl && (
-                                <div className="flex items-start gap-2">
-                                    <strong>Bằng chứng:</strong>
-                                    <button onClick={() => handleOpenLightbox([{ src: attendanceRecords[0].lateReasonPhotoUrl! }])} className="relative h-16 w-16 rounded-md overflow-hidden cursor-pointer shrink-0">
-                                        <Image src={attendanceRecords[0].lateReasonPhotoUrl} alt="Ảnh bằng chứng đi trễ" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <p className="text-center text-blue-800 font-semibold mt-3 pt-3 border-t border-blue-200">Vui lòng chấm công khi bạn đến nơi.</p>
-                    </div>
-                ) :
-                    <Button onClick={handleOpenLateRequestDialog} disabled={isProcessing} variant="outline" className="w-full">
-                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                        Xin đi trễ
-                    </Button>
-                }
+                {renderRequestLateButton()}
             </div>
         );
     };
@@ -350,7 +360,7 @@ export default function CheckInCard() {
             <Card className="mb-6 shadow-lg border-primary/20 bg-gradient-to-br from-card to-primary/5">
                 <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
                     {latestInProgressRecord && latestInProgressRecord.photoInUrl && (
-                        <button onClick={() => handleOpenLightbox([{src: latestInProgressRecord.photoInUrl!}], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
+                        <button onClick={() => handleOpenLightbox([{ src: latestInProgressRecord.photoInUrl! }], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
                             <Image src={latestInProgressRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                         </button>
                     )}

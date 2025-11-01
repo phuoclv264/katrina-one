@@ -13,7 +13,7 @@ import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
-import { Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from 'firebase/firestore';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 
 export default function AttendanceTable({
   records,
@@ -84,12 +85,27 @@ export default function AttendanceTable({
               return (
                 <TableRow key={record.id}>
                   <TableCell>
-                    <div className="font-medium">{user?.displayName || 'Không rõ'}</div>
-                    <div className="text-xs text-muted-foreground flex items-center">
-                        {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
-                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleEditRate(record)}>
-                            <Edit2 className="h-3 w-3" />
-                        </Button>
+                    <div className="space-y-1">
+                        <div className="font-medium">{user?.displayName || 'Không rõ'}</div>
+                        <div className="text-xs text-muted-foreground flex items-center">
+                            {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
+                            <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleEditRate(record)}>
+                                <Edit2 className="h-3 w-3" />
+                            </Button>
+                        </div>
+                        {record.isOffShift && (
+                            <Badge variant="outline" className="text-amber-600 border-amber-500">Ngoài giờ</Badge>
+                        )}
+                        {record.offShiftReason && (
+                            <p className="text-xs text-muted-foreground italic">Lý do: {record.offShiftReason}</p>
+                        )}
+                        {record.lateReason && (
+                            <div className="text-xs text-destructive italic space-y-0.5">
+                                <p>Xin trễ: {record.estimatedLateMinutes} phút</p>
+                                <p>Lý do: {record.lateReason}</p>
+                                {record.lateReasonPhotoUrl && <button onClick={() => onOpenLightbox([{src: record.lateReasonPhotoUrl!}], 0)} className="text-blue-500 hover:underline">Xem ảnh</button>}
+                            </div>
+                        )}
                     </div>
                   </TableCell>
                   <TableCell>{format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'dd/MM/yyyy', { locale: vi })}</TableCell>
@@ -103,7 +119,16 @@ export default function AttendanceTable({
                   </TableCell>
                   <TableCell>
                     <div>Vào: {format(new Date((record.checkInTime as Timestamp).seconds * 1000), 'HH:mm')}</div>
-                    <div>Ra: {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : '--:--'}</div>
+                    {record.breaks && record.breaks.length > 0 && (
+                        <div className="text-xs text-blue-600">
+                            Nghỉ: {record.breaks.length} lần
+                        </div>
+                    )}
+                    <div>Ra: {record.checkOutTime ? format(new Date((record.checkOutTime as Timestamp).seconds * 1000), 'HH:mm') : (
+                        record.onBreak ? <Badge variant="secondary">Đang nghỉ</Badge> : (
+                            record.status === 'in-progress' ? <Badge variant="secondary">Đang làm</Badge> : '--:--'
+                        )
+                    )}</div>
                   </TableCell>
                   <TableCell>{record.totalHours?.toFixed(2) || 'N/A'}</TableCell>
                   <TableCell>
