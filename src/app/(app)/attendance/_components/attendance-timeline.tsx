@@ -11,6 +11,7 @@ import { Timestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { vi } from 'date-fns/locale';
 import { Users } from 'lucide-react';
+import Image from 'next/image';
 import { ScrollAreaViewport } from '@radix-ui/react-scroll-area';
 
 const SHIFT_BG_COLORS = [
@@ -94,7 +95,14 @@ const getRoleBarColor = (role?: string): string => {
     }
 };
 
-const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord; user: ManagedUser | undefined; nameInShort: string | undefined }) => {
+const AttendanceBar = ({ 
+    record, 
+    user, 
+    nameInShort,
+    onOpenLightbox,
+}: { 
+    record: AttendanceRecord; user: ManagedUser | undefined; nameInShort: string | undefined,
+    onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void; }) => {
     if (!record.checkOutTime) return null;
 
     const checkInTime = (record.checkInTime as Timestamp).toDate();
@@ -107,6 +115,26 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
 
     const shifts = findShiftForRecord(record, {}); // Note: Schedules are handled at the day level
     const statusInfo = getStatusInfo(record, shifts[0] || null);
+
+    const allRecordPhotos = [
+        ...(record.photoInUrl ? [{
+            src: record.photoInUrl,
+            description: `Ảnh vào ca của ${user?.displayName} lúc ${format(checkInTime, 'HH:mm dd/MM/yy')}`
+        }] : []),
+        ...(record.breaks?.flatMap(b => [
+            ...(b.breakStartPhotoUrl ? [{ src: b.breakStartPhotoUrl, description: `Ảnh bắt đầu nghỉ của ${user?.displayName} lúc ${format((b.breakStartTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : []),
+            ...(b.breakEndPhotoUrl ? [{ src: b.breakEndPhotoUrl, description: `Ảnh kết thúc nghỉ của ${user?.displayName} lúc ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : [])
+        ]) || []),
+        ...(record.photoOutUrl ? [{
+            src: record.photoOutUrl,
+            description: `Ảnh ra ca của ${user?.displayName} lúc ${format(checkOutTime, 'HH:mm dd/MM/yy')}`
+        }] : [])
+    ];
+
+    const openLightboxForRecord = (photoSrc: string) => {
+        const photoIndex = allRecordPhotos.findIndex(p => p.src === photoSrc);
+        onOpenLightbox(allRecordPhotos, photoIndex >= 0 ? photoIndex : 0);
+    };
 
     return (
         <TooltipProvider delayDuration={100}>
@@ -131,7 +159,16 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
                         {record.isOffShift && <p><strong>Ngoài giờ:</strong> {record.offShiftReason || 'Có'}</p>}
                         <p><strong>Giờ vào:</strong> {format(checkInTime, 'HH:mm')}</p>
                         <p><strong>Giờ ra:</strong> {format(checkOutTime, 'HH:mm')}</p>
-                        {record.breaks && record.breaks.length > 0 && <p><strong>Nghỉ giải lao:</strong> {record.breaks.length} lần</p>}
+                        {record.breaks && record.breaks.length > 0 && (
+                            <div className="text-sm">
+                                <p><strong>Nghỉ giải lao:</strong></p>
+                                {record.breaks.map((breakItem, index) => (
+                                    <p key={index} className="pl-2 text-xs">
+                                        - Lần {index + 1}: {format((breakItem.breakStartTime as Timestamp).toDate(), 'HH:mm')} - {breakItem.breakEndTime ? format((breakItem.breakEndTime as Timestamp).toDate(), 'HH:mm') : '...'}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
                         <p><strong>Tổng giờ:</strong> {record.totalHours?.toFixed(2) || 'N/A'} giờ</p>
                         <p><strong>Lương:</strong> {record.salary?.toLocaleString('vi-VN')}đ ({record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ)</p>
                         <div className={cn("flex items-center gap-1", statusInfo.color)}>
@@ -142,6 +179,24 @@ const AttendanceBar = ({ record, user, nameInShort }: { record: AttendanceRecord
                                 <p>Xin trễ {record.estimatedLateMinutes} phút: {record.lateReason}</p>
                             </div>
                         )}
+                        <div className="flex gap-2 pt-2 border-t mt-2">
+                            {record.photoInUrl && <button onClick={() => openLightboxForRecord(record.photoInUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden"><Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" /></button>}
+                            {record.breaks?.map((breakItem, breakIndex) => (
+                                <React.Fragment key={`break-thumb-${breakIndex}`}>
+                                    {breakItem.breakStartPhotoUrl && (
+                                        <button onClick={() => openLightboxForRecord(breakItem.breakStartPhotoUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden border-2 border-blue-400">
+                                            <Image src={breakItem.breakStartPhotoUrl} alt={`Break start ${breakIndex + 1}`} layout="fill" objectFit="cover" />
+                                        </button>
+                                    )}
+                                    {breakItem.breakEndPhotoUrl && (
+                                        <button onClick={() => openLightboxForRecord(breakItem.breakEndPhotoUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden border-2 border-green-400">
+                                            <Image src={breakItem.breakEndPhotoUrl} alt={`Break end ${breakIndex + 1}`} layout="fill" objectFit="cover" />
+                                        </button>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                            {record.photoOutUrl && <button onClick={() => openLightboxForRecord(record.photoOutUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden"><Image src={record.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" /></button>}
+                        </div>
                     </div>
                 </TooltipContent>
             </Tooltip>
@@ -163,12 +218,14 @@ export default function AttendanceTimeline({
     schedules,
     dateRange,
     filteredUserIds,
+    onOpenLightbox,
 }: {
     records: AttendanceRecord[];
     users: ManagedUser[];
     schedules: Record<string, Schedule>;
     dateRange?: { from: Date; to: Date };
     filteredUserIds: Set<string>;
+    onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void;
 }) {
     const userAbbreviations = useMemo(() => generateSmartAbbreviations(users), [users]);
     const shiftDefinitions = useMemo(() => {
@@ -317,15 +374,26 @@ export default function AttendanceTimeline({
                                                             const startPercentage = timeToPercentage(shiftStart);
                                                             const widthPercentage = timeToPercentage(shiftEnd) - startPercentage;
 
+                                                            const userDetails = users.find(u => u.uid === userId);
+
                                                             return (
-                                                                <div
-                                                                    key={shift.id}
-                                                                    className="absolute top-1/2 -translate-y-1/2 h-1 bg-orange-200 dark:bg-gray-700/50 rounded-sm"
-                                                                    style={{ left: `${startPercentage}%`, width: `${widthPercentage}%` }}
-                                                                />
+                                                                <TooltipProvider key={shift.id} delayDuration={100}>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div
+                                                                                className="absolute top-1/2 -translate-y-1/2 h-1 bg-orange-200 dark:bg-gray-700/50 rounded-sm"
+                                                                                style={{ left: `${startPercentage}%`, width: `${widthPercentage}%` }}
+                                                                            />
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            <p><strong>{userDetails?.displayName}</strong></p>
+                                                                            <p>Ca: {shift.label} ({shift.timeSlot.start} - {shift.timeSlot.end})</p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
                                                             );
                                                         })}
-                                                        {userRecords.map(record => <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} />)}
+                                                        {userRecords.map(record => <AttendanceBar key={record.id} record={record} user={users.find(u => u.uid === userId)} nameInShort={userAbbreviations.get(userId)} onOpenLightbox={onOpenLightbox} />)}
                                                     </div>
                                                 );
                                             })}

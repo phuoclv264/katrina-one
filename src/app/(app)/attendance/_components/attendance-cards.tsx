@@ -1,6 +1,6 @@
 
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/lib/types';
 import { format } from 'date-fns';
@@ -30,13 +30,13 @@ export default function AttendanceCards({
   onEdit,
   onDelete,
   onOpenLightbox,
-}: {
+}: { 
   records: AttendanceRecord[];
   users: ManagedUser[];
   schedules: Record<string, Schedule>;
   onEdit: (record: AttendanceRecord) => void;
   onDelete: (id: string) => void;
-  onOpenLightbox: (slides: { src: string }[], index: number) => void;
+  onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void;
 }) {
   const [recordToEditRate, setRecordToEditRate] = useState<AttendanceRecord | null>(null);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
@@ -70,6 +70,26 @@ export default function AttendanceCards({
           const user = users.find(u => u.uid === record.userId);
           const shifts = findShiftForRecord(record, schedules);
           const statusInfo = getStatusInfo(record, shifts[0] || null);
+
+          const allRecordPhotos = [
+            ...(record.photoInUrl ? [{
+                src: record.photoInUrl,
+                description: `Ảnh vào ca của ${user?.displayName} lúc ${format((record.checkInTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`
+            }] : []),
+            ...(record.breaks?.flatMap(b => [
+                ...(b.breakStartPhotoUrl ? [{ src: b.breakStartPhotoUrl, description: `Ảnh bắt đầu nghỉ của ${user?.displayName} lúc ${format((b.breakStartTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : []),
+                ...(b.breakEndPhotoUrl ? [{ src: b.breakEndPhotoUrl, description: `Ảnh kết thúc nghỉ của ${user?.displayName} lúc ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : [])
+            ]) || []),
+            ...(record.photoOutUrl ? [{
+                src: record.photoOutUrl,
+                description: `Ảnh ra ca của ${user?.displayName} lúc ${format((record.checkOutTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`
+            }] : [])
+          ];
+
+          const openLightboxForRecord = (photoSrc: string) => {
+              const photoIndex = allRecordPhotos.findIndex(p => p.src === photoSrc);
+              onOpenLightbox(allRecordPhotos, photoIndex >= 0 ? photoIndex : 0);
+          };
 
           return (
             <Card key={record.id}>
@@ -131,6 +151,19 @@ export default function AttendanceCards({
                       )
                   )}</span>
                 </div>
+                {record.breaks && record.breaks.length > 0 && (
+                    <div className="text-xs text-blue-600 space-y-0.5 pt-1 border-t mt-2">
+                        {record.breaks.map((breakItem, index) => (
+                            <div key={index} className="flex justify-between">
+                                <span>Nghỉ {index + 1}:</span>
+                                <span>
+                                    {format((breakItem.breakStartTime as Timestamp).toDate(), 'HH:mm')}
+                                    {breakItem.breakEndTime ? ` - ${format((breakItem.breakEndTime as Timestamp).toDate(), 'HH:mm')}` : '...'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
                  <div className="flex justify-between">
                   <span className="text-muted-foreground">Tổng giờ</span>
                   <span>{record.totalHours?.toFixed(2) || 'N/A'}</span>
@@ -149,7 +182,7 @@ export default function AttendanceCards({
                     {record.photoInUrl && (
                       <div className="text-center">
                           <p className="text-xs text-muted-foreground mb-1">Ảnh vào</p>
-                          <button onClick={() => onOpenLightbox([{src: record.photoInUrl!}], 0)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
+                          <button onClick={() => openLightboxForRecord(record.photoInUrl!)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
                               <Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                           </button>
                       </div>
@@ -157,11 +190,31 @@ export default function AttendanceCards({
                     {record.photoOutUrl && (
                         <div className="text-center">
                             <p className="text-xs text-muted-foreground mb-1">Ảnh ra</p>
-                            <button onClick={() => onOpenLightbox([{src: record.photoOutUrl!}], 0)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
+                            <button onClick={() => openLightboxForRecord(record.photoOutUrl!)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer">
                                 <Image src={record.photoOutUrl} alt="Check-out" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                             </button>
                         </div>
                     )}
+                    {record.breaks?.map((breakItem, breakIndex) => (
+                        <React.Fragment key={`break-${breakIndex}`}>
+                            {breakItem.breakStartPhotoUrl && (
+                                <div className="text-center">
+                                    <p className="text-xs text-muted-foreground mb-1">Ảnh nghỉ {breakIndex + 1}</p>
+                                    <button onClick={() => openLightboxForRecord(breakItem.breakStartPhotoUrl!)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer border-2 border-blue-400">
+                                        <Image src={breakItem.breakStartPhotoUrl} alt={`Break start ${breakIndex + 1}`} layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                                    </button>
+                                </div>
+                            )}
+                            {breakItem.breakEndPhotoUrl && (
+                                <div className="text-center">
+                                    <p className="text-xs text-muted-foreground mb-1">Ảnh làm lại {breakIndex + 1}</p>
+                                    <button onClick={() => openLightboxForRecord(breakItem.breakEndPhotoUrl!)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer border-2 border-green-400">
+                                        <Image src={breakItem.breakEndPhotoUrl} alt={`Break end ${breakIndex + 1}`} layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
+                                    </button>
+                                </div>
+                            )}
+                        </React.Fragment>
+                    ))}
                 </div>
                 <div className="flex justify-between items-center border-t pt-2 mt-2">
                   <span className="text-muted-foreground font-semibold">Lương</span>
