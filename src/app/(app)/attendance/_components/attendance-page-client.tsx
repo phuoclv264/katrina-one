@@ -8,8 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
-import type { AttendanceRecord, ManagedUser, Schedule } from '@/lib/types';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
+import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AttendanceTable from './attendance-table';
@@ -63,6 +63,20 @@ export default function AttendancePageComponent() {
     const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
     const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(dateRange);
 
+    // Helper function to abbreviate names
+    const generateShortName = (displayName: string): string => {
+        if (!displayName) return '';
+        const nameParts = displayName.trim().split(/\s+/);
+        if (nameParts.length <= 1) {
+            return displayName;
+        }
+        const lastName = nameParts[nameParts.length - 1];
+        const initials = nameParts
+            .slice(0, nameParts.length - 1)
+            .map(part => part.charAt(0).toUpperCase())
+            .join('.');
+        return `${initials}.${lastName}`;
+    };
 
     useEffect(() => {
         if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -149,6 +163,101 @@ export default function AttendancePageComponent() {
         return filteredRecords.reduce((total, record) => total + (record.salary || 0), 0);
     }, [filteredRecords]);
     
+    const todaysSummary = useMemo(() => {
+        const today = new Date();
+        const todayStart = startOfToday();
+        const todayEnd = endOfToday();
+        const todayDateString = format(today, 'yyyy-MM-dd');
+        const weekId = `${getYear(today)}-W${getISOWeek(today)}`;
+        const todaysSchedule = schedules[weekId];
+
+        const todaysRecords = attendanceRecords.filter(record => {
+            if (!record.checkInTime) return false;
+            const checkInDate = (record.checkInTime as Timestamp).toDate();
+            return checkInDate >= todayStart && checkInDate <= todayEnd;
+        });
+
+        // Step 1: Group all of today's records by user ID for easy lookup.
+        const userRecords = new Map<string, AttendanceRecord[]>();
+        todaysRecords.forEach(record => {
+            if (!userRecords.has(record.userId)) {
+                userRecords.set(record.userId, []);
+            }
+            userRecords.get(record.userId)!.push(record);
+        });
+
+        // Step 2: Build the shift structure for today from the schedule.
+        const shiftsForToday = todaysSchedule?.shifts.filter(s => s.date === todayDateString) || [];
+        const shiftGroups = new Map<string, { shiftLabel: string; timeSlot: string; staff: any[] }>();
+        const processedRecordIds = new Set<string>();
+
+        shiftsForToday.forEach(shift => {
+            const key = `${shift.label} (${shift.timeSlot.start}-${shift.timeSlot.end})`;
+            if (!shiftGroups.has(key)) {
+                shiftGroups.set(key, { shiftLabel: shift.label, timeSlot: `${shift.timeSlot.start}-${shift.timeSlot.end}`, staff: [] });
+            }
+            const group = shiftGroups.get(key)!;
+            const shiftDate = new Date(shift.date);
+            const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', shiftDate);
+            const shiftEndTime = parse(shift.timeSlot.end, 'HH:mm', shiftDate);
+
+            shift.assignedUsers.forEach(assignedUser => {
+                const user = allUsers.find(u => u.uid === assignedUser.userId);
+                if (user) {
+                    const recordsForUser = userRecords.get(user.uid) || [];
+                    let bestMatch: AttendanceRecord | null = null;
+                    let minDiff = Infinity;
+
+                    // Find the attendance record that best overlaps or is closest to this specific shift.
+                    for (const record of recordsForUser) {
+                        const checkInTime = (record.checkInTime as Timestamp).toDate();
+                        const checkOutTime = record.checkOutTime ? (record.checkOutTime as Timestamp).toDate() : new Date(); // Use current time for in-progress
+
+                        // Check for overlap: record starts before shift ends AND record ends after shift starts
+                        const overlaps = checkInTime < shiftEndTime && checkOutTime > shiftStartTime;
+                        if (overlaps) {
+                            const diff = Math.abs(differenceInMinutes(checkInTime, shiftStartTime));
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                bestMatch = record;
+                            }
+                        }
+                    }
+
+                    const attendanceData = bestMatch ? {
+                        status: bestMatch.status,
+                        checkInTime: (bestMatch.checkInTime as Timestamp)?.toDate(),
+                        checkOutTime: (bestMatch.checkOutTime as Timestamp)?.toDate(),
+                    } : {};
+                    
+                    group.staff.push({ user, ...attendanceData });
+
+                    if (bestMatch) processedRecordIds.add(bestMatch.id);
+                }
+            });
+        });
+
+        // Step 3: Group any remaining, completely unmatched records into "Ngoài giờ".
+        const offShiftRecords = todaysRecords.filter(r => !processedRecordIds.has(r.id));
+        if (offShiftRecords.length > 0) {
+            const offShiftKey = 'Ngoài giờ';
+            if (!shiftGroups.has(offShiftKey)) {
+                shiftGroups.set(offShiftKey, { shiftLabel: 'Ngoài giờ', timeSlot: '', staff: [] });
+            }
+            const offShiftGroup = shiftGroups.get(offShiftKey)!;
+            offShiftRecords.forEach(record => {
+                const user = allUsers.find(u => u.uid === record.userId);
+                if (user) {
+                    offShiftGroup.staff.push({ user, status: record.status, checkInTime: (record.checkInTime as Timestamp)?.toDate(), checkOutTime: (record.checkOutTime as Timestamp)?.toDate() });
+                }
+            });
+        }
+
+        const totalSalaryToday = todaysRecords.reduce((sum, record) => sum + (record.salary || 0), 0);
+
+        return { staffByShift: Array.from(shiftGroups.values()), totalSalaryToday };
+    }, [attendanceRecords, allUsers, schedules]);
+
     const handleMonthChange = (direction: 'prev' | 'next') => {
         setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
     };
@@ -235,6 +344,14 @@ export default function AttendancePageComponent() {
     }, []);
 
     const sortedUsers = useMemo(() => [...allUsers].sort((a, b) => a.displayName.localeCompare(b.displayName)), [allUsers]);
+
+    const roleOrder: Record<UserRole, number> = {
+        'Chủ nhà hàng': 1,
+        'Quản lý': 2,
+        'Thu ngân': 3,
+        'Pha chế': 4,
+        'Phục vụ': 5,
+    };
 
     if (isLoading || authLoading) {
         return (
@@ -348,20 +465,57 @@ export default function AttendancePageComponent() {
                             )}
                         </div>
 
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-4 border-t">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Tổng lương cho giai đoạn đã chọn</p>
-                                <p className="text-2xl font-bold text-primary">{totalSalary.toLocaleString('vi-VN')}đ</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" onClick={() => setViewMode(prev => prev === 'table' ? 'timeline' : 'table')}>
-                                    {viewMode === 'table' ? (
-                                        <><GanttChartSquare className="mr-2 h-4 w-4" /> Xem Dòng thời gian</>
-                                    ) : (
-                                        <><LayoutGrid className="mr-2 h-4 w-4" /> Xem Bảng</>
-                                    )}
-                                </Button>
-                            </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4 border-t">
+                            <Card className="lg:col-span-1">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-lg">Tổng quan giai đoạn</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground">Tổng lương</p>
+                                    <p className="text-2xl font-bold text-primary">{totalSalary.toLocaleString('vi-VN')}đ</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="lg:col-span-2">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-lg">Tổng quan hôm nay ({format(new Date(), 'dd/MM')})</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Tổng lương hôm nay</p>
+                                            <p className="text-2xl font-bold text-primary">{todaysSummary.totalSalaryToday.toLocaleString('vi-VN')}đ</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="outline" onClick={() => setViewMode(prev => prev === 'table' ? 'timeline' : 'table')}>
+                                                {viewMode === 'table' ? (
+                                                    <><GanttChartSquare className="mr-2 h-4 w-4" /> Xem Dòng thời gian</>
+                                                ) : (
+                                                    <><LayoutGrid className="mr-2 h-4 w-4" /> Xem Bảng</>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 space-y-2">
+                                        {todaysSummary.staffByShift.sort((a,b) => a.timeSlot.localeCompare(b.timeSlot)).map(({ shiftLabel, timeSlot, staff }) => (
+                                            <div key={shiftLabel} className="p-2 rounded-md border bg-muted/30">
+                                                <p className="font-semibold text-sm">{shiftLabel} <span className="text-xs text-muted-foreground font-normal">{timeSlot}</span></p>
+                                                <div className="mt-1 space-y-1 pl-2">
+                                                    {staff.sort((a,b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, salary, status, checkInTime, checkOutTime }) => (
+                                                        <div key={user.uid} className="flex justify-between items-center text-sm gap-2">
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                                <span className={cn("h-2 w-2 rounded-full", status === 'in-progress' ? 'bg-green-500 animate-pulse' : (status ? 'bg-gray-400' : 'bg-red-500'))} title={status ? (status === 'in-progress' ? 'Đang làm việc' : 'Đã làm') : 'Vắng mặt'}></span>
+                                                                <p className="truncate">{isMobile ? generateShortName(user.displayName) : user.displayName} <span className="text-xs text-muted-foreground">({user.role})</span></p>
+                                                            </div>
+                                                            {checkInTime && <p className="text-xs font-mono text-muted-foreground shrink-0">{format(checkInTime, 'HH:mm')} - {checkOutTime ? format(checkOutTime, 'HH:mm') : '...'}</p>}
+                                                            {!checkInTime && <p className="text-xs font-mono text-red-500">{differenceInMinutes(new Date(), parse(timeSlot.split('-')[0], 'HH:mm', new Date())) < 0 ? 'Waiting' : 'Vắng'} </p>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </CardContent>
                 </Card>

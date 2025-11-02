@@ -121,7 +121,7 @@ const AttendanceBar = ({
     if (width <= 0) return null;
 
     const shifts = findShiftForRecord(record, {}); // Note: Schedules are handled at the day level
-    const statusInfo = getStatusInfo(record, shifts[0] || null);
+    const statusInfo = getStatusInfo(record, shifts);
 
     const allRecordPhotos = [
         ...(record.photoInUrl ? [{

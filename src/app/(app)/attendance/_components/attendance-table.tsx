@@ -82,7 +82,7 @@ export default function AttendanceTable({
             {sortedRecords.map(record => {
               const user = users.find(u => u.uid === record.userId);
               const shifts = findShiftForRecord(record, schedules);
-              const statusInfo = getStatusInfo(record, shifts[0] || null);
+              const statusInfo = getStatusInfo(record, shifts);
 
               const allRecordPhotos = [
                 ...(record.photoInUrl
