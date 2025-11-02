@@ -20,7 +20,7 @@ import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter as AlertDialogFooterComponent, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -32,6 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseISO, format, isSameDay, isToday } from 'date-fns';
 import { Timestamp } from '@google-cloud/firestore';
 import CameraDialog from '@/components/camera-dialog';
+import { get, set, del } from '@/lib/idb-keyval-store';
 
 
 const initialHandoverData = {
@@ -121,6 +122,14 @@ export default function HandoverDialog({
     isOwnerView = false,
 }: HandoverDialogProps) {
     const dataSectionRef = useRef<HTMLDivElement>(null);
+    const localReportId = useMemo(() => {
+        if (!reporter) return null;
+        const dateStr = dateForNewEntry || format(new Date(), 'yyyy-MM-dd');
+        return `handover-report-${reporter.uid}-${dateStr}`;
+    }, [reporter, dateForNewEntry]);
+
+    const [isRestoring, setIsRestoring] = useState(true);
+
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     
@@ -146,24 +155,68 @@ export default function HandoverDialog({
         return [...existingPhotos, ...localPhotos];
     }, [existingPhotos, localPhotos]);
     
+    const saveStateToLocal = useCallback(async () => {
+        if (!localReportId || isRestoring) return;
+
+        const stateToSave = {
+            handoverData,
+            originalData,
+            shiftEndTime,
+            localPhotoIds: localPhotos.map(p => p.id),
+            isManualEntry,
+        };
+        await set(localReportId, stateToSave);
+    }, [localReportId, handoverData, originalData, shiftEndTime, localPhotos, isManualEntry, isRestoring]);
+
     useEffect(() => {
-        if (open) {
+        saveStateToLocal();
+    }, [saveStateToLocal]);
+
+
+    useEffect(() => {
+        const restoreState = async () => {
+            setIsRestoring(true);
             // Reset all states first
             setHandoverData(initialHandoverData);
             setOriginalData(null);
             setServerErrorDialog({ open: false, imageUri: null });
             setLocalPhotos([]);
             setPhotosToDelete([]);
+            setExistingPhotos([]);
+            setIsManualEntry(false);
+            setShiftEndTime(null);
 
-            // Then, if there's a report to edit, populate the states
             if (reportToEdit) {
                 setHandoverData(reportToEdit.receiptData);
                 setOriginalData(reportToEdit.receiptData);
                 setShiftEndTime(reportToEdit.receiptData.shiftEndTime || null);
                 setExistingPhotos(reportToEdit.receiptImageUrl ? [{ id: reportToEdit.receiptImageUrl, url: reportToEdit.receiptImageUrl }] : []);
+            } else if (localReportId) {
+                const savedState = await get(localReportId);
+                if (savedState) {
+                    setHandoverData(savedState.handoverData || initialHandoverData);
+                    setOriginalData(savedState.originalData || null);
+                    setShiftEndTime(savedState.shiftEndTime || null);
+                    setIsManualEntry(savedState.isManualEntry || false);
+                    if (savedState.localPhotoIds && savedState.localPhotoIds.length > 0) {
+                        const urls = await photoStore.getPhotosAsUrls(savedState.localPhotoIds);
+                        const restoredPhotos = savedState.localPhotoIds.map((id: string) => ({
+                            id,
+                            url: urls.get(id)!,
+                        })).filter((p: { url: any; }) => p.url);
+                        setLocalPhotos(restoredPhotos);
+                    }
+                    toast.success("Đã khôi phục phiên làm việc trước đó.");
+                }
             }
+            setIsRestoring(false);
+        };
+
+        if (open) {
+            restoreState();
         }
-    }, [open, reportToEdit]);
+    }, [open, reportToEdit, localReportId]);
+
     const isCreating = !reportToEdit;
 
     useEffect(() => {
@@ -174,7 +227,7 @@ export default function HandoverDialog({
 
     useEffect(() => {
         // This effect runs when `allPhotos` changes and the flag is set.
-        if (shouldRescanAfterPhoto && allPhotos.length > 0) {
+        if (shouldRescanAfterPhoto && allPhotos.length > 0 && !isRestoring) {
             handleRescan();
             setShouldRescanAfterPhoto(false); // Reset the flag
         }
@@ -345,6 +398,10 @@ export default function HandoverDialog({
         
         if(isOwnerView) {
             onSubmit(dataToSubmit, id); // Sử dụng id từ props
+            if (localReportId) {
+                del(localReportId);
+                photoStore.deletePhotos(localPhotos.map(p => p.id));
+            }
         } else {
             onSubmit(dataToSubmit);
         }
@@ -593,7 +650,7 @@ export default function HandoverDialog({
                            Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
                         </AlertDialogDescriptionComponent>
                     </AlertDialogHeader>
-                    <AlertDialogFooterComponent className="flex-col sm:flex-row gap-2">
+                    <div className="flex-col sm:flex-row gap-2 pt-4">
                         <Button variant="outline" className="w-full" onClick={() => setServerErrorDialog({ open: false, imageUri: null })}>Hủy</Button>
                         <Button variant="secondary" className="w-full" onClick={() => processImage(serverErrorDialog.imageUri!)}>
                            <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
@@ -601,7 +658,7 @@ export default function HandoverDialog({
                          <Button className="w-full" onClick={handleManualEntry}>
                             <FileText className="mr-2 h-4 w-4" /> Nhập thủ công
                         </Button>
-                    </AlertDialogFooterComponent>
+                    </div>
                 </AlertDialogContent>
             </AlertDialog>
             

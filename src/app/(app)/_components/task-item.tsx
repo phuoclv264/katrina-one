@@ -11,6 +11,7 @@ import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp,
 import type { Task, CompletionRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { photoStore } from '@/lib/photo-store';
+import { differenceInMinutes } from 'date-fns';
 
 
 type TaskItemProps = {
@@ -44,6 +45,16 @@ const TaskItemComponent = ({
 }: TaskItemProps) => {
   const isCompletedOnce = completions.length > 0;
   const isDisabledForNew = (isSingleCompletion && isCompletedOnce && task.type !== 'opinion') || isReadonly;
+
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    // Update the current time every minute to re-evaluate time-based conditions
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // 1 minute
+    return () => clearInterval(timer);
+  }, []);
 
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
@@ -179,9 +190,7 @@ const TaskItemComponent = ({
                         minutes
                       );
 
-                      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-
-                      if (completionDate > tenMinutesAgo) {
+                      if (differenceInMinutes(currentTime, completionDate) < 10 || isSingleCompletion) {
                         return (
                           <TooltipProvider>
                             <Tooltip>

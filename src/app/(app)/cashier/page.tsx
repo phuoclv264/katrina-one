@@ -688,12 +688,12 @@ function CashierDashboardPageComponent() {
                         </div>
                         Ghi nhận Sự cố
                     </Button>
-                    <Button onClick={() => { setCashCountToEdit(null); setIsCashHandoverDialogOpen(true); }} disabled={isShiftFinalized} className="w-full h-14 justify-start p-4 text-base bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:hover:bg-purple-900 dark:text-purple-200">
+                    {/* <Button onClick={() => { setCashCountToEdit(null); setIsCashHandoverDialogOpen(true); }} disabled={isShiftFinalized} className="w-full h-14 justify-start p-4 text-base bg-purple-50 hover:bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:hover:bg-purple-900 dark:text-purple-200">
                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-800/50 mr-3">
                             <ClipboardCheck className="h-5 w-5"/>
                         </div>
                         Kiểm kê tiền mặt
-                    </Button>
+                    </Button> */}
                     <Button onClick={() => setIsHandoverDialogOpen(true)} disabled={dailyRevenueStats.length === 0 || isShiftFinalized} className="w-full h-14 justify-start p-4 text-base" variant={isShiftFinalized ? 'secondary' : 'default'}>
                          <div className={cn("flex items-center justify-center h-8 w-8 rounded-full mr-3", isShiftFinalized ? "bg-muted" : "bg-primary/20")}>
                             {isShiftFinalized ? <Lock className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
@@ -1115,6 +1115,7 @@ function CashierDashboardPageComponent() {
         onOpenChange={setIsHandoverDialogOpen}
         onSubmit={handleHandoverSubmit}
         isProcessing={isProcessing}
+        reporter={user}
     />
     {handoverReceiptData && (
         <HandoverComparisonDialog
@@ -1152,6 +1153,7 @@ function CashierDashboardPageComponent() {
             isProcessing={false}
             reportToEdit={finalHandoverToView.finalHandoverDetails}
             isOwnerView={true}
+            reporter={user}
         />
       )}
     </>

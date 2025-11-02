@@ -35,6 +35,7 @@ import { hasTimeConflict, getActiveShifts } from './schedule-utils';
 import isEqual from 'lodash.isequal';
 import * as scheduleStore from './schedule-store';
 import * as attendanceStore from './attendance-store';
+import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
 
@@ -51,16 +52,26 @@ const getTodaysDateKey = () => {
 const cleanupOldLocalStorage = () => {
     if (typeof window === 'undefined') return;
     const todayKey = getTodaysDateKey();
-    Object.keys(localStorage).forEach(key => {
+    // Cleanup localStorage
+    for (const key of Object.keys(localStorage)) {
         if ((key.startsWith('report-') || key.startsWith('inventory-report-')) && !key.includes(todayKey)) {
             localStorage.removeItem(key);
         }
-    });
+    }
+    // Cleanup IndexedDB for handover reports
+    idbKeyvalStore.keys().then((allKeys) => {
+        for (const key of allKeys) {
+            if (typeof key === 'string' && key.startsWith('handover-report-') && !key.includes(todayKey)) {
+                idbKeyvalStore.del(key);
+            }
+        }
+    }).catch(err => console.error("Failed to perform IndexedDB cleanup for handover reports:", err));
 };
 
 // Run cleanup when the app loads
-cleanupOldLocalStorage();
-
+if (typeof window !== 'undefined') {
+    cleanupOldLocalStorage();
+}
 
 // Also clean up old photos from IndexedDB
 // This will run when the app first loads the dataStore file.
