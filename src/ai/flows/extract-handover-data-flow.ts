@@ -25,6 +25,8 @@ const ExtractHandoverDataOutputSchema = z.object({
     cashExpense: z.number().optional().describe('Cash expenses. Labeled "Chi tiền" under "Phương thức tiền mặt".'),
     cashRevenue: z.number().optional().describe('Total cash revenue. Labeled "Doanh thu tiền mặt".'),
     deliveryPartnerPayout: z.number().optional().describe('The amount paid to delivery partners from non-cash methods. Labeled "Tiền trả ĐTGH" under "Phương thức khác".'),
+    cashRefund: z.number().optional().describe('Refunds made in cash. Labeled "Tiền hoàn/ huỷ" under "Phương thức tiền mặt".'),
+    otherRefund: z.number().optional().describe('Refunds made via other methods. Labeled "Tiền hoàn/ huỷ" under "Phương thức khác".'),
     
     revenueByCard: z.object({
         techcombankVietQrPro: z.number().optional().describe('Revenue from Techcombank VietQR Pro. Labeled "Techcombank VietQR Pro".'),
@@ -64,6 +66,8 @@ If and only if the image is a valid and clear receipt, set \`isReceipt\` to \`tr
 5.  **cashRevenue**: Find "Doanh thu tiền mặt" in the "Phương thức tiền mặt" section.
 6.  **deliveryPartnerPayout**: Find "Tiền trả ĐTGH" in the "Phương thức khác" section.
 7.  **revenueByCard**: This is an object. You need to find the values for the following payment methods, which are usually under "Phương thức khác" section:
+8.  **cashRefund**: Find "Tiền hoàn/ huỷ" in the "Phương thức tiền mặt" section.
+9.  **otherRefund**: Find "Tiền hoàn/ huỷ" in the "Phương thức khác" section.
     *   **techcombankVietQrPro**: Find "Techcombank VietQR Pro".
     *   **shopeeFood**: Find "ShopeeFood".
     *   **grabFood**: Find "Grab Food".

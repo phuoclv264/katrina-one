@@ -41,6 +41,8 @@ const initialHandoverData = {
     cashExpense: 0,
     cashRevenue: 0,
     deliveryPartnerPayout: 0,
+    cashRefund: 0,
+    otherRefund: 0,
     revenueByCard: {
         techcombankVietQrPro: 0,
         shopeeFood: 0,
@@ -50,7 +52,7 @@ const initialHandoverData = {
 };
 
 const handoverFieldOrder: (keyof Omit<ExtractHandoverDataOutput, 'isReceipt' | 'rejectionReason' | 'shiftEndTime' | 'revenueByCard'>)[] = [
-    'startOfDayCash', 'cashRevenue', 'cashExpense', 'deliveryPartnerPayout', 'expectedCash'
+    'startOfDayCash', 'cashRevenue', 'cashExpense', 'cashRefund', 'otherRefund', 'expectedCash', 'deliveryPartnerPayout'
 ];
 const cardRevenueFieldOrder: (keyof typeof initialHandoverData.revenueByCard)[] = [
     'techcombankVietQrPro', 'bankTransfer', 'shopeeFood', 'grabFood'
@@ -62,6 +64,8 @@ const handoverFieldLabels: { [key: string]: string } = {
     cashExpense: 'Chi tiền mặt',
     cashRevenue: 'Doanh thu tiền mặt',
     deliveryPartnerPayout: 'Trả ĐTGH (khác)',
+    cashRefund: 'Tiền hoàn/huỷ (TM)',
+    otherRefund: 'Tiền hoàn/huỷ (Khác)',
     techcombankVietQrPro: 'TCB VietQR Pro',
     shopeeFood: 'ShopeeFood',
     grabFood: 'Grab Food',
@@ -295,6 +299,8 @@ export default function HandoverDialog({
                 cashExpense: result.cashExpense ?? 0,
                 cashRevenue: result.cashRevenue ?? 0,
                 deliveryPartnerPayout: result.deliveryPartnerPayout ?? 0,
+                cashRefund: result.cashRefund ?? 0,
+                otherRefund: result.otherRefund ?? 0,
                 revenueByCard: { ...initialHandoverData.revenueByCard, ...(result.revenueByCard || {}) }
             };
 
@@ -468,6 +474,10 @@ export default function HandoverDialog({
                 });
                 return acc;
             }, { ...initialHandoverData });
+
+            // Ensure refunds and payouts are always positive sums
+            combinedData.cashRefund = Math.abs(combinedData.cashRefund);
+            combinedData.otherRefund = Math.abs(combinedData.otherRefund);
 
             const latestReport = results.reduce((latest, current) => 
                 parseISO(current.shiftEndTime!) > parseISO(latest.shiftEndTime!) ? current : latest

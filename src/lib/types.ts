@@ -542,6 +542,8 @@ export type ExtractHandoverDataOutput = {
   cashExpense?: number;
   cashRevenue?: number;
   deliveryPartnerPayout?: number;
+  cashRefund?: number;
+  otherRefund?: number;
   revenueByCard?: {
     techcombankVietQrPro?: number;
     shopeeFood?: number;
