@@ -56,6 +56,7 @@ export default function CameraDialog({
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>(captureMode === 'video' ? 'video' : 'photo');
 
   const stopCameraStream = useCallback(() => {
@@ -87,6 +88,21 @@ export default function CameraDialog({
     }
     return () => clearInterval(timer);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (window.MediaRecorder) {
+      const mimeTypes = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/mp4', // Often supported on Safari/iOS
+        'video/webm',
+      ];
+      const supported = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+      setSupportedMimeType(supported || null);
+    } else {
+        setSupportedMimeType(null);
+    }
+  }, []);
 
   const startCamera = useCallback(async () => {
     if (isStarting || hardwareError || (streamRef.current && streamRef.current.active)) return;
@@ -139,6 +155,11 @@ export default function CameraDialog({
       setHardwareError(false); // Reset on open
       setCurrentMode(captureMode === 'video' ? 'video' : 'photo');
     } else {
+      // Ensure animation frame is cancelled when dialog is closed
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
       capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
       stopCameraStream();
     }
@@ -204,7 +225,7 @@ export default function CameraDialog({
   
     const handleToggleRecording = () => {
         if (isRecording) {
-            mediaRecorderRef.current?.stop();
+            mediaRecorderRef.current?.stop(); // onstop will handle the rest
             if (animationFrameIdRef.current) {
                 cancelAnimationFrame(animationFrameIdRef.current);
                 animationFrameIdRef.current = null;
@@ -214,6 +235,13 @@ export default function CameraDialog({
                 toast.error("Stream camera không hoạt động.");
                 return;
             }
+            if (!supportedMimeType) {
+                toast.error("Trình duyệt của bạn không hỗ trợ quay video.");
+                console.error("No supported MIME type found for MediaRecorder.");
+                return;
+            }
+
+            toast.success("Đang bắt đầu quay video...");
 
             const video = videoRef.current;
             const canvas = document.createElement('canvas');
@@ -249,38 +277,48 @@ export default function CameraDialog({
             // Combine video with overlay and original audio
             const combinedStream = new MediaStream([videoTrackWithOverlay, ...audioTracks]);
 
-            // Now use the combined stream for the recorder
-            mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
-            recordedChunksRef.current = [];
+            try {
+                // Now use the combined stream for the recorder
+                mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: supportedMimeType });
+                recordedChunksRef.current = [];
 
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    recordedChunksRef.current.push(event.data);
-                }
-            };
+                mediaRecorderRef.current.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunksRef.current.push(event.data);
+                    }
+                };
 
-            mediaRecorderRef.current.onstop = async () => {
-                const videoBlob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-                const videoId = uuidv4();
-                try {
-                    await photoStore.addPhoto(videoId, videoBlob);
-                    const url = URL.createObjectURL(videoBlob);
-                    setCapturedMedia(prev => [...prev, { id: videoId, url, type: 'video' }]);
-                } catch(error) {
-                    toast.error("Lỗi lưu video tạm thời.");
-                }
-                setIsRecording(false);
-                setRecordingDuration(0);
-                setRecordingStartTime(null);
+                mediaRecorderRef.current.onstop = async () => {
+                    const videoBlob = new Blob(recordedChunksRef.current, { type: supportedMimeType });
+                    const videoId = uuidv4();
+                    try {
+                        await photoStore.addPhoto(videoId, videoBlob);
+                        const url = URL.createObjectURL(videoBlob);
+                        setCapturedMedia(prev => [...prev, { id: videoId, url, type: 'video' }]);
+                    } catch(error) {
+                        toast.error("Lỗi lưu video tạm thời.");
+                    }
+                    setIsRecording(false);
+                    setRecordingDuration(0);
+                    setRecordingStartTime(null);
+                    if (animationFrameIdRef.current) {
+                        cancelAnimationFrame(animationFrameIdRef.current);
+                        animationFrameIdRef.current = null;
+                    }
+                };
+
+                mediaRecorderRef.current.start();
+                setIsRecording(true);
+                setRecordingStartTime(Date.now());
+            } catch (error) {
+                console.error("MediaRecorder initialization failed:", error);
+                toast.error("Không thể khởi tạo chức năng quay video. Thiết bị hoặc trình duyệt có thể không hỗ trợ.");
+                // Clean up the animation frame if recorder fails to start
                 if (animationFrameIdRef.current) {
                     cancelAnimationFrame(animationFrameIdRef.current);
                     animationFrameIdRef.current = null;
                 }
-            };
-
-            mediaRecorderRef.current.start();
-            setIsRecording(true);
-            setRecordingStartTime(Date.now());
+            }
         }
     };
 
