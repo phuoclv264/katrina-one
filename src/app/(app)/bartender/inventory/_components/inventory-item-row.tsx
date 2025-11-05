@@ -1,11 +1,12 @@
 
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { InventoryItem, InventoryStockRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useDebouncedCallback } from 'use-debounce';
 import { Camera, X, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +34,7 @@ type InventoryItemRowProps = {
     rowRef: (el: HTMLDivElement | null) => void;
 };
 
-export function InventoryItemRow({
+const InventoryItemRowComponent = ({
     item,
     record,
     localPhotoUrls,
@@ -42,13 +43,26 @@ export function InventoryItemRow({
     onOpenCamera,
     onDeletePhoto,
     rowRef,
-}: InventoryItemRowProps) {
+}: InventoryItemRowProps) => {
+    const [localStockValue, setLocalStockValue] = useState(record?.stock ?? '');
     const localInputRef = useRef<HTMLInputElement>(null);
 
-    const stockValue = record?.stock ?? '';
+    // Debounce the call to the parent component's state update function
+    const debouncedOnStockChange = useDebouncedCallback((value: string | number) => {
+        onStockChange(item.id, String(value));
+    }, 300);
+
+    // Sync local state if the prop from parent changes
+    useEffect(() => {
+        const parentValue = record?.stock ?? '';
+        if (parentValue !== localStockValue) {
+            setLocalStockValue(parentValue);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [record?.stock]);
+
     const photoIds = record?.photoIds || [];
     const photoUrls = photoIds.map(id => localPhotoUrls.get(id)).filter(Boolean) as string[];
-
      const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
         if (stockValue === undefined || stockValue === '') return 'ok';
         if (item.dataType === 'number') {
@@ -66,8 +80,8 @@ export function InventoryItemRow({
         }
     };
 
-    const status = getItemStatus(item, stockValue);
-    const showBackground = stockValue !== '' && stockValue !== undefined;
+    const status = getItemStatus(item, localStockValue);
+    const showBackground = localStockValue !== '' && localStockValue !== undefined;
 
 
     const handleContainerClick = () => {
@@ -80,8 +94,14 @@ export function InventoryItemRow({
     const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
-            onStockChange(item.id, value);
+            setLocalStockValue(value);
+            debouncedOnStockChange(value);
         }
+    };
+
+    const handleSelectChange = (value: string) => {
+        setLocalStockValue(value);
+        debouncedOnStockChange(value);
     };
 
     return (
@@ -127,8 +147,9 @@ export function InventoryItemRow({
                {item.dataType === 'number' ? (
                      <Input
                         ref={localInputRef}
-                        type="number"
-                        value={stockValue}
+                        type="text" // Use text to allow for intermediate states like '.' or '-'
+                        inputMode="decimal" // Better for mobile keyboards
+                        value={localStockValue}
                         onChange={handleNumericChange}
                         className="text-center h-9 w-20"
                         placeholder="Số lượng..."
@@ -137,8 +158,8 @@ export function InventoryItemRow({
                     />
                ) : (
                     <Select 
-                        value={String(stockValue)} 
-                        onValueChange={(v) => onStockChange(item.id, v === '_clear_' ? '' : v)} 
+                        value={String(localStockValue)} 
+                        onValueChange={(v) => handleSelectChange(v === '_clear_' ? '' : v)} 
                         disabled={isProcessing}
                     >
                         <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal [&>span]:flex [&>span]:items-center [&>span]:justify-end [&>span]:text-right">
@@ -156,3 +177,5 @@ export function InventoryItemRow({
         </div>
     );
 }
+
+export const InventoryItemRow = React.memo(InventoryItemRowComponent);

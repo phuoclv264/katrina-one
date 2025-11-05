@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import Image from 'next/image';
+import { useDebouncedCallback } from 'use-debounce';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -19,7 +19,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
-import { format } from 'date-fns';
 import { InventoryItemRow } from './_components/inventory-item-row';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -154,40 +153,42 @@ function InventoryPageComponent() {
     });
   }, []);
 
+  const debouncedSave = useDebouncedCallback((newReport: InventoryReport) => {
+      dataStore.saveLocalInventoryReport(newReport);
+      setHasUnsubmittedChanges(true);
+  }, 400);
+
   const handleStockChange = useCallback((itemId: string, value: string) => {
-    handleLocalSave(prevReport => {
-        const newReport = { ...prevReport };
-        const newStockLevels = { ...newReport.stockLevels };
-        
-        const itemDefinition = inventoryList.find(i => i.id === itemId);
-        let stockValue: string | number = value;
+      setReport(prevReport => {
+          if (!prevReport) return null;
 
-        if (itemDefinition?.dataType === 'number') {
-            if (value.trim() === '') {
-                stockValue = ''; 
-            } else {
-                const numValue = parseFloat(value);
-                stockValue = isNaN(numValue) ? '' : numValue;
-            }
-        }
+          const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
+          const itemDefinition = inventoryList.find(i => i.id === itemId);
+          let stockValue: string | number = value;
 
-        const existingRecord = newStockLevels[itemId] || {};
-        newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
-        newReport.stockLevels = newStockLevels;
-        return newReport;
-    });
-}, [handleLocalSave, inventoryList]);
+          if (itemDefinition?.dataType === 'number') {
+              stockValue = value.trim() === '' ? '' : (isNaN(parseFloat(value)) ? '' : parseFloat(value));
+          }
+
+          const existingRecord = newReport.stockLevels[itemId] || {};
+          newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
+
+          // Debounce the expensive save operation
+          debouncedSave(newReport);
+
+          // Return the new state immediately for a responsive UI
+          return newReport;
+      });
+  }, [inventoryList, debouncedSave]);
   
   const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
     const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
-
     if (!activeItemId || photoIds.length === 0) return;
     
     const newPhotoUrls = await photoStore.getPhotosAsUrls(photoIds);
     setLocalPhotoUrls(prev => new Map([...prev, ...newPhotoUrls]));
     
     const itemId = activeItemId;
-
     handleLocalSave(prevReport => {
         const newReport = { ...prevReport };
         const newStockLevels = { ...newReport.stockLevels };
@@ -204,38 +205,41 @@ function InventoryPageComponent() {
   }, [activeItemId, handleLocalSave]);
 
 
-    const handleDeletePhoto = async (itemId: string, photoId: string, isLocal: boolean) => {
-        if (!report) return;
+  const handleDeletePhoto = useCallback(async (itemId: string, photoId: string, isLocal: boolean) => {
+      if (!report) return;
 
-        if (isLocal) {
-            const photoUrl = localPhotoUrls.get(photoId);
-            if (photoUrl) URL.revokeObjectURL(photoUrl);
-            setLocalPhotoUrls(prev => {
-                const newMap = new Map(prev);
-                newMap.delete(photoId);
-                return newMap;
-            });
-            await photoStore.deletePhoto(photoId);
-        } else {
-            // This part is for photos already on server, which is not the primary use case here, but good to have
-            await dataStore.deletePhotoFromStorage(photoId);
-        }
+      if (isLocal) {
+          const photoUrl = localPhotoUrls.get(photoId);
+          if (photoUrl) URL.revokeObjectURL(photoUrl);
+          setLocalPhotoUrls(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(photoId);
+              return newMap;
+          });
+          await photoStore.deletePhoto(photoId);
+      } else {
+          await dataStore.deletePhotoFromStorage(photoId);
+      }
 
-        handleLocalSave(prevReport => {
-            const newReport = { ...prevReport };
-            const newStockLevels = { ...newReport.stockLevels };
-            const record = { ...newStockLevels[itemId] };
+      handleLocalSave(prevReport => {
+          const newReport = { ...prevReport };
+          const newStockLevels = { ...newReport.stockLevels };
+          const record = { ...newStockLevels[itemId] };
 
-            if (isLocal) {
-                record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
-            } else {
-                record.photos = (record.photos ?? []).filter(p => p !== photoId);
-            }
-            newStockLevels[itemId] = record;
-            newReport.stockLevels = newStockLevels;
-            return newReport;
-        });
-    };
+          if (isLocal) {
+              record.photoIds = (record.photoIds ?? []).filter(p => p !== photoId);
+          } else {
+              record.photos = (record.photos ?? []).filter(p => p !== photoId);
+          }
+          newStockLevels[itemId] = record;
+          newReport.stockLevels = newStockLevels;
+          return newReport;
+      });
+  }, [report, localPhotoUrls, handleLocalSave]);
+
+  const handleOpenCamera = useCallback((itemId: string) => {
+      setActiveItemId(itemId); setIsCameraOpen(true);
+  }, []);
 
     const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
         if (stockValue === undefined || stockValue === '') return 'ok'; 
@@ -521,8 +525,8 @@ function InventoryPageComponent() {
                                                 record={report.stockLevels[item.id]}
                                                 localPhotoUrls={localPhotoUrls}
                                                 isProcessing={isProcessing}
-                                                onStockChange={handleStockChange}
-                                                onOpenCamera={(itemId) => { setActiveItemId(itemId); setIsCameraOpen(true); }}
+                                                onStockChange={handleStockChange} // Already memoized
+                                                onOpenCamera={handleOpenCamera} // Now memoized
                                                 onDeletePhoto={handleDeletePhoto}
                                                 rowRef={(el) => itemRowRefs.current.set(item.id, el)}
                                             />
