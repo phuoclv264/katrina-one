@@ -92,9 +92,9 @@ export default function CameraDialog({
   useEffect(() => {
     if (window.MediaRecorder) {
       const mimeTypes = [
+        'video/mp4', // Often supported on Safari/iOS, prioritize this
         'video/webm;codecs=vp9',
         'video/webm;codecs=vp8',
-        'video/mp4', // Often supported on Safari/iOS
         'video/webm',
       ];
       const supported = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
@@ -138,6 +138,9 @@ export default function CameraDialog({
         } else if (error.name === 'NotAllowedError') {
             setHasPermission(null);
             toast.error('Bạn đã từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.');
+        } else if (error.name === 'AbortError') {
+            // This is expected if the user closes the dialog before the camera starts.
+            // We can safely ignore it.
         } else {
             toast.error('Không thể truy cập camera. Vui lòng thử lại.');
         }

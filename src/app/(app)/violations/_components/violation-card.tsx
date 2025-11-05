@@ -71,18 +71,16 @@ export function ViolationCard({
     const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
         const slides = media.map(item => {
             const url = typeof item === 'string' ? item : item.url;
-            const type = typeof item === 'string' ? (url.toLowerCase().includes('.webm') || url.toLowerCase().includes('.mp4') ? 'video' : 'photo') : item.type;
-
+            const type = (typeof item === 'string' ? (url.toLowerCase().match(/\.(webm|mp4|mov)$/) ? 'video' : 'photo') : item.type);
+            
             if (type === 'video') {
                 return {
                     type: 'video' as const,
                     sources: [
-                        {
-                            src: url,
-                            type: url.toLowerCase().includes('.webm') ? 'video/webm' : 'video/mp4',
-                        },
+                        // Provide both types; the browser will choose the one it can play.
+                        { src: url, type: 'video/mp4' },
+                        { src: url, type: 'video/webm' },
                     ],
-                    src: ''
                 };
             }
             return { src: url, type: 'image' as const };
@@ -96,10 +94,17 @@ export function ViolationCard({
     };
 
     const closeLightbox = () => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete(`lightbox_${v.id}`);
-        const newQuery = params.toString();
-        router.push(newQuery ? `?${newQuery}` : window.location.pathname, { scroll: false });
+        try {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete(`lightbox_${v.id}`);
+            const newQuery = params.toString();
+            router.push(newQuery ? `?${newQuery}` : window.location.pathname, { scroll: false });
+        } catch (error: any) {
+            // This can happen if navigation is interrupted. It's safe to ignore this specific error.
+            if (error.name !== 'AbortError') {
+                throw error;
+            }
+        }
     };
 
 
@@ -149,7 +154,7 @@ export function ViolationCard({
                             </Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={isItemProcessing}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </AlertDialogTrigger>
@@ -160,7 +165,12 @@ export function ViolationCard({
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => onDelete(v)}>Xóa</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => onDelete(v)} disabled={isItemProcessing}>
+                                            {isItemProcessing && (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            )}
+                                            Xóa
+                                        </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>

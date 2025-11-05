@@ -142,7 +142,7 @@ export default function ViolationsPage() {
   };
 
   const handleDeleteViolation = async (violation: Violation) => {
-    setIsProcessing(true);
+    setProcessingViolationId(violation.id);
     try {
         await dataStore.deleteViolation(violation);
         toast.success('Đã xóa ghi nhận vi phạm.');
@@ -150,7 +150,7 @@ export default function ViolationsPage() {
         console.error("Failed to delete violation:", error);
         toast.error('Không thể xóa vi phạm.');
     } finally {
-        setIsProcessing(false);
+        setProcessingViolationId(null);
     }
   };
 
