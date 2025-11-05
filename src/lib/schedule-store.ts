@@ -16,6 +16,7 @@ import {
   Timestamp,
   where,
   getDocs,
+  documentId,
   addDoc,
   deleteDoc,
   writeBatch,
@@ -147,6 +148,33 @@ export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: S
     });
 }
 
+export async function getSchedulesForDateRange(
+    dateRange: DateRange | undefined,
+): Promise<Schedule[]> {
+    if (!dateRange || !dateRange.from || !dateRange.to) {
+        return [];
+    }
+
+    const fromDate = dateRange.from;
+    const toDate = dateRange.to;
+
+    // Adjust toDate to include the entire day
+    toDate.setHours(23, 59, 59, 999);
+
+    const weeks = eachWeekOfInterval({
+        start: fromDate,
+        end: toDate,
+    }, { weekStartsOn: 1 });
+
+    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+
+    if (weekIds.length === 0) return [];
+
+    const q = query(collection(db, 'schedules'), where(documentId(), 'in', weekIds));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+}
+
 export function subscribeToSchedulesForDateRange(
     dateRange: DateRange | undefined,
     callback: (schedules: Schedule[]) => void
@@ -174,7 +202,7 @@ export function subscribeToSchedulesForDateRange(
         return () => {};
     }
 
-    const q = query(collection(db, 'schedules'), where('weekId', 'in', weekIds));
+    const q = query(collection(db, 'schedules'), where(documentId(), 'in', weekIds));
     return onSnapshot(q, (snapshot) => {
         const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
         callback(schedules);

@@ -639,3 +639,31 @@ export type AttendanceRecord = {
   createdAt: string | Timestamp;
   updatedAt: string | Timestamp;
 };
+
+// --- Salary Management Types ---
+
+export type SalaryRecord = {
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  totalWorkingHours: number;
+  totalExpectedHours: number;
+  totalSalary: number;
+  averageHourlyRate: number;
+  totalUnpaidPenalties: number;
+  totalLateMinutes: number;
+  attendanceRecords: AttendanceRecord[];
+  violationRecords: Violation[];
+  absentShifts: AssignedShift[];
+  paymentStatus?: 'paid' | 'unpaid';
+  paidAt?: Timestamp;
+  salaryAdvance?: number;
+};
+
+export type MonthlySalarySheet = {
+  id: string; // YYYY-MM
+  calculatedAt: Timestamp;
+  calculatedBy: AssignedUser;
+  scheduleMap: Record<string, Schedule>; // Keyed by weekId
+  salaryRecords: Record<string, SalaryRecord>; // Keyed by userId
+};

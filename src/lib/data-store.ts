@@ -1,6 +1,6 @@
 'use client';
 
-import type { CashHandoverReport, FinalHandoverDetails } from './types';
+import type { CashHandoverReport, FinalHandoverDetails, MonthlySalarySheet } from './types';
 import { db, auth, storage } from './firebase';
 import {
   collection, 
@@ -25,7 +25,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
@@ -89,6 +89,67 @@ export const dataStore = {
     ...attendanceStore, // Spread all functions from attendance-store
     ...cashierStore, // Spread all functions from cashier-store
     
+    // --- Salary Management ---
+    async getMonthlySalarySheet(monthId: string): Promise<MonthlySalarySheet | null> {
+        const docRef = doc(db, 'monthly_salaries', monthId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as MonthlySalarySheet;
+        }
+        return null;
+    },
+
+    async saveMonthlySalarySheet(monthId: string, sheetData: Omit<MonthlySalarySheet, 'id'>): Promise<void> {
+        const docRef = doc(db, 'monthly_salaries', monthId);
+        const existingDoc = await getDoc(docRef);
+
+        if (existingDoc.exists()) {
+            // If the document exists, we need to preserve the payment status.
+            const existingSheet = existingDoc.data() as MonthlySalarySheet;
+            const updatedRecords = { ...sheetData.salaryRecords };
+
+            for (const userId in updatedRecords) {
+                if (existingSheet.salaryRecords[userId]?.paymentStatus === 'paid') {
+                    updatedRecords[userId].paymentStatus = 'paid';
+                    updatedRecords[userId].paidAt = existingSheet.salaryRecords[userId].paidAt;
+                } else {
+                    // Ensure paidAt is not undefined if status is not 'paid'
+                    delete updatedRecords[userId].paidAt;
+                }
+                // Preserve existing salary advance
+                if (existingSheet.salaryRecords[userId]?.salaryAdvance) {
+                    updatedRecords[userId].salaryAdvance = existingSheet.salaryRecords[userId].salaryAdvance;
+                }
+            }
+            await updateDoc(docRef, { ...sheetData, salaryRecords: updatedRecords });
+        } else {
+            // If it's a new document, just set it.
+            await setDoc(docRef, sheetData);
+        }
+    },
+
+    async updateSalaryPaymentStatus(monthId: string, userId: string, status: 'paid' | 'unpaid'): Promise<void> {
+        const docRef = doc(db, 'monthly_salaries', monthId);
+        const updateData: any = {
+            [`salaryRecords.${userId}.paymentStatus`]: status,
+        };
+        if (status === 'paid') {
+            updateData[`salaryRecords.${userId}.paidAt`] = serverTimestamp();
+        }
+
+        await updateDoc(docRef, updateData);
+    },
+
+    async updateSalaryAdvance(monthId: string, userId: string, advanceAmount: number): Promise<void> {
+        const docRef = doc(db, 'monthly_salaries', monthId);
+        await updateDoc(docRef, { [`salaryRecords.${userId}.salaryAdvance`]: advanceAmount });
+    },
+
+    async getAllViolationRecords(): Promise<Violation[]> {
+        const q = query(collection(db, 'violations'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Violation));
+    },
     // --- Global Units ---
     subscribeToGlobalUnits(callback: (units: GlobalUnit[]) => void): () => void {
         const docRef = doc(db, 'app-data', 'unitDefinitions');
@@ -1612,5 +1673,4 @@ export const dataStore = {
 
     await photoStore.deletePhotos(media.map(m => m.id));
   },
-
 };

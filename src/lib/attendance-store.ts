@@ -391,6 +391,23 @@ export function subscribeToAttendanceRecordsForDateRange(
     });
 }
 
+export async function getAttendanceRecordsForDateRange(
+    dateRange: DateRange | undefined,
+): Promise<AttendanceRecord[]> {
+    if (!dateRange || !dateRange.from || !dateRange.to) {
+        return [];
+    }
+
+    const fromDate = dateRange.from;
+    const toDate = dateRange.to;
+    toDate.setHours(23, 59, 59, 999);
+
+    const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', fromDate), where('checkInTime', '<=', toDate), orderBy('checkInTime', 'desc'));
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+}
+
 export function subscribeToAllAttendanceRecords(
     callback: (records: AttendanceRecord[]) => void
 ): () => void {

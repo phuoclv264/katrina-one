@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton'; 
-import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
@@ -30,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import SalaryManagementDialog from './salary-management-dialog';
 import AttendanceTimeline from './attendance-timeline';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Timestamp } from 'firebase/firestore';
@@ -48,6 +49,7 @@ export default function AttendancePageComponent() {
     const [recordToEdit, setRecordToEdit] = useState<AttendanceRecord | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isBulkSalaryDialogOpen, setIsBulkSalaryDialogOpen] = useState(false);
+    const [isSalaryManagementDialogOpen, setIsSalaryManagementDialogOpen] = useState(false);
     const [isManualAttendanceDialogOpen, setIsManualAttendanceDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
 
@@ -381,6 +383,10 @@ export default function AttendancePageComponent() {
                             <DollarSign className="mr-2 h-4 w-4" />
                             Quản lý Lương
                          </Button>
+                         <Button variant="default" onClick={() => setIsSalaryManagementDialogOpen(true)}>
+                            <Calculator className="mr-2 h-4 w-4" />
+                            Bảng lương tháng
+                         </Button>
                          <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="outline" disabled={isResolving}>
@@ -570,6 +576,12 @@ export default function AttendancePageComponent() {
                 onClose={() => setIsManualAttendanceDialogOpen(false)}
                 users={sortedUsers}
                 onSave={handleSaveManualAttendance}
+            />
+
+            <SalaryManagementDialog
+                isOpen={isSalaryManagementDialogOpen}
+                onClose={() => setIsSalaryManagementDialogOpen(false)}
+                allUsers={allUsers}
             />
 
             <Lightbox
