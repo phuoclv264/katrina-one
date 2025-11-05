@@ -20,6 +20,7 @@ import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { InventoryItemRow } from './_components/inventory-item-row';
+import { SuggestionsDialog } from './_components/suggestions-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkShiftGuard from '@/components/work-shift-guard';
@@ -44,6 +45,9 @@ function InventoryPageComponent() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [suggestions, setSuggestions] = useState<InventoryOrderSuggestion | null>(null);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [isSuggestionsDialogOpen, setIsSuggestionsDialogOpen] = useState(false);
+  const [initialSuggestions, setInitialSuggestions] = useState<InventoryOrderSuggestion | null>(null);
+
   const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -299,16 +303,18 @@ function InventoryPageComponent() {
       try {
         toast.loading("Đang tính toán đề xuất...");
 
-        // Use the local logic function instead of an AI call
-        const result = generateSuggestionsFromLogic();
-        
-        setSuggestions(result);
-        
-        setTimeout(() => {
-            suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 300);
+        return new Promise<InventoryOrderSuggestion | null>((resolve) => {
+            const result = generateSuggestionsFromLogic();
+            setInitialSuggestions(result);
+            setIsSuggestionsDialogOpen(true);
 
-        return result;
+            // The onSubmit of the dialog will call this function
+            const handleDialogSubmit = (finalSuggestions: InventoryOrderSuggestion) => {
+                setIsSuggestionsDialogOpen(false);
+                resolve(finalSuggestions);
+            };
+            (window as any).handleDialogSubmit = handleDialogSubmit;
+        });
 
       } catch (error) {
           console.error("Error generating suggestions:", error);
@@ -320,23 +326,35 @@ function InventoryPageComponent() {
       }
   }
 
-  const proceedToSubmit = async () => {
+  const handleSuggestionDialogSubmit = (finalSuggestions: InventoryOrderSuggestion) => {
+    setIsSuggestionsDialogOpen(false);
+    setSuggestions(finalSuggestions);
+    
+    setTimeout(() => {
+        suggestionsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+
+    // Now proceed with the actual submission
+    proceedToSubmit(finalSuggestions);
+  };
+  
+  const proceedToSubmit = async (suggestionsToSubmit: InventoryOrderSuggestion | null) => {
     if (!report || !user) return;
     const startTime = Date.now();
     setIsSubmitting(true);
     const toastId = toast.loading("Đang gửi báo cáo tồn kho...");
 
     try {
-        const generatedSuggestions = await handleGenerateSuggestions();
-        
         const finalReport = { 
             ...report, 
-            suggestions: generatedSuggestions,
+            suggestions: suggestionsToSubmit,
             status: 'submitted' as const, 
         };
         
         await dataStore.saveInventoryReport(finalReport);
-        setReport(prev => prev ? { ...prev, ...finalReport, submittedAt: new Date().toISOString() } : null);
+        // After successful submission, we can update the local state to reflect the submitted version.
+        const submittedReport = { ...finalReport, submittedAt: new Date().toISOString() };
+        setReport(submittedReport);
         setHasUnsubmittedChanges(false);
 
         const endTime = Date.now();
@@ -351,7 +369,7 @@ function InventoryPageComponent() {
     }
   }
   
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!report) return;
 
     const unEnteredItems: InventoryItem[] = [];
@@ -392,7 +410,7 @@ function InventoryPageComponent() {
         setUncheckedItems(unEnteredItems);
         setShowUncheckedWarning(true);
     } else {
-        await proceedToSubmit();
+        handleGenerateSuggestions();
     }
   }
 
@@ -625,6 +643,15 @@ function InventoryPageComponent() {
         onSubmit={handleCapturePhotos}
         captureMode="photo"
       />
+      {initialSuggestions && (
+        <SuggestionsDialog
+            isOpen={isSuggestionsDialogOpen}
+            onClose={() => setIsSuggestionsDialogOpen(false)}
+            initialSuggestions={initialSuggestions}
+            inventoryList={inventoryList}
+            onSubmit={handleSuggestionDialogSubmit}
+        />
+      )}
     <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
     <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">
         <AlertDialogHeader className="flex flex-row items-center gap-3">
@@ -692,7 +719,10 @@ function InventoryPageComponent() {
         <AlertDialogFooter>
         <AlertDialogCancel className="rounded-lg">Hủy</AlertDialogCancel>
         <AlertDialogAction 
-            onClick={proceedToSubmit} 
+            onClick={() => {
+                setShowUncheckedWarning(false); // Close the warning dialog
+                handleGenerateSuggestions(); // Proceed to generate suggestions, which opens the confirmation dialog
+            }}
             className="bg-amber-600 text-white hover:bg-amber-700 rounded-lg"
         >
             Bỏ qua và gửi
