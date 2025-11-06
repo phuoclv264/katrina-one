@@ -1,6 +1,6 @@
 'use client';
 
-import type { CashHandoverReport, FinalHandoverDetails, MonthlySalarySheet } from './types';
+import type { CashHandoverReport, FinalHandoverDetails, MonthlySalarySheet, WhistleblowingReport } from './types';
 import { db, auth, storage } from './firebase';
 import {
   collection, 
@@ -25,7 +25,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
@@ -1691,5 +1691,41 @@ export const dataStore = {
     });
 
     await photoStore.deletePhotos(media.map(m => m.id));
+  },
+
+  subscribeToReportsForDay(date: string, callback: (reports: ShiftReport[]) => void): () => void {
+    const reportsCollection = collection(db, 'reports');
+    const q = query(
+      reportsCollection, 
+      where('date', '==', date),
+      where('status', '==', 'submitted'),
+      orderBy('submittedAt', 'desc')
+    );
+
+    return onSnapshot(q, (querySnapshot) => {
+       const reports: ShiftReport[] = [];
+       querySnapshot.forEach((doc) => {
+           const data = doc.data();
+           reports.push({
+               ...data,
+               id: doc.id,
+               startedAt: (data.startedAt as Timestamp)?.toDate().toISOString() || data.startedAt,
+               submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+               lastUpdated: (data.lastUpdated as Timestamp)?.toDate().toISOString() || data.lastUpdated,
+           } as ShiftReport);
+       });
+       callback(reports);
+    }, (error) => {
+      console.error(`[Firestore Read Error] Could not read reports for day ${date}: ${error.code} - ${error.message}`);
+      callback([]);
+    });
+  },
+
+  subscribeToReportFeed(callback: (reports: WhistleblowingReport[]) => void): () => void {
+    const q = query(collection(db, 'whistleblowing_reports'), orderBy('createdAt', 'desc'), limit(20));
+    return onSnapshot(q, (snapshot) => {
+        const reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WhistleblowingReport));
+        callback(reports);
+    });
   },
 };

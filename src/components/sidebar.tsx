@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
-import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature, MessageSquare, Edit2, RotateCw, UserCheck } from 'lucide-react';
+import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature, MessageSquare, Edit2, RotateCw, UserCheck, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -81,6 +81,7 @@ export function AppSidebar() {
           );
           break;
           case 'Chủ nhà hàng': primaryItems.push(
+            { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
             { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
             { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
             { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
@@ -184,8 +185,8 @@ export function AppSidebar() {
                 </div>
             </div>
             <SidebarMenuButton
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="default"
               className="h-8 w-8 shrink-0"
               onClick={logout}
               tooltip="Đăng xuất"
