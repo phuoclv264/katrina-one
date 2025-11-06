@@ -6,24 +6,22 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
-import { ArrowLeft, Loader2, Send, Wand2, ShoppingCart, Info, ChevronsDownUp, CheckCircle, Copy, Camera, X, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, ShoppingCart, ChevronsDownUp, Copy } from 'lucide-react';
 import Link from 'next/link';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
-import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { InventoryItemRow } from './_components/inventory-item-row';
-import { SuggestionsDialog } from './_components/suggestions-dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { SuggestionsDialog } from './_components/suggestions-dialog'; 
 import WorkShiftGuard from '@/components/work-shift-guard';
+import { UncheckedItemsDialog } from './_components/unchecked-items-dialog';
+
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -52,11 +50,8 @@ function InventoryPageComponent() {
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
-  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
-
   const [showUncheckedWarning, setShowUncheckedWarning] = useState(false);
   const [uncheckedItems, setUncheckedItems] = useState<InventoryItem[]>([]);
-  const [openUncheckedCategories, setOpenUncheckedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
@@ -96,6 +91,8 @@ function InventoryPageComponent() {
           setOpenCategories(categorizedList.map(c => c.category));
       }
   }, [categorizedList]);
+
+  const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
   
   const fetchLocalPhotos = useCallback(async (currentReport: InventoryReport | null) => {
     if (!currentReport) return;
@@ -143,9 +140,9 @@ function InventoryPageComponent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
   
-  const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport) => InventoryReport) => {
+  const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport | null) => InventoryReport) => {
     setReport(prevReport => {
-        if (!prevReport) return null;
+        // The updater function now handles the null case for prevReport
         const newReport = reportUpdater(prevReport);
 
         (async () => {
@@ -164,9 +161,9 @@ function InventoryPageComponent() {
 
   const handleStockChange = useCallback((itemId: string, value: string) => {
       setReport(prevReport => {
-          if (!prevReport) return null;
+          if (!prevReport) return prevReport;
 
-          const newReport = { ...prevReport, stockLevels: { ...prevReport.stockLevels } };
+          const newStockLevels = { ...prevReport.stockLevels };
           const itemDefinition = inventoryList.find(i => i.id === itemId);
           let stockValue: string | number = value;
 
@@ -174,9 +171,10 @@ function InventoryPageComponent() {
               stockValue = value.trim() === '' ? '' : (isNaN(parseFloat(value)) ? '' : parseFloat(value));
           }
 
-          const existingRecord = newReport.stockLevels[itemId] || {};
-          newReport.stockLevels[itemId] = { ...existingRecord, stock: stockValue };
+          const existingRecord = newStockLevels[itemId] || {};
+          newStockLevels[itemId] = { ...existingRecord, stock: stockValue };
 
+          const newReport = { ...prevReport, stockLevels: newStockLevels };
           // Debounce the expensive save operation
           debouncedSave(newReport);
 
@@ -184,7 +182,7 @@ function InventoryPageComponent() {
           return newReport;
       });
   }, [inventoryList, debouncedSave]);
-  
+
   const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
     const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
     if (!activeItemId || photoIds.length === 0) return;
@@ -194,14 +192,13 @@ function InventoryPageComponent() {
     
     const itemId = activeItemId;
     handleLocalSave(prevReport => {
-        const newReport = { ...prevReport };
-        const newStockLevels = { ...newReport.stockLevels };
+        const reportToUpdate = prevReport || dataStore.createEmptyInventoryReport(user!.uid, user!.displayName || 'Nhân viên');
+        const newStockLevels = { ...reportToUpdate.stockLevels };
         const record = { ...(newStockLevels[itemId] || { stock: '' }) };
         
         record.photoIds = [...(record.photoIds || []), ...photoIds];
         newStockLevels[itemId] = record;
-        newReport.stockLevels = newStockLevels;
-        return newReport;
+        return { ...reportToUpdate, stockLevels: newStockLevels };
     });
 
     setIsCameraOpen(false);
@@ -210,8 +207,6 @@ function InventoryPageComponent() {
 
 
   const handleDeletePhoto = useCallback(async (itemId: string, photoId: string, isLocal: boolean) => {
-      if (!report) return;
-
       if (isLocal) {
           const photoUrl = localPhotoUrls.get(photoId);
           if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -226,8 +221,8 @@ function InventoryPageComponent() {
       }
 
       handleLocalSave(prevReport => {
-          const newReport = { ...prevReport };
-          const newStockLevels = { ...newReport.stockLevels };
+          if (!prevReport) return dataStore.createEmptyInventoryReport(user!.uid, user!.displayName || 'Nhân viên');
+          const newStockLevels = { ...prevReport.stockLevels };
           const record = { ...newStockLevels[itemId] };
 
           if (isLocal) {
@@ -235,11 +230,16 @@ function InventoryPageComponent() {
           } else {
               record.photos = (record.photos ?? []).filter(p => p !== photoId);
           }
-          newStockLevels[itemId] = record;
-          newReport.stockLevels = newStockLevels;
-          return newReport;
+
+          if ((record.photoIds?.length || 0) === 0 && (record.photos?.length || 0) === 0 && (record.stock === undefined || record.stock === '')) {
+              delete newStockLevels[itemId];
+          } else {
+              newStockLevels[itemId] = record;
+          }
+
+          return { ...prevReport, stockLevels: newStockLevels };
       });
-  }, [report, localPhotoUrls, handleLocalSave]);
+  }, [handleLocalSave, localPhotoUrls, user]);
 
   const handleOpenCamera = useCallback((itemId: string) => {
       setActiveItemId(itemId); setIsCameraOpen(true);
@@ -414,15 +414,12 @@ function InventoryPageComponent() {
     }
   }
 
-
-  const handleToggleAll = () => {
-    if (openCategories.length === categorizedList.length) {
-      setOpenCategories([]);
-    } else {
-      setOpenCategories(categorizedList.map(c => c.category));
+  const setItemRowRef = useCallback((itemId: string, el: HTMLDivElement | null) => {
+    if (el) {
+        itemRowRefs.current.set(itemId, el);
     }
-  };
-  
+  }, []);
+
     const handleCopySuggestions = () => {
         if (!suggestions || suggestions.ordersBySupplier.length === 0) return;
 
@@ -447,27 +444,6 @@ function InventoryPageComponent() {
         });
     };
 
-    const categorizedUncheckedItems = useMemo((): CategorizedList => {
-        if (uncheckedItems.length === 0) return [];
-        const grouped: { [key: string]: InventoryItem[] } = {};
-        uncheckedItems.forEach(item => {
-            const category = item.category || 'CHƯA PHÂN LOẠI';
-            if (!grouped[category]) {
-                grouped[category] = [];
-            }
-            grouped[category].push(item);
-        });
-        return Object.entries(grouped).map(([category, items]) => ({ category, items }));
-    }, [uncheckedItems]);
-
-    const handleToggleAllUnchecked = () => {
-        if (openUncheckedCategories.length === categorizedUncheckedItems.length) {
-            setOpenUncheckedCategories([]);
-        } else {
-            setOpenUncheckedCategories(categorizedUncheckedItems.map(c => c.category));
-        }
-    };
-
 
   if (isLoading || authLoading || !report) {
     return (
@@ -486,10 +462,16 @@ function InventoryPageComponent() {
   }
 
   const isSubmitted = report.status === 'submitted';
+  const handleToggleAll = () => {
+    if (openCategories.length === categorizedList.length) {
+      setOpenCategories([]);
+    } else {
+      setOpenCategories(categorizedList.map(c => c.category));
+    }
+  };
   const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
   const isProcessing = isSubmitting || isGenerating;
   const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
-  const areAllUncheckedOpen = categorizedUncheckedItems.length > 0 && openUncheckedCategories.length === categorizedUncheckedItems.length;
 
 
   return (
@@ -542,11 +524,11 @@ function InventoryPageComponent() {
                                                 item={item}
                                                 record={report.stockLevels[item.id]}
                                                 localPhotoUrls={localPhotoUrls}
-                                                isProcessing={isProcessing}
-                                                onStockChange={handleStockChange} // Already memoized
-                                                onOpenCamera={handleOpenCamera} // Now memoized
+                                                isProcessing={isProcessing} // This will change, but it's a primitive
+                                                onStockChange={handleStockChange}
+                                                onOpenCamera={handleOpenCamera}
                                                 onDeletePhoto={handleDeletePhoto}
-                                                rowRef={(el) => itemRowRefs.current.set(item.id, el)}
+                                                rowRef={(el) => setItemRowRef(item.id, el)}
                                             />
                                         ))}
                                     </div>
@@ -652,84 +634,16 @@ function InventoryPageComponent() {
             onSubmit={handleSuggestionDialogSubmit}
         />
       )}
-    <AlertDialog open={showUncheckedWarning} onOpenChange={setShowUncheckedWarning}>
-    <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">
-        <AlertDialogHeader className="flex flex-row items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-            <AlertTriangle className="h-6 w-6" />
-        </div>
-        <div>
-            <AlertDialogTitle className="text-lg font-bold text-amber-600 dark:text-amber-400">
-            Cảnh báo: Còn mặt hàng chưa kiểm kê
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground">
-            Có <span className="font-bold">{uncheckedItems.length}</span> mặt hàng chưa được kiểm kê. 
-            Bạn vẫn muốn tiếp tục gửi báo cáo?
-            </AlertDialogDescription>
-        </div>
-        </AlertDialogHeader>
-
-        {/* Một nút điều khiển mở/thu gọn tất cả */}
-        <div className="flex justify-end -mb-2">
-        <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleAllUnchecked}
-        >
-            <ChevronsDownUp className="mr-2 h-4 w-4" />
-            {areAllUncheckedOpen ? "Thu gọn tất cả" : "Mở rộng tất cả"}
-        </Button>
-        </div>
-
-        <ScrollArea className="max-h-60 w-full rounded-md border bg-muted/30">
-        <div className="p-3">
-            <Accordion 
-                type="multiple" 
-                value={openUncheckedCategories} 
-                onValueChange={setOpenUncheckedCategories} 
-                className="w-full space-y-2"
-            >
-                {categorizedUncheckedItems.map(({ category, items }) => (
-                <AccordionItem value={category} key={category} className="rounded-lg border bg-card shadow-sm">
-                    <AccordionTrigger className="px-3 py-2 text-base font-semibold hover:no-underline hover:bg-accent rounded-lg">
-                    {category} ({items.length})
-                    </AccordionTrigger>
-                    <AccordionContent className="p-2 space-y-2">
-                    {items.map(item => (
-                        <button
-                        key={item.id}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition"
-                        onClick={() => {
-                            const element = itemRowRefs.current.get(item.id)
-                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                            element?.focus()
-                            setShowUncheckedWarning(false)
-                        }}
-                        >
-                        {item.name}
-                        </button>
-                    ))}
-                    </AccordionContent>
-                </AccordionItem>
-                ))}
-            </Accordion>
-        </div>
-        </ScrollArea>
-
-        <AlertDialogFooter>
-        <AlertDialogCancel className="rounded-lg">Hủy</AlertDialogCancel>
-        <AlertDialogAction 
-            onClick={() => {
-                setShowUncheckedWarning(false); // Close the warning dialog
-                handleGenerateSuggestions(); // Proceed to generate suggestions, which opens the confirmation dialog
-            }}
-            className="bg-amber-600 text-white hover:bg-amber-700 rounded-lg"
-        >
-            Bỏ qua và gửi
-        </AlertDialogAction>
-        </AlertDialogFooter>
-    </AlertDialogContent>
-    </AlertDialog>
+      <UncheckedItemsDialog
+        isOpen={showUncheckedWarning}
+        onOpenChange={setShowUncheckedWarning}
+        uncheckedItems={uncheckedItems}
+        onContinue={() => {
+            setShowUncheckedWarning(false);
+            handleGenerateSuggestions();
+        }}
+        itemRowRefs={itemRowRefs}
+      />
     </div>
     </TooltipProvider>
   );

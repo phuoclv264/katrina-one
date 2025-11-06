@@ -611,6 +611,25 @@ export const dataStore = {
     await setDoc(docRef, { list: newSuppliers });
   },
   
+  createEmptyInventoryReport(userId: string, staffName: string): InventoryReport {
+    if (typeof window === 'undefined') {
+       throw new Error("Cannot create report from server-side.");
+    }
+    const date = getTodaysDateKey();
+    const reportId = `inventory-report-${userId}-${date}`;
+    
+    return {
+        id: reportId,
+        userId,
+        staffName,
+        date,
+        status: 'ongoing',
+        stockLevels: {},
+        suggestions: null,
+        lastUpdated: new Date().toISOString(),
+    };
+  },
+
   async getOrCreateInventoryReport(userId: string, staffName: string): Promise<{ report: InventoryReport, isLocal: boolean }> {
     if (typeof window === 'undefined') {
        throw new Error("Cannot get report from server-side.");
