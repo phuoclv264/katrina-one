@@ -7,20 +7,19 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // This is a duplicate import, but let's keep it for safety.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Wand2, Loader2, RefreshCw, Trash2, ShieldAlert, FileSignature, Settings } from 'lucide-react';
+import { Loader2, Trash2, ShieldAlert, FileSignature, Settings, BarChartHorizontalBig } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
-import { generateDailySummary } from '@/ai/flows/generate-daily-summary';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'; // This is a duplicate import, but let's keep it for safety.
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import ReactMarkdown from 'react-markdown';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import IssueNotesDialog from './_components/IssueNotesDialog';
+import MonthlyStaffReportDialog from './_components/MonthlyStaffReportDialog';
 
 type ReportType = ShiftReport | InventoryReport;
 
@@ -124,112 +123,9 @@ function CleanupDialog({ className }: CleanupDialogProps) {
     )
 }
 
-function DailySummaryGenerator({
-  date,
-  reports,
-  taskDefinitions,
-}: {
-  date: string,
-  reports: ReportType[],
-  taskDefinitions: any,
-}) {
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [summaryData, setSummaryData] = useState<DailySummary | null>(null);
-    const { toast } = useToast();
-
-    const fetchAndSetSummary = async () => {
-        setIsGenerating(true);
-        setSummaryData(null); // Clear old summary before fetching
-        const existingSummary = await dataStore.getDailySummary(date);
-        setSummaryData(existingSummary);
-        setIsGenerating(false);
-    }
-    
-    const handleGenerate = async (forceRegenerate = false) => {
-        if (summaryData && !forceRegenerate) {
-            setIsDialogOpen(true);
-            return;
-        }
-
-        setIsGenerating(true);
-        if (!isDialogOpen) {
-          setIsDialogOpen(true);
-        }
-        try {
-            const result = await generateDailySummary({
-                date,
-                reports,
-                taskDefinitions
-            });
-            await dataStore.saveDailySummary(date, result.summary);
-            // After saving, fetch it again to get the server timestamp
-            const newSummary = await dataStore.getDailySummary(date);
-            setSummaryData(newSummary);
-        } catch (error) {
-            console.error("Failed to generate summary:", error);
-            toast({
-                title: "Lỗi tạo tóm tắt",
-                description: "Đã có lỗi xảy ra khi AI xử lý dữ liệu. Vui lòng thử lại.",
-                variant: "destructive",
-            });
-        } finally {
-            setIsGenerating(false);
-        }
-    }
-
-    const handleClick = async () => {
-        setIsDialogOpen(true);
-        await fetchAndSetSummary();
-    }
-
-    return (
-        <>
-            <Button onClick={handleClick} variant="ghost" className="w-full justify-center py-2">
-                <Wand2 className="mr-2 h-4 w-4" />
-                Tóm tắt bằng AI
-            </Button>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Tóm tắt báo cáo ngày {new Date(date).toLocaleDateString('vi-VN')}</DialogTitle>
-                        {summaryData?.generatedAt && (
-                            <DialogDescription>
-                                AI tạo lúc: {new Date(summaryData.generatedAt as string).toLocaleString('vi-VN', {hour12: false})}
-                            </DialogDescription>
-                        )}
-                    </DialogHeader>
-                    <div className="prose prose-sm dark:prose-invert max-h-[70vh] overflow-y-auto rounded-md border p-4">
-                        {isGenerating ? (
-                             <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                <span>AI đang phân tích, vui lòng đợi...</span>
-                             </div>
-                        ) : summaryData ? (
-                            <ReactMarkdown>{summaryData.summary}</ReactMarkdown>
-                        ) : (
-                           <div className="text-center py-8">
-                                <p className="text-muted-foreground mb-4">Chưa có bản tóm tắt nào cho ngày này.</p>
-                                <Button onClick={() => handleGenerate(true)}>Tạo ngay</Button>
-                           </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        {summaryData && (
-                            <Button variant="secondary" onClick={() => handleGenerate(true)} disabled={isGenerating}>
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4" />}
-                                Tạo lại
-                            </Button>
-                        )}
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
-    )
-}
-
 function AdminTools() {
     const [isIssueNotesOpen, setIsIssueNotesOpen] = useState(false);
+    const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false);
     return (
       <Card className="shadow-sm border rounded-2xl">
         <CardHeader className="pb-2">
@@ -239,7 +135,7 @@ function AdminTools() {
           </CardTitle>
         </CardHeader>
       
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
             <CleanupDialog className="w-full" />
             <Button
                 variant="outline"
@@ -250,11 +146,24 @@ function AdminTools() {
                 <FileSignature className="mr-3 h-5 w-5 text-primary" />
                 <span className="text-base">Báo cáo Ghi chú</span>
             </Button>
+            <Button
+                variant="outline"
+                size="lg"
+                className="w-full h-14 flex items-center justify-start p-4 rounded-xl text-left font-medium shadow-sm hover:bg-accent transition-all duration-150"
+                onClick={() => setIsMonthlyReportOpen(true)}
+            >
+                <BarChartHorizontalBig className="mr-3 h-5 w-5 text-green-600" />
+                <span className="text-base">Tạo báo cáo tháng</span>
+            </Button>
         </CardContent>
       
         <IssueNotesDialog
           isOpen={isIssueNotesOpen}
           onOpenChange={setIsIssueNotesOpen}
+        />
+        <MonthlyStaffReportDialog
+            isOpen={isMonthlyReportOpen}
+            onOpenChange={setIsMonthlyReportOpen}
         />
       </Card>                
     );
@@ -445,20 +354,6 @@ export default function ReportsPage() {
                             </AccordionTrigger>
                             <AccordionContent>
                                 <div className="space-y-4">
-                                    {user.role === 'Chủ nhà hàng' && allReports && tasksByShift && bartenderTasks && comprehensiveTasks && inventoryList && (
-                                        <div className="my-2 border-b pb-4">
-                                            <DailySummaryGenerator 
-                                                date={date} 
-                                                reports={groupedReports[date] ? Object.values(groupedReports[date]).flat() : []}
-                                                taskDefinitions={{
-                                                    serverTasks: tasksByShift,
-                                                    bartenderTasks: bartenderTasks,
-                                                    comprehensiveTasks: comprehensiveTasks,
-                                                    inventoryItems: inventoryList,
-                                                }}
-                                            />
-                                        </div>
-                                    )}
                                     <Table>
                                         <TableHeader>
                                             <TableRow>

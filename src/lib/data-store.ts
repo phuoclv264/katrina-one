@@ -1721,6 +1721,24 @@ export const dataStore = {
     });
   },
 
+  async getShiftReportsForDateRange({ from, to }: { from: Date, to: Date }): Promise<ShiftReport[]> {
+      const q = query(collection(db, 'reports'), where('status', '==', 'submitted'), where('submittedAt', '>=', from), where('submittedAt', '<=', to));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+              ...data,
+              id: doc.id,
+              submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || data.submittedAt,
+          } as ShiftReport;
+      });
+  },
+  async getViolationsForDateRange({ from, to }: { from: Date, to: Date }): Promise<Violation[]> {
+      const q = query(collection(db, 'violations'), where('createdAt', '>=', from), where('createdAt', '<=', to));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() } as Violation));
+  },
+
   subscribeToReportFeed(callback: (reports: WhistleblowingReport[]) => void): () => void {
     const q = query(collection(db, 'whistleblowing_reports'), orderBy('createdAt', 'desc'), limit(20));
     return onSnapshot(q, (snapshot) => {
