@@ -151,6 +151,7 @@ const InventoryItemRowComponent = ({
                         inputMode="decimal" // Better for mobile keyboards
                         value={localStockValue}
                         onChange={handleNumericChange}
+                        onBlur={() => debouncedOnStockChange.flush()}
                         className="text-center h-9 w-20"
                         placeholder="Số lượng..."
                         disabled={isProcessing}
