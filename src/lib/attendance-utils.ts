@@ -73,6 +73,11 @@ export function getStatusInfo(record: AttendanceRecord, shifts: AssignedShift[])
 
     // For records with shifts, find the earliest start and latest end time if multiple shifts are covered.
     const earliestShiftStart = new Date(Math.min(...shifts.map(s => new Date(`${s.date}T${s.timeSlot.start}`).getTime())));
+    
+    if (earliestShiftStart.getHours() < 6) {
+        earliestShiftStart.setHours(6, 0, 0, 0);
+    }
+    
     const latestShiftEnd = new Date(Math.max(...shifts.map(s => new Date(`${s.date}T${s.timeSlot.end}`).getTime())));
 
     const checkInTime = (record.checkInTime as Timestamp).toDate();

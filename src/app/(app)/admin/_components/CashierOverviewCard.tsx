@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
 import type { RevenueStats } from '@/lib/types';
 
 const paymentMethodLabels: { [key: string]: string } = {
@@ -30,8 +31,6 @@ export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenu
   const description = `Thu ${totalRevenue.toLocaleString('vi-VN')}đ - Chi ${totalExpense.toLocaleString('vi-VN')}đ`;
 
   const hasDetails = useMemo(() => {
-    console.log('revenueByMethod:', revenueByMethod);
-    console.log('expenseByMethod:', expenseByMethod);
     const hasRevenueDetails = revenueByMethod && Object.values(revenueByMethod).some(v => v > 0);
     const hasExpenseDetails = expenseByMethod && Object.values(expenseByMethod).some(v => v > 0);
     return hasRevenueDetails || hasExpenseDetails;
@@ -47,7 +46,11 @@ export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenu
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">
-          <p className="text-4xl font-bold">{formattedProfit}</p>
+          <p className={cn(
+            "text-4xl font-bold",
+            profit > 0 && "text-green-600",
+            profit < 0 && "text-red-600"
+          )}>{formattedProfit}</p>
           {hasDetails && (
             <Accordion type="single" collapsible className="w-full mt-4">
               <AccordionItem value="details" className="border-none">

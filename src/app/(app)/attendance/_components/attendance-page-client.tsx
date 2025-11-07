@@ -29,7 +29,7 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { cn, generateShortName } from '@/lib/utils';
 import SalaryManagementDialog from './salary-management-dialog';
 import AttendanceTimeline from './attendance-timeline';
 import { UserMultiSelect } from '@/components/user-multi-select';
@@ -64,21 +64,6 @@ export default function AttendancePageComponent() {
     
     const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
     const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(dateRange);
-
-    // Helper function to abbreviate names
-    const generateShortName = (displayName: string): string => {
-        if (!displayName) return '';
-        const nameParts = displayName.trim().split(/\s+/);
-        if (nameParts.length <= 1) {
-            return displayName;
-        }
-        const lastName = nameParts[nameParts.length - 1];
-        const initials = nameParts
-            .slice(0, nameParts.length - 1)
-            .map(part => part.charAt(0).toUpperCase())
-            .join('.');
-        return `${initials}.${lastName}`;
-    };
 
     useEffect(() => {
         if (!authLoading && user?.role !== 'Chủ nhà hàng') {

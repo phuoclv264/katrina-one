@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Banknote, CalendarCheck, Loader2 } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip } from '@/lib/types';
-import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes } from 'date-fns';
-import { AttendanceOverviewCard } from './_components/AttendanceOverviewCard';
+import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval } from 'date-fns';
+import { ActiveShiftWithAttendance, AttendanceOverviewCard, AttendanceOverviewCardProps } from './_components/AttendanceOverviewCard';
 import { RecentReportsCard } from './_components/RecentReportsCard';
 import { RecentComplaintsCard } from './_components/RecentComplaintsCard';
 import { CashierOverviewCard, CashierOverviewCardProps } from './_components/CashierOverviewCard';
@@ -71,12 +71,13 @@ export default function AdminDashboardPage() {
             return acc;
         }, {} as Record<string, number>);
 
-        const totalCashExpense = expenseByMethod['cash'] || 0;
+        const totalExpense = Object.values(expenseByMethod).reduce((sum, amount) => sum + amount, 0);
+        const profit = (latestStat?.netRevenue ?? 0) - totalExpense;
 
         return {
-            profit: (latestStat?.netRevenue ?? 0) - totalCashExpense,
+            profit: profit,
             totalRevenue: latestStat?.netRevenue ?? 0,
-            totalExpense: totalCashExpense,
+            totalExpense: totalExpense,
             revenueByMethod,
             expenseByMethod,
         };
@@ -84,50 +85,59 @@ export default function AdminDashboardPage() {
 
     const attendanceOverview = useMemo(() => {
         const now = new Date();
-        const checkedInUserIds = new Set(attendanceRecords.map(r => r.userId));
+        const checkedInRecords = new Map(attendanceRecords.map(r => [r.userId, r]));
 
-        // Count unique users who are late. A user is late if they checked in > 5 mins after shift start,
-        // or if they have a pending late request.
-        const lateUserIds = new Set<string>();
-        attendanceRecords.forEach(record => {
-            if (record.status === 'pending_late') {
-                lateUserIds.add(record.userId);
-            }
-            if (record.checkInTime && todaysSchedule) {
-                const checkInTime = (record.checkInTime as any).toDate();
-                const shiftsForUser = todaysSchedule.shifts.filter(s => s.assignedUsers.some(u => u.userId === record.userId));
-                
-                shiftsForUser.forEach(shift => {
-                    const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
-                    if (differenceInMinutes(checkInTime, shiftStartTime) > 5) {
-                        lateUserIds.add(record.userId);
+        const activeShifts = todaysSchedule?.shifts.filter(shift => {
+            const shiftStart = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
+            const shiftEnd = parse(shift.timeSlot.end, 'HH:mm', new Date(shift.date));
+            return isWithinInterval(now, { start: shiftStart, end: shiftEnd });
+        }).map(shift => {
+            const employees = shift.assignedUsers.map(assignedUser => {
+                const record = checkedInRecords.get(assignedUser.userId);
+                let status: 'present' | 'late' | 'absent' | 'pending_late' = 'absent';
+                let checkInTime: Date | null = null;
+                let lateMinutes: number | null = null;
+                let lateReason: string | null = null;
+
+                if (record) {
+                    if (record.status === 'pending_late') {
+                        status = 'pending_late';
+                        lateReason = record.lateReason || `Dự kiến trễ ${record.estimatedLateMinutes} phút`;
+                    } else if (record.checkInTime) {
+                        checkInTime = (record.checkInTime as any).toDate();
+                        const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
+                        
+                        if (shiftStartTime.getHours() < 6) {
+                            shiftStartTime.setHours(6, 0, 0, 0);
+                        }
+
+                        const diff = differenceInMinutes(checkInTime as Date, shiftStartTime);
+                        if (diff > 5) {
+                            status = 'late';
+                            lateMinutes = diff;
+                        } else {
+                            status = 'present';
+                        }
+                    } else {
+                        status = 'absent';
                     }
-                });
-            }
-        });
-
-        // Determine absent users more accurately
-        const absentUserIds = new Set<string>();
-        if (todaysSchedule) {
-            const shiftsStarted = todaysSchedule.shifts.filter(shift => {
-                const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
-                return now > shiftStartTime;
+                }
+                return {
+                    id: assignedUser.userId,
+                    name: assignedUser.userName,
+                    status,
+                    checkInTime,
+                    lateMinutes,
+                    lateReason,
+                };
             });
+            return { ...shift, employees};
+        }) || [];
 
-            shiftsStarted.forEach(shift => {
-                shift.assignedUsers.forEach(user => {
-                    if (!checkedInUserIds.has(user.userId)) {
-                        absentUserIds.add(user.userId);
-                    }
-                });
-            });
-        }
         return {
-            checkedIn: checkedInUserIds.size,
-            absent: absentUserIds.size,
-            late: lateUserIds.size,
+            activeShifts: activeShifts,
         };
-    }, [attendanceRecords, todaysSchedule]);
+    }, [attendanceRecords, todaysSchedule, allUsers]);
 
     const upcomingShifts = useMemo(() => {
         if (!todaysSchedule) return [];
@@ -157,7 +167,7 @@ export default function AdminDashboardPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <CashierOverviewCard {...cashierOverview as CashierOverviewCardProps} />
-                <AttendanceOverviewCard {...attendanceOverview} />
+                <AttendanceOverviewCard activeShifts={attendanceOverview.activeShifts} />
                 <SchedulingOverviewCard upcomingShiftsCount={upcomingShifts.length} />
             </div>
 
