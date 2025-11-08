@@ -127,7 +127,7 @@ export function AppSidebar() {
         case 'Pha chế': return '/bartender';
         case 'Thu ngân': return '/cashier';
         case 'Quản lý': return '/manager';
-        case 'Chủ nhà hàng': return '/reports';
+        case 'Chủ nhà hàng': return '/admin';
         default: return '/';
     }
   }

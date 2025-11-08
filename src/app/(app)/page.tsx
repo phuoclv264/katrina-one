@@ -21,7 +21,7 @@ export default function AppRootPage() {
       } else if (user.role === 'Quản lý') {
         router.replace('/manager');
       } else if (user.role === 'Chủ nhà hàng') {
-        router.replace('/reports');
+        router.replace('/admin');
       } else if (user.role === 'Thu ngân') {
         router.replace('/cashier');
       }

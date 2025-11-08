@@ -11,7 +11,7 @@ export function getHomePathForRole(role: UserRole | undefined | null): string {
     case 'Quản lý':
       return '/manager';
     case 'Chủ nhà hàng':
-      return '/reports';
+      return '/admin';
     default:
       return '/';
   }
