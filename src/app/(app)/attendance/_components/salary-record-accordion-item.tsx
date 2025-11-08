@@ -217,15 +217,15 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                     </TableHeader>
                                     <TableBody>
                                         {record.violationRecords.map((v) => {
-                                            const isPaid = v.isPenaltyWaived || v.penaltySubmissions?.some((ps) => ps.userId === record.userId);
+                                            const isPaid = v.isPenaltyWaived || v.penaltySubmissions?.some((ps) => ps.userId === record.userId) || v.penaltyPhotos;
                                             const userCost = v.userCosts?.find((uc) => uc.userId === record.userId)?.cost || 0;
                                             return (
                                                 <TableRow key={v.id}>
                                                     <TableCell>{format((v.createdAt as Timestamp).toDate(), 'dd/MM')}</TableCell>
                                                     <TableCell>{v.content}</TableCell>
                                                     <TableCell>
-                                                        <Badge variant={isPaid ? 'default' : 'destructive'}>
-                                                            {v.isPenaltyWaived ? 'Đã miễn' : isPaid ? 'Đã nộp' : 'Chưa nộp'}
+                                                        <Badge variant={(isPaid || userCost === 0) ? 'default' : 'destructive'}>
+                                                            {v.isPenaltyWaived ? 'Đã miễn' : (isPaid || userCost === 0) ? 'Đã nộp' : 'Chưa nộp'}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right">{userCost.toLocaleString('vi-VN')}đ</TableCell>

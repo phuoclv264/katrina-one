@@ -283,6 +283,7 @@ export type Violation = {
   createdAt: string | Timestamp;
   lastModified?: string | Timestamp;
   penaltySubmissions?: PenaltySubmission[];
+  penaltyPhotos?: string[]; //DEPRECATED
   isFlagged?: boolean;
   isPenaltyWaived?: boolean;
   comments?: ViolationComment[];

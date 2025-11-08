@@ -68,7 +68,7 @@ const calculateSalarySheet = async (
         const totalUnpaidPenalties = userViolations.reduce((sum, v) => {
             if (v.isPenaltyWaived) return sum;
             const userCost = v.userCosts?.find(uc => uc.userId === user.uid)?.cost || 0;
-            const isPaid = v.penaltySubmissions?.some(ps => ps.userId === user.uid);
+            const isPaid = (v.penaltySubmissions?.some(ps => ps.userId === user.uid) || v.penaltyPhotos);
             return sum + (isPaid ? 0 : userCost);
         }, 0);
 
