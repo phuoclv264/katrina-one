@@ -1740,7 +1740,7 @@ export const dataStore = {
   },
 
   subscribeToReportFeed(callback: (reports: WhistleblowingReport[]) => void): () => void {
-    const q = query(collection(db, 'whistleblowing_reports'), orderBy('createdAt', 'desc'), limit(20));
+    const q = query(collection(db, 'reports-feed'), orderBy('createdAt', 'desc'), limit(20));
     return onSnapshot(q, (snapshot) => {
         const reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WhistleblowingReport));
         callback(reports);
