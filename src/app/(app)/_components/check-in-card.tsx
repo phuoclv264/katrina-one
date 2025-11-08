@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogOverlay } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
-import { Camera, CheckCircle, Loader2, Info, Clock, X } from 'lucide-react';
+import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle } from 'lucide-react';
 import { format, getISOWeek } from 'date-fns';
 import { dataStore } from '@/lib/data-store';
 import CameraDialog from '@/components/camera-dialog';
@@ -19,6 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { photoStore } from '@/lib/photo-store';
+import { isToday } from 'date-fns';
+import WorkHistoryDialog from './work-history-dialog';
 
 export default function CheckInCard() {
     const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
@@ -30,6 +32,7 @@ export default function CheckInCard() {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     const [cameraAction, setCameraAction] = useState<'check-in-out' | 'break' | 'late-request'>('check-in-out');
+    const [showOldShiftAlert, setShowOldShiftAlert] = useState(false);
     const [isOffShiftReasonDialogOpen, setIsOffShiftReasonDialogOpen] = useState(false);
     const [offShiftReason, setOffShiftReason] = useState('');
 
@@ -42,6 +45,8 @@ export default function CheckInCard() {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -123,6 +128,13 @@ export default function CheckInCard() {
             setOffShiftReason(''); // Reset reason
             setIsOffShiftReasonDialogOpen(true);
         } else {
+            if (latestInProgressRecord?.checkInTime) {
+                const checkInDate = (latestInProgressRecord.checkInTime as Timestamp).toDate();
+                if (!isToday(checkInDate)) {
+                    setShowOldShiftAlert(true);
+                    return;
+                }
+            }
             setCameraAction('check-in-out');
             setIsCameraOpen(true);
         }
@@ -376,6 +388,11 @@ export default function CheckInCard() {
                     {renderHistory()}
                 </CardContent>
             </Card>
+            <div className="px-4 -mt-4">
+                <Button variant="secondary" className="w-full" onClick={() => setIsHistoryOpen(true)}>
+                    <History className="mr-2 h-4 w-4" /> Xem lịch sử làm việc
+                </Button>
+            </div>
             <CameraDialog
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}
@@ -456,6 +473,27 @@ export default function CheckInCard() {
                         )}
                     </div>
                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleLateReasonSubmit}>Gửi yêu cầu</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            {user && (
+                <WorkHistoryDialog
+                    isOpen={isHistoryOpen}
+                    onClose={() => setIsHistoryOpen(false)}
+                    user={user}
+                />
+            )}
+            <AlertDialog open={showOldShiftAlert} onOpenChange={setShowOldShiftAlert}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="text-destructive" />
+                            Không thể chấm công ra
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bạn không thể chấm công ra cho một ca làm việc đã bắt đầu từ ngày hôm trước. Vui lòng liên hệ chủ quán để được hỗ trợ.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter><AlertDialogAction onClick={() => setShowOldShiftAlert(false)}>Đã hiểu</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </>

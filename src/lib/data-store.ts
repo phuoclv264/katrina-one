@@ -24,7 +24,9 @@ import {
   and,
   arrayUnion,
   arrayRemove,
+  documentId,
 } from 'firebase/firestore';
+import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
@@ -97,6 +99,60 @@ export const dataStore = {
             return docSnap.data() as MonthlySalarySheet;
         }
         return null;
+    },
+
+    subscribeToUserAttendanceForDateRange(userId: string, dateRange: DateRange, callback: (records: AttendanceRecord[]) => void): () => void {
+        if (!dateRange.from || !dateRange.to) {
+            callback([]);
+            return () => {};
+        }
+        const fromDate = dateRange.from;
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+
+        const q = query(
+            collection(db, 'attendance_records'),
+            where('userId', '==', userId),
+            where('checkInTime', '>=', fromDate),
+            where('checkInTime', '<=', toDate),
+            orderBy('checkInTime', 'desc')
+        );
+
+        return onSnapshot(q, (snapshot) => callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))));
+    },
+
+    subscribeToSchedulesForDateRange(
+        dateRange: DateRange | undefined,
+        callback: (schedules: Schedule[]) => void
+    ): () => void {
+        if (!dateRange || !dateRange.from || !dateRange.to) {
+            callback([]);
+            return () => {}; // Return a no-op unsubscribe function
+        }
+
+        const fromDate = dateRange.from;
+        const toDate = dateRange.to;
+
+        // Adjust toDate to include the entire day
+        toDate.setHours(23, 59, 59, 999);
+
+        const weeks = eachWeekOfInterval({
+            start: fromDate,
+            end: toDate,
+        }, { weekStartsOn: 1 });
+
+        const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+
+        if (weekIds.length === 0) {
+            callback([]);
+            return () => {};
+        }
+
+        const q = query(collection(db, 'schedules'), where(documentId(), 'in', weekIds));
+        return onSnapshot(q, (snapshot) => {
+            const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+            callback(schedules);
+        });
     },
 
     async saveMonthlySalarySheet(monthId: string, sheetData: Omit<MonthlySalarySheet, 'id'>): Promise<void> {
