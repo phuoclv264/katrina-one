@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { FileText, ArrowRight } from 'lucide-react';
 import type { ShiftReport } from '@/lib/types';
 import { ListCard } from './ListCard';
+import { getReportLink } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -38,7 +39,7 @@ export function RecentReportsCard({ shiftReports }: RecentReportsCardProps) {
                 <p className="text-muted-foreground">Đã nộp báo cáo ca {report.shiftKey} lúc {format(new Date(report.submittedAt as string), 'HH:mm')}</p>
               </div>
               <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                <Link href={`/reports/by-shift?date=${report.date}&shiftKey=${report.shiftKey}`}>
+                <Link href={getReportLink(report.date, report.shiftKey)}>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -64,7 +65,7 @@ export function RecentReportsCard({ shiftReports }: RecentReportsCardProps) {
                         <p className="text-muted-foreground">Đã nộp báo cáo ca {report.shiftKey} lúc {format(new Date(report.submittedAt as string), 'HH:mm')}</p>
                       </div>
                       <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                        <Link href={`/reports/by-shift?date=${report.date}&shiftKey=${report.shiftKey}`}><ArrowRight className="h-4 w-4" /></Link>
+                        <Link href={getReportLink(report.date, report.shiftKey)}><ArrowRight className="h-4 w-4" /></Link>
                       </Button>
                     </motion.div>
                   ))}

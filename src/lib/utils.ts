@@ -18,3 +18,22 @@ export function generateShortName(displayName: string) {
         .join('.');
     return `${initials}.${lastName}`;
 };
+
+export function getReportLink(date: string, key: string): string {
+  // Checklist reports for servers have keys like 'sang', 'trua', 'toi'
+  console.log(key);
+  const checklistKeys = ['sang', 'trua', 'toi'];
+  if (checklistKeys.includes(key)) {
+    return `/reports/by-shift?date=${date}&shiftKey=${key}`;
+  }
+
+  // Handle other specific report types
+  switch (key) {
+    case 'bartender_hygiene':
+      return `/reports/hygiene?date=${date}`;
+    case 'manager_comprehensive':
+      return `/reports/comprehensive?date=${date}`;
+    default:
+      return `/reports`; // Fallback to the main reports page
+  }
+}

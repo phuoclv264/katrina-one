@@ -43,17 +43,37 @@ export function SuggestionsDialog({
         }
     }, [isOpen, initialSuggestions]);
 
-    const handleItemToggle = useCallback((supplier: string, itemId: string, unit: string, suggestion: string, checked: boolean) => {
+    const handleItemToggle = useCallback((supplier: string, item: InventoryItem, checked: boolean) => {
         setEditedOrders(prev => {
             const supplierOrders = prev[supplier] ? [...prev[supplier]] : [];
             if (checked) {
-                if (!supplierOrders.some(item => item.itemId === itemId)) {
-                    // Extract the numeric part of the suggestion string, e.g., "5kg" -> "5"
-                    const suggestedQuantity = suggestion.match(/(\d*\.?\d+)/)?.[0] || '';
-                    return { ...prev, [supplier]: [...supplierOrders, { itemId, quantity: suggestedQuantity, unit }] };
+                if (!supplierOrders.some(order => order.itemId === item.id)) {
+                    const suggestion = item.orderSuggestion || '';
+                    let quantity = '';
+                    let unit = item.baseUnit;
+
+                    // Regex to separate number and unit from a string like "5kg" or "1.5 thùng"
+                    const match = suggestion.trim().match(/^(\d*\.?\d+)\s*(\S+)?$/);
+
+                    if (match) {
+                        quantity = match[1];
+                        const parsedUnit = match[2];
+                        // Check if the parsed unit is valid for this item
+                        if (parsedUnit && item.units.some(u => u.name.toLowerCase() === parsedUnit.toLowerCase())) {
+                            unit = item.units.find(u => u.name.toLowerCase() === parsedUnit.toLowerCase())!.name;
+                        }
+                    } else {
+                        // If no match (e.g., suggestion is just a number), find the largest unit.
+                        const largestUnit = item.units.reduce((largest, current) => 
+                            (current.conversionRate > largest.conversionRate) ? current : largest, 
+                            { name: item.baseUnit, conversionRate: 1 }
+                        );
+                        unit = largestUnit.name;
+                    }
+                    return { ...prev, [supplier]: [...supplierOrders, { itemId: item.id, quantity, unit }] };
                 }
             } else {
-                return { ...prev, [supplier]: supplierOrders.filter(item => item.itemId !== itemId) };
+                return { ...prev, [supplier]: supplierOrders.filter(i => i.itemId !== item.id) };
             }
             return prev;
         });
@@ -90,13 +110,13 @@ export function SuggestionsDialog({
                             const baseUnitName = fullItem?.baseUnit || '';
                             return {
                                 itemId: item.itemId,
-                                quantityToOrder: `${item.quantity}${item.unit} (${quantityInBase.toLocaleString()}${baseUnitName})`
+                                quantityToOrder: `${item.quantity} ${item.unit} (${quantityInBase.toLocaleString()}${baseUnitName})`
                             };
                         }
 
                         return {
                             itemId: item.itemId,
-                            quantityToOrder: `${item.quantity}${item.unit}`
+                            quantityToOrder: `${item.quantity} ${item.unit}`
                         };
                     });
 
@@ -152,7 +172,7 @@ export function SuggestionsDialog({
                                                         <Checkbox
                                                             id={`item-${itemId}`}
                                                             checked={isChecked}
-                                                            onCheckedChange={(checked) => handleItemToggle(supplier, itemId, fullItem.baseUnit, fullItem.orderSuggestion, !!checked)}
+                                                            onCheckedChange={(checked) => handleItemToggle(supplier, fullItem, !!checked)}
                                                         />
                                                         <span className="flex-1 text-sm font-bold">
                                                             {fullItem.name}
