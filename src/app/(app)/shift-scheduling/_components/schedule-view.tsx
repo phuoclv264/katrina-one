@@ -147,6 +147,7 @@ export default function ScheduleView() {
     const [localSchedule, setLocalSchedule] = useState<Schedule | null>(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    const [availability, setAvailability] = useState<Availability[]>([]);
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -231,6 +232,11 @@ export default function ScheduleView() {
             setIsLoading(false);
         });
 
+        const unsubAvailability = dataStore.subscribeToAvailabilityForWeek(weekId, (newAvailability) => {
+            setAvailability(newAvailability);
+        });
+
+
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
         const unsubTemplates = dataStore.subscribeToShiftTemplates((templates) => {
             const sortedTemplates = templates.sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
@@ -242,6 +248,7 @@ export default function ScheduleView() {
 
         return () => {
             unsubSchedule();
+            unsubAvailability();
             unsubUsers();
             unsubTemplates();
             unsubNotifications();
@@ -267,8 +274,7 @@ export default function ScheduleView() {
         setLocalSchedule(prev => {
             const baseSchedule = prev ?? {
                 weekId,
-                status: 'draft',
-                availability: [],
+                status: 'draft',                
                 shifts: [],
             };
             const newSchedule = { ...baseSchedule, ...data };
@@ -282,7 +288,7 @@ export default function ScheduleView() {
     useEffect(() => {
         if (!shiftTemplates.length || localSchedule?.status === 'published') return;
     
-        const baseSchedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+        const baseSchedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
         
         const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
         
@@ -338,7 +344,6 @@ export default function ScheduleView() {
         const baseSchedule = localSchedule ?? {
             weekId,
             status: 'draft',
-            availability: [],
             shifts: [],
         };
 
@@ -403,7 +408,6 @@ export default function ScheduleView() {
             const newSchedule: Schedule = {
                 weekId,
                 status: 'draft',
-                availability: [],
                 shifts: [], // It will be populated by the useEffect for templates
             };
             await dataStore.updateSchedule(weekId, newSchedule);
@@ -480,16 +484,16 @@ export default function ScheduleView() {
     
     const availabilityByDay = useMemo(() => {
         const grouped: { [key: string]: Availability[] } = {};
-         if (localSchedule?.availability) {
-            for (const avail of localSchedule.availability) {
-                if (!grouped[avail.date]) {
-                    grouped[avail.date] = [];
+         if (availability) {
+            for (const avail of availability) {
+                if (!grouped[format(new Date(avail.date as string), 'yyyy-MM-dd')]) {
+                    grouped[format(new Date(avail.date as string), 'yyyy-MM-dd')] = [];
                 }
-                grouped[avail.date].push(avail);
+                grouped[format(new Date(avail.date as string), 'yyyy-MM-dd')].push(avail);
             }
         }
         return grouped;
-    }, [localSchedule?.availability]);
+    }, [availability]);
 
     const handleToggleAllMobileDays = () => {
         if (openMobileDays.length === daysOfWeek.length) {
@@ -613,7 +617,7 @@ export default function ScheduleView() {
     }
 
     const handleAssignShift = (notification: Notification) => {
-        const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+        const schedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
         const shiftToAssign = schedule.shifts.find(s => s.id === notification.payload.shiftId);
         if (shiftToAssign) {
             handleOpenAssignmentDialog(shiftToAssign, notification);
@@ -750,7 +754,6 @@ export default function ScheduleView() {
         return badgeContent;
     };
 
-
     return (
         <TooltipProvider>
             <div className="flex flex-col xl:flex-row gap-8">
@@ -802,7 +805,7 @@ export default function ScheduleView() {
                                                         return <TableCell key={template.id} className="bg-muted/30 border-l" />;
                                                     }
                                                     
-                                                    const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+                                                    const schedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
                                                     const shiftForCell = schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
                                                     const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
@@ -861,7 +864,7 @@ export default function ScheduleView() {
                                 <Accordion type="multiple" value={openMobileDays} onValueChange={setOpenMobileDays}>
                                     {daysOfWeek.map(day => {
                                         const dateKey = format(day, 'yyyy-MM-dd');
-                                        const schedule = localSchedule ?? { weekId, status: 'draft', availability: [], shifts: [] };
+                                        const schedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
                                         const applicableTemplates = shiftTemplates.filter(t => (t.applicableDays || []).includes(getDay(day)));
                                         const shiftsForDay = applicableTemplates.map(template => {
                                             return schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id) ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
@@ -1038,7 +1041,8 @@ export default function ScheduleView() {
                 {/* Side Panel */}
                 <div className="w-full xl:w-80 xl:sticky xl:top-4">
                    <TotalHoursTracker 
-                        schedule={localSchedule} 
+                        schedule={localSchedule}
+                        availability={availability}
                         allUsers={allUsers}
                         onUserClick={handleUserClick}
                         currentUserRole={user?.role || null}
@@ -1103,7 +1107,7 @@ export default function ScheduleView() {
                     allUsers={allUsers}
                     currentUserRole={user.role}
                     currentUserName={user.displayName}
-                    dailyAvailability={availabilityByDay[activeShift.date] || []}
+                    availability={availability}
                     onSave={handleUpdateShiftAssignment}
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
                     passRequestingUser={activeNotification?.payload.requestingUser}
@@ -1132,7 +1136,7 @@ export default function ScheduleView() {
                     isOpen={isUserDetailsDialogOpen}
                     onClose={() => setSelectedUserForDetails(null)}
                     user={selectedUserForDetails}
-                    weekAvailability={(localSchedule?.availability || []).filter(a => a.userId === selectedUserForDetails.uid)}
+                    weekAvailability={availability.filter(a => a.userId === selectedUserForDetails.uid)}
                 />
             )}
 

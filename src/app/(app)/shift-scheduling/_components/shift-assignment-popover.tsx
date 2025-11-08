@@ -36,7 +36,7 @@ type ShiftAssignmentDialogProps = {
   allUsers: ManagedUser[];
   currentUserRole: UserRole;
   currentUserName: string;
-  dailyAvailability: Availability[];
+  availability: Availability[];
   onSave: (shiftId: string, newAssignedUsers: AssignedUser[]) => void;
   isOpen: boolean;
   onClose: () => void;
@@ -67,7 +67,7 @@ export default function ShiftAssignmentDialog({
   allUsers,
   currentUserRole,
   currentUserName,
-  dailyAvailability,
+  availability,
   onSave,
   isOpen,
   onClose,
@@ -119,7 +119,7 @@ export default function ShiftAssignmentDialog({
     roleFilteredUsers.forEach(user => {
       if (selectedUserIds.has(user.uid)) {
         selectedList.push(user);
-      } else if (isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)) {
+      } else if (isUserAvailable(user.uid, shift.timeSlot, availability)) {
         availableList.push(user);
       } else {
         busyList.push(user);
@@ -137,11 +137,11 @@ export default function ShiftAssignmentDialog({
     busyList.sort(sortFn);
 
     return { selectedUsers: selectedList, availableUsers: availableList, busyUsers: busyList };
-  }, [allUsers, shift.role, shift.timeSlot, dailyAvailability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
+  }, [allUsers, shift.role, shift.timeSlot, availability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
   
   const handleSelectUser = (user: ManagedUser) => {
     // Prevent manager from selecting busy users. Only owner can.
-    const isAvailable = isUserAvailable(user.uid, shift.timeSlot, dailyAvailability);
+    const isAvailable = isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date));
     if (currentUserRole === 'Quản lý' && !isAvailable) {
         toast.error("Nhân viên này không đăng ký rảnh. Chỉ Chủ nhà hàng mới có thể xếp.");
         return;
@@ -191,7 +191,7 @@ export default function ShiftAssignmentDialog({
   
   const UserCard = ({user, isAvailable}: {user: ManagedUser, isAvailable: boolean}) => {
     const isSelected = selectedUserIds.has(user.uid);
-    const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay);
+    const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay.filter(s => s.id !== shift.id));
     const canSelect = currentUserRole === 'Chủ nhà hàng' || isAvailable;
     
     return (
@@ -247,7 +247,7 @@ export default function ShiftAssignmentDialog({
                         <div>
                             <SectionHeader title={`Nhân viên trong ca (${selectedUsers.length})`} />
                             <div className="space-y-2">
-                                {selectedUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, dailyAvailability)} />)}
+                                {selectedUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability)} />)}
                             </div>
                         </div>
                     )}

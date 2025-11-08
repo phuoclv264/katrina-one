@@ -351,14 +351,13 @@ export type AssignedShift = {
 export type Schedule = {
   weekId: string; // e.g., "2024-W28"
   status: 'draft' | 'proposed' | 'published';
-  availability: Availability[];
   shifts: AssignedShift[];
 };
 
 export type Availability = {
   userId: string;
   userName: string;
-  date: string; // YYYY-MM-DD
+  date: string | Timestamp; // YYYY-MM-DD
   availableSlots: TimeSlot[];
 };
 

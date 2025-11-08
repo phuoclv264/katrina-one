@@ -50,6 +50,7 @@ export default function ScheduleView() {
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
+    const [availability, setAvailability] = useState<Availability[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
 
@@ -89,9 +90,10 @@ export default function ScheduleView() {
         let templatesSubscribed = false;
         let notificationsSubscribed = false;
         let usersSubscribed = false;
+        let availabilitySubscribed = false;
 
         const checkLoadingDone = () => {
-            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed) {
+            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed && availabilitySubscribed) {
                 setIsLoading(false);
             }
         };
@@ -99,6 +101,12 @@ export default function ScheduleView() {
         const unsubSchedule = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
             setSchedule(newSchedule);
             scheduleSubscribed = true;
+            checkLoadingDone();
+        });
+
+        const unsubAvailability = dataStore.subscribeToAvailabilityForWeek(weekId, (newAvailability) => {
+            setAvailability(newAvailability);
+            availabilitySubscribed = true;
             checkLoadingDone();
         });
         
@@ -133,6 +141,7 @@ export default function ScheduleView() {
 
         return () => {
             unsubSchedule();
+            unsubAvailability();
             unsubTemplates();
             unsubNotifications();
             unsubUsers();
@@ -148,49 +157,17 @@ export default function ScheduleView() {
         setIsAvailabilityDialogOpen(true);
     };
 
-    const handleSaveAvailability = async (date: Date, slots: TimeSlot[]) => {
+    const handleSaveAvailability = useCallback(async (date: Date, slots: TimeSlot[]) => {
         if (!user) return;
-
-        const baseSchedule = schedule ?? {
-            weekId,
-            status: 'draft',
-            availability: [],
-            shifts: [],
-        };
-    
-        const newAvailability: Availability = {
-            userId: user.uid,
-            userName: user.displayName,
-            date: format(date, 'yyyy-MM-dd'),
-            availableSlots: slots,
-        };
-    
-        const availabilityList = baseSchedule.availability ?? [];
-        const existingIndex = availabilityList.findIndex(a => a.userId === user.uid && a.date === newAvailability.date);
-    
-        const updatedAvailability = [...availabilityList];
-        if (existingIndex > -1) {
-            updatedAvailability[existingIndex] = newAvailability;
-        } else {
-            updatedAvailability.push(newAvailability);
-        }
-    
-        const dataToSave: Schedule = {
-            ...baseSchedule,
-            status: baseSchedule.status === 'published' ? 'published' : 'draft',
-            availability: updatedAvailability,
-        };
-
         try {
-            await dataStore.updateSchedule(weekId, dataToSave);
+            await dataStore.saveUserAvailability(user.uid, user.displayName, date, slots);
             toast.success('Đã cập nhật thời gian rảnh của bạn.');
+            setIsAvailabilityDialogOpen(false);
         } catch (error) {
             console.error("Failed to save availability:", error);
             toast.error('Không thể lưu thời gian rảnh.');
         }
-    
-        setIsAvailabilityDialogOpen(false);
-    };
+    }, [user]);
 
     const handlePassShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
@@ -350,15 +327,15 @@ export default function ScheduleView() {
     }
     
     const userAvailability = useMemo(() => {
-        if (!user || !schedule || !Array.isArray(schedule.availability)) {
+        if (!user || !availability) {
           return new Map<string, TimeSlot[]>();
         }
         const map = new Map<string, TimeSlot[]>();
-        schedule.availability
+        availability
             .filter(a => a.userId === user.uid)
-            .forEach(a => map.set(a.date, a.availableSlots));
+            .forEach(a => map.set(a.date as string, a.availableSlots));
         return map;
-    }, [user, schedule]);
+    }, [user, availability]);
 
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -642,7 +619,7 @@ export default function ScheduleView() {
                     onClose={() => setIsInfoDialogOpen(false)}
                     shift={activeShiftForInfo}
                     schedule={schedule}
-                    allUsers={allUsers}
+                    allUsers={allUsers} availability={availability}
                     onDirectPassRequest={handleDirectPassRequest}
                     isProcessing={isHandlingConflict || !!processingNotificationId}
                     notifications={notifications}

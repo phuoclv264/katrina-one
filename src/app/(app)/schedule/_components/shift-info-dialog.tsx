@@ -27,6 +27,7 @@ type ShiftInfoDialogProps = {
   shift: AssignedShift;
   schedule: Schedule;
   allUsers: ManagedUser[];
+  availability: Availability[];
   onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => Promise<void>;
   isProcessing: boolean;
   notifications: Notification[];
@@ -43,6 +44,7 @@ export default function ShiftInfoDialog({
   shift,
   schedule,
   allUsers,
+  availability,
   onDirectPassRequest,
   isProcessing,
   notifications,
@@ -57,7 +59,7 @@ export default function ShiftInfoDialog({
   };
   
   const { colleagues, availableStaff } = useMemo(() => {
-    if (!shift || !schedule || !currentUser) return { colleagues: [], availableStaff: [] };
+    if (!shift || !currentUser) return { colleagues: [], availableStaff: [] };
 
     const shiftDate = shift.date;
     const shiftStart = parseTime(shift.timeSlot.start);
@@ -84,7 +86,7 @@ export default function ShiftInfoDialog({
 
     const colleagues = Array.from(colleagueMap.values());
 
-    const availabilityForDay = (schedule.availability || []).filter(a => a.date === shiftDate);
+    const availabilityForDay = availability.filter(a => a.date === shiftDate);
     const assignedUserIdsInPeriod = new Set(colleagues.map(c => c.user.uid));
     shift.assignedUsers.forEach(u => assignedUserIdsInPeriod.add(u.userId));
 
@@ -97,7 +99,7 @@ export default function ShiftInfoDialog({
     });
 
     return { colleagues, availableStaff };
-  }, [shift, schedule, allUsers, currentUser]);
+  }, [shift, schedule, allUsers, currentUser, availability]);
 
   const existingPendingRequests = useMemo(() => {
     return notifications.filter(n => 

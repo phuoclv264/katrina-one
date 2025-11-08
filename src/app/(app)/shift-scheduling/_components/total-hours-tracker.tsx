@@ -5,13 +5,14 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Schedule, ManagedUser, UserRole } from '@/lib/types';
+import type { Schedule, ManagedUser, UserRole, Availability } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type TotalHoursTrackerProps = {
   schedule: Schedule | null;
+  availability: Availability[];
   allUsers: ManagedUser[];
   onUserClick: (user: ManagedUser) => void;
   currentUserRole: UserRole | null;
@@ -26,7 +27,7 @@ const roleOrder: Record<UserRole, number> = {
 };
 
 
-export default function TotalHoursTracker({ schedule, allUsers, onUserClick, currentUserRole }: TotalHoursTrackerProps) {
+export default function TotalHoursTracker({ schedule, availability, allUsers, onUserClick, currentUserRole }: TotalHoursTrackerProps) {
 
   const totalHoursByUser = useMemo(() => {
     if (!schedule) return new Map<string, number>();
@@ -42,15 +43,15 @@ export default function TotalHoursTracker({ schedule, allUsers, onUserClick, cur
   }, [schedule]);
 
   const availableHoursByUser = useMemo(() => {
-    if (!schedule?.availability) return new Map<string, number>();
+    if (!availability) return new Map<string, number>();
 
     const hoursMap = new Map<string, number>();
-    schedule.availability.forEach(avail => {
+    availability.forEach(avail => {
         const userHours = calculateTotalHours(avail.availableSlots);
         hoursMap.set(avail.userId, (hoursMap.get(avail.userId) || 0) + userHours);
     });
     return hoursMap;
-  }, [schedule?.availability]);
+  }, [availability]);
   
   const sortedUsers = useMemo(() => {
     let activeUsers = allUsers;

@@ -20,6 +20,7 @@ import {
   addDoc,
   deleteDoc,
   writeBatch,
+  WriteBatch,
   collectionGroup,
   runTransaction,
   or,
@@ -30,6 +31,7 @@ import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate,
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
+import { da } from 'date-fns/locale';
 
 
 // --- Schedule Functions ---
@@ -43,6 +45,81 @@ export async function getSchedule(weekId: string): Promise<Schedule | null> {
     return null;
 }
 
+// --- Availability Functions ---
+
+export function subscribeToAvailabilityForWeek(weekId: string, callback: (availability: Availability[]) => void): () => void {
+    const weekStart = startOfWeek(parseISO(`${weekId}-1`), { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+
+    const q = query(
+        collection(db, 'user_availability'),
+        where('date', '>=', Timestamp.fromDate(weekStart)),
+        where('date', '<=', Timestamp.fromDate(weekEnd))
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const availabilityData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                // Convert Timestamp to string for client-side consistency
+                date: format((data.date as Timestamp).toDate(), 'yyyy-MM-dd'),
+            } as Availability;
+        });
+        callback(availabilityData);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read availability for ${weekId}: ${error.code}`);
+        callback([]);
+    });
+
+    return unsubscribe;
+}
+
+export async function saveUserAvailability(userId: string, userName: string, date: Date, slots: TimeSlot[]): Promise<void> {
+    const newAvailability: Availability = {
+        userId,
+        userName,
+        date: Timestamp.fromDate(date),
+        availableSlots: slots,
+    };
+    
+    // To maintain one availability doc per user per day, we first query for an existing one.
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const q = query(collection(db, 'user_availability'), 
+        where('userId', '==', userId), 
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    const docRef = querySnapshot.empty ? doc(collection(db, 'user_availability')) : querySnapshot.docs[0].ref;
+    await setDoc(docRef, newAvailability);
+}
+
+export function subscribeToAvailabilityForDateRange(dateRange: DateRange, callback: (availability: Availability[]) => void): () => void {
+    if (!dateRange.from || !dateRange.to) {
+        callback([]);
+        return () => {};
+    }
+    const q = query(collection(db, 'user_availability'), where('date', '>=', Timestamp.fromDate(dateRange.from)), where('date', '<=', Timestamp.fromDate(dateRange.to)));
+    return onSnapshot(q, (snapshot) => {
+        const availabilityData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                // Convert Timestamp to string for client-side consistency
+                date: data.date as Timestamp,
+            } as Availability;
+        });
+        callback(availabilityData);
+    });
+}
+
 export function subscribeToSchedule(weekId: string, callback: (schedule: Schedule | null) => void): () => void {
     const docRef = doc(db, 'schedules', weekId);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -50,37 +127,6 @@ export function subscribeToSchedule(weekId: string, callback: (schedule: Schedul
             const scheduleData = docSnap.data() as Schedule;
 
             // Merge overlapping/adjacent availability slots upon loading
-            if (scheduleData.availability) {
-                const availabilityByUser = new Map<string, Availability>();
-                scheduleData.availability.forEach(avail => {
-                    const key = `${avail.userId}-${avail.date}`;
-                    if (!availabilityByUser.has(key)) {
-                        availabilityByUser.set(key, { ...avail, availableSlots: [] });
-                    }
-                    availabilityByUser.get(key)!.availableSlots.push(...avail.availableSlots);
-                });
-                
-                const mergedAvailability: Availability[] = [];
-                availabilityByUser.forEach((userAvail) => {
-                     if (userAvail.availableSlots.length > 1) {
-                        const sortedSlots = [...userAvail.availableSlots].sort((a, b) => a.start.localeCompare(b.start));
-                        const result: TimeSlot[] = [sortedSlots[0]];
-                        
-                        for (let i = 1; i < sortedSlots.length; i++) {
-                            const lastMerged = result[result.length - 1];
-                            const current = sortedSlots[i];
-                            if (current.start <= lastMerged.end) {
-                                lastMerged.end = current.end > lastMerged.end ? current.end : lastMerged.end;
-                            } else {
-                                result.push(current);
-                            }
-                        }
-                        userAvail.availableSlots = result;
-                    }
-                    mergedAvailability.push(userAvail);
-                });
-                scheduleData.availability = mergedAvailability;
-            }
 
             callback(scheduleData);
         } else {
@@ -279,7 +325,6 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
     await setDoc(docRef, data, { merge: true });
 }
 
-
 export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
     const nextWeekDate = addDays(currentDate, 7);
     const nextWeekId = `${nextWeekDate.getFullYear()}-W${getISOWeek(nextWeekDate)}`;
@@ -324,7 +369,6 @@ export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTem
     const newSchedule: Schedule = {
         weekId: nextWeekId,
         status: 'draft',
-        availability: [],
         shifts: newShifts.sort((a, b) => {
             if (a.date < b.date) return -1;
             if (a.date > b.date) return 1;
