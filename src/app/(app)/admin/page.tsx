@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Banknote, CalendarCheck, Loader2 } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip } from '@/lib/types';
-import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval } from 'date-fns';
+import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval, addDays } from 'date-fns';
 import { ActiveShiftWithAttendance, AttendanceOverviewCard, AttendanceOverviewCardProps } from './_components/AttendanceOverviewCard';
 import { RecentReportsCard } from './_components/RecentReportsCard';
 import { RecentComplaintsCard } from './_components/RecentComplaintsCard';
@@ -142,9 +142,18 @@ export default function AdminDashboardPage() {
     const upcomingShifts = useMemo(() => {
         if (!todaysSchedule) return [];
         const now = new Date();
-        return todaysSchedule.shifts
-            .filter(shift => isAfter(startOfDay(new Date(shift.date)), startOfDay(now)) || format(new Date(shift.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'))
-            .slice(0, 5);
+        const todayStr = format(now, 'yyyy-MM-dd');
+        const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
+
+        const remainingTodayShifts = todaysSchedule.shifts.filter(shift => {
+            if (shift.date !== todayStr) return false;
+            const shiftEnd = parse(shift.timeSlot.end, 'HH:mm', new Date(shift.date));
+            return isAfter(shiftEnd, now);
+        });
+
+        const tomorrowShifts = todaysSchedule.shifts.filter(shift => shift.date === tomorrowStr);
+
+        return [...remainingTodayShifts, ...tomorrowShifts];
     }, [todaysSchedule]);
 
     if (authLoading || isLoading) {
@@ -168,7 +177,7 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <CashierOverviewCard {...cashierOverview as CashierOverviewCardProps} />
                 <AttendanceOverviewCard activeShifts={attendanceOverview.activeShifts} />
-                <SchedulingOverviewCard upcomingShiftsCount={upcomingShifts.length} />
+                <SchedulingOverviewCard upcomingShifts={upcomingShifts} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
