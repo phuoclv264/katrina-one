@@ -176,6 +176,10 @@ export const dataStore = {
                 if (existingSheet.salaryRecords[userId]?.salaryAdvance) {
                     updatedRecords[userId].salaryAdvance = existingSheet.salaryRecords[userId].salaryAdvance;
                 }
+                // Preserve existing bonus
+                if (existingSheet.salaryRecords[userId]?.bonus) {
+                    updatedRecords[userId].bonus = existingSheet.salaryRecords[userId].bonus;
+                }
             }
             await updateDoc(docRef, { ...sheetData, salaryRecords: updatedRecords });
         } else {
@@ -199,6 +203,11 @@ export const dataStore = {
     async updateSalaryAdvance(monthId: string, userId: string, advanceAmount: number): Promise<void> {
         const docRef = doc(db, 'monthly_salaries', monthId);
         await updateDoc(docRef, { [`salaryRecords.${userId}.salaryAdvance`]: advanceAmount });
+    },
+
+    async updateSalaryBonus(monthId: string, userId: string, bonusAmount: number): Promise<void> {
+        const docRef = doc(db, 'monthly_salaries', monthId);
+        await updateDoc(docRef, { [`salaryRecords.${userId}.bonus`]: bonusAmount });
     },
 
     async getAllViolationRecords(): Promise<Violation[]> {

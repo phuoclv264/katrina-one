@@ -130,6 +130,7 @@ const calculateSalarySheet = async (
             paymentStatus: existingSalaryRecords?.[user.uid]?.paymentStatus || 'unpaid',
             paidAt: existingSalaryRecords?.[user.uid]?.paidAt,
             salaryAdvance: existingSalaryRecords?.[user.uid]?.salaryAdvance || 0,
+            bonus: existingSalaryRecords?.[user.uid]?.bonus || 0,
         };
     }
 

@@ -462,17 +462,3 @@ export function subscribeToUserCheckInStatus(userId: string, callback: (isChecke
         callback(false);
     });
 }
-
-
-export async function resolveUnfinishedAttendances(): Promise<number> {
-    const q = query(collection(db, 'attendance_records'), where('status', '==', 'in-progress'), where('checkInTime', '<', startOfToday()));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return 0;
-
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => {
-        batch.update(doc.ref, { status: 'auto-completed', updatedAt: serverTimestamp() });
-    });
-    await batch.commit();
-    return snapshot.size;
-}

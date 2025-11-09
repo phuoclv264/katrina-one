@@ -45,7 +45,6 @@ export default function AttendancePageComponent() {
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
     const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
     const [isLoading, setIsLoading] = useState(true);
-    const [isResolving, setIsResolving] = useState(false);
     const [recordToEdit, setRecordToEdit] = useState<AttendanceRecord | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isBulkSalaryDialogOpen, setIsBulkSalaryDialogOpen] = useState(false);
@@ -306,24 +305,6 @@ export default function AttendancePageComponent() {
         }
     };
 
-    const handleResolveUnfinished = async () => {
-        setIsResolving(true);
-        const toastId = toast.loading("Đang tìm và chốt sổ các ca chưa hoàn tất...");
-        try {
-            const count = await dataStore.resolveUnfinishedAttendances();
-            if (count > 0) {
-                toast.success(`Đã tự động chốt sổ thành công cho ${count} ca làm việc.`, { id: toastId });
-            } else {
-                toast.success('Không có ca làm nào cần chốt sổ.', { id: toastId });
-            }
-        } catch (error) {
-            console.error("Failed to resolve unfinished attendances:", error);
-            toast.error('Có lỗi xảy ra khi chốt sổ.', { id: toastId });
-        } finally {
-            setIsResolving(false);
-        }
-    };
-
     const handleOpenLightbox = useCallback((slides: { src: string, description?: string }[], index: number) => {
         setLightboxSlides(slides);
         setLightboxIndex(index);
@@ -372,26 +353,6 @@ export default function AttendancePageComponent() {
                             <Calculator className="mr-2 h-4 w-4" />
                             Bảng lương tháng
                          </Button>
-                         <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" disabled={isResolving}>
-                                    {isResolving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                                    Chốt sổ ca làm
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Xác nhận chốt sổ?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Hành động này sẽ tìm tất cả các ca làm việc chưa được chấm công ra từ ngày hôm qua trở về trước và tự động kết thúc chúng. Bạn có muốn tiếp tục không?
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleResolveUnfinished}>Xác nhận</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
                         <AlertDialog>
                             <Button variant="secondary" onClick={() => setIsManualAttendanceDialogOpen(true)}>
                                 <UserCheck className="mr-2 h-4 w-4" />

@@ -658,6 +658,7 @@ export type SalaryRecord = {
   paymentStatus?: 'paid' | 'unpaid';
   paidAt?: Timestamp;
   salaryAdvance?: number;
+  bonus?: number;
 };
 
 export type MonthlySalarySheet = {

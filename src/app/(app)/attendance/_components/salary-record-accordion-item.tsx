@@ -30,13 +30,19 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         const [localAdvanceAmount, setLocalAdvanceAmount] = useState<string>(
             record.salaryAdvance?.toString() ?? ''
         );
+        const [localBonusAmount, setLocalBonusAmount] = useState<string>(
+            record.bonus?.toString() ?? ''
+        );
         const [isUpdatingAdvance, setIsUpdatingAdvance] = useState(false);
+        const [isUpdatingBonus, setIsUpdatingBonus] = useState(false);
         const [isUpdatingPaymentStatus, setIsUpdatingPaymentStatus] = useState(false);
 
         useEffect(() => {
             // Update local state if record.salaryAdvance changes from outside (e.g., recalculate)
             setLocalAdvanceAmount(record.salaryAdvance?.toString() ?? '');
-        }, [record.salaryAdvance]);
+            // Update local state for bonus
+            setLocalBonusAmount(record.bonus?.toString() ?? '');
+        }, [record.salaryAdvance, record.bonus]);
 
         const handleUpdateAdvance = useCallback(async () => {
             if (!monthId || !record.userId) return;
@@ -60,6 +66,29 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                 setIsUpdatingAdvance(false);
             }
         }, [monthId, record.userId, localAdvanceAmount, onRecordUpdated]);
+
+        const handleUpdateBonus = useCallback(async () => {
+            if (!monthId || !record.userId) return;
+
+            const amount = Number(localBonusAmount);
+            if (isNaN(amount) || amount < 0) {
+                toast.error('Số tiền thưởng không hợp lệ.');
+                return;
+            }
+
+            setIsUpdatingBonus(true);
+            const toastId = toast.loading('Đang cập nhật tiền thưởng...');
+            try {
+                await dataStore.updateSalaryBonus(monthId, record.userId, amount);
+                onRecordUpdated(record.userId, { bonus: amount });
+                toast.success('Đã cập nhật tiền thưởng.', { id: toastId });
+            } catch (error) {
+                console.error('Lỗi khi cập nhật thưởng:', error);
+                toast.error('Lỗi khi cập nhật tiền thưởng.', { id: toastId });
+            } finally {
+                setIsUpdatingBonus(false);
+            }
+        }, [monthId, record.userId, localBonusAmount, onRecordUpdated]);
 
         const handleTogglePaymentStatus = useCallback(async () => {
             if (!currentUser || !monthId || !record.userId) return;
@@ -91,8 +120,8 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         }, [currentUser, monthId, record.userId, record.paymentStatus, record.userName, onRecordUpdated]);
 
         const finalTakeHomePay = useMemo(() => {
-            return record.totalSalary - (record.salaryAdvance || 0);
-        }, [record.totalSalary, record.salaryAdvance]);
+            return record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0);
+        }, [record.totalSalary, record.salaryAdvance, record.bonus]);
 
         return (
             <AccordionItem value={record.userId} key={record.userId}>
@@ -107,7 +136,8 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                             </p>
                             <p className="text-sm text-muted-foreground">
                                 Lương: <span className="font-bold text-primary">{record.totalSalary.toLocaleString('vi-VN')}đ (dự tính: {Math.round(record.totalExpectedHours * record.averageHourlyRate).toLocaleString('vi-VN')}đ) </span>
-                                (<span className="font-bold text-green-600">Thực lãnh: {finalTakeHomePay.toLocaleString('vi-VN')}đ, </span>
+                                (<span className="font-bold text-green-600">Thực lãnh: {finalTakeHomePay.toLocaleString('vi-VN')}đ</span>
+                                <span className="text-xs">, Tạm ứng: {(record.salaryAdvance || 0).toLocaleString('vi-VN')}đ, Thưởng: {(record.bonus || 0).toLocaleString('vi-VN')}đ, </span>
                                 <span className="text-xs">Giờ làm: {record.totalWorkingHours.toFixed(1)} / {record.totalExpectedHours.toFixed(1)} h, </span>
                                 <span className="text-xs">Lương/giờ: {record.averageHourlyRate.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}đ, </span>
                                 <span className="text-xs">Phạt: {record.totalUnpaidPenalties.toLocaleString('vi-VN')}đ</span>)
@@ -123,27 +153,40 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                 <AccordionContent className="p-4 border rounded-b-md">
                     <div className="space-y-4">
                         {currentUserRole === 'Chủ nhà hàng' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                                <div className="space-y-2">
-                                    <Label htmlFor={`advance-${record.userId}`}>Tạm ứng</Label>
-                                    <Input
-                                        id={`advance-${record.userId}`}
-                                        type="number"
-                                        placeholder="Nhập số tiền tạm ứng"
-                                        value={localAdvanceAmount}
-                                        onChange={(e) => setLocalAdvanceAmount(e.target.value)}
-                                        onFocus={(e) => e.target.select()}
-                                    />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`advance-${record.userId}`}>Tạm ứng</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input id={`advance-${record.userId}`} type="number" placeholder="Nhập số tiền" value={localAdvanceAmount} onChange={(e) => setLocalAdvanceAmount(e.target.value)} onFocus={(e) => e.target.select()} />
+                                            <Button size="sm" onClick={handleUpdateAdvance} disabled={isUpdatingAdvance}>
+                                                {isUpdatingAdvance ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lưu'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label htmlFor={`bonus-${record.userId}`}>Thưởng</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                id={`bonus-${record.userId}`}
+                                                type="number"
+                                                placeholder="Nhập số tiền"
+                                                value={localBonusAmount}
+                                                onChange={(e) => setLocalBonusAmount(e.target.value)}
+                                                onFocus={(e) => e.target.select()}
+                                            />
+                                            <Button size="sm" onClick={handleUpdateBonus} disabled={isUpdatingBonus}>
+                                                {isUpdatingBonus ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lưu'}
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex justify-end gap-2">
-                                    <Button onClick={handleUpdateAdvance} disabled={isUpdatingAdvance}>
-                                        {isUpdatingAdvance && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Lưu Tạm ứng
-                                    </Button>
+                                <div className="flex justify-end">
                                     <Button
                                         onClick={handleTogglePaymentStatus}
                                         variant={record.paymentStatus === 'paid' ? 'destructive' : 'default'}
                                         disabled={isUpdatingPaymentStatus}
+                                        className="w-full sm:w-auto"
                                     >
                                         {isUpdatingPaymentStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         {record.paymentStatus === 'paid' ? 'Đánh dấu Chưa trả' : 'Đánh dấu Đã trả'}
