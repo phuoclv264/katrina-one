@@ -15,3 +15,4 @@ import '@/ai/flows/extract-invoice-items-flow.ts';
 import '@/ai/flows/extract-handover-data-flow.ts';
 import '@/ai/flows/generate-product-recipes.ts';
 import '@/ai/flows/refine-text-flow.ts';
+import '@/ai/flows/generate-task-assignments-flow.ts';

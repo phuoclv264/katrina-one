@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -8,8 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users, CalendarCheck2 } from 'lucide-react';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, MonthlyTaskAssignment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -39,6 +40,7 @@ import isEqual from 'lodash.isequal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 export default function ScheduleView() {
@@ -51,6 +53,7 @@ export default function ScheduleView() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [availability, setAvailability] = useState<Availability[]>([]);
+    const [monthlyAssignments, setMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
 
@@ -91,9 +94,10 @@ export default function ScheduleView() {
         let notificationsSubscribed = false;
         let usersSubscribed = false;
         let availabilitySubscribed = false;
+        let assignmentsSubscribed = false;
 
         const checkLoadingDone = () => {
-            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed && availabilitySubscribed) {
+            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed && availabilitySubscribed && assignmentsSubscribed) {
                 setIsLoading(false);
             }
         };
@@ -122,6 +126,13 @@ export default function ScheduleView() {
             usersSubscribed = true;
             checkLoadingDone();
         });
+
+        const weekInterval = { start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) };
+        const unsubAssignments = dataStore.subscribeToUserMonthlyAssignments(user.uid, weekInterval, (assignments) => {
+            setMonthlyAssignments(assignments);
+            assignmentsSubscribed = true;
+            checkLoadingDone();
+        });
         
         let unsubNotifications: () => void;
         if (canManage) {
@@ -145,8 +156,9 @@ export default function ScheduleView() {
             unsubTemplates();
             unsubNotifications();
             unsubUsers();
+            unsubAssignments();
         };
-    }, [user, authLoading, router, weekId, canManage]);
+    }, [user, authLoading, router, weekId, canManage, currentDate]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
@@ -325,6 +337,35 @@ export default function ScheduleView() {
             setProcessingNotificationId(null);
         }
     }
+
+    const handleToggleTaskCompletion = async (assignment: MonthlyTaskAssignment) => {
+      if (!user) return;
+      const monthId = format(parseISO(assignment.assignedDate), 'yyyy-MM');
+      const isCompleted = assignment.status === 'completed';
+      
+      // Optimistic update
+      setMonthlyAssignments(prev =>
+        prev.map(a => 
+          (a.taskId === assignment.taskId && a.assignedDate === assignment.assignedDate && a.assignedTo.userId === assignment.assignedTo.userId)
+            ? { ...a, status: isCompleted ? 'pending' : 'completed' }
+            : a
+        )
+      );
+
+      try {
+        await dataStore.updateMonthlyTaskAssignmentStatus(monthId, assignment.taskId, assignment.assignedDate, user.uid, !isCompleted);
+      } catch (error) {
+        toast.error("Lỗi khi cập nhật trạng thái công việc.");
+        // Revert optimistic update on error
+        setMonthlyAssignments(prev =>
+            prev.map(a => 
+              (a.taskId === assignment.taskId && a.assignedDate === assignment.assignedDate && a.assignedTo.userId === assignment.assignedTo.userId)
+                ? { ...a, status: isCompleted ? 'completed' : 'pending' }
+                : a
+            )
+        );
+      }
+    };
     
     const userAvailability = useMemo(() => {
         if (!user || !availability) {
@@ -454,6 +495,49 @@ export default function ScheduleView() {
                             </CardDescription>
                         </div>
                     </CardHeader>
+                </Card>
+            )}
+
+            {isSchedulePublished && monthlyAssignments.length > 0 && (
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <CalendarCheck2 />
+                            Công việc định kỳ trong tuần
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ul className="space-y-2">
+                            {daysOfWeek.map(day => {
+                                const dateKey = format(day, 'yyyy-MM-dd');
+                                const assignmentsForDay = monthlyAssignments.filter(a => a.assignedDate === dateKey);
+                                if (assignmentsForDay.length === 0) return null;
+                                return (
+                                    <li key={dateKey}>
+                                        <p className="font-semibold text-sm mb-1">{format(day, 'eeee, dd/MM', { locale: vi })}</p>
+                                        <div className="pl-4 space-y-1">
+                                            {assignmentsForDay.map(assignment => (
+                                                <div key={assignment.taskId} className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        id={`task-${assignment.taskId}-${assignment.assignedDate}`}
+                                                        checked={assignment.status === 'completed'}
+                                                        onCheckedChange={() => handleToggleTaskCompletion(assignment)}
+                                                        disabled={isBefore(day, startOfToday()) && assignment.status === 'pending'}
+                                                    />
+                                                    <label
+                                                        htmlFor={`task-${assignment.taskId}-${assignment.assignedDate}`}
+                                                        className={cn("text-sm", assignment.status === 'completed' && "text-muted-foreground line-through")}
+                                                    >
+                                                        {assignment.taskName}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    </CardContent>
                 </Card>
             )}
             

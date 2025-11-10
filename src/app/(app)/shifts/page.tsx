@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -12,6 +13,11 @@ import { useEffect, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
+import TaskReportingCard from '../monthly-tasks/_components/task-reporting-card';
+import type { MonthlyTaskAssignment } from '@/lib/types';
+import { dataStore } from '@/lib/data-store';
+import { useState } from 'react';
+import { format } from 'date-fns';
 
 const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, href: string } } = {
     sang: { name: "Ca Sáng", icon: Sun, href: "/checklist/sang" },
@@ -29,12 +35,22 @@ export default function ShiftsPage() {
   const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
   const router = useRouter();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
+  const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
 
   useEffect(() => {
     if (!authLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
       router.replace('/');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      const today = new Date();
+      const unsub = dataStore.subscribeToUserMonthlyAssignments(user.uid, { from: today, to: today }, setTodaysMonthlyAssignments);
+      console.log(todaysMonthlyAssignments);
+      return () => unsub();
+    }
+  }, [user]);
   
   const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
   const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');
@@ -84,6 +100,16 @@ export default function ShiftsPage() {
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md space-y-6">
         {showCheckInCardOnTop && <CheckInCard />}
+        
+        {isCheckedIn && todaysMonthlyAssignments.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-center text-primary">Công việc định kỳ hôm nay</h2>
+            {todaysMonthlyAssignments.map(assignment => (
+              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} />
+            ))}
+          </div>
+        )}
+        
         <Card>
           <CardHeader>
             <CardTitle>Checklist Công việc</CardTitle>

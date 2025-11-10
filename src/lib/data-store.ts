@@ -19,6 +19,8 @@ import {
   limit,
   deleteDoc,
   writeBatch,
+  WriteBatch,
+  collectionGroup,
   runTransaction,
   or,
   and,
@@ -28,7 +30,7 @@ import {
 } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskSchedule, MonthlyTaskAssignment } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -91,6 +93,53 @@ export const dataStore = {
     ...attendanceStore, // Spread all functions from attendance-store
     ...cashierStore, // Spread all functions from cashier-store
     
+    // --- Monthly Tasks ---
+    subscribeToMonthlyTasks(callback: (tasks: MonthlyTask[]) => void): () => void {
+        const docRef = doc(db, 'app-data', 'monthlyTasks');
+        return onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                callback((docSnap.data().tasks || []) as MonthlyTask[]);
+            } else {
+                callback([]);
+            }
+        }, (error) => {
+            console.warn(`[Firestore Read Error] Could not read monthly tasks: ${error.code}`);
+            callback([]);
+        });
+    },
+
+    async updateMonthlyTasks(tasks: MonthlyTask[]): Promise<void> {
+        const docRef = doc(db, 'app-data', 'monthlyTasks');
+        await setDoc(docRef, { tasks });
+    },
+    
+    async addManualTaskAssignments(monthId: string, task: MonthlyTask, assignments: { userId: string, userName: string, date: string }[]): Promise<void> {
+        const docRef = doc(db, 'monthly_task_schedules', monthId);
+        
+        const newAssignments: MonthlyTaskAssignment[] = assignments.map(a => ({
+            taskId: task.id,
+            taskName: task.name,
+            assignedTo: {
+                userId: a.userId,
+                userName: a.userName,
+            },
+            assignedDate: a.date,
+            status: 'pending',
+        }));
+
+        await runTransaction(db, async (transaction) => {
+            const docSnap = await transaction.get(docRef);
+            if (docSnap.exists()) {
+                const existingSchedule = docSnap.data() as MonthlyTaskSchedule;
+                const updatedAssignments = [...existingSchedule.assignments, ...newAssignments];
+                transaction.update(docRef, { assignments: updatedAssignments });
+            } else {
+                const newSchedule: MonthlyTaskSchedule = { assignments: newAssignments };
+                transaction.set(docRef, newSchedule);
+            }
+        });
+    },
+
     // --- Salary Management ---
     async getMonthlySalarySheet(monthId: string): Promise<MonthlySalarySheet | null> {
         const docRef = doc(db, 'monthly_salaries', monthId);
@@ -1157,7 +1206,7 @@ export const dataStore = {
        });
        callback(reports);
     }, (error) => {
-      console.error(`[Firestore Read Error] Could not read reports for shift ${shiftKey}: ${error.code}`);
+      console.error(`[Firestore Read Error] Could not read reports for shift ${shiftKey}: ${error.code} - ${error.message}`);
       callback([]);
     });
  },
@@ -1238,7 +1287,7 @@ export const dataStore = {
     }
   },
 
-   subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
+  subscribeToViolations(callback: (violations: Violation[]) => void): () => void {
     const violationsQuery = query(collection(db, 'violations'), orderBy('createdAt', 'desc'));
     const categoriesDocRef = doc(db, 'app-data', 'violationCategories');
 

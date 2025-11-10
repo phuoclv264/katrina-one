@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -6,22 +7,35 @@ import { Button } from '@/components/ui/button';
 import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch, Banknote, Loader2, Info, ClockIcon, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
+import TaskReportingCard from '../monthly-tasks/_components/task-reporting-card';
+import type { MonthlyTaskAssignment } from '@/lib/types';
+import { dataStore } from '@/lib/data-store';
+import { format } from 'date-fns';
 
 export default function BartenderDashboardPage() {
   const { user, loading, todaysShifts } = useAuth();
   const router = useRouter();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
+  const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
 
   useEffect(() => {
     if (!loading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
       router.replace('/');
     }
   }, [user, loading, router]);
+  
+  useEffect(() => {
+    if (user) {
+      const today = new Date();
+      const unsub = dataStore.subscribeToUserMonthlyAssignments(user.uid, { from: today, to: today }, setTodaysMonthlyAssignments);
+      return () => unsub();
+    }
+  }, [user]);
 
   if (loading || !user) {
     return (
@@ -44,6 +58,16 @@ export default function BartenderDashboardPage() {
     <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md space-y-6">
         {showCheckInCardOnTop && <CheckInCard />}
+
+        {isCheckedIn && todaysMonthlyAssignments.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-center text-primary">Công việc định kỳ hôm nay</h2>
+            {todaysMonthlyAssignments.map(assignment => (
+              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} />
+            ))}
+          </div>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Danh mục Báo cáo Pha chế</CardTitle>

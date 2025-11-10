@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Timestamp, FieldValue } from 'firebase/firestore';
@@ -403,6 +404,7 @@ export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
   secondaryRoles?: UserRole[];
+  anonymousName?: string;
 }
 
 // --- Cashier Types ---
@@ -667,4 +669,32 @@ export type MonthlySalarySheet = {
   calculatedBy: AssignedUser;
   scheduleMap: Record<string, Schedule>; // Keyed by weekId
   salaryRecords: Record<string, SalaryRecord>; // Keyed by userId
+};
+
+// --- Monthly Tasks ---
+
+export type MonthlyTask = {
+  id: string;
+  name: string;
+  description: string;
+  appliesToRole: UserRole;
+  frequency: {
+    type: 'per_week' | 'per_month';
+    count: number;
+  };
+  estimatedTime: number; // in minutes
+};
+
+export type MonthlyTaskAssignment = {
+  taskId: string;
+  taskName: string;
+  assignedTo: AssignedUser;
+  assignedDate: string; // YYYY-MM-DD
+  status: 'pending' | 'completed';
+  completedAt?: Timestamp;
+  media?: MediaAttachment[]; // Array to store photos/videos
+};
+
+export type MonthlyTaskSchedule = {
+  assignments: MonthlyTaskAssignment[];
 };

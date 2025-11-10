@@ -1,7 +1,9 @@
 'use client';
 
-import { storage } from './firebase';
+import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { MediaItem, MediaAttachment } from './types';
+import { photoStore } from './photo-store';
 
 /**
  * Tải một file lên Firebase Storage và trả về URL.
@@ -32,4 +34,28 @@ export async function deleteFileByUrl(fileUrl: string): Promise<void> {
             console.error("Lỗi khi xóa file từ Storage:", error);
         }
     }
+}
+
+export async function uploadMedia(mediaItems: MediaItem[], path: string): Promise<MediaAttachment[]> {
+  const uploadPromises = mediaItems.map(async (item) => {
+    const fileBlob = await photoStore.getPhoto(item.id);
+    if (!fileBlob) {
+        console.error(`Could not find photo with id ${item.id} in local store.`);
+        return null;
+    }
+
+    const fileRef = ref(storage, `${path}/${Date.now()}-${item.id}`);
+    await uploadBytes(fileRef, fileBlob);
+    const url = await getDownloadURL(fileRef);
+
+    // After successful upload, delete from IndexedDB
+    await photoStore.deletePhoto(item.id);
+
+    return {
+      url,
+      type: item.type,
+    } as MediaAttachment;
+  });
+
+  return (await Promise.all(uploadPromises)).filter((att): att is MediaAttachment => att !== null);
 }
