@@ -31,8 +31,7 @@ export default function BartenderDashboardPage() {
   
   useEffect(() => {
     if (user) {
-      const today = new Date();
-      const unsub = dataStore.subscribeToUserMonthlyAssignments(user.uid, { from: today, to: today }, setTodaysMonthlyAssignments);
+      const unsub = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
       return () => unsub();
     }
   }, [user]);

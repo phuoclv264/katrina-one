@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users, CalendarCheck2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, MoreVertical, Send, MailQuestion, Loader2, Users, CalendarCheck2 } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, MonthlyTaskAssignment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
@@ -36,7 +36,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import isEqual from 'lodash.isequal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
@@ -127,12 +126,13 @@ export default function ScheduleView() {
             checkLoadingDone();
         });
 
-        const weekInterval = { start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) };
-        const unsubAssignments = dataStore.subscribeToUserMonthlyAssignments(user.uid, weekInterval, (assignments) => {
-            setMonthlyAssignments(assignments);
-            assignmentsSubscribed = true;
-            checkLoadingDone();
-        });
+        // This is now handled day-by-day inside the component render
+        // to avoid over-fetching. We just mark it as "done".
+        // The actual subscription will happen for visible days.
+        setMonthlyAssignments([]);
+        assignmentsSubscribed = true;
+        checkLoadingDone();
+        
         
         let unsubNotifications: () => void;
         if (canManage) {
@@ -156,7 +156,6 @@ export default function ScheduleView() {
             unsubTemplates();
             unsubNotifications();
             unsubUsers();
-            unsubAssignments();
         };
     }, [user, authLoading, router, weekId, canManage, currentDate]);
 
@@ -339,34 +338,65 @@ export default function ScheduleView() {
     }
 
     const handleToggleTaskCompletion = async (assignment: MonthlyTaskAssignment) => {
-      if (!user) return;
-      const monthId = format(parseISO(assignment.assignedDate), 'yyyy-MM');
-      const isCompleted = assignment.status === 'completed';
-      
-      // Optimistic update
-      setMonthlyAssignments(prev =>
-        prev.map(a => 
-          (a.taskId === assignment.taskId && a.assignedDate === assignment.assignedDate && a.assignedTo.userId === assignment.assignedTo.userId)
-            ? { ...a, status: isCompleted ? 'pending' : 'completed' }
-            : a
-        )
-      );
+        if (!user) return;
+        const isCompleted = assignment.completions.some(c => c.completedBy?.userId === user.uid);
+        const assignedUser = { userId: user.uid, userName: user.displayName };
 
-      try {
-        await dataStore.updateMonthlyTaskAssignmentStatus(monthId, assignment.taskId, assignment.assignedDate, user.uid, !isCompleted);
-      } catch (error) {
-        toast.error("Lỗi khi cập nhật trạng thái công việc.");
-        // Revert optimistic update on error
-        setMonthlyAssignments(prev =>
-            prev.map(a => 
-              (a.taskId === assignment.taskId && a.assignedDate === assignment.assignedDate && a.assignedTo.userId === assignment.assignedTo.userId)
-                ? { ...a, status: isCompleted ? 'completed' : 'pending' }
-                : a
-            )
-        );
-      }
+        // No optimistic update needed here as the subscription will handle UI changes.
+        // This prevents UI flicker and simplifies the logic.
+
+        try {
+            await dataStore.updateMonthlyTaskCompletionStatus(
+                assignment.taskId,
+                assignment.taskName,
+                assignedUser,
+                parseISO(assignment.assignedDate),
+                !isCompleted // Toggle the status
+            );
+        } catch (error) {
+            toast.error("Lỗi khi cập nhật trạng thái công việc.");
+            console.error("Failed to toggle task completion:", error);
+        }
     };
     
+    // Component to handle daily task fetching and display
+    const DailyTasks = ({ day }: { day: Date }) => {
+        const [tasks, setTasks] = useState<MonthlyTaskAssignment[]>([]);
+        const { user } = useAuth();
+        
+        useEffect(() => {
+            const unsub = dataStore.subscribeToMonthlyTasksForDate(day, setTasks);
+            return () => unsub();
+        }, [day]);
+
+        const userTasks = tasks.filter(t => t.responsibleUsers.some(u => u.userId === user?.uid));
+
+        if (userTasks.length === 0) return null;
+
+        return (
+            <div className="mt-2 space-y-1">
+                {userTasks.map(assignment => {
+                    const isCompleted = assignment.completions.some(c => c.completedBy?.userId === user?.uid);
+                    return (
+                        <div key={assignment.taskId} className="flex items-center gap-2">
+                        <Checkbox
+                            id={`task-${assignment.taskId}-${assignment.assignedDate}`}
+                            checked={isCompleted}
+                            onCheckedChange={() => handleToggleTaskCompletion(assignment)}
+                            disabled={isBefore(day, startOfToday()) && !isCompleted}
+                        />
+                        <label
+                            htmlFor={`task-${assignment.taskId}-${assignment.assignedDate}`}
+                            className={cn("text-xs", isCompleted && "text-muted-foreground line-through")}
+                        >
+                            {assignment.taskName}
+                        </label>
+                    </div>
+                    );
+                })}
+            </div>
+        );
+    };
     const userAvailability = useMemo(() => {
         if (!user || !availability) {
           return new Map<string, TimeSlot[]>();
@@ -498,49 +528,6 @@ export default function ScheduleView() {
                 </Card>
             )}
 
-            {isSchedulePublished && monthlyAssignments.length > 0 && (
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <CalendarCheck2 />
-                            Công việc định kỳ trong tuần
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <ul className="space-y-2">
-                            {daysOfWeek.map(day => {
-                                const dateKey = format(day, 'yyyy-MM-dd');
-                                const assignmentsForDay = monthlyAssignments.filter(a => a.assignedDate === dateKey);
-                                if (assignmentsForDay.length === 0) return null;
-                                return (
-                                    <li key={dateKey}>
-                                        <p className="font-semibold text-sm mb-1">{format(day, 'eeee, dd/MM', { locale: vi })}</p>
-                                        <div className="pl-4 space-y-1">
-                                            {assignmentsForDay.map(assignment => (
-                                                <div key={assignment.taskId} className="flex items-center gap-2">
-                                                    <Checkbox
-                                                        id={`task-${assignment.taskId}-${assignment.assignedDate}`}
-                                                        checked={assignment.status === 'completed'}
-                                                        onCheckedChange={() => handleToggleTaskCompletion(assignment)}
-                                                        disabled={isBefore(day, startOfToday()) && assignment.status === 'pending'}
-                                                    />
-                                                    <label
-                                                        htmlFor={`task-${assignment.taskId}-${assignment.assignedDate}`}
-                                                        className={cn("text-sm", assignment.status === 'completed' && "text-muted-foreground line-through")}
-                                                    >
-                                                        {assignment.taskName}
-                                                    </label>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </li>
-                                )
-                            })}
-                        </ul>
-                    </CardContent>
-                </Card>
-            )}
-            
             <div className="border rounded-lg bg-card">
                 <Table>
                     <TableHeader>
@@ -662,6 +649,7 @@ export default function ScheduleView() {
                                                 )}
                                             </div>
                                         )}
+                                        {isSchedulePublished && <DailyTasks day={day} />}
                                     </TableCell>
                                 </TableRow>
                             )

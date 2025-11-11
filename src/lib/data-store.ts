@@ -30,7 +30,7 @@ import {
 } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskSchedule, MonthlyTaskAssignment } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment } from './types';
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
@@ -113,33 +113,6 @@ export const dataStore = {
         await setDoc(docRef, { tasks });
     },
     
-    async addManualTaskAssignments(monthId: string, task: MonthlyTask, assignments: { userId: string, userName: string, date: string }[]): Promise<void> {
-        const docRef = doc(db, 'monthly_task_schedules', monthId);
-        
-        const newAssignments: MonthlyTaskAssignment[] = assignments.map(a => ({
-            taskId: task.id,
-            taskName: task.name,
-            assignedTo: {
-                userId: a.userId,
-                userName: a.userName,
-            },
-            assignedDate: a.date,
-            status: 'pending',
-        }));
-
-        await runTransaction(db, async (transaction) => {
-            const docSnap = await transaction.get(docRef);
-            if (docSnap.exists()) {
-                const existingSchedule = docSnap.data() as MonthlyTaskSchedule;
-                const updatedAssignments = [...existingSchedule.assignments, ...newAssignments];
-                transaction.update(docRef, { assignments: updatedAssignments });
-            } else {
-                const newSchedule: MonthlyTaskSchedule = { assignments: newAssignments };
-                transaction.set(docRef, newSchedule);
-            }
-        });
-    },
-
     // --- Salary Management ---
     async getMonthlySalarySheet(monthId: string): Promise<MonthlySalarySheet | null> {
         const docRef = doc(db, 'monthly_salaries', monthId);

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { db, storage } from './firebase';
+import { db } from './firebase';
 import {
   collection,
   doc,
@@ -27,11 +27,10 @@ import {
   and,
   arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTaskAssignment, MonthlyTaskSchedule, MediaAttachment, MediaItem } from './types';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear } from 'date-fns';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord } from './types';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
-
 import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
 
 // --- Schedule Functions ---
@@ -906,169 +905,202 @@ export async function deleteNotification(notificationId: string): Promise<void> 
     await deleteDoc(docRef);
 }
 
-// --- Monthly Task Assignments ---
-export async function getMonthlyTaskSchedule(monthId: string): Promise<MonthlyTaskSchedule | null> {
-    const docRef = doc(db, 'monthly_task_schedules', monthId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        return docSnap.data() as MonthlyTaskSchedule;
-    }
-    return null;
-}
+// --- Monthly Tasks (New Rule-Based System) ---
 
-export async function saveMonthlyTaskSchedule(monthId: string, schedule: Omit<MonthlyTaskSchedule, 'month'>): Promise<void> {
-    const docRef = doc(db, 'monthly_task_schedules', monthId);
-    const dataToSave = {
-        month: monthId,
-        ...schedule,
-    };
-    await setDoc(docRef, dataToSave);
-}
+function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
+  const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
+  const dayOfMonth = getDate(date);
 
-export function subscribeToMonthlyTaskSchedule(monthId: string, callback: (schedule: MonthlyTaskSchedule | null) => void): () => void {
-    const docRef = doc(db, 'monthly_task_schedules', monthId);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-            callback(docSnap.data() as MonthlyTaskSchedule);
-        } else {
-            callback(null);
+  switch (task.schedule.type) {
+    case 'weekly':
+      return task.schedule.daysOfWeek.includes(dayOfWeek);
+
+    case 'interval':
+      const startDate = parseISO(task.schedule.startDate);
+      const diffInMs = date.getTime() - startDate.getTime();
+      const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24));
+      return diffInDays >= 0 && diffInDays % task.schedule.intervalDays === 0;
+
+    case 'monthly_date':
+      return task.schedule.daysOfMonth.includes(dayOfMonth);
+
+    case 'monthly_weekday':
+      const weekOfMonth = getWeekOfMonth(date); // 1-based
+      const lastDayOfMonth = endOfMonth(date);
+      const lastWeekOfMonth = getWeekOfMonth(lastDayOfMonth);
+
+      return task.schedule.occurrences.some(occ => {
+        if (occ.day !== dayOfWeek) return false;
+        // Handle last week of month (e.g., -1 for last)
+        if (occ.week < 0) {
+          const weekFromEnd = lastWeekOfMonth - weekOfMonth + 1;
+          return weekFromEnd === Math.abs(occ.week);
         }
-    }, (error) => {
-        console.warn(`[Firestore Read Error] Could not read monthly task schedule for ${monthId}: ${error.code}`);
-        callback(null);
-    });
-    return unsubscribe;
-}
+        return occ.week === weekOfMonth;
+      });
 
-export function subscribeToUserMonthlyAssignments(userId: string, dateRange: DateRange, callback: (assignments: MonthlyTaskAssignment[]) => void): () => void {
-  if (!dateRange.from || !dateRange.to) {
-    callback([]);
-    return () => {};
+    default:
+      return false;
   }
-
-  const fromDate = dateRange.from.setHours(0, 0, 0, 0);
-  const toDate = dateRange.to.setHours(23, 59, 59, 999);
-
-  const fromMonthId = format(fromDate, 'yyyy-MM');
-  const toMonthId = format(toDate, 'yyyy-MM');
-  const monthIds = fromMonthId === toMonthId ? [fromMonthId] : [fromMonthId, toMonthId];
-
-  const q = query(
-    collection(db, 'monthly_task_schedules'),
-    where(documentId(), 'in', monthIds)
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    const allAssignments = snapshot.docs.flatMap(
-      doc => (doc.data() as MonthlyTaskSchedule).assignments || []
-    );
-    const userAssignments = allAssignments.filter(assignment => 
-        assignment.assignedTo.userId === userId &&
-        isWithinInterval(parseISO(assignment.assignedDate), { start: fromDate, end: toDate})
-    );
-
-    callback(userAssignments);
-  });
 }
 
-export async function updateMonthlyTaskAssignmentStatus(monthId: string, taskId: string, assignedDate: string, userId: string, isCompleted: boolean, media?: MediaItem[]): Promise<void> {
-  const docRef = doc(db, 'monthly_task_schedules', monthId);
+export function subscribeToMonthlyTasksForDate(
+  date: Date,
+  callback: (assignments: MonthlyTaskAssignment[]) => void
+): () => void {
+  const dateKey = format(date, 'yyyy-MM-dd');
+  const weekId = `${getYear(date)}-W${getISOWeek(date)}`;
+
+  let allDefinedTasks: MonthlyTask[] = [];
+  let allUsers: ManagedUser[] = [];
+  let schedule: Schedule | null = null;
+  let allCompletionsForDay: TaskCompletionRecord[] = [];
+
+  const processAndCallback = () => {
+    if (!schedule) { // Don't process until we have the schedule for the day
+        callback([]);
+        return;
+    }
+
+    const tasksDueToday = allDefinedTasks.filter(task => {
+      if (!isTaskScheduledForDate(task, date)) {
+        return false;
+      }
+      return true;
+    });
+
+    const shiftsToday = schedule.shifts.filter(s => s.date === dateKey);
+
+    const finalAssignments: MonthlyTaskAssignment[] = tasksDueToday.map(task => {
+      const responsibleUsers = new Map<string, AssignedUser>();
+
+      shiftsToday.forEach(shift => {
+        const taskAppliesToShift = (
+          !task.timeOfDay || 
+          isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
+            start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
+            end: parseISO(`${shift.date}T${shift.timeSlot.end}`)
+          })
+        );
+
+        if (taskAppliesToShift) {
+          shift.assignedUsers.forEach(assignedUser => {
+            const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
+            if (fullUser) {
+              const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
+              if (userRoles.includes(task.appliesToRole)) {
+                if (!responsibleUsers.has(assignedUser.userId)) {
+                  responsibleUsers.set(assignedUser.userId, assignedUser);
+                }
+              }
+            }
+          });
+        }
+      });
+
+      const completionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
+
+      return {
+        taskId: task.id,
+        taskName: task.name,
+        assignedDate: dateKey,
+        responsibleUsers: Array.from(responsibleUsers.values()).sort((a, b) => a.userName.localeCompare(b.userName)),
+        completions: completionsForThisTask,
+      };
+    });
+
+    callback(finalAssignments.filter(a => a.responsibleUsers.length > 0));
+  };
+
+  const unsubTasks = onSnapshot(doc(db, 'app-data', 'monthlyTasks'), (docSnap) => {
+    allDefinedTasks = docSnap.exists() ? (docSnap.data().tasks as MonthlyTask[]) : [];
+    processAndCallback();
+  });
+
+  const unsubSchedule = onSnapshot(doc(db, 'schedules', weekId), (docSnap) => {
+    schedule = docSnap.exists() ? (docSnap.data() as Schedule) : null;
+    processAndCallback();
+  });
+
+  const unsubCompletions = onSnapshot(doc(db, 'monthly_task_completions', dateKey), (docSnap) => {
+    allCompletionsForDay = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
+    processAndCallback();
+  });
+
+  const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+    allUsers = snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as ManagedUser));
+    processAndCallback();
+  });
+
+  return () => {
+    unsubTasks();
+    unsubSchedule();
+    unsubCompletions();
+    unsubUsers();
+  };
+}
+
+export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[]): Promise<void> {
+  const dateKey = format(date, 'yyyy-MM-dd');
+  const docRef = doc(db, 'monthly_task_completions', dateKey);
+
+  if (!taskId || !taskName || !user || !dateKey){
+    throw new Error("Missing required parameters for updateMonthlyTaskCompletionStatus.");
+  }
+  
   await runTransaction(db, async (transaction) => {
     const docSnap = await transaction.get(docRef);
-    if (!docSnap.exists()) {
-      throw "Document does not exist!";
-    }
-    const schedule = docSnap.data() as MonthlyTaskSchedule;
-    const assignmentIndex = schedule.assignments.findIndex(
-      a => a.taskId === taskId && a.assignedDate === assignedDate && a.assignedTo.userId === userId
+    const allCompletions = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
+
+    const completionIndex = allCompletions.findIndex(
+      c => c.taskId === taskId && c.completedBy?.userId === user.userId
     );
 
-    if (assignmentIndex > -1) {
-      const currentAssignment = schedule.assignments[assignmentIndex];
+    if (completionIndex > -1) {
+      // Update existing completion record
+      const currentCompletion = allCompletions[completionIndex];
       let newMediaAttachments: MediaAttachment[] | undefined = undefined;
 
       if (isCompleted && media && media.length > 0) {
-        const uploadPath = `monthly-tasks/${monthId}/${userId}/${taskId}/${assignedDate}`;
+        const uploadPath = `monthly-task-completions/${dateKey}/${user.userId}/${taskId}`;
         newMediaAttachments = await uploadMedia(media, uploadPath);
-      } else if (!isCompleted && currentAssignment.media && currentAssignment.media.length > 0) {
-        // If reverting status, delete old media from storage
-        const deletePromises = currentAssignment.media.map(att => deleteFileByUrl(att.url));
+      } else if (!isCompleted && currentCompletion.media && currentCompletion.media.length > 0) {
+        const deletePromises = currentCompletion.media.map(att => deleteFileByUrl(att.url));
         await Promise.all(deletePromises).catch(err => {
-          // Log error but don't block the transaction from completing
           console.error("Failed to delete some media files from storage:", err);
         });
       }
       
       const finalMedia = isCompleted 
-        ? [...(currentAssignment.media || []), ...(newMediaAttachments || [])]
+        ? [...(currentCompletion.media || []), ...(newMediaAttachments || [])]
         : undefined;
 
-      const updatedAssignments = [...schedule.assignments];
-      updatedAssignments[assignmentIndex] = {
-        ...updatedAssignments[assignmentIndex],
-        status: isCompleted ? 'completed' : 'pending',
+      const updatedCompletions = [...allCompletions];
+      updatedCompletions[completionIndex] = {
+        ...currentCompletion,
         completedAt: isCompleted ? Timestamp.now() : undefined,
-        // If completing, use new attachments. If reverting, clear media.
         media: finalMedia,
       };
-      transaction.update(docRef, { assignments: updatedAssignments });
+      transaction.set(docRef, { completions: updatedCompletions });
+    } else if (isCompleted) {
+      // Create new completion record
+      let newMediaAttachments: MediaAttachment[] | undefined = undefined;
+      if (media && media.length > 0) {
+        const uploadPath = `monthly-task-completions/${dateKey}/${user.userId}/${taskId}`;
+        newMediaAttachments = await uploadMedia(media, uploadPath);
+      }
+
+      const newCompletion: TaskCompletionRecord = {
+        taskId,
+        taskName,
+        completedBy: user,
+        assignedDate: dateKey,
+        completedAt: Timestamp.now(),
+        media: newMediaAttachments,
+      };
+
+      const updatedCompletions = [...allCompletions, newCompletion];
+      transaction.set(docRef, { completions: updatedCompletions });
     }
-  });
-}
-
-export async function removeMonthlyTaskAssignment(monthId: string, taskId: string, assignedDate: string, userId: string): Promise<void> {
-  const docRef = doc(db, 'monthly_task_schedules', monthId);
-
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(docRef);
-    if (!docSnap.exists()) {
-      return; // Document doesn't exist, nothing to do.
-    }
-
-    const schedule = docSnap.data() as MonthlyTaskSchedule;
-    const assignmentToRemove = schedule.assignments.find(
-      a => a.taskId === taskId && a.assignedDate === assignedDate && a.assignedTo.userId === userId
-    );
-
-    // If the assignment has media, delete it from storage first.
-    if (assignmentToRemove?.media && assignmentToRemove.media.length > 0) {
-      const deletePromises = assignmentToRemove.media.map(att => deleteFileByUrl(att.url));
-      await Promise.all(deletePromises).catch(err => {
-        console.error("Failed to delete media files during assignment removal:", err);
-      });
-    }
-
-    const updatedAssignments = schedule.assignments.filter(a => !(a.taskId === taskId && a.assignedDate === assignedDate && a.assignedTo.userId === userId));
-    transaction.update(docRef, { assignments: updatedAssignments });
-  });
-}
-
-export async function removeAllAssignmentsForTask(monthId: string, taskId:string): Promise<void> {
-  const docRef = doc(db, 'monthly_task_schedules', monthId);
-
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(docRef);
-    if (!docSnap.exists()) {
-      return; // Document doesn't exist, nothing to do.
-    }
-
-    const schedule = docSnap.data() as MonthlyTaskSchedule;
-    const assignmentsToRemove = schedule.assignments.filter(a => a.taskId === taskId);
-
-    if (assignmentsToRemove.length === 0) {
-      return; // No assignments for this task to remove.
-    }
-
-    // Collect all media to delete from storage
-    const mediaToDelete = assignmentsToRemove.flatMap(a => a.media || []);
-    if (mediaToDelete.length > 0) {
-      const deletePromises = mediaToDelete.map(att => deleteFileByUrl(att.url));
-      await Promise.all(deletePromises).catch(err => {
-        console.error("Failed to delete some media files during bulk assignment removal:", err);
-      });
-    }
-
-    const updatedAssignments = schedule.assignments.filter(a => a.taskId !== taskId);
-    transaction.update(docRef, { assignments: updatedAssignments });
   });
 }

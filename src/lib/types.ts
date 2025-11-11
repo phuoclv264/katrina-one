@@ -673,28 +673,55 @@ export type MonthlySalarySheet = {
 
 // --- Monthly Tasks ---
 
+export type TaskSchedule = 
+  | {
+      type: 'weekly';
+      daysOfWeek: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+    }
+  | {
+      type: 'interval';
+      intervalDays: number; // e.g., 3 for "every 3 days"
+      startDate: string; // YYYY-MM-DD, the anchor date for the interval
+    }
+  | {
+      type: 'monthly_date';
+      daysOfMonth: number[]; // e.g., [1, 15] for 1st and 15th of the month
+    }
+  | {
+      type: 'monthly_weekday';
+      // e.g., [{ week: 1, day: 1 }] for the first Monday of the month
+      // e.g., [{ week: -1, day: 5 }] for the last Friday of the month
+      occurrences: { week: number; day: number }[]; 
+    };
+
 export type MonthlyTask = {
   id: string;
   name: string;
   description: string;
   appliesToRole: UserRole;
-  frequency: {
-    type: 'per_week' | 'per_month';
-    count: number;
-  };
-  estimatedTime: number; // in minutes
+  schedule: TaskSchedule;
+  /** 
+   * Optional time of day for the task. If not set, it applies for the whole day.
+   * If set, the task only applies to staff whose shift overlaps with this time.
+   */
+  timeOfDay?: string; // "HH:mm"
+};
+
+export type TaskCompletionRecord = {
+  taskId: string;
+  taskName: string;
+  completedBy?: AssignedUser;
+  assignedDate: string; // YYYY-MM-DD
+  completedAt?: Timestamp;
+  media?: MediaAttachment[]; // Array to store photos/videos
 };
 
 export type MonthlyTaskAssignment = {
   taskId: string;
   taskName: string;
-  assignedTo: AssignedUser;
   assignedDate: string; // YYYY-MM-DD
-  status: 'pending' | 'completed';
-  completedAt?: Timestamp;
-  media?: MediaAttachment[]; // Array to store photos/videos
-};
-
-export type MonthlyTaskSchedule = {
-  assignments: MonthlyTaskAssignment[];
+  
+  // New structure for collaborative tasks
+  responsibleUsers: AssignedUser[];
+  completions: TaskCompletionRecord[];
 };
