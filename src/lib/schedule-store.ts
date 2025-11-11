@@ -925,6 +925,21 @@ export async function saveMonthlyTaskSchedule(monthId: string, schedule: Omit<Mo
     await setDoc(docRef, dataToSave);
 }
 
+export function subscribeToMonthlyTaskSchedule(monthId: string, callback: (schedule: MonthlyTaskSchedule | null) => void): () => void {
+    const docRef = doc(db, 'monthly_task_schedules', monthId);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            callback(docSnap.data() as MonthlyTaskSchedule);
+        } else {
+            callback(null);
+        }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read monthly task schedule for ${monthId}: ${error.code}`);
+        callback(null);
+    });
+    return unsubscribe;
+}
+
 export function subscribeToUserMonthlyAssignments(userId: string, dateRange: DateRange, callback: (assignments: MonthlyTaskAssignment[]) => void): () => void {
   if (!dateRange.from || !dateRange.to) {
     callback([]);
@@ -998,5 +1013,62 @@ export async function updateMonthlyTaskAssignmentStatus(monthId: string, taskId:
       };
       transaction.update(docRef, { assignments: updatedAssignments });
     }
+  });
+}
+
+export async function removeMonthlyTaskAssignment(monthId: string, taskId: string, assignedDate: string, userId: string): Promise<void> {
+  const docRef = doc(db, 'monthly_task_schedules', monthId);
+
+  await runTransaction(db, async (transaction) => {
+    const docSnap = await transaction.get(docRef);
+    if (!docSnap.exists()) {
+      return; // Document doesn't exist, nothing to do.
+    }
+
+    const schedule = docSnap.data() as MonthlyTaskSchedule;
+    const assignmentToRemove = schedule.assignments.find(
+      a => a.taskId === taskId && a.assignedDate === assignedDate && a.assignedTo.userId === userId
+    );
+
+    // If the assignment has media, delete it from storage first.
+    if (assignmentToRemove?.media && assignmentToRemove.media.length > 0) {
+      const deletePromises = assignmentToRemove.media.map(att => deleteFileByUrl(att.url));
+      await Promise.all(deletePromises).catch(err => {
+        console.error("Failed to delete media files during assignment removal:", err);
+      });
+    }
+
+    const updatedAssignments = schedule.assignments.filter(a => !(a.taskId === taskId && a.assignedDate === assignedDate && a.assignedTo.userId === userId));
+    transaction.update(docRef, { assignments: updatedAssignments });
+  });
+}
+
+export async function removeAllAssignmentsForTask(monthId: string, taskId:string): Promise<void> {
+  const docRef = doc(db, 'monthly_task_schedules', monthId);
+
+  await runTransaction(db, async (transaction) => {
+    const docSnap = await transaction.get(docRef);
+    if (!docSnap.exists()) {
+      return; // Document doesn't exist, nothing to do.
+    }
+
+    const schedule = docSnap.data() as MonthlyTaskSchedule;
+    const assignmentsToRemove = schedule.assignments.filter(a => a.taskId === taskId);
+
+    if (assignmentsToRemove.length === 0) {
+      return; // No assignments for this task to remove.
+    }
+
+    // Collect all media to delete from storage
+    const mediaToDelete = assignmentsToRemove.flatMap(a => a.media || []);
+    if (mediaToDelete.length > 0) {
+      const deletePromises = mediaToDelete.map(att => deleteFileByUrl(att.url));
+      await Promise.all(deletePromises).catch(err => {
+        console.error("Failed to delete some media files during bulk assignment removal:", err);
+      });
+    }
+
+    const updatedAssignments = schedule.assignments.filter(a => a.taskId !== taskId);
+    transaction.update(docRef, { assignments: updatedAssignments });
   });
 }

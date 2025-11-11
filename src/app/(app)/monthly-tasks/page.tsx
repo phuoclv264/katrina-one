@@ -269,7 +269,7 @@ export default function MonthlyTasksPage() {
             const monthId = format(parseISO(assignments[0].date), 'yyyy-MM');
             await dataStore.addManualTaskAssignments(monthId, task, assignments);
             toast.success(`Đã giao ${assignments.length} công việc "${task.name}".`);
-            setIsManualAssignmentOpen(false);
+            // setIsManualAssignmentOpen(false);
         } catch (error) {
             console.error("Failed to save manual assignments:", error);
             toast.error("Không thể lưu phân công.");

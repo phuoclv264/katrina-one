@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/apple-touch-icon:path*.png',
-        destination: 'https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=2d84d1e1-b65f-47fd-bb66-e96cde25aa0d',
+        destination: 'https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6',
         permanent: true,
       },
     ]
