@@ -911,6 +911,10 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
   const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
   const dayOfMonth = getDate(date);
 
+  if (task.schedule.type === 'random') {
+    return task.scheduledDates?.includes(format(date, 'yyyy-MM-dd')) ?? false;
+  }
+
   switch (task.schedule.type) {
     case 'weekly':
       return task.schedule.daysOfWeek.includes(dayOfWeek);
@@ -972,7 +976,8 @@ export function subscribeToMonthlyTasksForDate(
     const shiftsToday = schedule.shifts.filter(s => s.date === dateKey);
 
     const finalAssignments: MonthlyTaskAssignment[] = tasksDueToday.map(task => {
-      const responsibleUsers = new Map<string, AssignedUser>();
+      const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; users: AssignedUser[] }>();
+      const allResponsibleUserIds = new Set<string>();
 
       shiftsToday.forEach(shift => {
         const taskAppliesToShift = (
@@ -988,28 +993,37 @@ export function subscribeToMonthlyTasksForDate(
             const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
             if (fullUser) {
               const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
-              if (userRoles.includes(task.appliesToRole)) {
-                if (!responsibleUsers.has(assignedUser.userId)) {
-                  responsibleUsers.set(assignedUser.userId, assignedUser);
+              if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
+                if (!responsibleUsersByShift.has(shift.id)) {
+                  responsibleUsersByShift.set(shift.id, { shiftId: shift.id, shiftLabel: shift.label, users: [] });
                 }
+                const shiftGroup = responsibleUsersByShift.get(shift.id)!;
+                if (!shiftGroup.users.some(u => u.userId === assignedUser.userId)) {
+                  shiftGroup.users.push(assignedUser);
+                }
+                allResponsibleUserIds.add(assignedUser.userId);
               }
             }
           });
         }
       });
 
-      const completionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
+      const allCompletionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
+      const assignedCompletions = allCompletionsForThisTask.filter(c => c.completedBy && allResponsibleUserIds.has(c.completedBy.userId));
+      const otherCompletions = allCompletionsForThisTask.filter(c => !c.completedBy || !allResponsibleUserIds.has(c.completedBy.userId));
 
       return {
         taskId: task.id,
         taskName: task.name,
+        description: task.description,
         assignedDate: dateKey,
-        responsibleUsers: Array.from(responsibleUsers.values()).sort((a, b) => a.userName.localeCompare(b.userName)),
-        completions: completionsForThisTask,
+        responsibleUsersByShift: Array.from(responsibleUsersByShift.values()),
+        completions: assignedCompletions,
+        otherCompletions: otherCompletions,
       };
     });
 
-    callback(finalAssignments.filter(a => a.responsibleUsers.length > 0));
+    callback(finalAssignments.filter(a => a.responsibleUsersByShift.length > 0 || a.otherCompletions.length > 0));
   };
 
   const unsubTasks = onSnapshot(doc(db, 'app-data', 'monthlyTasks'), (docSnap) => {
@@ -1040,7 +1054,7 @@ export function subscribeToMonthlyTasksForDate(
   };
 }
 
-export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[]): Promise<void> {
+export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
   const dateKey = format(date, 'yyyy-MM-dd');
   const docRef = doc(db, 'monthly_task_completions', dateKey);
 
@@ -1053,7 +1067,7 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
     const allCompletions = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
 
     const completionIndex = allCompletions.findIndex(
-      c => c.taskId === taskId && c.completedBy?.userId === user.userId
+      c => c.taskId === taskId && c.completedBy?.userId === user.userId,
     );
 
     if (completionIndex > -1) {
@@ -1071,18 +1085,33 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
         });
       }
       
-      const finalMedia = isCompleted 
-        ? [...(currentCompletion.media || []), ...(newMediaAttachments || [])]
-        : undefined;
+      const finalMedia = [...(currentCompletion.media || []), ...(newMediaAttachments || [])];
 
       const updatedCompletions = [...allCompletions];
-      updatedCompletions[completionIndex] = {
+      const updatedCompletion: TaskCompletionRecord = {
         ...currentCompletion,
-        completedAt: isCompleted ? Timestamp.now() : undefined,
-        media: finalMedia,
+        note: note ?? currentCompletion.note ?? '',
       };
+
+      if (isCompleted) {
+        updatedCompletion.completedAt = Timestamp.now();
+        updatedCompletion.media = finalMedia;
+      } else {
+        // If we are not completing the task, but there's a note,
+        // we should not delete existing media.
+        // Only delete media if explicitly un-completing and not adding a note with media.
+        if (!note) {
+            delete updatedCompletion.media;
+        }
+        // Preserve completion time if it exists and we are just adding a note
+        if (!currentCompletion.completedAt) {
+            delete updatedCompletion.completedAt;
+        }
+      }
+      updatedCompletions[completionIndex] = updatedCompletion;
+
       transaction.set(docRef, { completions: updatedCompletions });
-    } else if (isCompleted) {
+    } else if (isCompleted || note) {
       // Create new completion record
       let newMediaAttachments: MediaAttachment[] | undefined = undefined;
       if (media && media.length > 0) {
@@ -1095,11 +1124,13 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
         taskName,
         completedBy: user,
         assignedDate: dateKey,
-        completedAt: Timestamp.now(),
-        media: newMediaAttachments,
+        ...(isCompleted && { completedAt: Timestamp.now() }),
+        ...(newMediaAttachments && { media: newMediaAttachments }),
+        ...(note && { note: note }),
       };
-
+      
       const updatedCompletions = [...allCompletions, newCompletion];
+    
       transaction.set(docRef, { completions: updatedCompletions });
     }
   });

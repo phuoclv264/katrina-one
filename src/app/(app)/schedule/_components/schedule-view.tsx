@@ -369,7 +369,9 @@ export default function ScheduleView() {
             return () => unsub();
         }, [day]);
 
-        const userTasks = tasks.filter(t => t.responsibleUsers.some(u => u.userId === user?.uid));
+        const userTasks = tasks.filter(t => 
+            t.responsibleUsersByShift.some(shiftGroup => shiftGroup.users.some(u => u.userId === user?.uid))
+        );
 
         if (userTasks.length === 0) return null;
 

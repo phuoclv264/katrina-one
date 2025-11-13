@@ -243,6 +243,7 @@ export type ViolationUser = {
 export type MediaItem = {
   id: string; // local ID from photoStore
   type: 'photo' | 'video';
+  blob?: Blob; // For video files, which are not stored in photoStore
 };
 
 export type MediaAttachment = {
@@ -692,19 +693,31 @@ export type TaskSchedule =
       // e.g., [{ week: 1, day: 1 }] for the first Monday of the month
       // e.g., [{ week: -1, day: 5 }] for the last Friday of the month
       occurrences: { week: number; day: number }[]; 
+    }
+  | {
+      type: 'random';
+      period: 'week' | 'month' | 'custom_days';
+      count: number; // How many times per period
+      customDays?: number; // For 'custom_days' period
+      excludeWeekends?: boolean;
     };
 
 export type MonthlyTask = {
   id: string;
   name: string;
   description: string;
-  appliesToRole: UserRole;
+  appliesToRole: UserRole | 'Tất cả';
   schedule: TaskSchedule;
   /** 
    * Optional time of day for the task. If not set, it applies for the whole day.
    * If set, the task only applies to staff whose shift overlaps with this time.
    */
   timeOfDay?: string; // "HH:mm"
+  /**
+   * For tasks with 'random' schedule type, this will hold the pre-generated dates.
+   * For other types, this is not used.
+   */
+  scheduledDates?: string[]; // Array of YYYY-MM-DD strings
 };
 
 export type TaskCompletionRecord = {
@@ -714,14 +727,21 @@ export type TaskCompletionRecord = {
   assignedDate: string; // YYYY-MM-DD
   completedAt?: Timestamp;
   media?: MediaAttachment[]; // Array to store photos/videos
+  note?: string;
 };
 
 export type MonthlyTaskAssignment = {
   taskId: string;
   taskName: string;
+  description: string;
   assignedDate: string; // YYYY-MM-DD
   
   // New structure for collaborative tasks
-  responsibleUsers: AssignedUser[];
+  responsibleUsersByShift: {
+    shiftId: string;
+    shiftLabel: string;
+    users: AssignedUser[];
+  }[];
   completions: TaskCompletionRecord[];
+  otherCompletions: TaskCompletionRecord[];
 };

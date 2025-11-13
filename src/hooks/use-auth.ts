@@ -74,7 +74,7 @@ export const useAuth = () => {
              if (userRole === 'Phục vụ') router.replace('/shifts');
              else if (userRole === 'Pha chế') router.replace('/bartender');
              else if (userRole === 'Quản lý') router.replace('/manager');
-             else if (userRole === 'Chủ nhà hàng') router.replace('/reports');
+             else if (userRole === 'Chủ nhà hàng') router.replace('/admin');
              else if (userRole === 'Thu ngân') router.replace('/cashier');
           }
 

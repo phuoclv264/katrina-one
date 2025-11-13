@@ -39,8 +39,9 @@ export async function deleteFileByUrl(fileUrl: string): Promise<void> {
 export async function uploadMedia(mediaItems: MediaItem[], path: string): Promise<MediaAttachment[]> {
   const uploadPromises = mediaItems.map(async (item) => {
     const fileBlob = await photoStore.getPhoto(item.id);
+    
     if (!fileBlob) {
-        console.error(`Could not find photo with id ${item.id} in local store.`);
+        console.error(`Could not find media blob for item id ${item.id}.`);
         return null;
     }
 
@@ -48,8 +49,10 @@ export async function uploadMedia(mediaItems: MediaItem[], path: string): Promis
     await uploadBytes(fileRef, fileBlob);
     const url = await getDownloadURL(fileRef);
 
-    // After successful upload, delete from IndexedDB
-    await photoStore.deletePhoto(item.id);
+    // After successful upload, delete from IndexedDB if it was a photo
+    if (item.type === 'photo') {
+      await photoStore.deletePhoto(item.id);
+    }
 
     return {
       url,

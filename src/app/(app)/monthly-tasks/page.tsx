@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { getDay } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { addYears, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format, addDays as addDaysFns } from 'date-fns';
 
 function EditTaskForm({
     task,
@@ -29,13 +32,14 @@ function EditTaskForm({
     onCancel: () => void;
     isProcessing: boolean;
 }) {
+    const ROLES: UserRole[] = ['Phục vụ', 'Pha chế', 'Quản lý'];
     const [localTask, setLocalTask] = useState(task);
 
     const handleFieldChange = (field: keyof MonthlyTask, value: any) => {
         setLocalTask(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleScheduleTypeChange = (type: 'weekly' | 'interval' | 'monthly_date' | 'monthly_weekday') => {
+    const handleScheduleTypeChange = (type: 'weekly' | 'interval' | 'monthly_date' | 'monthly_weekday' | 'random') => {
         let newSchedule: MonthlyTask['schedule'];
         switch (type) {
             case 'weekly':
@@ -49,6 +53,9 @@ function EditTaskForm({
                 break;
             case 'monthly_weekday':
                 newSchedule = { type: 'monthly_weekday', occurrences: [{ week: 1, day: 1 }] };
+                break;
+            case 'random':
+                newSchedule = { type: 'random', period: 'week', count: 1, excludeWeekends: true };
                 break;
             default:
                 newSchedule = { type: 'weekly', daysOfWeek: [] };
@@ -171,6 +178,49 @@ function EditTaskForm({
                         </div>
                     </div>
                 );
+            case 'random':
+                return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Chu kỳ</Label>
+                            <Select
+                                value={schedule.period}
+                                onValueChange={v => handleScheduleDetailChange('period', v)}
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="week">Mỗi tuần</SelectItem>
+                                    <SelectItem value="month">Mỗi tháng</SelectItem>
+                                    <SelectItem value="custom_days">N ngày</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Số lần / chu kỳ</Label>
+                            <Input type="number" value={schedule.count || 1} onChange={e => handleScheduleDetailChange('count', parseInt(e.target.value, 10) || 1)} />
+                        </div>
+                        {schedule.period === 'custom_days' && (
+                            <div className="space-y-2 sm:col-span-2">
+                                <Label>Số ngày trong chu kỳ</Label>
+                                <Input
+                                    type="number"
+                                    value={schedule.customDays || 7}
+                                    onChange={e => handleScheduleDetailChange('customDays', parseInt(e.target.value, 10) || 7)}
+                                />
+                            </div>
+                        )}
+                        <div className="flex items-center space-x-2 sm:col-span-2">
+                            <Checkbox
+                                id="exclude-weekends"
+                                checked={schedule.excludeWeekends}
+                                onCheckedChange={(checked) => handleScheduleDetailChange('excludeWeekends', checked)}
+                            />
+                            <label htmlFor="exclude-weekends" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Loại trừ cuối tuần (Thứ 7 & Chủ Nhật)
+                            </label>
+                        </div>
+                    </div>
+                );
             default:
                 return null;
         }
@@ -194,6 +244,20 @@ function EditTaskForm({
                 <Label htmlFor={`desc-${task.id}`}>Mô tả</Label>
                 <Textarea id={`desc-${task.id}`} value={localTask.description} onChange={e => handleFieldChange('description', e.target.value)} rows={2} />
             </div>
+            <div className="space-y-2">
+                <Label>Áp dụng cho vai trò</Label>
+                <Select value={localTask.appliesToRole} onValueChange={(v) => handleFieldChange('appliesToRole', v)}>
+                    <SelectTrigger>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Tất cả">Tất cả vai trò</SelectItem>
+                        <SelectItem value="Phục vụ">Phục vụ</SelectItem>
+                        <SelectItem value="Pha chế">Pha chế</SelectItem>
+                        <SelectItem value="Quản lý">Quản lý</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
             <div className="p-3 border bg-background rounded-md space-y-3">
                 <div className="space-y-2">
                     <Label>Loại lịch trình</Label>
@@ -204,6 +268,7 @@ function EditTaskForm({
                             <SelectItem value="interval">Theo chu kỳ (N ngày)</SelectItem>
                             <SelectItem value="monthly_date">Theo ngày trong tháng</SelectItem>
                             <SelectItem value="monthly_weekday">Theo thứ trong tháng</SelectItem>
+                            <SelectItem value="random">Ngẫu nhiên</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -263,12 +328,12 @@ export default function MonthlyTasksPage() {
         }
     };
     
-    const handleAddTask = (role: UserRole) => {
+    const handleAddTask = () => {
         const newTask: MonthlyTask = {
             id: `task_${Date.now()}`,
             name: 'Công việc mới',
             description: '',
-            appliesToRole: role,
+            appliesToRole: 'Tất cả',
             schedule: {
                 type: 'weekly',
                 daysOfWeek: [1, 3, 5] // Default to Mon, Wed, Fri
@@ -279,7 +344,13 @@ export default function MonthlyTasksPage() {
     };
 
     const handleUpdateTask = (updatedTask: MonthlyTask) => {
-        const newTasks = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
+        let finalTask = { ...updatedTask };
+        if (finalTask.schedule.type === 'random') {
+            finalTask.scheduledDates = generateRandomDates(finalTask.schedule);
+        } else {
+            delete finalTask.scheduledDates; // Clean up dates if not a random task
+        }
+        const newTasks = tasks.map(t => t.id === finalTask.id ? finalTask : t);
         handleSaveTasks(newTasks);
         setEditingTaskId(null);
     };
@@ -289,6 +360,81 @@ export default function MonthlyTasksPage() {
         handleSaveTasks(newTasks);
     };
 
+    const generateRandomDates = (schedule: MonthlyTask['schedule']): string[] => {
+        if (schedule.type !== 'random') return [];
+
+        const startDate = new Date();
+        const endDate = addYears(startDate, 10);
+        const generatedDates: string[] = [];
+
+        const excludeWeekends = schedule.excludeWeekends;
+
+        const getRandomDateInInterval = (interval: { start: Date, end: Date }) => {
+            let randomDate: Date;
+            let attempts = 0;
+            do {
+                const start = interval.start.getTime();
+                const end = interval.end.getTime();
+                const randomTime = start + Math.random() * (end - start);
+                randomDate = new Date(randomTime);
+                attempts++;
+            } while (excludeWeekends && (getDay(randomDate) === 0 || getDay(randomDate) === 6) && attempts < 100); // Avoid infinite loops
+            return randomDate;
+        };
+
+        if (schedule.period === 'week') {
+            const weeks = eachWeekOfInterval({ start: startDate, end: endDate }, { weekStartsOn: 1 });
+            weeks.forEach(weekStart => {
+                for (let i = 0; i < schedule.count; i++) {
+                    const randomDate = getRandomDateInInterval({ start: weekStart, end: endOfWeek(weekStart, { weekStartsOn: 1 }) });
+                    generatedDates.push(format(randomDate, 'yyyy-MM-dd'));
+                }
+            });
+        } else if (schedule.period === 'month') {
+            const months = eachMonthOfInterval({ start: startDate, end: endDate });
+            months.forEach(monthStart => {
+                for (let i = 0; i < schedule.count; i++) {
+                    const randomDate = getRandomDateInInterval({ start: monthStart, end: endOfMonth(monthStart) });
+                    generatedDates.push(format(randomDate, 'yyyy-MM-dd'));
+                }
+            });
+        } else if (schedule.period === 'custom_days' && schedule.customDays) {
+            let currentPeriodStart = startDate;
+            while (currentPeriodStart < endDate) {
+                const periodEnd = addDaysFns(currentPeriodStart, schedule.customDays - 1);
+                for (let i = 0; i < schedule.count; i++) {
+                    const randomDate = getRandomDateInInterval({ start: currentPeriodStart, end: periodEnd > endDate ? endDate : periodEnd });
+                    generatedDates.push(format(randomDate, 'yyyy-MM-dd'));
+                }
+                currentPeriodStart = addDaysFns(currentPeriodStart, schedule.customDays);
+            }
+        }
+        return [...new Set(generatedDates)].sort(); // Ensure unique and sorted dates
+    };
+
+    const formatScheduleInfo = (task: MonthlyTask): string => {
+        const { schedule } = task;
+        switch (schedule.type) {
+            case 'weekly':
+                const daysOfWeek = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                const scheduledDays = schedule.daysOfWeek.map(d => daysOfWeek[d]).join(', ');
+                return `Hàng tuần: ${scheduledDays}`;
+            case 'interval':
+                return `Mỗi ${schedule.intervalDays} ngày, từ ${schedule.startDate}`;
+            case 'monthly_date':
+                return `Hàng tháng vào ngày: ${schedule.daysOfMonth.join(', ')}`;
+            case 'monthly_weekday':
+                const weekMap: { [key: number]: string } = { 1: 'đầu tiên', 2: 'thứ 2', 3: 'thứ 3', 4: 'thứ 4', '-1': 'cuối cùng' };
+                const dayMap = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+                const occurrence = schedule.occurrences[0];
+                if (!occurrence) return "Lịch theo thứ trong tháng";
+                return `Vào ${dayMap[occurrence.day]} ${weekMap[occurrence.week]} của tháng`;
+            case 'random':
+                const nextDates = (task.scheduledDates || []).filter(d => new Date(d) >= new Date()).slice(0, 3).join(', ');
+                return `Ngẫu nhiên: ${nextDates}...`;
+            default: return "Lịch trình không xác định";
+        }
+    };
 
     if (isLoading || authLoading) {
         return (
@@ -312,75 +458,67 @@ export default function MonthlyTasksPage() {
                 </p>
             </header>
 
-            <Tabs defaultValue={ROLES[0]} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 h-auto">
-                    {ROLES.map(role => (
-                        <TabsTrigger key={role} value={role} className="py-2">{role}</TabsTrigger>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Danh sách công việc</CardTitle>
+                    <CardDescription>Tổng cộng: {tasks.length} công việc.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {tasks.map(task => (
+                        editingTaskId === task.id ? (
+                            <EditTaskForm 
+                                key={task.id}
+                                task={{
+                                    ...task,
+                                    schedule: task.schedule || { type: 'weekly', daysOfWeek: [] }
+                                }}
+                                onSave={handleUpdateTask}
+                                onCancel={() => setEditingTaskId(null)}
+                                isProcessing={isProcessing}
+                            />
+                        ) : (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-muted/50">
+                            <div className="space-y-1">
+                                <p className="font-semibold">{task.name} <span className="ml-2 text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full">{task.appliesToRole}</span></p>
+                                <p className="text-xs text-muted-foreground italic">
+                                    {formatScheduleInfo(task)}
+                                </p>
+                                <p className="text-sm text-muted-foreground">{task.description}</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => setEditingTaskId(task.id)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                    <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Bạn có chắc muốn xóa công việc "{task.name}" không?
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteTask(task.id)}>Xóa</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        </div>
+                        )
                     ))}
-                </TabsList>
-                {ROLES.map(role => {
-                    const tasksForRole = tasks.filter(t => t.appliesToRole === role);
-                    return (
-                    <TabsContent value={role} key={role}>
-                        <Card className="mt-4">
-                            <CardHeader>
-                                <CardTitle>Công việc cho {role}</CardTitle>
-                                <CardDescription>Tổng cộng: {tasksForRole.length} công việc.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                               {tasksForRole.map(task => (
-                                    editingTaskId === task.id ? (
-                                        <EditTaskForm 
-                                            key={task.id}
-                                            task={task}
-                                            onSave={handleUpdateTask}
-                                            onCancel={() => setEditingTaskId(null)}
-                                            isProcessing={isProcessing}
-                                        />
-                                    ) : (
-                                    <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-muted/50">
-                                        <div className="space-y-1">
-                                            <p className="font-semibold">{task.name}</p>
-                                            <p className="text-sm text-muted-foreground">{task.description}</p>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Button variant="ghost" size="icon" onClick={() => setEditingTaskId(task.id)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                             <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Bạn có chắc muốn xóa công việc "{task.name}" không?
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteTask(task.id)}>Xóa</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
-                                    </div>
-                                    )
-                               ))}
-                               {tasksForRole.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Chưa có công việc nào cho vai trò này.</p>}
+                    {tasks.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Chưa có công việc nào.</p>}
 
-                               <Button variant="outline" className="w-full mt-4" onClick={() => handleAddTask(role)}>
-                                    <Plus className="mr-2 h-4 w-4"/> Thêm công việc mới cho {role}
-                               </Button>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    )
-                })}
-            </Tabs>
+                    <Button variant="outline" className="w-full mt-4" onClick={handleAddTask}>
+                        <Plus className="mr-2 h-4 w-4"/> Thêm công việc mới
+                    </Button>
+                </CardContent>
+            </Card>
         </div>
         </>
     );
