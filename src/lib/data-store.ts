@@ -42,6 +42,7 @@ import * as attendanceStore from './attendance-store';
 import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
+import { error } from 'console';
 
 
 const getTodaysDateKey = () => {
@@ -244,17 +245,11 @@ export const dataStore = {
             if (docSnap.exists()) {
                 callback(docSnap.data().units as GlobalUnit[]);
             } else {
-                try {
-                    await setDoc(docRef, { units: initialGlobalUnits });
-                    callback(initialGlobalUnits);
-                } catch(e) {
-                    console.error("Permission denied to create default global units.", e);
-                    callback(initialGlobalUnits);
-                }
+                callback([]);
             }
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read global units: ${error.code}`);
-            callback(initialGlobalUnits);
+            callback([]);
         });
         return unsubscribe;
     },
@@ -271,17 +266,11 @@ export const dataStore = {
             if (docSnap.exists()) {
                 callback(docSnap.data().list as Product[]);
             } else {
-                try {
-                    await setDoc(docRef, { list: initialProducts });
-                    callback(initialProducts);
-                } catch(e) {
-                    console.error("Permission denied to create default products.", e);
-                    callback(initialProducts);
-                }
+                callback([]);
             }
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read products: ${error.code}`);
-            callback(initialProducts);
+            callback([]);
         });
         return unsubscribe;
     },
@@ -396,14 +385,7 @@ export const dataStore = {
                 callback(docSnap.data() as AppSettings);
             } else {
                 // If settings don't exist, create them with registration enabled by default
-                const defaultSettings: AppSettings = { isRegistrationEnabled: true };
-                try {
-                    await setDoc(docRef, defaultSettings);
-                    callback(defaultSettings);
-                } catch(e) {
-                    console.error("Permission denied to create default app settings.", e);
-                    callback(defaultSettings); // callback with default if creation fails
-                }
+                callback({ isRegistrationEnabled: false });
             }
         }, (error) => {
             console.warn(`[Firestore Read Error] Could not read app settings: ${error.code}`);
@@ -518,17 +500,11 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data() as TasksByShift);
       } else {
-        try {
-            await setDoc(docRef, initialTasksByShift);
-            callback(initialTasksByShift);
-        } catch (e) {
-            console.error("Permission denied to create default tasks.", e);
-            callback(initialTasksByShift);
-        }
+        callback({} as TasksByShift);
       }
     }, (error) => {
-        console.warn(`[Firestore Read Error] Could not read server tasks: ${error.code}`);
-        callback(initialTasksByShift);
+        console.warn(`[Firestore Read Error] Could not read server tasks: ${error.code} - ${error.message}}`);
+        callback({} as TasksByShift);
     });
     return unsubscribe;
   },
@@ -552,17 +528,11 @@ export const dataStore = {
         }));
         callback(sanitizedSections);
       } else {
-        try {
-            await setDoc(docRef, { tasks: initialBartenderTasks });
-            callback(initialBartenderTasks);
-        } catch(e) {
-            console.error("Permission denied to create default bartender tasks.", e);
-            callback(initialBartenderTasks);
-        }
+        callback([]);
       }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read bartender tasks: ${error.code}`);
-        callback(initialBartenderTasks);
+        callback([]);
     });
     return unsubscribe;
   },
@@ -578,13 +548,7 @@ export const dataStore = {
       if (docSnap.exists()) {
         callback(docSnap.data().tasks as ComprehensiveTaskSection[]);
       } else {
-        try {
-            await setDoc(docRef, { tasks: [] });
-            callback([]);
-        } catch(e) {
-            console.error("Permission denied to create default comprehensive tasks.", e);
-            callback([]);
-        }
+        callback([]);
       }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read comprehensive tasks: ${error.code}`);
@@ -621,12 +585,6 @@ export const dataStore = {
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
         let items = (docSnap.data().items || []) as InventoryItem[];
-        // If the list is empty, restore from default
-        if (items.length === 0) {
-            console.warn("Inventory list is empty. Restoring from default.");
-            await setDoc(docRef, { items: initialInventoryList });
-            items = initialInventoryList;
-        }
 
         const sanitizedItems = items.map(item => {
           const baseUnit = item.baseUnit || (item as any).unit || 'cái';
@@ -644,17 +602,11 @@ export const dataStore = {
         });
         callback(sanitizedItems);
       } else {
-        try {
-            await setDoc(docRef, { items: initialInventoryList });
-            callback(initialInventoryList);
-        } catch(e) {
-            console.error("Permission denied to create default inventory list.", e);
-            callback(initialInventoryList);
-        }
+        callback([]);
       }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read inventory list: ${error.code}`);
-        callback(initialInventoryList);
+        callback([]);
     });
     return unsubscribe;
   },
@@ -670,17 +622,11 @@ export const dataStore = {
         if(docSnap.exists()) {
             callback(docSnap.data().list as string[]);
         } else {
-            try {
-                await setDoc(docRef, { list: initialSuppliers });
-                callback(initialSuppliers);
-            } catch(e) {
-                console.error("Permission denied to create default suppliers list.", e);
-                callback(initialSuppliers);
-            }
+            callback([]);
         }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read suppliers list: ${error.code}`);
-        callback(initialSuppliers);
+        callback([]);
     });
     return unsubscribe;
   },
@@ -1428,17 +1374,11 @@ export const dataStore = {
                 generalRules: (data.generalRules || []) as FineRule[],
             });
         } else {
-            try {
-                await setDoc(docRef, defaultData);
-                callback(defaultData);
-            } catch(e) {
-                console.error("Permission denied to create default violation categories.", e);
-                callback(defaultData);
-            }
+            callback({} as ViolationCategoryData);
         }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read violation categories: ${error.code}`);
-        callback(defaultData);
+        callback({} as ViolationCategoryData);
     });
     return unsubscribe;
   },
