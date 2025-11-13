@@ -1036,8 +1036,20 @@ export function subscribeToMonthlyTasksForDate(
     processAndCallback();
   });
 
-  const unsubCompletions = onSnapshot(doc(db, 'monthly_task_completions', dateKey), (docSnap) => {
-    allCompletionsForDay = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
+  // Query for all completion documents for the given date.
+  // The document IDs are in the format 'YYYY-MM-DD_userId'.
+  const completionsQuery = query(
+    collection(db, 'monthly_task_completions'),
+    where(documentId(), '>=', dateKey),
+    where(documentId(), '<', dateKey + 'z') // Use 'z' as a simple way to create an upper bound for the query
+  );
+
+  const unsubCompletions = onSnapshot(completionsQuery, (querySnapshot) => {
+    let completions: TaskCompletionRecord[] = [];
+    querySnapshot.forEach(docSnap => {
+      completions = completions.concat(docSnap.data().completions || []);
+    });
+    allCompletionsForDay = completions;
     processAndCallback();
   });
 
@@ -1056,7 +1068,7 @@ export function subscribeToMonthlyTasksForDate(
 
 export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
   const dateKey = format(date, 'yyyy-MM-dd');
-  const docRef = doc(db, 'monthly_task_completions', dateKey);
+  const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
 
   if (!taskId || !taskName || !user || !dateKey){
     throw new Error("Missing required parameters for updateMonthlyTaskCompletionStatus.");
@@ -1067,7 +1079,7 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
     const allCompletions = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
 
     const completionIndex = allCompletions.findIndex(
-      c => c.taskId === taskId && c.completedBy?.userId === user.userId,
+      c => c.taskId === taskId, // Since this doc is now user-specific, we only need to find by taskId
     );
 
     if (completionIndex > -1) {
