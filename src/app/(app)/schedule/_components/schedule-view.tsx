@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -9,8 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Info, MoreVertical, Send, MailQuestion, Loader2, Users, CalendarCheck2 } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, MonthlyTaskAssignment } from '@/lib/types';
+import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -36,10 +35,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import isEqual from 'lodash.isequal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 
 
 export default function ScheduleView() {
@@ -52,7 +51,6 @@ export default function ScheduleView() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [availability, setAvailability] = useState<Availability[]>([]);
-    const [monthlyAssignments, setMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
 
@@ -93,10 +91,9 @@ export default function ScheduleView() {
         let notificationsSubscribed = false;
         let usersSubscribed = false;
         let availabilitySubscribed = false;
-        let assignmentsSubscribed = false;
 
         const checkLoadingDone = () => {
-            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed && availabilitySubscribed && assignmentsSubscribed) {
+            if (scheduleSubscribed && templatesSubscribed && notificationsSubscribed && usersSubscribed && availabilitySubscribed) {
                 setIsLoading(false);
             }
         };
@@ -125,14 +122,6 @@ export default function ScheduleView() {
             usersSubscribed = true;
             checkLoadingDone();
         });
-
-        // This is now handled day-by-day inside the component render
-        // to avoid over-fetching. We just mark it as "done".
-        // The actual subscription will happen for visible days.
-        setMonthlyAssignments([]);
-        assignmentsSubscribed = true;
-        checkLoadingDone();
-        
         
         let unsubNotifications: () => void;
         if (canManage) {
@@ -157,7 +146,7 @@ export default function ScheduleView() {
             unsubNotifications();
             unsubUsers();
         };
-    }, [user, authLoading, router, weekId, canManage, currentDate]);
+    }, [user, authLoading, router, weekId, canManage]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
@@ -336,69 +325,7 @@ export default function ScheduleView() {
             setProcessingNotificationId(null);
         }
     }
-
-    const handleToggleTaskCompletion = async (assignment: MonthlyTaskAssignment) => {
-        if (!user) return;
-        const isCompleted = assignment.completions.some(c => c.completedBy?.userId === user.uid);
-        const assignedUser = { userId: user.uid, userName: user.displayName };
-
-        // No optimistic update needed here as the subscription will handle UI changes.
-        // This prevents UI flicker and simplifies the logic.
-
-        try {
-            await dataStore.updateMonthlyTaskCompletionStatus(
-                assignment.taskId,
-                assignment.taskName,
-                assignedUser,
-                parseISO(assignment.assignedDate),
-                !isCompleted // Toggle the status
-            );
-        } catch (error) {
-            toast.error("Lỗi khi cập nhật trạng thái công việc.");
-            console.error("Failed to toggle task completion:", error);
-        }
-    };
     
-    // Component to handle daily task fetching and display
-    const DailyTasks = ({ day }: { day: Date }) => {
-        const [tasks, setTasks] = useState<MonthlyTaskAssignment[]>([]);
-        const { user } = useAuth();
-        
-        useEffect(() => {
-            const unsub = dataStore.subscribeToMonthlyTasksForDate(day, setTasks);
-            return () => unsub();
-        }, [day]);
-
-        const userTasks = tasks.filter(t => 
-            t.responsibleUsersByShift.some(shiftGroup => shiftGroup.users.some(u => u.userId === user?.uid))
-        );
-
-        if (userTasks.length === 0) return null;
-
-        return (
-            <div className="mt-2 space-y-1">
-                {userTasks.map(assignment => {
-                    const isCompleted = assignment.completions.some(c => c.completedBy?.userId === user?.uid);
-                    return (
-                        <div key={assignment.taskId} className="flex items-center gap-2">
-                        <Checkbox
-                            id={`task-${assignment.taskId}-${assignment.assignedDate}`}
-                            checked={isCompleted}
-                            onCheckedChange={() => handleToggleTaskCompletion(assignment)}
-                            disabled={isBefore(day, startOfToday()) && !isCompleted}
-                        />
-                        <label
-                            htmlFor={`task-${assignment.taskId}-${assignment.assignedDate}`}
-                            className={cn("text-xs", isCompleted && "text-muted-foreground line-through")}
-                        >
-                            {assignment.taskName}
-                        </label>
-                    </div>
-                    );
-                })}
-            </div>
-        );
-    };
     const userAvailability = useMemo(() => {
         if (!user || !availability) {
           return new Map<string, TimeSlot[]>();
@@ -529,7 +456,7 @@ export default function ScheduleView() {
                     </CardHeader>
                 </Card>
             )}
-
+            
             <div className="border rounded-lg bg-card">
                 <Table>
                     <TableHeader>
@@ -651,7 +578,6 @@ export default function ScheduleView() {
                                                 )}
                                             </div>
                                         )}
-                                        {isSchedulePublished && <DailyTasks day={day} />}
                                     </TableCell>
                                 </TableRow>
                             )
