@@ -116,6 +116,7 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
         type: 'video' as const,
         sources: [
           { src: att.url, type: 'video/mp4' },
+          { src: att.url, type: 'video/webm' },
         ],
       };
     }

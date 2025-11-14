@@ -28,7 +28,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord } from './types';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth } from 'date-fns';
+import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
 import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
@@ -1066,6 +1066,37 @@ export function subscribeToMonthlyTasksForDate(
   };
 }
 
+export function subscribeToMonthlyTaskCompletionsForMonth(
+  date: Date,
+  callback: (completions: TaskCompletionRecord[]) => void
+): () => void {
+  const monthPrefix = format(date, 'yyyy-MM');
+  const nextMonthDate = addMonths(date, 1);
+  const nextMonthPrefix = format(nextMonthDate, 'yyyy-MM');
+
+  const completionsQuery = query(
+    collection(db, 'monthly_task_completions'),
+    where(documentId(), '>=', monthPrefix),
+    where(documentId(), '<', nextMonthPrefix)
+  );
+
+  const unsubscribe = onSnapshot(completionsQuery, (querySnapshot) => {
+    let allCompletionsForMonth: TaskCompletionRecord[] = [];
+    querySnapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.completions && Array.isArray(data.completions)) {
+        allCompletionsForMonth = allCompletionsForMonth.concat(data.completions);
+      }
+    });
+    callback(allCompletionsForMonth);
+  }, (error) => {
+    console.error("Error fetching monthly task completions:", error);
+    callback([]);
+  });
+
+  return unsubscribe;
+}
+
 export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
   const dateKey = format(date, 'yyyy-MM-dd');
   const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
@@ -1145,5 +1176,37 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
     
       transaction.set(docRef, { completions: updatedCompletions });
     }
+  });
+}
+
+export async function deleteMonthlyTaskCompletion(taskId: string, userId: string, dateKey: string): Promise<void> {
+  const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${userId}`);
+
+  await runTransaction(db, async (transaction) => {
+    const docSnap = await transaction.get(docRef);
+    if (!docSnap.exists()) {
+      console.warn(`Completion document not found for ${dateKey}_${userId}`);
+      return;
+    }
+
+    const allCompletions = docSnap.data().completions as TaskCompletionRecord[];
+    const completionToDelete = allCompletions.find(c => c.taskId === taskId);
+
+    if (!completionToDelete) {
+      console.warn(`Completion record not found for task ${taskId} in document ${dateKey}_${userId}`);
+      return;
+    }
+
+    // Delete associated media from storage
+    if (completionToDelete.media && completionToDelete.media.length > 0) {
+      const deletePromises = completionToDelete.media.map(att => deleteFileByUrl(att.url));
+      await Promise.all(deletePromises).catch(err => {
+        console.error("Failed to delete some media files from storage during completion deletion:", err);
+      });
+    }
+
+    const updatedCompletions = allCompletions.filter(c => c.taskId !== taskId);
+
+    transaction.update(docRef, { completions: updatedCompletions });
   });
 }

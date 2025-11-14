@@ -11,6 +11,7 @@ import { ActiveShiftWithAttendance, AttendanceOverviewCard, AttendanceOverviewCa
 import { RecentReportsCard } from './_components/RecentReportsCard';
 import { RecentComplaintsCard } from './_components/RecentComplaintsCard';
 import { CashierOverviewCard, CashierOverviewCardProps } from './_components/CashierOverviewCard';
+import { ManagementLinksCard } from './_components/ManagementLinksCard';
 import { SchedulingOverviewCard } from './_components/SchedulingOverviewCard';
 
 export default function AdminDashboardPage() {
@@ -183,6 +184,7 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <RecentReportsCard shiftReports={shiftReports} />
                 <RecentComplaintsCard complaints={complaints} allUsers={allUsers} />
+                <ManagementLinksCard />
             </div>
         </div>
     );

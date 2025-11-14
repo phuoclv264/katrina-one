@@ -86,7 +86,7 @@ export function AttendanceOverviewCard({ activeShifts }: AttendanceOverviewCardP
           </div>
         )}
       </CardContent>
-      <CardFooter><Button asChild variant="outline" className="w-full"><Link href="/attendance">Đi tới Quản lý Chấm công<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></CardFooter>
+      <CardFooter><Button asChild variant="outline" className="w-full"><Link href="/attendance">Quản lý Chấm công<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></CardFooter>
     </Card>
   );
 }
