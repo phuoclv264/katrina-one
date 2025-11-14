@@ -6,7 +6,7 @@ import type { ComprehensiveTask, ComprehensiveTaskSection, ParsedComprehensiveTa
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsDownUp, Wand2, Loader2, FileText, Shuffle, Check, Download } from 'lucide-react';
+import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsDownUp, Wand2, Loader2, FileText, Shuffle, Check, Download, Badge } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -164,7 +164,7 @@ function AiAssistant({
                                 <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
                                     <Plus className="h-4 w-4 text-green-500"/>
                                     <span className="flex-1">{task.text}</span>
-                                    <Badge variant="outline">{task.type}</Badge>
+                                    <Badge>{task.type}</Badge>
                                 </li>
                             ))}
                         </ul>

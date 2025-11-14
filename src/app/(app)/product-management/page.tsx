@@ -563,7 +563,7 @@ export default function ProductManagementPage() {
       onInventoryItemUpdate={handleInventoryItemUpdate}
       globalUnits={globalUnits}
       onGlobalUnitsChange={handleGlobalUnitsChange}
-      canManageUnits={user.role === 'Chủ nhà hàng'}
+      canManageUnits={user?.role === 'Chủ nhà hàng'}
     />
     </>
   );

@@ -217,22 +217,20 @@ export default function ReportsFeedPage() {
 
         {filteredAndSortedReports.length > 0 ? (
             <div className="space-y-6">
-            {filteredAndSortedReports.map(report => (
-                <div key={report.id} ref={(el) => reportRefs.current.set(report.id, el)}>
-                    <ReportCard
-                        report={report}
-                        currentUser={user}
-                        allUsers={allUsers}
-                        onVote={handleVote}
-                        onDelete={handleDelete}
-                        onTogglePin={handleTogglePin}
-                        onCommentSubmit={handleCommentSubmit}
-                        onCommentEdit={handleCommentEdit}
-                        onCommentDelete={handleCommentDelete}
-                        onEdit={handleEditReport}
-                    />
-                </div>
-            ))}
+            {filteredAndSortedReports.map(report => {
+                const setReportRef = (el: HTMLDivElement | null) => {
+                    if (el) {
+                        reportRefs.current.set(report.id, el);
+                    } else {
+                        reportRefs.current.delete(report.id);
+                    }
+                };
+                return (
+                    <div key={report.id} ref={setReportRef}>
+                        <ReportCard report={report} currentUser={user} allUsers={allUsers} onVote={handleVote} onDelete={handleDelete} onTogglePin={handleTogglePin} onCommentSubmit={handleCommentSubmit} onCommentEdit={handleCommentEdit} onCommentDelete={handleCommentDelete} onEdit={handleEditReport} />
+                    </div>
+                );
+            })}
             </div>
         ) : (
              <div className="text-center py-24 px-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center">

@@ -6,7 +6,7 @@ import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare, Download } from 'lucide-react';
+import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare, Download, Badge } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
@@ -263,7 +263,7 @@ function AiAssistant({
                             <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
                                 <Plus className="h-4 w-4 text-green-500"/>
                                 <span className="flex-1">{task.text}</span>
-                                <Badge variant="outline">{task.type}</Badge>
+                                <Badge>{task.type}</Badge>
                             </li>
                         ))}
                    </ul>
