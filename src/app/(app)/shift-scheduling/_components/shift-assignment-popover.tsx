@@ -119,7 +119,7 @@ export default function ShiftAssignmentDialog({
     roleFilteredUsers.forEach(user => {
       if (selectedUserIds.has(user.uid)) {
         selectedList.push(user);
-      } else if (isUserAvailable(user.uid, shift.timeSlot, availability)) {
+      } else if (isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))) {
         availableList.push(user);
       } else {
         busyList.push(user);
@@ -247,7 +247,7 @@ export default function ShiftAssignmentDialog({
                         <div>
                             <SectionHeader title={`Nhân viên trong ca (${selectedUsers.length})`} />
                             <div className="space-y-2">
-                                {selectedUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability)} />)}
+                                {selectedUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))} />)}
                             </div>
                         </div>
                     )}

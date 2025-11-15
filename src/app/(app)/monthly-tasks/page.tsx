@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { getDay } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -291,6 +292,7 @@ function EditTaskForm({
 export default function MonthlyTasksPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [tasks, setTasks] = useState<MonthlyTask[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -300,6 +302,10 @@ export default function MonthlyTasksPage() {
 
 
     const ROLES: UserRole[] = ['Phục vụ', 'Pha chế', 'Quản lý'];
+
+    const handleReconnect = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
 
     useEffect(() => {
         if (!authLoading) {
@@ -313,7 +319,9 @@ export default function MonthlyTasksPage() {
                 return () => { unsubTasks(); };
             }
         }
-    }, [user, authLoading, router, isLoading]);
+    }, [user, authLoading, router, isLoading, refreshTrigger]);
+
+    useDataRefresher(handleReconnect);
     
     const handleSaveTasks = async (newTasks: MonthlyTask[]) => {
         setIsProcessing(true);

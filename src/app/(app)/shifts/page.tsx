@@ -9,7 +9,8 @@ import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, CheckSquare, C
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
@@ -37,6 +38,11 @@ export default function ShiftsPage() {
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (!authLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
       router.replace('/');
@@ -48,7 +54,9 @@ export default function ShiftsPage() {
       const unsub = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
       return () => unsub();
     }
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
   
   const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
   const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');

@@ -1,8 +1,9 @@
 
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
@@ -119,6 +120,11 @@ export default function UsersPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const handleDataRefresh = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
+
     const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
@@ -152,8 +158,10 @@ export default function UsersPage() {
                 };
             }
         }
-    }, [user, authLoading, router]);
-    
+    }, [user, authLoading, router, refreshTrigger]);
+ 
+    useDataRefresher(handleDataRefresh);
+
     const handleEditClick = (userToEdit: ManagedUser) => {
         setEditingUser(userToEdit);
         setIsEditDialogOpen(true);

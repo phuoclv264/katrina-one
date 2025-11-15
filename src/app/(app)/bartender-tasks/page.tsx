@@ -1,6 +1,7 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
 import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -324,6 +325,7 @@ function AiAssistant({
 export default function BartenderTasksPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sections, setSections] = useState<TaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
@@ -334,6 +336,10 @@ export default function BartenderTasksPage() {
   const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string; newType: Task['type'] } | null>(null);
   const [openItems, setOpenItems] = useState<string[]>([]);
 
+
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     if (!authLoading) {
@@ -351,8 +357,10 @@ export default function BartenderTasksPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, refreshTrigger]);
 
+  useDataRefresher(handleReconnect);
+  
   const handleUpdateAndSave = (newSections: TaskSection[], showToast: boolean = true) => {
     setSections(newSections); // Optimistic update
     dataStore.updateBartenderTasks(newSections).then(() => {

@@ -1,6 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
 import type { InventoryItem, ParsedInventoryItem, UpdateInventoryItemsOutput, UserRole, Suppliers, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ type CategorizedList = {
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<Suppliers | null>(null);
   const [globalUnits, setGlobalUnits] = useState<GlobalUnit[] | null>(null);
@@ -52,6 +54,10 @@ export default function InventoryManagementPage() {
     }
   }, [user, authLoading, router]);
 
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     let inventorySubscribed = false;
@@ -65,7 +71,9 @@ export default function InventoryManagementPage() {
     const unsubUnits = dataStore.subscribeToGlobalUnits((units) => { setGlobalUnits(units); unitsSubscribed = true; checkLoadingDone(); });
 
     return () => { unsubSuppliers(); unsubInventory(); unsubUnits(); };
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleReconnect);
   
   const filteredInventoryList = useMemo(() => {
     if (!inventoryList) return [];

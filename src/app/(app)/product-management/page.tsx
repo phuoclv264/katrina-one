@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
 import type { Product, InventoryItem, ParsedProduct, GlobalUnit } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,11 @@ export default function ProductManagementPage() {
   const [filter, setFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
       router.replace('/');
@@ -82,7 +88,9 @@ export default function ProductManagementPage() {
         unsubInventory();
         unsubUnits();
     };
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];

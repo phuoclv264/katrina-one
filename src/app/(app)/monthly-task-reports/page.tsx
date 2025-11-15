@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -19,6 +19,7 @@ import LightboxVideo from "yet-another-react-lightbox/plugins/video";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'react-hot-toast';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 
 type GroupedReports = {
   [taskName: string]: {
@@ -36,6 +37,11 @@ export default function MonthlyTaskReportsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   // Back button handling for Lightbox
   useEffect(() => {
@@ -75,7 +81,9 @@ export default function MonthlyTaskReportsPage() {
       });
       return () => unsub();
     }
-  }, [user, currentMonth]);
+  }, [user, currentMonth, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   const groupedReports = useMemo<GroupedReports>(() => {
     const grouped: GroupedReports = {};

@@ -1,7 +1,8 @@
 
 'use client';
-import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -32,6 +33,11 @@ function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
   
   const [allReports, setAllReports] = useState<InventoryReport[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -74,6 +80,8 @@ function InventoryReportView() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+     if (!user) return;
+
      let isMounted = true;
      const unsubInventoryList = dataStore.subscribeToInventoryList((items) => {
          if (isMounted) setInventoryList(items);
@@ -95,7 +103,9 @@ function InventoryReportView() {
     });
 
      return () => { isMounted = false; unsubInventoryList(); unsubReports(); };
-  }, [selectedReport])
+  }, [user, selectedReport, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
   
   const reportToView = selectedReport;
 

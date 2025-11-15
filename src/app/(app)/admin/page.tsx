@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'next/navigation';
 import { Banknote, CalendarCheck, Loader2 } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
@@ -17,6 +18,7 @@ import { SchedulingOverviewCard } from './_components/SchedulingOverviewCard';
 export default function AdminDashboardPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -32,6 +34,10 @@ export default function AdminDashboardPage() {
             router.replace('/');
         }
     }, [user, authLoading, router]);
+
+    const handleReconnect = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -54,7 +60,9 @@ export default function AdminDashboardPage() {
             unsubs.forEach(unsub => unsub());
             clearTimeout(timer);
         };
-    }, [user]);
+    }, [user, refreshTrigger]);
+
+    useDataRefresher(handleReconnect);
 
     const cashierOverview = useMemo(() => {
         // Use the most recent revenue report as the source of truth for the day's total revenue.

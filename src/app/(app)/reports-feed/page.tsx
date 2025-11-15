@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { reportsStore } from '@/lib/reports-store';
@@ -18,6 +19,11 @@ export default function ReportsFeedPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const reportRefs = useRef(new Map<string, HTMLDivElement | null>());
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const [reports, setReports] = useState<WhistleblowingReport[]>([]);
   const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
@@ -60,7 +66,9 @@ export default function ReportsFeedPage() {
         unsubUsers();
       };
     }
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   const filteredAndSortedReports = useMemo(() => {
     if (!user) return [];

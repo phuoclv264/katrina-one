@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -331,6 +332,7 @@ function AiAssistant({
 export default function TaskListsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
@@ -339,6 +341,10 @@ export default function TaskListsPage() {
 
 
   const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
+
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     if (!authLoading) {
@@ -361,8 +367,9 @@ export default function TaskListsPage() {
         return () => unsubscribe();
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  
+  useDataRefresher(handleDataRefresh);
 
   const handleUpdateAndSave = (newTasks: TasksByShift, showToast: boolean = true) => {
     setTasksByShift(newTasks); 

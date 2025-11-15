@@ -1,6 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -44,6 +45,7 @@ function ChecklistPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = params.shift as string;
   const notesSectionRef = useRef<HTMLDivElement>(null);
   
@@ -172,6 +174,10 @@ function ChecklistPageComponent() {
     return () => unsubscribeTasks();
   }, []);
 
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (isAuthLoading || !user || !shiftKey || !isReadonlyChecked) return;
     
@@ -238,7 +244,9 @@ function ChecklistPageComponent() {
 
     loadData();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, isReadonly, isReadonlyChecked]);
+  }, [isAuthLoading, user, shiftKey, isReadonly, isReadonlyChecked, refreshTrigger]);
+
+  useDataRefresher(handleReconnect);
   
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {

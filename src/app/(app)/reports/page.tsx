@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import IssueNotesDialog from './_components/IssueNotesDialog';
 import MonthlyStaffReportDialog from './_components/MonthlyStaffReportDialog';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 
 type ReportType = ShiftReport | InventoryReport;
 
@@ -173,6 +174,11 @@ export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   const [allReports, setAllReports] = useState<ReportType[] | null>(null);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
@@ -243,7 +249,9 @@ export default function ReportsPage() {
         isMounted = false;
         subscriptions.forEach(unsub => unsub());
     };
-}, [user]);
+}, [user, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   const getReportKey = (report: ReportType): string => {
     if ('shiftKey' in report) {

@@ -1,7 +1,7 @@
 
 
 'use client';
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -21,6 +21,7 @@ import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
@@ -34,6 +35,11 @@ function HygieneReportView() {
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
   const shiftKey = 'bartender_hygiene';
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const [reports, setReports] = useState<ShiftReport[]>([]);
   const [taskSections, setTaskSections] = useState<TaskSection[] | null>(null);
@@ -108,8 +114,10 @@ function HygieneReportView() {
         isMounted = false;
         unsubscribeTasks();
         unsubscribeReports(); 
-    }
-  }, [date, selectedReportId]);
+    };
+  }, [date, selectedReportId, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   const reportToView = useMemo(() => {
     if (!selectedReportId) return null;

@@ -1,6 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -36,6 +37,7 @@ type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'erro
 function HygieneReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'bartender_hygiene';
   const notesSectionRef = useRef<HTMLDivElement>(null);
   
@@ -104,6 +106,10 @@ function HygieneReportPageComponent() {
     return () => unsubscribeTasks();
   }, []);
 
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (isAuthLoading || !user) return;
     
@@ -130,7 +136,9 @@ function HygieneReportPageComponent() {
     };
 
     loadReport();
-  }, [isAuthLoading, user, shiftKey]);
+  }, [isAuthLoading, user, shiftKey, refreshTrigger]);
+
+  useDataRefresher(handleReconnect);
 
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {

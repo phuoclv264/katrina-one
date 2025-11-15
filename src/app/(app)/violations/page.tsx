@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -38,6 +39,11 @@ export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -99,7 +105,9 @@ export default function ViolationsPage() {
         unsubUsers();
         unsubCategories();
     };
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   useEffect(() => {
     if (user && user.role !== 'Chủ nhà hàng' && violations.length > 0) {

@@ -17,6 +17,7 @@ import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Toolti
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, ExpenseSlip, ExpenseItem } from '@/lib/types';
@@ -99,6 +100,7 @@ const getSlipContentName = (item: ExpenseItem): string => {
 export default function FinancialReportPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -115,6 +117,10 @@ export default function FinancialReportPage() {
       router.replace('/');
     }
   }, [user, authLoading, router]);
+
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -141,7 +147,9 @@ export default function FinancialReportPage() {
         unsubExpenses();
       };
     }
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleReconnect);
 
   const filterDataByRange = useCallback((range: DateRange | undefined) => {
     if (!range?.from) return { revenue: [], expenses: [] };
@@ -666,4 +674,3 @@ export default function FinancialReportPage() {
     </div>
   );
 }
-

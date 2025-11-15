@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
@@ -33,6 +34,7 @@ type CategorizedList = {
 function InventoryPageComponent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
   const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
@@ -116,6 +118,10 @@ function InventoryPageComponent() {
   }, []);
 
 
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
 
@@ -138,7 +144,9 @@ function InventoryPageComponent() {
     loadReport();
   // The dependency array is correct. We only want this to run when the user changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleReconnect);
   
   const handleLocalSave = useCallback((reportUpdater: (prevReport: InventoryReport | null) => InventoryReport) => {
     setReport(prevReport => {

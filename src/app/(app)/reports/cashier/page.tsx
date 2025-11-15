@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, ExpenseItem, IncidentCategory, ManagedUser, CashHandoverReport } from '@/lib/types';
@@ -146,6 +147,11 @@ export default function CashierReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const initialMonthSet = useRef(false);
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
   const [expenseSlips, setExpenseSlips] = useState<ExpenseSlip[]>([]);
@@ -310,7 +316,9 @@ export default function CashierReportsPage() {
       subscriptions.forEach(unsub => unsub());
       clearTimeout(timer);
     };
-  }, [user]);
+  }, [user, refreshTrigger]);
+
+  useDataRefresher(handleDataRefresh);
 
   const allMonthsWithData = useMemo(() => {
     const monthSet = new Set<string>();

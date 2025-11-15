@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -35,6 +36,7 @@ type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'erro
 function ComprehensiveReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'manager_comprehensive';
   
   const [report, setReport] = useState<ShiftReport | null>(null);
@@ -104,6 +106,10 @@ function ComprehensiveReportPageComponent() {
     }
   }, []);
 
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (isAuthLoading || !user) return;
     let isMounted = true;
@@ -138,7 +144,9 @@ function ComprehensiveReportPageComponent() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, router]);
+  }, [isAuthLoading, user, shiftKey, router, refreshTrigger]);
+
+  useDataRefresher(handleReconnect);
 
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {

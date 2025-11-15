@@ -3,6 +3,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
@@ -47,6 +48,7 @@ const STOCK_LIST_NUMERIC_VALUE: { [key: string]: number } = {
 function InventoryHistoryView() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
     const [expenseSlips, setExpenseSlips] = useState<ExpenseSlip[]>([]);
@@ -68,6 +70,10 @@ function InventoryHistoryView() {
         }
     }, [user, authLoading, router]);
 
+    const handleReconnect = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
+
     useEffect(() => {
         if (!user) return;
         
@@ -88,7 +94,9 @@ function InventoryHistoryView() {
             unsubExpenses();
             unsubReports();
         };
-    }, [user]);
+    }, [user, refreshTrigger]);
+
+    useDataRefresher(handleReconnect);
 
     const combinedHistory = useMemo((): CombinedHistoryEntry[] => {
         const itemMap = new Map(inventoryList.map(item => [item.id, item]));
@@ -376,4 +384,3 @@ export default function InventoryHistoryPage() {
         </Suspense>
     )
 }
-

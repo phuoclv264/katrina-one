@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -134,6 +135,7 @@ const ChangeIndicator = ({ value }: { value: number }) => {
 function CashierDashboardPageComponent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const expenseSlipsRef = useRef<HTMLDivElement>(null);
   const revenueStatsRef = useRef<HTMLDivElement>(null);
@@ -284,6 +286,10 @@ function CashierDashboardPageComponent() {
     }
   }, [user, authLoading, router]);
   
+  const handleReconnect = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (user) {
         const date = format(new Date(), 'yyyy-MM-dd');
@@ -324,7 +330,9 @@ function CashierDashboardPageComponent() {
             unsubHandover();
         };
     }
-  }, [user]);
+  }, [user, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useDataRefresher(handleReconnect);
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
