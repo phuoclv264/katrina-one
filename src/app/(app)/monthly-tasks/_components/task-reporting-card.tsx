@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Camera, Video, CheckCircle, Loader2, User, Clock, MessageSquareWarning, FilePlus2, Circle } from 'lucide-react';
@@ -22,9 +22,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type TaskReportingCardProps = {
   assignment: MonthlyTaskAssignment;
+  shiftTemplates: any[];
 };
 
-export default function TaskReportingCard({ assignment }: TaskReportingCardProps) {
+export default function TaskReportingCard({ assignment, shiftTemplates }: TaskReportingCardProps) {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +33,7 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
+
 
   // Back button handling for Lightbox
   useEffect(() => {
@@ -128,6 +130,57 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
   const currentUserCompletion = assignment.completions.find(c => c.completedBy?.userId === user?.uid) ||
                                   assignment.otherCompletions.find(c => c.completedBy?.userId === user?.uid);
 
+  const parseTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours + minutes / 60;
+  };
+
+  const completionsByShift = useMemo(() => {
+    const assignedCompletions = new Map<string, TaskCompletionRecord>();
+
+    assignment.completions.forEach(completion => {
+      if (!completion.completedAt || assignedCompletions.has(completion.completedBy!.userId)) {
+        return;
+      }
+
+      const completionHour = completion.completedAt.toDate().getHours();
+      let bestShiftId: string | null = null;
+      let minDistance = Infinity;
+
+      assignment.responsibleUsersByShift.forEach(shift => {
+        if (shift.users.some(u => u.userId === completion.completedBy?.userId)) {
+          const templateId = shift.shiftId.split('_').slice(2).join('_');
+          const template = shiftTemplates.find(t => t.id === templateId);
+
+          if (template && template.timeSlot) {
+            const startHour = parseTime(template.timeSlot.start);
+            const endHour = parseTime(template.timeSlot.end);
+
+            if (completionHour >= startHour && completionHour < endHour) {
+              // Perfect match, it's within the shift hours
+              minDistance = 0;
+              bestShiftId = shift.shiftId;
+            } else {
+              // Calculate distance to the middle of the shift
+              const shiftMidpoint = (startHour + endHour) / 2;
+              const distance = Math.abs(completionHour - shiftMidpoint);
+              if (distance < minDistance) {
+                minDistance = distance;
+                bestShiftId = shift.shiftId;
+              }
+            }
+          } else {
+            // Fallback or just skip if no template found
+          }
+        }
+      });
+      if (bestShiftId) {
+        assignedCompletions.set(`${bestShiftId}-${completion.completedBy!.userId}`, completion);
+      }
+    });
+    return assignedCompletions;
+  }, [assignment.completions, assignment.responsibleUsersByShift, shiftTemplates]);
+
   const renderMyStatus = () => {
     if (!currentUserCompletion) {
       return (
@@ -184,7 +237,10 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
                     {att.type === 'photo' ? (
                       <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                     ) : (
-                      <video src={att.url} className="object-cover h-full w-full transition-transform duration-200 group-hover:scale-105" muted playsInline />
+                      <>
+                        <video src={`${att.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                      </>
                     )}
                   </button>
                 ))}
@@ -204,7 +260,7 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
                         <h4 className="font-semibold text-sm mb-2">{shiftLabel}</h4>
                         <ul className="space-y-3 pl-2 border-l-2">
                           {users.map(responsibleUser => {
-                            const completion = assignment.completions.find(c => c.completedBy?.userId === responsibleUser.userId);
+                            const completion = completionsByShift.get(`${shiftId}-${responsibleUser.userId}`);
                             return (
                               <li key={responsibleUser.userId} className="flex flex-col gap-2 p-2 rounded-md bg-muted/50">
                                 <div className="flex items-center justify-between">
@@ -241,7 +297,10 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
                                             {att.type === 'photo' ? (
                                               <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                                             ) : (
-                                              <video src={att.url} className="object-cover h-full w-full transition-transform duration-200 group-hover:scale-105" muted playsInline />
+                                              <>
+                                                <video src={`${att.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                                              </>
                                             )}
                                           </button>
                                         ))}
@@ -298,8 +357,10 @@ export default function TaskReportingCard({ assignment }: TaskReportingCardProps
                                         {att.type === 'photo' ? (
                                           <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                                         ) : (
-                                          <video src={att.url} className="object-cover h-full w-full transition-transform duration-200 group-hover:scale-105" muted playsInline />
-                                        )}
+                                          <>
+                                            <video src={`${att.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                                          </>                                        )}
                                       </button>
                                     ))}
                                   </div>

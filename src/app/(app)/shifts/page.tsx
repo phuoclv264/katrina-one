@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import TaskReportingCard from '../monthly-tasks/_components/task-reporting-card';
-import type { MonthlyTaskAssignment } from '@/lib/types';
+import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useState } from 'react';
 import { format } from 'date-fns';
@@ -29,7 +29,7 @@ const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, h
 const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; end: number } } = {
   sang: { start: 6, end: 12 },   // 6:00 AM - 12:00 PM
   trua: { start: 12, end: 17 },  // 12:00 PM - 5:00 PM
-  toi: { start: 17, end: 22 },   // 5:00 PM - 10:00 PM
+  toi: { start: 17, end: 23 },   // 5:00 PM - 11:00 PM
 };
 
 export default function ShiftsPage() {
@@ -37,6 +37,7 @@ export default function ShiftsPage() {
   const router = useRouter();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
+  const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -51,8 +52,12 @@ export default function ShiftsPage() {
 
   useEffect(() => {
     if (user) {
-      const unsub = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
-      return () => unsub();
+      const unsubTasks = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
+      const unsubTemplates = dataStore.subscribeToShiftTemplates(setShiftTemplates);
+      return () => {
+        unsubTasks();
+        unsubTemplates();
+      };
     }
   }, [user, refreshTrigger]);
 
@@ -111,7 +116,7 @@ export default function ShiftsPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-center text-primary">Công việc định kỳ hôm nay</h2>
             {todaysMonthlyAssignments.map(assignment => (
-              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} />
+              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} shiftTemplates={shiftTemplates} />
             ))}
           </div>
         )}

@@ -238,11 +238,12 @@ export default function MonthlyTaskReportsPage() {
                                           <button key={index} onClick={() => openLightbox(record.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden group bg-secondary">
                                             {att.type === 'photo' ? (
                                               <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
-                                            ) : (
-                                              <div className="w-full h-full flex items-center justify-center">
-                                                <Video className="h-8 w-8 text-muted-foreground" />
-                                              </div>
-                                            )}
+                                            ) : att.type === 'video' ? (
+                                              <>
+                                                <video src={`${att.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                                              </>
+                                            ) : null}
                                           </button>
                                         ))}
                                       </div>

@@ -94,8 +94,16 @@ export default function AdminDashboardPage() {
 
     const attendanceOverview = useMemo(() => {
         const now = new Date();
-        const checkedInRecords = new Map(attendanceRecords.map(r => [r.userId, r]));
 
+        // Sort checkedInRecords from newest to oldest
+        const sortedAttendanceRecords = [...attendanceRecords].sort((a, b) => {
+            const timeA = (a.checkInTime as any)?.toMillis?.() || 0;
+            const timeB = (b.checkInTime as any)?.toMillis?.() || 0;
+            return timeB - timeA;
+        });
+
+        const checkedInRecords = new Map(sortedAttendanceRecords.map(r => [r.userId, r]));
+        
         const activeShifts = todaysSchedule?.shifts.filter(shift => {
             const shiftStart = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
             const shiftEnd = parse(shift.timeSlot.end, 'HH:mm', new Date(shift.date));

@@ -14,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import TaskReportingCard from '../monthly-tasks/_components/task-reporting-card';
-import type { MonthlyTaskAssignment } from '@/lib/types';
+import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 
@@ -24,6 +24,7 @@ export default function BartenderDashboardPage() {
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
+  const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
 
   useEffect(() => {
     if (!loading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
@@ -37,8 +38,12 @@ export default function BartenderDashboardPage() {
 
   useEffect(() => {
     if (user) {
-      const unsub = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
-      return () => unsub();
+      const unsubTasks = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
+      const unsubTemplates = dataStore.subscribeToShiftTemplates(setShiftTemplates);
+      return () => {
+        unsubTasks();
+        unsubTemplates();
+      };
     }
   }, [user, refreshTrigger]);
 
@@ -70,7 +75,7 @@ export default function BartenderDashboardPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-center text-primary">Công việc định kỳ hôm nay</h2>
             {todaysMonthlyAssignments.map(assignment => (
-              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} />
+              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} shiftTemplates={shiftTemplates} />
             ))}
           </div>
         )}
