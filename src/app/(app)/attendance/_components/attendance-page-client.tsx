@@ -34,11 +34,13 @@ import SalaryManagementDialog from './salary-management-dialog';
 import AttendanceTimeline from './attendance-timeline';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Timestamp } from 'firebase/firestore';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 
 export default function AttendancePageComponent() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const isMobile = useIsMobile();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
@@ -69,6 +71,10 @@ export default function AttendancePageComponent() {
             router.replace('/');
         }
     }, [user, authLoading, router]);
+
+    const handleReconnect = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
     
     // This useEffect will now handle all data subscriptions based on the dateRange.
     useEffect(() => {
@@ -95,7 +101,9 @@ export default function AttendancePageComponent() {
             unsubSchedules();
             clearTimeout(timer);
         };
-    }, [user, dateRange]);
+    }, [user, dateRange, refreshTrigger]);
+
+    useDataRefresher(handleReconnect);
 
     useEffect(() => {
         setDateRange({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });

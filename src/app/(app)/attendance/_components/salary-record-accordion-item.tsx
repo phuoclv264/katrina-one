@@ -15,6 +15,8 @@ import { dataStore } from '@/lib/data-store';
 import type { SalaryRecord, AssignedUser, Schedule } from '@/lib/types';
 import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type SalaryRecordAccordionItemProps = {
     record: SalaryRecord;
@@ -35,6 +37,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         );
         const [isUpdatingAdvance, setIsUpdatingAdvance] = useState(false);
         const [isUpdatingBonus, setIsUpdatingBonus] = useState(false);
+        const isMobile = useIsMobile();
         const [isUpdatingPaymentStatus, setIsUpdatingPaymentStatus] = useState(false);
 
         useEffect(() => {
@@ -195,39 +198,74 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                             </div>
                         )}
                         <h4 className="font-semibold">Chi tiết chấm công</h4>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Ngày</TableHead>
-                                    <TableHead>Ca làm</TableHead>
-                                    <TableHead>Giờ vào - ra</TableHead>
-                                    <TableHead>Trạng thái</TableHead>
-                                    <TableHead>Tổng giờ</TableHead>
-                                    <TableHead className="text-right">Lương</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                        {isMobile ? (
+                            <div className="space-y-2">
                                 {record.attendanceRecords.map((att) => {
                                     const shifts = findShiftForRecord(att, scheduleMap);
                                     const statusInfo = getStatusInfo(att, shifts);
                                     return (
-                                        <TableRow key={att.id}>
-                                            <TableCell>{format((att.checkInTime as Timestamp).toDate(), 'dd/MM')}</TableCell>
-                                            <TableCell>
-                                                {shifts.map((s) => s.label).join(', ') || <Badge variant="outline">Ngoài giờ</Badge>}
-                                            </TableCell>
-                                            <TableCell>
-                                                {format((att.checkInTime as Timestamp).toDate(), 'HH:mm')} -{' '}
-                                                {att.checkOutTime ? format((att.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'}
-                                            </TableCell>
-                                            <TableCell className={cn('text-xs', statusInfo.color)}>{statusInfo.text}</TableCell>
-                                            <TableCell>{att.totalHours?.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">{att.salary?.toLocaleString('vi-VN')}đ</TableCell>
-                                        </TableRow>
+                                        <Card key={att.id} className="bg-background">
+                                            <CardContent className="p-3 text-sm space-y-1">
+                                                <div className="flex justify-between items-center font-semibold">
+                                                    <p>Ngày {format((att.checkInTime as Timestamp).toDate(), 'dd/MM')}</p>
+                                                    <p>{att.salary?.toLocaleString('vi-VN')}đ</p>
+                                                </div>
+                                                <div className="flex justify-between text-muted-foreground">
+                                                    <span>Ca làm:</span>
+                                                    <span>{shifts.map((s) => s.label).join(', ') || <Badge variant="outline" className="text-xs">Ngoài giờ</Badge>}</span>
+                                                </div>
+                                                <div className="flex justify-between text-muted-foreground">
+                                                    <span>Giờ vào - ra:</span>
+                                                    <span>{format((att.checkInTime as Timestamp).toDate(), 'HH:mm')} - {att.checkOutTime ? format((att.checkOutTime as Timestamp).toDate(), 'HH:mm') : '...'}</span>
+                                                </div>
+                                                <div className="flex justify-between text-muted-foreground">
+                                                    <span>Tổng giờ:</span>
+                                                    <span>{att.totalHours?.toFixed(2)} giờ</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-muted-foreground">
+                                                    <span>Trạng thái:</span>
+                                                    <span className={cn('text-xs font-medium', statusInfo.color)}>{statusInfo.text}</span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     );
                                 })}
-                            </TableBody>
-                        </Table>
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Ngày</TableHead>
+                                        <TableHead>Ca làm</TableHead>
+                                        <TableHead>Giờ vào - ra</TableHead>
+                                        <TableHead>Trạng thái</TableHead>
+                                        <TableHead>Tổng giờ</TableHead>
+                                        <TableHead className="text-right">Lương</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {record.attendanceRecords.map((att) => {
+                                        const shifts = findShiftForRecord(att, scheduleMap);
+                                        const statusInfo = getStatusInfo(att, shifts);
+                                        return (
+                                            <TableRow key={att.id}>
+                                                <TableCell>{format((att.checkInTime as Timestamp).toDate(), 'dd/MM')}</TableCell>
+                                                <TableCell>
+                                                    {shifts.map((s) => s.label).join(', ') || <Badge variant="outline">Ngoài giờ</Badge>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {format((att.checkInTime as Timestamp).toDate(), 'HH:mm')} -{' '}
+                                                    {att.checkOutTime ? format((att.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'}
+                                                </TableCell>
+                                                <TableCell className={cn('text-xs', statusInfo.color)}>{statusInfo.text}</TableCell>
+                                                <TableCell>{att.totalHours?.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right">{att.salary?.toLocaleString('vi-VN')}đ</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        )}
 
                         {record.absentShifts.length > 0 && (
                             <div>
@@ -235,7 +273,11 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                     <FileX className="h-4 w-4" /> Vắng mặt
                                 </h4>
                                 <ul className="list-disc list-inside text-sm text-muted-foreground">
-                                    {record.absentShifts.map((shift) => (
+                                    {record.absentShifts.filter((shift) => {
+                                        const shiftEnd = parseISO(`${shift.date}T${shift.timeSlot.end}`);
+                                        //compare shift end time with current time
+                                        return shiftEnd.getTime() < Date.now();
+                                    }).map((shift) => (
                                         <li key={shift.id}>
                                             {format(parseISO(shift.date), 'dd/MM')} - Ca {shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end})
                                         </li>
@@ -249,34 +291,59 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                 <h4 className="font-semibold flex items-center gap-2 text-amber-600">
                                     <AlertTriangle className="h-4 w-4" /> Vi phạm
                                 </h4>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Ngày</TableHead>
-                                            <TableHead>Nội dung</TableHead>
-                                            <TableHead>Trạng thái</TableHead>
-                                            <TableHead className="text-right">Tiền phạt</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                                {isMobile ? (
+                                    <div className="space-y-2">
                                         {record.violationRecords.map((v) => {
                                             const isPaid = v.isPenaltyWaived || v.penaltySubmissions?.some((ps) => ps.userId === record.userId) || v.penaltyPhotos;
                                             const userCost = v.userCosts?.find((uc) => uc.userId === record.userId)?.cost || 0;
                                             return (
-                                                <TableRow key={v.id}>
-                                                    <TableCell>{format((v.createdAt as Timestamp).toDate(), 'dd/MM')}</TableCell>
-                                                    <TableCell>{v.content}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={(isPaid || userCost === 0) ? 'default' : 'destructive'}>
-                                                            {v.isPenaltyWaived ? 'Đã miễn' : (isPaid || userCost === 0) ? 'Đã nộp' : 'Chưa nộp'}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">{userCost.toLocaleString('vi-VN')}đ</TableCell>
-                                                </TableRow>
+                                                <Card key={v.id} className="bg-background">
+                                                    <CardContent className="p-3 text-sm space-y-1">
+                                                        <div className="flex justify-between items-start">
+                                                            <p className="font-semibold pr-2">{v.categoryName} - {v.content}</p>
+                                                            <p className="font-bold text-destructive whitespace-nowrap">{userCost.toLocaleString('vi-VN')}đ</p>
+                                                        </div>
+                                                        <div className="flex justify-between text-muted-foreground">
+                                                            <span>Ngày: {format((v.createdAt as Timestamp).toDate(), 'dd/MM')}</span>
+                                                            <Badge variant={(isPaid || userCost === 0) ? 'default' : 'destructive'}>
+                                                                {v.isPenaltyWaived ? 'Đã miễn' : (isPaid || userCost === 0) ? 'Đã nộp' : 'Chưa nộp'}
+                                                            </Badge>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
                                             );
                                         })}
-                                    </TableBody>
-                                </Table>
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Ngày</TableHead>
+                                                <TableHead>Nội dung</TableHead>
+                                                <TableHead>Trạng thái</TableHead>
+                                                <TableHead className="text-right">Tiền phạt</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {record.violationRecords.map((v) => {
+                                                const isPaid = v.isPenaltyWaived || v.penaltySubmissions?.some((ps) => ps.userId === record.userId) || v.penaltyPhotos;
+                                                const userCost = v.userCosts?.find((uc) => uc.userId === record.userId)?.cost || 0;
+                                                return (
+                                                    <TableRow key={v.id}>
+                                                        <TableCell>{format((v.createdAt as Timestamp).toDate(), 'dd/MM')}</TableCell>
+                                                        <TableCell>{v.categoryName} - {v.content}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={(isPaid || userCost === 0) ? 'default' : 'destructive'}>
+                                                                {v.isPenaltyWaived ? 'Đã miễn' : (isPaid || userCost === 0) ? 'Đã nộp' : 'Chưa nộp'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{userCost.toLocaleString('vi-VN')}đ</TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </div>
                         )}
                     </div>

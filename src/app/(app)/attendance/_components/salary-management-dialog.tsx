@@ -171,6 +171,10 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
 
     useEffect(() => {
         if (isOpen) {
+            if(!salarySheet) {
+                handleRecalculate();
+                return;
+            }
             fetchSheet(selectedMonth);
         }
     }, [isOpen, selectedMonth]);
