@@ -406,11 +406,15 @@ export default function RevenueStatsDialog({
 
         // If it's a firebase URL, we need to proxy it to get a data URI
         if (displayImageDataUri.startsWith('https://')) {
-             try {
-                const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(displayImageDataUri)}`);
-                if (!response.ok) throw new Error('Proxy failed');
-                const { dataUri } = await response.json();
-                await processImage(dataUri);
+            try {
+                const response = await fetch(displayImageDataUri);
+                if (!response.ok) throw new Error('Failed to fetch image for rescan');
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    processImage(reader.result as string);
+                };
+                reader.readAsDataURL(blob);
             } catch (error) {
                 setAiError("Không thể tải lại ảnh để quét. Vui lòng tải lên lại.");
                 setIsOcrLoading(false);

@@ -434,11 +434,15 @@ export default function HandoverDialog({
                         reader.readAsDataURL(blob);
                     });
                 }
-                // It's a Firebase URL, proxy it
-                const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
+                // It's a Firebase URL, fetch it directly and convert to data URI
+                const response = await fetch(photo.url);
                 if (!response.ok) return null;
-                const { dataUri } = await response.json();
-                return dataUri;
+                const blob = await response.blob();
+                return new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                });
             }));
 
             const validUris = imageUris.filter((uri): uri is string => !!uri);

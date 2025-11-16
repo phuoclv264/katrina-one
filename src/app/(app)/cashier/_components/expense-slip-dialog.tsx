@@ -593,20 +593,19 @@ export default function ExpenseSlipDialog({
                         });
                     }
                 } else if (photo.url.includes('firebasestorage.googleapis.com')) {
-                    try {
-                        const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(photo.url)}`);
-                        if (!response.ok) {
-                            console.error(`Proxy request failed for ${photo.url} with status: ${response.status}. Error: ${response.statusText}`);
-                            setAiError(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}.`);
-                            return null;
-                        }
-                        const data = await response.json();
-                        uri = data.dataUri;
-                    } catch (proxyError) {
-                        console.error(`Proxy request failed for ${photo.url}`, proxyError);
-                        setAiError(`Lỗi khi tải ảnh qua proxy.`);
+                    const response = await fetch(photo.url);
+                    if (!response.ok) {
+                        console.error(`Direct fetch failed for ${photo.url} with status: ${response.status}. Error: ${response.statusText}`);
+                        setAiError(`Không thể tải ảnh: ${photo.url.split('/').pop()?.split('?')[0]}.`);
                         return null;
                     }
+                    const blob = await response.blob();
+                    uri = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
                 }
                 return uri ? { id: photo.id, uri } : null;
             });
