@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { generateComprehensiveTasks } from '@/ai/flows/generate-comprehensive-tasks';
+import { callGenerateComprehensiveTasks } from '@/lib/ai-service';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 function AiAssistant({
@@ -80,7 +80,7 @@ function AiAssistant({
 
             toast({ title: 'AI đang xử lý...', description: 'Quá trình này có thể mất một chút thời gian.' });
 
-            const result = await generateComprehensiveTasks(input);
+            const result = await callGenerateComprehensiveTasks(input);
 
             if (!result || !result.tasks) {
                 throw new Error('AI không trả về kết quả hợp lệ.');

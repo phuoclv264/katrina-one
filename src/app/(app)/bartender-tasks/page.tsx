@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
-import type { Task, TaskSection, ParsedServerTask } from '@/lib/types';
+import type { Task, TaskSection, ParsedServerTask, GenerateBartenderTasksOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,15 +12,13 @@ import { toast } from 'react-hot-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { generateBartenderTasks } from '@/ai/flows/generate-bartender-tasks';
-import { sortTasks } from '@/ai/flows/sort-tasks';
-import type { GenerateBartenderTasksOutput } from '@/ai/flows/generate-bartender-tasks';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { callGenerateBartenderTasks, callSortTasks  } from '@/lib/ai-service';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { diffChars } from 'diff';
 
 
@@ -89,7 +87,7 @@ function AiAssistant({
 
             toast.loading("AI đang xử lý...");
 
-            const result = await generateBartenderTasks(input);
+            const result = await callGenerateBartenderTasks(input);
 
             if (!result || !result.tasks) {
                  throw new Error("AI không trả về kết quả hợp lệ.");
@@ -136,11 +134,13 @@ function AiAssistant({
 
         try {
             const currentTasks = sectionToSort.tasks.map(t => t.text);
-            const result = await sortTasks({
+            const result = await callSortTasks({
                 context: `Bartender tasks for section: ${targetSection}`,
                 tasks: currentTasks,
                 userInstruction: sortInstruction,
             });
+
+            console.log(result);
             
             if (!result || !result.sortedTasks || result.sortedTasks.length !== currentTasks.length) {
                 throw new Error("AI did not return a valid sorted list.");
@@ -252,12 +252,12 @@ function AiAssistant({
         {/* Add Preview Dialog */}
         <Dialog open={showAddPreview} onOpenChange={setShowAddPreview}>
             <DialogContent className="max-w-2xl">
-                 <AlertDialogHeader>
-                    <AlertDialogTitle>Xem trước các công việc sẽ được thêm</AlertDialogTitle>
-                    <AlertDialogDescription>
+                 <DialogHeader>
+                    <DialogTitle>Xem trước các công việc sẽ được thêm</DialogTitle>
+                    <DialogDescription>
                         AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào khu vực <span className="font-bold">"{targetSection}"</span>.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
+                    </DialogDescription>
+                </DialogHeader>
                  <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
                    <ul className="space-y-2">
                         {addPreviewTasks.map((task, index) => (
@@ -269,22 +269,22 @@ function AiAssistant({
                         ))}
                    </ul>
                 </div>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmAdd}>Thêm {addPreviewTasks.length} công việc</AlertDialogAction>
-                </AlertDialogFooter>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Hủy</Button></DialogClose>
+                    <Button onClick={handleConfirmAdd}>Thêm {addPreviewTasks.length} công việc</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
         
         {/* Sort Preview Dialog */}
         <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}>
             <DialogContent className="max-w-4xl">
-                 <AlertDialogHeader>
-                    <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
-                    <AlertDialogDescription>
+                 <DialogHeader>
+                    <DialogTitle>Xem trước thứ tự sắp xếp mới</DialogTitle>
+                    <DialogDescription>
                         AI đề xuất sắp xếp lại các công việc trong khu vực <span className="font-bold">"{targetSection}"</span> như sau. Bạn có muốn áp dụng thay đổi không?
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
+                    </DialogDescription>
+                </DialogHeader>
                  <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4">
                    <div>
                        <h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4>
@@ -311,10 +311,10 @@ function AiAssistant({
                        </ul>
                    </div>
                 </div>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
-                </AlertDialogFooter>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Hủy</Button></DialogClose>
+                    <Button onClick={handleConfirmSort}>Áp dụng thứ tự mới</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
 

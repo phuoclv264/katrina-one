@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { extractInvoiceItems } from '@/ai/flows/extract-invoice-items-flow';
+import { callExtractInvoiceItems } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -621,7 +621,7 @@ export default function ExpenseSlipDialog({
                  return;
             }
 
-            const result = await extractInvoiceItems({
+            const result = await callExtractInvoiceItems({
                 images: processableImages,
                 inventoryItems: inventoryList,
             });
