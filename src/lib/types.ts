@@ -535,25 +535,179 @@ export type RevenueStats = {
 };
 
 // --- AI Flow Output Types ---
+export type ExtractHandoverDataInput = {
+  imageDataUri: string;
+};
 
 export type ExtractHandoverDataOutput = {
-  isReceipt: boolean;
-  rejectionReason?: string;
-  shiftEndTime?: string;
-  expectedCash?: number;
-  startOfDayCash?: number;
-  cashExpense?: number;
-  cashRevenue?: number;
-  deliveryPartnerPayout?: number;
-  cashRefund?: number;
-  otherRefund?: number;
-  revenueByCard?: {
-    techcombankVietQrPro?: number;
-    shopeeFood?: number;
-    grabFood?: number;
-    bankTransfer?: number;
+    isReceipt: boolean;
+    rejectionReason?: string;
+    shiftEndTime?: string;
+    expectedCash?: number;
+    startOfDayCash?: number;
+    cashExpense?: number;
+    cashRevenue?: number;
+    deliveryPartnerPayout?: number;
+    cashRefund?: number;
+    otherRefund?: number;
+    revenueByCard?: {
+        techcombankVietQrPro?: number;
+        shopeeFood?: number;
+        grabFood?: number;
+        bankTransfer?: number;
+    };
+};
+
+export type ExtractInvoiceItemsInput = {
+  images: { id: string; uri: string }[];
+  inventoryItems: InventoryItem[];
+};
+
+export type ExtractedItem = {
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  lineItemDiscount: number;
+  matchedItemId: string | null;
+  status: 'matched' | 'unmatched';
+};
+
+export type InvoiceResult = {
+    invoiceTitle: string;
+    imageIds: string[];
+    items: ExtractedItem[];
+    totalDiscount: number;
+};
+
+export type ExtractInvoiceItemsOutput = {
+    isInvoiceFound: boolean;
+    rejectionReason?: string;
+    results: InvoiceResult[];
+};
+
+export type ExtractRevenueInput = {
+  imageDataUri: string;
+};
+
+export type RevenueByPaymentMethod = {
+  techcombankVietQrPro: number;
+  cash: number;
+  shopeeFood: number;
+  grabFood: number;
+  bankTransfer: number;
+}
+
+export type ExtractRevenueOutput = {
+    isReceipt: boolean;
+    rejectionReason?: string;
+    reportTimestamp?: string;
+    netRevenue?: number;
+    deliveryPartnerPayout?: number;
+    revenueByPaymentMethod?: RevenueByPaymentMethod;
+};
+
+export type GenerateBartenderTasksInput = {
+  source: 'text' | 'image';
+  inputText?: string;
+  imageDataUri?: string;
+};
+
+export type GenerateBartenderTasksOutput = {
+  tasks: {
+    text: string;
+    type: 'photo' | 'boolean' | 'opinion';
+  }[];
+};
+
+export type GenerateComprehensiveTasksInput = {
+  source: 'text' | 'image';
+  inputText?: string;
+  imageDataUri?: string;
+};
+
+export type GenerateComprehensiveTasksOutput = {
+  tasks: {
+    text: string;
+    type: 'photo' | 'boolean' | 'opinion';
+  }[];
+};
+
+export type GenerateDailySummaryInput = {
+  date: string;
+  reports: any[];
+  taskDefinitions: {
+    serverTasks: TasksByShift;
+    bartenderTasks: TaskSection[];
+    comprehensiveTasks: ComprehensiveTaskSection[];
+    inventoryItems: InventoryItem[];
   };
 };
+
+export type GenerateDailySummaryOutput = {
+  summary: string;
+};
+
+export type GenerateInventoryListInput = {
+  source: 'text' | 'image';
+  inputText?: string;
+  imageDataUri?: string;
+};
+
+export type GenerateInventoryListOutput = {
+    items: InventoryItem[];
+};
+
+export type GenerateProductRecipesInput = {
+  inputText?: string;
+  imageDataUri?: string;
+  inventoryItems: InventoryItem[];
+  allProducts: Product[];
+};
+
+export type GenerateProductRecipesOutput = {
+  products: ParsedProduct[];
+};
+
+export type GenerateServerTasksInput = {
+  source: 'text' | 'image';
+  inputText?: string;
+  imageDataUri?: string;
+};
+
+export type ParsedTask = {
+  text: string;
+  isCritical: boolean;
+  type: 'photo' | 'boolean' | 'opinion';
+}
+
+export type GenerateServerTasksOutput = {
+  tasks: ParsedTask[];
+};
+
+export type GenerateStartingTaskListInput = {
+  description: string;
+};
+
+export type GenerateStartingTaskListOutput = {
+  taskList: string[];
+};
+
+export type SortTasksInput = {
+  context: string;
+  tasks: string[];
+  userInstruction?: string;
+};
+
+export type SortTasksOutput = {
+  sortedTasks: string[];
+};
+
+export type UpdateInventoryItemsInput = {
+  items: InventoryItem[];
+  instruction: string;
+};
+
 
 
 // --- AI Invoice Extraction Types ---

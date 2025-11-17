@@ -14,9 +14,7 @@ import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { generateInventoryList } from '@/ai/flows/generate-inventory-list';
-import { updateInventoryItems } from '@/ai/flows/update-inventory-items';
-import { sortTasks } from '@/ai/flows/sort-tasks';
+import { callGenerateInventoryList, callUpdateInventoryItems, callSortTasks } from '@/lib/ai-service';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
@@ -94,7 +92,7 @@ export default function InventoryTools({
                 toast.error("Vui lòng cung cấp đầu vào."); return;
             }
             toast.loading("AI đang xử lý...");
-            const result = await generateInventoryList(input);
+            const result = await callGenerateInventoryList(input);
             if (!result || !result.items) throw new Error("AI không trả về kết quả hợp lệ.");
             const existingNames = new Set(inventoryList.map(item => item.name.trim().toLowerCase()));
             const newItems: ParsedInventoryItem[] = [];
@@ -249,7 +247,7 @@ export default function InventoryTools({
         setIsGenerating(true);
         toast.loading("AI đang phân tích yêu cầu...");
         try {
-            const result: UpdateInventoryItemsOutput = await updateInventoryItems({
+            const result: UpdateInventoryItemsOutput = await callUpdateInventoryItems({
                 items: inventoryList,
                 instruction: bulkEditAiInput
             });
@@ -285,7 +283,7 @@ export default function InventoryTools({
         toast.loading("AI đang sắp xếp...");
         try {
             const currentTasks = itemsToSort.map(t => t.name);
-            const result = await sortTasks({
+            const result = await callSortTasks({
                 context: `Inventory items in category: ${sortTargetCategory}`,
                 tasks: currentTasks,
                 userInstruction: sortInstruction,

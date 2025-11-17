@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateStartingTaskList } from '@/ai/flows/generate-starting-task-lists';
+import { callGenerateStartingTaskList } from '@/lib/ai-service';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
@@ -23,7 +23,7 @@ export default function AiTaskGenerator({ onGenerate }: Props) {
     if (prompt.trim() === '') return;
     setIsLoading(true);
     try {
-      const result = await generateStartingTaskList({ description: prompt });
+      const result = await callGenerateStartingTaskList({ description: prompt });
       if (result && result.taskList) {
         const newTasks: Task[] = result.taskList.map(text => ({
           id: `task-${Date.now()}-${Math.random()}`,

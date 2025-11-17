@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Loader2, Wand2, Paperclip, Camera, X, File as FileIcon } from 'lucide-react';
 import type { ManagedUser, WhistleblowingReport, Attachment } from '@/lib/types';
-import { refineText } from '@/ai/flows/refine-text-flow';
+import { callRefineText } from '@/lib/ai-service';
 import { toast } from 'react-hot-toast';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -120,7 +120,7 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
         if (!title.trim() && !content.trim()) return;
         setIsAiLoading(true);
         try {
-            const { refinedTitle, refinedContent } = await refineText({ title, content });
+            const { refinedTitle, refinedContent } = await callRefineText({ title, content });
             setTitle(refinedTitle);
             setContent(refinedContent);
             toast.success('Đã chuốt lại câu từ!');

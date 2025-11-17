@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import type { Task, TasksByShift, TaskSection, ParsedServerTask } from '@/lib/types';
+import type { Task, TasksByShift, TaskSection, ParsedServerTask, GenerateServerTasksOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,9 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
-import { generateServerTasks } from '@/ai/flows/generate-server-tasks';
-import { sortTasks } from '@/ai/flows/sort-tasks';
-import type { GenerateServerTasksOutput } from '@/ai/flows/generate-server-tasks';
+import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -86,7 +84,7 @@ function AiAssistant({
 
             toast.loading("AI đang xử lý...");
 
-            const result = await generateServerTasks(input);
+            const result = await callGenerateServerTasks(input);
 
             if (!result || !result.tasks) {
                 throw new Error("AI không trả về kết quả hợp lệ.");
@@ -134,7 +132,7 @@ function AiAssistant({
 
         try {
             const currentTasks = sectionToSort.tasks.map(t => t.text);
-            const result = await sortTasks({
+            const result = await callSortTasks({
                 context: `Server tasks for shift: ${tasksByShift?.[targetShift]?.name}, section: ${targetSection}`,
                 tasks: currentTasks,
                 userInstruction: sortInstruction,

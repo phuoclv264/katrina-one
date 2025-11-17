@@ -8,7 +8,7 @@ import { Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangl
 import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { generateProductRecipes } from '@/ai/flows/generate-product-recipes';
+import { callGenerateProductRecipes } from '@/lib/ai-service';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -77,7 +77,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                 : [[inputToProcess]]; // For image, process as a single chunk
 
             const processingPromises = productChunks.map(chunk => 
-                generateProductRecipes({
+                callGenerateProductRecipes({
                     inputText: source === 'text' ? chunk.join('\n') : undefined,
                     imageDataUri: source === 'image' ? chunk[0] : undefined,
                     inventoryItems: inventoryList,

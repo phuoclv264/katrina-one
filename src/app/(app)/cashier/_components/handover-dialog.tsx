@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import type { ExtractHandoverDataOutput, AuthUser, FinalHandoverDetails, MediaItem } from '@/lib/types';
 import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock, X, Camera } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { extractHandoverData } from '@/ai/flows/extract-handover-data-flow';
+import { callExtractHandoverData } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -278,7 +278,7 @@ export default function HandoverDialog({
         setServerErrorDialog({ open: false, imageUri: null });
 
         try {
-            const result = await extractHandoverData({ imageDataUri: uri });
+            const result = await callExtractHandoverData({ imageDataUri: uri });
 
             if (!result.isReceipt) {
                 setAiError(result.rejectionReason || 'Ảnh không hợp lệ.');
@@ -450,7 +450,7 @@ export default function HandoverDialog({
                 throw new Error("Không thể xử lý bất kỳ ảnh nào.");
             }
 
-            const results = await Promise.all(validUris.map(uri => extractHandoverData({ imageDataUri: uri })));
+            const results = await Promise.all(validUris.map(uri => callExtractHandoverData({ imageDataUri: uri })));
 
             // Validate each result before proceeding
             for (const result of results) {

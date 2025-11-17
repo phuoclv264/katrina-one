@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RevenueStats, AuthUser, MediaItem } from '@/lib/types';
 import { Loader2, Upload, AlertCircle, Clock, Info, Edit, Eye, FileText, ImageIcon, RefreshCw, ServerCrash, Camera } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { extractRevenueFromImage } from '@/ai/flows/extract-revenue-flow';
+import { callExtractRevenueFromImage } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import Lightbox from "yet-another-react-lightbox";
@@ -292,7 +292,7 @@ export default function RevenueStatsDialog({
         setNewImageDataUri(imageUri);
 
         try {
-            const result = await extractRevenueFromImage({ imageDataUri: imageUri });
+            const result = await callExtractRevenueFromImage({ imageDataUri: imageUri });
 
             if (!result.isReceipt) {
                 setAiError(result.rejectionReason || 'Ảnh không hợp lệ.');
