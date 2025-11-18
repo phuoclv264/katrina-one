@@ -921,10 +921,14 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
 
     case 'interval':
       const startDate = parseISO(task.schedule.startDate);
+
+      startDate.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+
       const diffInMs = date.getTime() - startDate.getTime();
       const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24));
-      return diffInDays >= 0 && diffInDays % task.schedule.intervalDays === 0;
 
+      return diffInDays >= 0 && diffInDays % task.schedule.intervalDays === 0;
     case 'monthly_date':
       return task.schedule.daysOfMonth.includes(dayOfMonth);
 
@@ -967,7 +971,7 @@ export function subscribeToMonthlyTasksForDate(
     }
 
     const tasksDueToday = allDefinedTasks.filter(task => {
-      if (!isTaskScheduledForDate(task, date)) {
+        if (!isTaskScheduledForDate(task, date)) {
         return false;
       }
       return true;

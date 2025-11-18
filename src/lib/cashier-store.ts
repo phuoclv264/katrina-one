@@ -507,10 +507,12 @@ export async function markSupplierDebtsAsPaid(debts: { slipId: string, supplier:
 
             const slip = slipDoc.data() as ExpenseSlip;
             const updatedItems = slip.items.map(item => {
-                if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
-                    return { ...item, isPaid: true };
-                }
-                return item;
+                // if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
+                //     return { ...item, isPaid: true };
+                // }
+                // return item;
+
+                return { ...item, isPaid: true };
             });
 
             const allItemsPaid = updatedItems.every(item => item.isPaid);
@@ -531,11 +533,14 @@ export async function undoSupplierDebtPayment(slipId: string, supplier: string):
 
         const slip = slipDoc.data() as ExpenseSlip;
         const updatedItems = slip.items.map(item => {
-            if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
-                const { isPaid, ...rest } = item;
-                return rest;
-            }
-            return item;
+            // if (item.supplier === supplier || (supplier === 'other_cost' && item.itemId === 'other_cost')) {
+            //     const { isPaid, ...rest } = item;
+            //     return rest;
+            // }
+            // return item;
+
+            const { isPaid, ...rest } = item;
+            return rest;
         });
 
         transaction.update(slipRef, { 

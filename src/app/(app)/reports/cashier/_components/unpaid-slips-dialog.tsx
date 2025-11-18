@@ -13,8 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ExpenseSlip, InventoryItem, ExpenseItem } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Check, ExternalLink, Undo, History, AlertCircle } from 'lucide-react';
-import { dataStore } from '@/lib/data-store';
+import { Loader2, Check, Undo, History } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -28,6 +27,8 @@ type UnpaidSlipsDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   bankTransferSlips: ExpenseSlip[];
+  onMarkAsPaid: (items: { slipId: string, supplier: string }[]) => Promise<void>;
+  onUndoPayment: (slipId: string, supplier: string) => Promise<void>;
   inventoryList: InventoryItem[];
 };
 
@@ -55,7 +56,7 @@ const getSlipContentName = (item: ExpenseItem): string => {
   return item.name;
 }
 
-export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, inventoryList }: UnpaidSlipsDialogProps) {
+export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, onMarkAsPaid, onUndoPayment, inventoryList }: UnpaidSlipsDialogProps) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -199,7 +200,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
         const [slipId, supplier] = key.split('__');
         return { slipId, supplier };
       });
-      await dataStore.markSupplierDebtsAsPaid(itemsToUpdate);
+      await onMarkAsPaid(itemsToUpdate);
       toast.success(`Đã đánh dấu ${selectedItems.size} khoản nợ là đã thanh toán.`);
       setSelectedItems(new Set());
     } catch (error) {
@@ -213,7 +214,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
    const handleUndoPayment = async (slipId: string, supplier: string) => {
     setIsProcessing(true);
     try {
-        await dataStore.undoSupplierDebtPayment(slipId, supplier);
+        await onUndoPayment(slipId, supplier);
         toast.success('Đã hoàn tác thanh toán.');
     } catch (error) {
         console.error("Failed to undo payment:", error);
