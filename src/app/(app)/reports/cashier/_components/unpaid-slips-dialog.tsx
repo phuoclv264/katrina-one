@@ -8,12 +8,13 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ExpenseSlip, InventoryItem, ExpenseItem } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Check, Undo, History } from 'lucide-react';
+import { Loader2, Check, Undo, History, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -232,6 +233,10 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
           <DialogDescription>
             Quản lý các phiếu chi chuyển khoản chưa thanh toán và xem lại lịch sử đã thanh toán.
           </DialogDescription>
+          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
         </DialogHeader>
         
         <div className="flex-grow flex flex-col overflow-hidden">
