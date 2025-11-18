@@ -553,6 +553,27 @@ export default function CashierReportsPage() {
     await dataStore.updateIncidentCategories(newCategories);
   }, []);
 
+  const handleMarkDebtsAsPaid = useCallback(async (items: { slipId: string, supplier: string }[]) => {
+    try {
+      await dataStore.markSupplierDebtsAsPaid(items);
+      // The UI will update automatically because `subscribeToAllExpenseSlips` is listening for changes.
+    } catch (error) {
+      console.error("Failed to mark debts as paid:", error);
+      toast.error("Lỗi: Không thể cập nhật trạng thái thanh toán.");
+      throw error; // Re-throw to allow the dialog to handle its loading state.
+    }
+  }, []);
+
+  const handleUndoDebtPayment = useCallback(async (slipId: string, supplier: string) => {
+    try {
+      await dataStore.undoSupplierDebtPayment(slipId, supplier);
+    } catch (error) {
+      console.error("Failed to undo debt payment:", error);
+      toast.error("Lỗi: Không thể hoàn tác thanh toán.");
+      throw error; // Re-throw to allow the dialog to handle its loading state.
+    }
+  }, []);
+
   if (isLoading || authLoading || !user) {
     return (
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -648,6 +669,8 @@ export default function CashierReportsPage() {
         onClose={() => setIsUnpaidSlipsDialogOpen(false)}
         bankTransferSlips={expenseSlips.filter(s => s.paymentMethod === 'bank_transfer')}
         inventoryList={inventoryList}
+        onMarkAsPaid={handleMarkDebtsAsPaid}
+        onUndoPayment={handleUndoDebtPayment}
       />
       
       <OwnerCashierDialogs 

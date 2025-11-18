@@ -139,8 +139,6 @@ function AiAssistant({
                 tasks: currentTasks,
                 userInstruction: sortInstruction,
             });
-
-            console.log(result);
             
             if (!result || !result.sortedTasks || result.sortedTasks.length !== currentTasks.length) {
                 throw new Error("AI did not return a valid sorted list.");
