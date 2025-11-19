@@ -45,5 +45,3 @@ firebase-debug.log
 firestore-debug.log
 /functions
 .firebase*
-/android
-/ios
