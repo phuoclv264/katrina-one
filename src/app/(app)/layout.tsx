@@ -9,16 +9,14 @@ import { Button } from '@/components/ui/button';
 import { PanelLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import PageTransitionIndicator from '@/components/page-transition-indicator';
-import { useBackButton } from "@/hooks/useBackButton";
 import { LightboxProvider } from '@/contexts/lightbox-context';
-
+import { BackButtonHandler } from '@/components/back-button-handler';
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  useBackButton();
 
   return (
     <LightboxProvider>
@@ -26,6 +24,7 @@ export default function AppLayout({
         <Sidebar collapsible="icon">
           <AppSidebar />
         </Sidebar>
+        <BackButtonHandler />
         <SidebarInset>
           <div className="safe-top top-0 z-40 sticky bg-black">
             <header className="top-0 sticky z-40 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">

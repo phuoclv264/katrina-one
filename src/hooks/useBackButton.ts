@@ -6,7 +6,11 @@ import { Capacitor, PluginListenerHandle } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import toast from "react-hot-toast";
 
-export function useBackButton() {
+interface LightboxControls {
+  isLightboxOpen: boolean;
+  closeLightbox: () => void;
+}
+export function useBackButton(lightbox?: LightboxControls) {
   const router = useRouter();
   const pathname = usePathname();
   const handler = useRef<PluginListenerHandle | null>(null);
@@ -16,14 +20,8 @@ export function useBackButton() {
 
     const addListener = async () => {
       handler.current = await App.addListener("backButton", ({ canGoBack }) => {
-
-        // Check for the lightbox first, as it has its own history management.
-        // If it's open, `router.back()` will trigger its `popstate` listener and close it.
-        const openLightbox = document.querySelector(".yarl__root")
-                      || document.querySelector(".yarl__portal");
-
-        if (openLightbox) {
-          // Do nothing
+        if (lightbox?.isLightboxOpen) {
+          lightbox.closeLightbox();
           return;
         }
 
@@ -31,7 +29,7 @@ export function useBackButton() {
         // This is a more robust way to close components from libraries like Radix UI (used in shadcn/ui)
         // by simulating the 'Escape' key press, which they are typically configured to listen for.
         const openModals = document.querySelectorAll('[data-state="open"]');
-        
+
         if (openModals.length > 0) {
           document.dispatchEvent(
             new KeyboardEvent("keydown", { key: "Escape" })
@@ -62,5 +60,5 @@ export function useBackButton() {
         handler.current = null;
       }
     };
-  }, [router, pathname]);
+  }, [router, pathname, lightbox]);
 }
