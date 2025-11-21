@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from "react-hot-toast";
+import { DialogProvider } from '@/contexts/dialog-context';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -27,8 +28,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6" />
       </head>
       <body className="font-body antialiased">
-        {children}
-        <Toaster />
+        <DialogProvider>
+          {children}
+          <Toaster />
+        </DialogProvider>
       </body>
     </html>
   );

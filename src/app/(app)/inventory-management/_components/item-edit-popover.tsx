@@ -35,7 +35,6 @@ import isEqual from 'lodash.isequal';
 import type { InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Box, Settings, SlidersHorizontal, ToggleRight, Trash2, Plus, Star, ChevronsRight } from 'lucide-react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 function AddUnitSimple({
@@ -279,26 +278,6 @@ export default function ItemEditPopover({
       setHasUnsavedChanges(!isEqual(item, initialItem));
     }, [item, initialItem]);
     
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-        if (isOpen) {
-            event.preventDefault();
-            handleCloseDialog(false);
-        }
-        };
-
-        if (isOpen) {
-        window.history.pushState({ dialogOpen: true }, '');
-        window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handlePopState);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, hasUnsavedChanges]);
-
-
     const handleFieldChange = (field: keyof InventoryItem, value: any) => {
         setItem(prev => {
             if (field === 'units') {

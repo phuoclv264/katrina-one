@@ -19,8 +19,6 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-
 
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
@@ -361,33 +359,6 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isConfirmCloseOpen, setIsConfirmCloseOpen] = useState(false);
-
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isAddIngredientOpen) {
-        event.preventDefault();
-        setIsAddIngredientOpen(false);
-      } else if (isOpen) {
-        event.preventDefault();
-        handleAttemptClose();
-      }
-    };
-
-    if (isOpen) {
-      window.history.pushState({ dialogOpen: 'product-edit' }, '');
-      window.addEventListener('popstate', handlePopState);
-    } else {
-      if (window.history.state?.dialogOpen === 'product-edit') {
-        window.history.back();
-      }
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isAddIngredientOpen, hasUnsavedChanges]);
-
 
   useEffect(() => {
     if (isOpen) {
