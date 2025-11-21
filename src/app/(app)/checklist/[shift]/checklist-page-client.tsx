@@ -16,13 +16,6 @@ import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
-import Captions from "yet-another-react-lightbox/plugins/captions";
-import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { format, set, getISOWeek, isSameDay } from 'date-fns';
@@ -30,6 +23,7 @@ import SubmissionNotesSection from '../_components/submission-notes-section';
 import { cn } from '@/lib/utils';
 import { TaskItem } from '../../_components/task-item';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -40,6 +34,7 @@ const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
 };
 
 export default function ChecklistPageComponent() {
+  const { openLightbox } = useLightbox();
   const { user, loading: isAuthLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
@@ -68,10 +63,6 @@ export default function ChecklistPageComponent() {
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  
   const [isReadonly, setIsReadonly] = useState(true);
   const [isReadonlyChecked, setIsReadonlyChecked] = useState(false);
 
@@ -91,25 +82,6 @@ export default function ChecklistPageComponent() {
     setIsReadonly(readonly);
     setIsReadonlyChecked(true);
   }, [shiftKey]);
-  
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
-        setIsLightboxOpen(false);
-      }
-    };
-
-    if (isLightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isLightboxOpen]);
 
 
   // Initialize accordion state based on completion status on load
@@ -549,12 +521,6 @@ export default function ChecklistPageComponent() {
     });
   }, []);
 
-  const openLightbox = (photos: {src: string}[], startIndex: number) => {
-    setLightboxSlides(photos);
-    setLightboxIndex(startIndex);
-    setIsLightboxOpen(true);
-  };
-
   const handleToggleAll = () => {
     if (!shift) return;
     if (openAccordionItems.length === shift.sections.length) {
@@ -752,22 +718,6 @@ export default function ChecklistPageComponent() {
         )}
       </AlertDialogContent>
     </AlertDialog>
-
-    <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={lightboxSlides}
-        index={lightboxIndex}
-        plugins={[Zoom, Counter, Captions]}
-        carousel={{ finite: true }}
-        zoom={{ maxZoomPixelRatio: 4 }}
-        counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-        captions={{ 
-            showToggle: true, 
-            descriptionTextAlign: 'center',
-            descriptionMaxLines: 5
-        }}
-    />
     </TooltipProvider>
   );
 }
