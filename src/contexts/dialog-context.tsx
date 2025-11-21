@@ -7,9 +7,10 @@ type DialogContextType = {
   registerDialog: () => void;
   unregisterDialog: () => void;
   subscribeToClose: (callback: () => void) => () => void;
+  closeAllDialogs: () => void; // New function to directly close all dialogs
 };
 
-const DialogContext = createContext<DialogContextType | undefined>(undefined);
+export const DialogContext = createContext<DialogContextType | undefined>(undefined);
 
 export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [openDialogCount, setOpenDialogCount] = useState(0);
@@ -50,9 +51,21 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [isAnyDialogOpen]);
 
-  const value = { isAnyDialogOpen, registerDialog, unregisterDialog, subscribeToClose };
+  const closeAllDialogs = useCallback(() => {
+    closeSubscribers.current.values().next().value?.call((cb: () => any) => cb())
+  }, []);
+
+  const value = { isAnyDialogOpen, registerDialog, unregisterDialog, subscribeToClose, closeAllDialogs };
 
   return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
+};
+
+export const useDialogContext = () => {
+  const context = useContext(DialogContext);
+  if (context === undefined) {
+    throw new Error('useDialogContext must be used within a DialogProvider');
+  }
+  return context;
 };
 
 export const useDialogBackHandler = (open: boolean, onOpenChange: (open: boolean) => void) => {

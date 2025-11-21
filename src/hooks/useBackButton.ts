@@ -10,7 +10,16 @@ interface LightboxControls {
   isLightboxOpen: boolean;
   closeLightbox: () => void;
 }
-export function useBackButton(lightbox?: LightboxControls) {
+
+interface DialogControls {
+  isAnyDialogOpen: boolean;
+  closeDialog: () => void;
+}
+
+export function useBackButton(
+  dialog?: DialogControls,
+  lightbox?: LightboxControls
+) {
   const router = useRouter();
   const pathname = usePathname();
   const handler = useRef<PluginListenerHandle | null>(null);
@@ -26,14 +35,8 @@ export function useBackButton(lightbox?: LightboxControls) {
         }
 
         // CLOSE MODALS/DIALOGS/POPOVERS
-        // This is a more robust way to close components from libraries like Radix UI (used in shadcn/ui)
-        // by simulating the 'Escape' key press, which they are typically configured to listen for.
-        const openModals = document.querySelectorAll('[data-state="open"]');
-
-        if (openModals.length > 0) {
-          document.dispatchEvent(
-            new KeyboardEvent("keydown", { key: "Escape" })
-          );
+        if (dialog?.isAnyDialogOpen) {
+          dialog.closeDialog();
           return;
         }
 
@@ -60,5 +63,5 @@ export function useBackButton(lightbox?: LightboxControls) {
         handler.current = null;
       }
     };
-  }, [router, pathname, lightbox]);
+  }, [router, pathname, lightbox, dialog]);
 }
