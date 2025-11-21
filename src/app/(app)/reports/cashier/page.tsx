@@ -45,29 +45,6 @@ function AddDocumentDialog({
     const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            if (isOpen) {
-                event.preventDefault();
-                onOpenChange(false);
-            }
-        };
-
-        if (isOpen) {
-            window.history.pushState({ dialogOpen: true }, '');
-            window.addEventListener('popstate', handlePopState);
-        } else {
-             if (window.history.state?.dialogOpen) {
-                window.history.back();
-            }
-        }
-
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isOpen, onOpenChange]);
-
-
     const handleConfirm = () => {
         if (date) {
             onConfirm(date, action);

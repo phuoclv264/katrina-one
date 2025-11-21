@@ -193,34 +193,6 @@ export default function ScheduleView() {
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);
     const [showAdminActionConfirm, setShowAdminActionConfirm] = useState(false);
 
-    // --- Back button handling ---
-    useEffect(() => {
-        const dialogIsOpen = isAssignmentDialogOpen || isTemplatesDialogOpen || isHistoryDialogOpen || isPassRequestsDialogOpen || showPublishConfirm || showRevertConfirm || isUserDetailsDialogOpen;
-        const handler = (e: PopStateEvent) => {
-            if (dialogIsOpen) {
-                e.preventDefault();
-                setIsAssignmentDialogOpen(false);
-                setIsTemplatesDialogOpen(false);
-                setIsHistoryDialogOpen(false);
-                setIsPassRequestsDialogOpen(false);
-                setShowPublishConfirm(false);
-                setShowRevertConfirm(false);
-                setShowAdminActionConfirm(false);
-                setIsUserDetailsDialogOpen(false);
-            }
-        };
-
-        if (dialogIsOpen) {
-            window.history.pushState(null, '', window.location.href);
-            window.addEventListener('popstate', handler);
-        }
-
-        return () => {
-            window.removeEventListener('popstate', handler);
-        };
-    }, [isAssignmentDialogOpen, isTemplatesDialogOpen, isHistoryDialogOpen, isPassRequestsDialogOpen, showPublishConfirm, showRevertConfirm, showAdminActionConfirm, isUserDetailsDialogOpen]);
-
-
     useEffect(() => {
         if (!user || !canManage) return;
 
