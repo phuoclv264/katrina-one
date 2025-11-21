@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { PanelLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import PageTransitionIndicator from '@/components/page-transition-indicator';
+import { LightboxProvider } from '@/contexts/lightbox-context';
 
 
 export default function AppLayout({
@@ -17,29 +18,30 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <SidebarProvider>
-      
-      <Sidebar collapsible="icon">
-        <AppSidebar />
-      </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
-          <div>
-              <SidebarTrigger>
-                <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-                  <PanelLeft />
-                  <span className="sr-only">Toggle navigation menu</span>
-                </Button>
-              </SidebarTrigger>
-          </div>
-           <Suspense fallback={<Skeleton className="h-6 w-32" />}>
-             <MobileHeader />
-           </Suspense>
-        </header>
-        <Suspense fallback={<PageTransitionIndicator />}>
-            {children}
-        </Suspense>
-      </SidebarInset>
-    </SidebarProvider>
+    <LightboxProvider>
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
+          <AppSidebar />
+        </Sidebar>
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
+            <div>
+                <SidebarTrigger>
+                  <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+                    <PanelLeft />
+                    <span className="sr-only">Toggle navigation menu</span>
+                  </Button>
+                </SidebarTrigger>
+            </div>
+            <Suspense fallback={<Skeleton className="h-6 w-32" />}>
+              <MobileHeader />
+            </Suspense>
+          </header>
+          <Suspense fallback={<PageTransitionIndicator />}>
+              {children}
+          </Suspense>
+        </SidebarInset>
+      </SidebarProvider>
+    </LightboxProvider>
   )
 }

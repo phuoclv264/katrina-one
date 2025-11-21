@@ -12,19 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule, ManagedUser } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
-import Captions from "yet-another-react-lightbox/plugins/captions";
-import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { getISOWeek } from 'date-fns';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 const mainShiftTimeFrames: { [key: string]: { start: string; end: string } } = {
   sang: { start: '05:30', end: '12:00' },
@@ -321,6 +315,7 @@ function ShiftSummaryCard({
 
 
 function ReportView() {
+  const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -341,29 +336,6 @@ function ReportView() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string, description?: string }[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
-        setIsLightboxOpen(false);
-      }
-    };
-
-    if (isLightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isLightboxOpen]);
 
 
   useEffect(() => {
@@ -490,12 +462,6 @@ function ReportView() {
     return tasksByShift && shiftKey ? tasksByShift[shiftKey] : null;
   }, [tasksByShift, shiftKey]);
   
-  const openLightbox = (slides: {src: string, description?: string}[], startIndex: number = 0) => {
-      setLightboxSlides(slides);
-      setLightboxIndex(startIndex);
-      setIsLightboxOpen(true);
-  };
-
   const getSectionIcon = (title: string) => {
     switch(title) {
         case 'Đầu ca': return <Sunrise className="mr-3 h-5 w-5 text-yellow-500" />;
@@ -809,21 +775,6 @@ function ReportView() {
       </div>
     )}
     </div>
-     <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={lightboxSlides}
-        index={lightboxIndex}
-        plugins={[Zoom, Counter, Captions]}
-        carousel={{ finite: true }}
-        zoom={{ maxZoomPixelRatio: 4 }}
-        counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-        captions={{ 
-            showToggle: true, 
-            descriptionTextAlign: 'center',
-            descriptionMaxLines: 5,
-        }}
-    />
     </>
   );
 }
@@ -835,6 +786,3 @@ export default function ByShiftPage() {
         </Suspense>
     )
 }
-
-
-    

@@ -2,25 +2,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea'; 
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Wand2, Loader2, Edit, Trash2, X, Send, Upload, Eye } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { callRefineText } from '@/lib/ai-service';
-import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment } from '@/lib/types';
-import Image from 'next/image';
+import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, CommentMedia } from '@/lib/types';
+import Image from 'next/image'; 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
 import { Badge } from '@/components/ui/badge';
+import { Video } from 'lucide-react';
+import { Slide } from 'yet-another-react-lightbox';
 
 
 type CommentDialogProps = {
@@ -29,10 +28,10 @@ type CommentDialogProps = {
     report: WhistleblowingReport;
     currentUser: AuthUser;
     allUsers: ManagedUser[];
-    onCommentSubmit: (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => Promise<void>;
+    onCommentSubmit: (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => Promise<void>;
     onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
     onCommentDelete: (violationId: string, commentId: string) => void;
-    onOpenLightbox: (photos: string[], index: number) => void;
+    onOpenLightbox: (slides: Slide[], index?: number) => void;
 };
 
 
@@ -53,54 +52,30 @@ export default function CommentDialog({
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [commentPhotoIds, setCommentPhotoIds] = useState<string[]>([]);
-    const [commentPhotoUrls, setCommentPhotoUrls] = useState<string[]>([]);
+    const [commentMedia, setCommentMedia] = useState<{ id: string; url: string; type: 'photo' | 'video' }[]>([]);
     
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
-
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
     const [editingText, setEditingText] = useState('');
     
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    // --- Back button handling for Lightbox ---
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-        if (isLightboxOpen) {
-            event.preventDefault();
-            setIsLightboxOpen(false);
-        }
-        };
-
-        if (isLightboxOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
-
-
-    const handleCommentDialogSubmit = async (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => {
+    const handleCommentDialogSubmit = async (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => {
         setIsSubmitting(true);
         try {
-            await onCommentSubmit(reportId, commentText, photoIds, isAnonymous);
+            await onCommentSubmit(reportId, commentText, medias, isAnonymous);
         } finally {
             setIsSubmitting(false);
         }
     }
 
     const handleSubmit = async () => {
-        if (!commentText.trim() && commentPhotoIds.length === 0) return;
+        if (!commentText.trim() && commentMedia.length === 0) return;
         
-        await handleCommentDialogSubmit(report.id, commentText, commentPhotoIds, isAnonymous);
+        await handleCommentDialogSubmit(report.id, commentText, commentMedia, isAnonymous);
         
         setCommentText('');
-        setCommentPhotoIds([]);
-        setCommentPhotoUrls([]);
+        setCommentMedia([]);
 
         setTimeout(() => {
             const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
@@ -127,27 +102,27 @@ export default function CommentDialog({
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!event.target.files) return;
         const files = Array.from(event.target.files);
-        const newPhotoAttachments: { id: string, url: string }[] = [];
+        const newAttachments: { id: string; url: string; type: 'photo' | 'video' }[] = [];
 
         for (const file of files) {
             const id = uuidv4();
             await photoStore.addPhoto(id, file);
             const url = URL.createObjectURL(file);
-            newPhotoAttachments.push({ id, url });
+            const type = file.type.startsWith('video') ? 'video' : 'photo';
+            newAttachments.push({ id, url, type });
         }
-        setCommentPhotoIds(prev => [...prev, ...newPhotoAttachments.map(a => a.id)]);
-        setCommentPhotoUrls(prev => [...prev, ...newPhotoAttachments.map(a => a.url)]);
+        setCommentMedia(prev => [...prev, ...newAttachments]);
     };
 
-    const handleDeletePreviewPhoto = async (urlToDelete: string) => {
-        const index = commentPhotoUrls.indexOf(urlToDelete);
-        if (index > -1) {
-            const idToDelete = commentPhotoIds[index];
-            setCommentPhotoUrls(prev => prev.filter(url => url !== urlToDelete));
-            setCommentPhotoIds(prev => prev.filter(id => id !== idToDelete));
-            URL.revokeObjectURL(urlToDelete);
-            await photoStore.deletePhoto(idToDelete);
-        }
+    const handleDeletePreviewMedia = async (idToDelete: string) => {
+        setCommentMedia(prev => {
+            const mediaToDelete = prev.find(m => m.id === idToDelete);
+            if (mediaToDelete) {
+                URL.revokeObjectURL(mediaToDelete.url);
+            }
+            return prev.filter(m => m.id !== idToDelete);
+        });
+        await photoStore.deletePhoto(idToDelete);
     };
 
     const handleEditClick = (comment: ReportComment) => {
@@ -170,6 +145,21 @@ export default function CommentDialog({
         return allUsers.find(u => u.uid === comment.authorId)?.displayName || 'Người dùng không xác định';
     };
 
+    const handleOpenCommentLightbox = (media: { url: string; type: string }[], index: number) => {
+        const slides = media.map(item => {
+            if (item.type.startsWith('video')) {
+                return {
+                    type: 'video' as const,
+                    sources: [
+                        { src: item.url, type: 'video/mp4' },
+                        { src: item.url, type: 'video/webm' },
+                    ],
+                };
+            }
+            return { src: item.url, type: 'image' as const };
+        });
+        onOpenLightbox(slides as Slide[], index);
+    };
 
     if (!isOpen) return null;
 
@@ -178,7 +168,7 @@ export default function CommentDialog({
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent 
                     className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg"
-                     onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}
+                     onInteractOutside={(e) => e.preventDefault()}
                 >
                      <div id="comment-lightbox-container"></div>
                     <DialogHeader className="p-4 sm:p-6 pb-2 border-b shrink-0">
@@ -236,16 +226,23 @@ export default function CommentDialog({
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{comment.content}</p>
-                                                        {comment.photos && comment.photos.length > 0 && (
-                                                            <div className="mt-2 flex gap-2 flex-wrap">
-                                                            {comment.photos.map((photo, index) => (
-                                                                <button key={index} onClick={() => onOpenLightbox(comment.photos!, index)} className="relative w-20 h-20 rounded-md overflow-hidden hover:opacity-90 transition-opacity">
-                                                                <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
+                                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{comment.content}</p>
+                                                    {(comment.media && comment.media.length > 0) && (
+                                                        <div className="mt-2 flex gap-2 flex-wrap">
+                                                            {comment.media.map((mediaItem, index) => (
+                                                                <button key={index} onClick={() => handleOpenCommentLightbox(comment.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden hover:opacity-90 transition-opacity bg-muted">
+                                                                    {mediaItem.type === 'photo' ? (
+                                                                        <Image src={mediaItem.url} alt={`Comment media ${index + 1}`} fill className="object-cover" />
+                                                                    ) : (
+                                                                        <>
+                                                                            <video src={`${mediaItem.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover" />
+                                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                                                                        </>
+                                                                    )}
                                                                 </button>
                                                             ))}
-                                                            </div>
-                                                        )}
+                                                        </div>
+                                                    )}
                                                     </>
                                                 )}
                                             </CardContent>
@@ -294,32 +291,43 @@ export default function CommentDialog({
                                 ref={fileInputRef}
                                 onChange={handleFileChange}
                                 className="hidden"
-                                accept="image/*"
+                                accept="image/*,video/*"
                                 multiple
                                 />
 
                                 {/* Nút xem / xóa ảnh nếu có ảnh */}
-                                {commentPhotoUrls.length > 0 && (
+                                {commentMedia.length > 0 && (
                                 <>
-                                    <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setIsLightboxOpen(true)}
-                                    className="flex items-center gap-1 h-8"
-                                    >
-                                    <Eye className="h-4 w-4" />
-                                    <Badge className="ml-1">{commentPhotoUrls.length}</Badge>
-                                    </Button>
+                                    <div className="flex flex-wrap gap-1">
+                                        {commentMedia.map((media, index) => (
+                                            <div key={media.id} className="relative group">
+                                                <button onClick={() => handleOpenCommentLightbox(commentMedia, index)} className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
+                                                    {media.type === 'photo' ? (
+                                                        <Image src={media.url} alt={`Preview ${index}`} fill className="object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <Video className="h-5 w-5 text-muted-foreground" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={() => handleDeletePreviewMedia(media.id)}
+                                                >
+                                                    <X className="h-2.5 w-2.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
 
                                     <Button
                                     variant="link"
                                     size="sm"
                                     className="text-destructive h-auto p-1"
                                     onClick={() => {
-                                        commentPhotoUrls.forEach((url) => URL.revokeObjectURL(url));
-                                        commentPhotoIds.forEach((id) => photoStore.deletePhoto(id));
-                                        setCommentPhotoUrls([]);
-                                        setCommentPhotoIds([]);
+                                        commentMedia.forEach((media) => handleDeletePreviewMedia(media.id));
                                     }}
                                     >
                                     Xóa
@@ -361,9 +369,7 @@ export default function CommentDialog({
                             <Button
                                 size="icon"
                                 onClick={handleSubmit}
-                                disabled={
-                                isSubmitting || (!commentText.trim() && commentPhotoIds.length === 0)
-                                }
+                                disabled={isSubmitting || (!commentText.trim() && commentMedia.length === 0)}
                                 className="h-9 w-9 rounded-full"
                             >
                                 {isSubmitting ? (
@@ -378,13 +384,6 @@ export default function CommentDialog({
                 </DialogContent>
             </Dialog>
 
-             <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                slides={commentPhotoUrls.map(url => ({ src: url }))}
-                index={lightboxIndex}
-                portal={{ root: document.getElementById("comment-lightbox-container") ?? undefined }}
-            />
         </TooltipProvider>
     );
 }

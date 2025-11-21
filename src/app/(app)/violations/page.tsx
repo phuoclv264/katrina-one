@@ -13,9 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShieldX, Plus, FilterX, BadgeInfo, Settings } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Video from "yet-another-react-lightbox/plugins/video";
 import CameraDialog from '@/components/camera-dialog';
 import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
@@ -60,10 +57,6 @@ export default function ViolationsPage() {
   
   const [filterUserId, setFilterUserId] = useState<string | null>(null);
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
-  
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<({ src: string; type?: 'image' } | { type: 'video'; sources: { src: string; type: string; }[] })[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
@@ -72,14 +65,6 @@ export default function ViolationsPage() {
 
 
   const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (searchParams.get('lightbox') === 'true') {
-        setLightboxOpen(true);
-    } else {
-        setLightboxOpen(false);
-    }
-  }, [searchParams]);
 
 
   useEffect(() => {
@@ -302,42 +287,17 @@ export default function ViolationsPage() {
     setIsDialogOpen(true);
   }
   
-  const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
-    const slides = media.map(item => {
-        if (isMediaAttachment(item)) {
-            // Handle new MediaAttachment format
-            if (item.type === 'video') {
-                const typeMatch = item.url.match(/\.([^.]+)$/);
-                const videoType = typeMatch ? `video/${typeMatch[1]}` : 'video/webm';
-                return { type: 'video' as const, sources: [{ src: item.url, type: videoType }] };
-            }
-            return { src: item.url, type: 'image' as const };
-        } else if (typeof item === 'string') {
-            // This branch is for backward compatibility with old string URLs
-            return { src: item };
-        }
-        return null; // Should not happen with correct data
-    }).filter(Boolean);
-    setLightboxSlides(slides as any);
-    setLightboxIndex(index);
-    router.push('?lightbox=true');
+  const toggleCommentSection = (violationId: string) => {
+      setOpenCommentSectionIds(prevIds => {
+          const newIds = new Set(prevIds);
+          if (newIds.has(violationId)) {
+              newIds.delete(violationId);
+          } else {
+              newIds.add(violationId);
+          }
+          return newIds;
+      });
   };
-
-  const closeLightbox = () => {
-    router.back();
-  }
-  
-    const toggleCommentSection = (violationId: string) => {
-        setOpenCommentSectionIds(prevIds => {
-            const newIds = new Set(prevIds);
-            if (newIds.has(violationId)) {
-                newIds.delete(violationId);
-            } else {
-                newIds.add(violationId);
-            }
-            return newIds;
-        });
-    };
 
   if (isLoading || authLoading || !user) {
     return (
@@ -502,14 +462,6 @@ export default function ViolationsPage() {
         captureMode={penaltyCaptureMode}
       />
 
-        <Lightbox
-            open={lightboxOpen}
-            close={closeLightbox}
-            index={lightboxIndex}
-            slides={lightboxSlides}
-            plugins={[Video]}
-            carousel={{ finite: true }}
-        />
     </>
   );
 }

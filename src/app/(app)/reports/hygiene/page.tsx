@@ -12,13 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TaskSection } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
-import Captions from "yet-another-react-lightbox/plugins/captions";
-import "yet-another-react-lightbox/plugins/captions.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
@@ -27,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 function HygieneReportView() {
   const { user, loading: authLoading } = useAuth();
@@ -46,28 +40,7 @@ function HygieneReportView() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
-        setIsLightboxOpen(false);
-      }
-    };
-
-    if (isLightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isLightboxOpen]);
+  const { openLightbox } = useLightbox();
 
 
   useEffect(() => {
@@ -191,12 +164,9 @@ function HygieneReportView() {
     return photos;
   }, [taskSections, reportToView]);
 
-  const openLightbox = (photoUrl: string) => {
+  const handleOpenLightbox = (photoUrl: string) => {
     const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) {
-        setLightboxIndex(photoIndex);
-        setIsLightboxOpen(true);
-    }
+    if (photoIndex > -1) openLightbox(allPagePhotos, photoIndex);
   };
 
   const getSectionIcon = (title: string) => {
@@ -410,7 +380,7 @@ function HygieneReportView() {
                                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                                             {completion.photos.map((photo, pIndex) => (
                                                 <button
-                                                  onClick={() => openLightbox(photo)}
+                                                  onClick={() => handleOpenLightbox(photo)}
                                                   key={photo.slice(0, 50) + pIndex}
                                                   className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
                                                 >
@@ -449,21 +419,6 @@ function HygieneReportView() {
       </div>
     )}
     </div>
-     <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={allPagePhotos}
-        index={lightboxIndex}
-        plugins={[Zoom, Counter, Captions]}
-        carousel={{ finite: true }}
-        zoom={{ maxZoomPixelRatio: 4 }}
-        counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-        captions={{ 
-            showToggle: true, 
-            descriptionTextAlign: 'center',
-            descriptionMaxLines: 5,
-        }}
-    />
     </>
   );
 }

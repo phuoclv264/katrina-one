@@ -15,12 +15,10 @@ import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { photoStore } from '@/lib/photo-store';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 
 type IncidentReportDialogProps = {
@@ -59,8 +57,7 @@ export default function IncidentReportDialog({
     const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
 
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const { openLightbox } = useLightbox();
     
     const reporterName = useMemo(() => {
         if (incidentToEdit) {
@@ -69,25 +66,6 @@ export default function IncidentReportDialog({
         return reporter?.userName || '...'; // Fallback for new incidents
     }, [reporter, incidentToEdit]);
 
-
-    // --- Back button handling for Lightbox ---
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-        if (isLightboxOpen) {
-            event.preventDefault();
-            setIsLightboxOpen(false);
-        }
-        };
-
-        if (isLightboxOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
 
 
     useEffect(() => {
@@ -179,11 +157,6 @@ export default function IncidentReportDialog({
         await photoStore.deletePhoto(id);
     };
     
-    const openLightbox = (clickedIndex: number) => {
-        setLightboxIndex(clickedIndex);
-        setIsLightboxOpen(true);
-    };
-
     const allPhotos = useMemo(() => {
         return [
             ...existingPhotos.map(url => ({ id: url, url })),
@@ -196,8 +169,7 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
-                <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0" onInteractOutside={(e) => { if (isLightboxOpen) e.preventDefault(); }}>
-                    <div id="incident-lightbox-container"></div>
+                <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0" onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>
@@ -280,7 +252,7 @@ export default function IncidentReportDialog({
                                         <div className="flex flex-wrap gap-2">
                                             {allPhotos.map((photo, i) => (
                                                 <div key={photo.id} className="relative h-20 w-20 rounded-md overflow-hidden group">
-                                                    <button onClick={() => openLightbox(i)} className="w-full h-full">
+                                                    <button onClick={() => openLightbox(allPhotos.map(p => ({ src: p.url })), i)} className="w-full h-full">
                                                         <Image src={photo.url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
                                                     </button>
                                                     <Button 
@@ -320,16 +292,6 @@ export default function IncidentReportDialog({
                 onClose={() => setIsCameraOpen(false)}
                 onSubmit={handleCapturePhotos}
                 captureMode="photo"
-            />
-             <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                index={lightboxIndex}
-                slides={allPhotos.map(p => ({ src: p.url }))}
-                plugins={[Zoom]}
-                portal={{ root: document.getElementById("incident-lightbox-container") ?? undefined }}
-                carousel={{ finite: true }}
-                zoom={{ maxZoomPixelRatio: 5 }}
             />
         </>
     );

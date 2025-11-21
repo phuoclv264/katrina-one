@@ -14,11 +14,6 @@ import { toast } from 'react-hot-toast';
 import { callExtractRevenueFromImage } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format, isToday, isBefore, startOfDay, parseISO, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import CameraDialog from '@/components/camera-dialog';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 
 type RevenueStatsDialogProps = {
@@ -115,6 +111,7 @@ export default function RevenueStatsDialog({
     reporter,
     dateForNewEntry,
 }: RevenueStatsDialogProps) {
+    const { openLightbox } = useLightbox();
     // Form state
     const [netRevenue, setNetRevenue] = useState(0);
     const [deliveryPartnerPayout, setDeliveryPartnerPayout] = useState(0);
@@ -130,7 +127,6 @@ export default function RevenueStatsDialog({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dataSectionRef = useRef<HTMLDivElement>(null);
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [showMissingImageAlert, setShowMissingImageAlert] = useState(false);
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -145,26 +141,7 @@ export default function RevenueStatsDialog({
         }
         // Cashier creating new entry is always allowed.
         return true;
-    }, [isOwnerView, existingStats, reporter]);
-
-    // --- Back button handling for Lightbox ---
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-        if (isLightboxOpen) {
-            event.preventDefault();
-            setIsLightboxOpen(false);
-        }
-        };
-
-        if (isLightboxOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
+    }, [isOwnerView, existingStats, reporter]); 
 
 
     const resetFormState = useCallback((statsToLoad: RevenueStats | null) => {
@@ -436,7 +413,7 @@ export default function RevenueStatsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-full md:h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => { if (!isLightboxOpen) { e.preventDefault(); }}}>
+                <DialogContent className="max-w-xl h-full md:h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => e.preventDefault()}>
                     <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                          <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>
@@ -467,7 +444,7 @@ export default function RevenueStatsDialog({
                                 </CardHeader>
                                 <CardContent className="flex-grow flex flex-col justify-center items-center gap-4">
                                     {displayImageDataUri ? (
-                                        <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => setIsLightboxOpen(true)}>
+                                        <div className="relative w-full h-full min-h-48 cursor-pointer" onClick={() => openLightbox([{ src: displayImageDataUri }])}>
                                             <Image src={displayImageDataUri} alt="Ảnh phiếu thống kê" fill className="object-contain rounded-md" />
                                         </div>
                                     ) : (
@@ -653,18 +630,6 @@ export default function RevenueStatsDialog({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
-            {displayImageDataUri && (
-                 <Lightbox
-                    open={isLightboxOpen}
-                    close={() => setIsLightboxOpen(false)}
-                    slides={[{ src: displayImageDataUri }]}
-                    plugins={[Zoom]}
-                    portal={{ root: document.getElementById("revenue-stats-lightbox-container") ?? undefined }}
-                    carousel={{ finite: true }}
-                    zoom={{ maxZoomPixelRatio: 5 }}
-                />
-            )}
         </>
     );
 }

@@ -16,10 +16,9 @@ import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, H
 import { toast } from 'react-hot-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
+import { useLightbox } from '@/contexts/lightbox-context';
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
@@ -44,32 +43,11 @@ function InventoryReportView() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+  const { openLightbox } = useLightbox();
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<InventoryReport | null>(null);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
-
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (lightboxOpen) {
-        event.preventDefault();
-        setLightboxOpen(false);
-      }
-    };
-
-    if (lightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [lightboxOpen]);
 
 
   useEffect(() => {
@@ -409,7 +387,7 @@ function InventoryReportView() {
                                                             {photos.map((photo, index) => (
                                                                 <button
                                                                     key={index}
-                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
+                                                                    onClick={() => { openLightbox(photos.map(p => ({ src: p }))); }}
                                                                     className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                 >
                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
@@ -449,7 +427,7 @@ function InventoryReportView() {
                                                                             {photos.map((photo, index) => (
                                                                                 <button
                                                                                     key={index}
-                                                                                    onClick={() => { setLightboxSlides(photos.map(p => ({ src: p }))); setLightboxOpen(true); }}
+                                                                                    onClick={() => { openLightbox(photos.map(p => ({ src: p }))); }}
                                                                                     className="relative w-16 h-16 rounded-md overflow-hidden"
                                                                                 >
                                                                                     <Image src={photo} alt={`Photo for ${item.name}`} fill className="object-cover" />
@@ -644,12 +622,6 @@ function InventoryReportView() {
             </div>
         </DialogContent>
     </Dialog>
-    <Lightbox
-        open={lightboxOpen}
-        close={() => setLightboxOpen(false)}
-        slides={lightboxSlides}
-        carousel={{ finite: true }}
-    />
     </>
   );
 }

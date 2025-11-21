@@ -27,17 +27,14 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Camera } from 'lucide-react';
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CameraDialog from '@/components/camera-dialog';
+import { useLightbox } from '@/contexts/lightbox-context';
+import { Slide } from 'yet-another-react-lightbox';
 
 
 function EditItemPopover({ item, onSave, children, inventoryItem }: { item: ExpenseItem; onSave: (updatedItem: ExpenseItem) => void; children: React.ReactNode, inventoryItem: InventoryItem | undefined }) {
@@ -111,33 +108,13 @@ function AiPreviewDialog({
     onConfirm,
     allAttachmentPhotos
 }: { 
-    open: boolean, 
-    onOpenChange: (open: boolean) => void, 
-    extractionResult: InvoiceExtractionResult, 
-    inventoryList: InventoryItem[], 
-    onConfirm: (items: ExpenseItem[], totalDiscount: number) => void,
-    allAttachmentPhotos: {id: string, url: string}[] 
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    extractionResult: InvoiceExtractionResult;
+    inventoryList: InventoryItem[];
+    onConfirm: (items: ExpenseItem[], totalDiscount: number) => void;
+    allAttachmentPhotos: {id: string, url: string}[];
 }) {
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
-
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-        if (isLightboxOpen) {
-            event.preventDefault();
-            setIsLightboxOpen(false);
-        }
-        };
-
-        if (isLightboxOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
     
     const handleConfirm = () => {
         const confirmedItems: ExpenseItem[] = (extractionResult.results || [])
@@ -168,6 +145,7 @@ function AiPreviewDialog({
         onOpenChange(false);
     };
 
+    const { openLightbox } = useLightbox();
     const totalMatchedItems = extractionResult.results.reduce((acc, result) => acc + result.items.filter(item => item.status === 'matched').length, 0);
 
     const ItemCard = ({ item, isMatched }: { item: ExtractedInvoiceItem, isMatched: boolean }) => {
@@ -204,14 +182,13 @@ function AiPreviewDialog({
       };
       
     const handleViewImages = (imageIds: string[]) => {
-        const slides = imageIds
+        const slides: Slide[] = imageIds
             .map(id => allAttachmentPhotos.find(p => p.id === id)?.url)
             .filter((url): url is string => !!url)
             .map(url => ({ src: url }));
         
         if(slides.length > 0) {
-            setLightboxSlides(slides);
-            setIsLightboxOpen(true);
+            openLightbox(slides);
         } else {
             toast.error("Không tìm thấy ảnh cho hóa đơn này.");
         }
@@ -220,8 +197,7 @@ function AiPreviewDialog({
     return (
         <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl">
-                <div id="ai-preview-lightbox-container"></div>
+            <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                     <DialogDescription>AI đã phân tích và nhóm các hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
@@ -277,15 +253,6 @@ function AiPreviewDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-         <Lightbox
-            open={isLightboxOpen}
-            close={() => setIsLightboxOpen(false)}
-            slides={lightboxSlides}
-            plugins={[Zoom, Counter]}
-            carousel={{ finite: true }}
-            counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-            portal={{ root: document.getElementById("ai-preview-lightbox-container") ?? undefined }}
-        />
         </>
     );
 }
@@ -344,33 +311,10 @@ export default function ExpenseSlipDialog({
     // State to hold the data as scanned by AI, before any user edits.
     const [aiOriginalData, setAiOriginalData] = useState<{ items: ExpenseItem[], discount: number } | null>(null);
     
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
-    
     const [expenseType, setExpenseType] = useState<ExpenseType>('goods_import');
     const [otherCostCategoryId, setOtherCostCategoryId] = useState('');
     const [otherCostDescription, setOtherCostDescription] = useState('');
     const [otherCostAmount, setOtherCostAmount] = useState(0);
-
-
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-        if (isLightboxOpen) {
-            event.preventDefault();
-            setIsLightboxOpen(false);
-        }
-        };
-
-        if (isLightboxOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-        window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
-
 
     useEffect(() => {
         if (open) {
@@ -697,12 +641,11 @@ export default function ExpenseSlipDialog({
         photoStore.deletePhoto(id);
     };
 
-    const openLightbox = (clickedUrl: string) => {
-        const index = allAttachmentPhotos.findIndex(p => p.url === clickedUrl);
-        if (index > -1) {
-            setLightboxIndex(index);
-            setIsLightboxOpen(true);
-        }
+    const { openLightbox } = useLightbox();
+    const onOpenLightbox = (clickedUrl: string) => {
+        const slides: Slide[] = allAttachmentPhotos.map(p => ({ src: p.url }));
+        const initialIndex = allAttachmentPhotos.findIndex(p => p.url === clickedUrl);
+        openLightbox(slides, initialIndex);
     };
     
     const isActuallyAiGenerated = (aiOriginalData && isEqual({items, discount}, aiOriginalData)) || (!aiOriginalData && slipToEdit?.isAiGenerated);
@@ -715,7 +658,6 @@ export default function ExpenseSlipDialog({
                     className="max-w-4xl p-0 h-[90vh] flex flex-col" 
                     onInteractOutside={(e) => e.preventDefault()}
                 >
-                    <div id="expense-slip-lightbox-container"></div>
                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>
                          <DialogDescription>
@@ -790,7 +732,7 @@ export default function ExpenseSlipDialog({
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                         {existingPhotos.map(photo => (
                                             <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
-                                                <button onClick={() => openLightbox(photo.url)} className="w-full h-full">
+                                                <button onClick={() => onOpenLightbox(photo.url)} className="w-full h-full">
                                                     <Image src={photo.url} alt="Bằng chứng đã lưu" fill className="object-cover" />
                                                 </button>
                                                 <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
@@ -798,7 +740,7 @@ export default function ExpenseSlipDialog({
                                         ))}
                                         {localPhotos.map(photo => (
                                             <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
-                                                 <button onClick={() => openLightbox(photo.url)} className="w-full h-full">
+                                                 <button onClick={() => onOpenLightbox(photo.url)} className="w-full h-full">
                                                     <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover" />
                                                 </button>
                                                 <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10" onClick={() => handleDeleteLocalPhoto(photo.id)}><X className="h-3 w-3" /></Button>
@@ -1005,17 +947,6 @@ export default function ExpenseSlipDialog({
                     allAttachmentPhotos={allAttachmentPhotos}
                 />
             )}
-
-            <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                index={lightboxIndex}
-                slides={allAttachmentPhotos.map(p => ({ src: p.url }))}
-                plugins={[Zoom, Counter]}
-                carousel={{ finite: true }}
-                counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-                portal={{ root: document.getElementById("expense-slip-lightbox-container") ?? undefined }}
-            />
         </>
     );
 }

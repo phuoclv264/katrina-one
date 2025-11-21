@@ -13,13 +13,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarCheck, ChevronLeft, ChevronRight, Clock, User, Image as ImageIcon, Video, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import LightboxVideo from "yet-another-react-lightbox/plugins/video";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'react-hot-toast';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 type GroupedReports = {
   [taskName: string]: {
@@ -34,35 +32,13 @@ export default function MonthlyTaskReportsPage() {
   const [completions, setCompletions] = useState<TaskCompletionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { openLightbox } = useLightbox();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
   }, []);
-
-  // Back button handling for Lightbox
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
-        setIsLightboxOpen(false);
-      }
-    };
-
-    if (isLightboxOpen) {
-      window.history.pushState({ lightbox: 'open' }, '');
-      window.addEventListener('popstate', handlePopState);
-    } else {
-      if (window.history.state?.lightbox) {
-        window.history.back();
-      }
-    }
-
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isLightboxOpen]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -123,13 +99,9 @@ export default function MonthlyTaskReportsPage() {
       return { src: att.url };
     });
 
-  const [lightboxSlides, setLightboxSlides] = useState(createLightboxSlides([]));
-
-  const openLightbox = (media: NonNullable<TaskCompletionRecord['media']>, index: number) => {
-    setLightboxSlides(createLightboxSlides(media));
-    setLightboxIndex(index);
-    setIsLightboxOpen(true);
-  };
+  const handleOpenLightbox = (media: NonNullable<TaskCompletionRecord['media']>, index: number) => {
+    openLightbox(createLightboxSlides(media), index);
+  };  
 
   const handleDeleteReport = async (record: TaskCompletionRecord) => {
     if (!record.completedBy) return;
@@ -235,7 +207,7 @@ export default function MonthlyTaskReportsPage() {
                                     {record.media && record.media.length > 0 && (
                                       <div className="flex flex-wrap gap-2 pl-6">
                                         {record.media.map((att, index) => (
-                                          <button key={index} onClick={() => openLightbox(record.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden group bg-secondary">
+                                          <button key={index} onClick={() => handleOpenLightbox(record.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden group bg-secondary">
                                             {att.type === 'photo' ? (
                                               <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                                             ) : att.type === 'video' ? (
@@ -265,14 +237,6 @@ export default function MonthlyTaskReportsPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={lightboxSlides}
-        index={lightboxIndex}
-        plugins={[LightboxVideo]}
-      />
     </>
   );
 }

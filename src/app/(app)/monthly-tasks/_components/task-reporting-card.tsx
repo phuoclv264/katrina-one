@@ -9,9 +9,6 @@ import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import CameraDialog from '@/components/camera-dialog';
 import Image from 'next/image';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import LightboxVideo from "yet-another-react-lightbox/plugins/video";
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
@@ -19,6 +16,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, D
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 type TaskReportingCardProps = {
   assignment: MonthlyTaskAssignment;
@@ -29,34 +27,9 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const { openLightbox } = useLightbox();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
-
-
-  // Back button handling for Lightbox
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
-        setIsLightboxOpen(false);
-      }
-    };
-
-    if (isLightboxOpen) {
-      window.history.pushState({ lightbox: 'open' }, '');
-      window.addEventListener('popstate', handlePopState);
-    } else {
-      // This check is to avoid going back a page if the dialog was closed by other means.
-      if (window.history.state?.lightbox) {
-        window.history.back();
-      }
-    }
-
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isLightboxOpen]);
-
 
   const handleMediaSubmit = async (media: MediaItem[]) => {
     if (media.length === 0) return;
@@ -106,12 +79,6 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
     }
   };
   
-  const openLightbox = (media: MediaAttachment[], index: number) => {
-    setLightboxSlides(createLightboxSlides(media));
-    setLightboxIndex(index);
-    setIsLightboxOpen(true);
-  };
-
   const createLightboxSlides = (media: MediaAttachment[]) => media.map(att => {
     if (att.type === 'video') {
       return {
@@ -125,7 +92,9 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
     return { src: att.url };
   });
 
-  const [lightboxSlides, setLightboxSlides] = useState(createLightboxSlides([]));
+  const handleOpenLightbox = (media: MediaAttachment[], index: number) => {
+    openLightbox(createLightboxSlides(media), index);
+  };
 
   const currentUserCompletion = assignment.completions.find(c => c.completedBy?.userId === user?.uid) ||
                                   assignment.otherCompletions.find(c => c.completedBy?.userId === user?.uid);
@@ -233,7 +202,7 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
               <p className="text-xs font-medium text-muted-foreground mb-2">Bằng chứng của bạn:</p>
               <div className="flex flex-wrap gap-2">
                 {currentUserCompletion.media.map((att, index) => (
-                  <button key={index} onClick={() => openLightbox(currentUserCompletion.media!, index)} className="relative w-16 h-16 rounded-md overflow-hidden group">
+                  <button key={index} onClick={() => handleOpenLightbox(currentUserCompletion.media!, index)} className="relative w-16 h-16 rounded-md overflow-hidden group">
                     {att.type === 'photo' ? (
                       <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                     ) : (
@@ -293,7 +262,7 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
                                     {completion.media && completion.media.length > 0 && (
                                       <div className="flex flex-wrap gap-2">
                                         {completion.media.map((att, index) => (
-                                          <button key={index} onClick={() => openLightbox(completion.media!, index)} className="relative w-16 h-16 rounded-md overflow-hidden group">
+                                          <button key={index} onClick={() => handleOpenLightbox(completion.media!, index)} className="relative w-16 h-16 rounded-md overflow-hidden group">
                                             {att.type === 'photo' ? (
                                               <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                                             ) : (
@@ -353,7 +322,7 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
                                 {completion.media && completion.media.length > 0 && (
                                   <div className="flex flex-wrap gap-2">
                                     {completion.media.map((att, index) => (
-                                      <button key={index} onClick={() => openLightbox(completion.media!, index)} className="relative w-16 h-16 rounded-md overflow-hidden group">
+                                      <button key={index} onClick={() => handleOpenLightbox(completion.media!, index)} className="relative w-16 h-16 rounded-md overflow-hidden group">
                                         {att.type === 'photo' ? (
                                           <Image src={att.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-105" />
                                         ) : (
@@ -437,13 +406,6 @@ export default function TaskReportingCard({ assignment, shiftTemplates }: TaskRe
         isHD={true}
       />
 
-      <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={lightboxSlides}
-        index={lightboxIndex}
-        plugins={[LightboxVideo]}
-      />
     </>
   );
 }

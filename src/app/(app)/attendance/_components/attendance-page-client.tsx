@@ -19,13 +19,6 @@ import ManualAttendanceDialog from './manual-attendance-dialog';
 import BulkSalaryDialog from './bulk-salary-dialog';
 import { toast } from 'react-hot-toast';
 import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import Captions from "yet-another-react-lightbox/plugins/captions";
-import "yet-another-react-lightbox/plugins/captions.css";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,6 +28,8 @@ import AttendanceTimeline from './attendance-timeline';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Timestamp } from 'firebase/firestore';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { useLightbox } from '@/contexts/lightbox-context';
+import { AlertDialog } from '@/components/ui/alert-dialog';
 
 export default function AttendancePageComponent() {
     const { user, loading: authLoading } = useAuth();
@@ -54,10 +49,6 @@ export default function AttendancePageComponent() {
     const [isManualAttendanceDialogOpen, setIsManualAttendanceDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
 
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxSlides, setLightboxSlides] = useState<{ src: string, description?: string }[]>([]);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
-
     // New state for filters and view
     const [viewMode, setViewMode] = useState<'table' | 'timeline'>('table');
     const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
@@ -65,6 +56,8 @@ export default function AttendancePageComponent() {
     
     const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
     const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(dateRange);
+
+    const { openLightbox } = useLightbox();
 
     useEffect(() => {
         if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -120,27 +113,6 @@ export default function AttendancePageComponent() {
         setDateRange(tempDateRange);
         setIsDatePopoverOpen(false);
     };
-
-    // Back button handling for Lightbox
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            if (isLightboxOpen) {
-                event.preventDefault();
-                setIsLightboxOpen(false);
-            }
-        };
-
-        if (isLightboxOpen) {
-            window.history.pushState({ lightbox: 'open' }, '');
-            window.addEventListener('popstate', handlePopState);
-        } else {
-            if (window.history.state?.lightbox) {
-                window.history.back();
-            }
-        }
-
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, [isLightboxOpen]);
 
     const selectedUserIds = useMemo(() => new Set(selectedUsers.map(u => u.uid)), [selectedUsers]);
 
@@ -313,12 +285,6 @@ export default function AttendancePageComponent() {
         }
     };
 
-    const handleOpenLightbox = useCallback((slides: { src: string, description?: string }[], index: number) => {
-        setLightboxSlides(slides);
-        setLightboxIndex(index);
-        setIsLightboxOpen(true);
-    }, []);
-
     const sortedUsers = useMemo(() => [...allUsers].sort((a, b) => a.displayName.localeCompare(b.displayName)), [allUsers]);
 
     const roleOrder: Record<UserRole, number> = {
@@ -487,7 +453,7 @@ export default function AttendancePageComponent() {
                         schedules={schedules}
                         dateRange={{ from: dateRange.from, to: dateRange.to }}
                         filteredUserIds={selectedUserIds}
-                        onOpenLightbox={handleOpenLightbox}
+                        onOpenLightbox={openLightbox}
                     />
                 ) : isMobile ? (
                     <AttendanceCards 
@@ -496,7 +462,7 @@ export default function AttendancePageComponent() {
                         schedules={schedules} 
                         onEdit={handleEditRecord}
                         onDelete={handleDeleteRecord}
-                        onOpenLightbox={handleOpenLightbox}
+                        onOpenLightbox={openLightbox}
                     />
                 ) : (
                     <AttendanceTable 
@@ -505,7 +471,7 @@ export default function AttendancePageComponent() {
                         schedules={schedules} 
                         onEdit={handleEditRecord}
                         onDelete={handleDeleteRecord}
-                        onOpenLightbox={handleOpenLightbox}
+                        onOpenLightbox={openLightbox}
                     />
                 )}
             </div>
@@ -536,21 +502,6 @@ export default function AttendancePageComponent() {
                 isOpen={isSalaryManagementDialogOpen}
                 onClose={() => setIsSalaryManagementDialogOpen(false)}
                 allUsers={allUsers}
-            />
-
-            <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                slides={lightboxSlides}
-                index={lightboxIndex}
-                plugins={[Zoom, Captions, Counter]}
-                carousel={{ finite: true }}
-                zoom={{ maxZoomPixelRatio: 4 }}
-                counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-                captions={{ 
-                    showToggle: true, 
-                    descriptionTextAlign: 'center',
-                }}
             />
         </>
     )

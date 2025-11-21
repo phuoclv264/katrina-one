@@ -13,9 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { getSeverityBadgeClass, getSeverityCardClass, getSeverityBorderClass } from '@/lib/violations-utils';
 import { CommentSection } from './comment-section';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Video from "yet-another-react-lightbox/plugins/video";
+import { useLightbox } from '@/contexts/lightbox-context';
 
 interface ViolationCardProps {
   violation: Violation;
@@ -58,55 +56,7 @@ export function ViolationCard({
     setActiveUserForPenalty,
     setIsPenaltyCameraOpen
 }: ViolationCardProps) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const [lightboxOpen, setLightboxOpen] = React.useState(searchParams.get(`lightbox_${v.id}`) === 'true');
-    const [lightboxSlides, setLightboxSlides] = React.useState<({ src: string; type?: 'image' } | { type: 'video'; sources: { src: string; type: string; }[] })[]>([]);
-    const [lightboxIndex, setLightboxIndex] = React.useState(0);
-
-    useEffect(() => {
-        setLightboxOpen(searchParams.get(`lightbox_${v.id}`) === 'true');
-    }, [searchParams, v.id]);
-
-    const openLightbox = (media: (string | MediaAttachment)[], index: number) => {
-        const slides = media.map(item => {
-            const url = typeof item === 'string' ? item : item.url;
-            const type = (typeof item === 'string' ? (url.toLowerCase().match(/\.(webm|mp4|mov)$/) ? 'video' : 'photo') : item.type);
-            
-            if (type === 'video') {
-                return {
-                    type: 'video' as const,
-                    sources: [
-                        // Provide both types; the browser will choose the one it can play.
-                        { src: url, type: 'video/mp4' },
-                        { src: url, type: 'video/webm' },
-                    ],
-                };
-            }
-            return { src: url, type: 'image' as const };
-        });
-        setLightboxSlides(slides as any);
-        setLightboxIndex(index);
-
-        const params = new URLSearchParams(searchParams.toString());
-        params.set(`lightbox_${v.id}`, 'true');
-        router.push(`?${params.toString()}`, { scroll: false });
-    };
-
-    const closeLightbox = () => {
-        try {
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete(`lightbox_${v.id}`);
-            const newQuery = params.toString();
-            router.push(newQuery ? `?${newQuery}` : window.location.pathname, { scroll: false });
-        } catch (error: any) {
-            // This can happen if navigation is interrupted. It's safe to ignore this specific error.
-            if (error.name !== 'AbortError') {
-                throw error;
-            }
-        }
-    };
-
+    const { openLightbox } = useLightbox();
 
     const isItemProcessing = processingViolationId === v.id;
     const isOwner = user?.role === 'Chủ nhà hàng';
@@ -123,6 +73,25 @@ export function ViolationCard({
     
     const cardBorderColor = v.isFlagged ? 'border-red-500/50 ring-2 ring-red-500/20' : (isWaived ? 'border-green-500/50 ring-2 ring-green-500/20' : getSeverityBorderClass(v.severity));
     const cardBgColor = v.isFlagged ? 'bg-red-500/5' : (isWaived ? 'bg-green-500/5' : getSeverityCardClass(v.severity));
+
+    const handleOpenLightbox = (media: (string | MediaAttachment)[], index: number) => {
+        const slides = media.map(item => {
+            const url = typeof item === 'string' ? item : item.url;
+            const type = (typeof item === 'string' ? (url.toLowerCase().match(/\.(webm|mp4|mov)$/) ? 'video' : 'photo') : item.type);
+            
+            if (type === 'video') {
+                return {
+                    type: 'video' as const,
+                    sources: [
+                        { src: url, type: 'video/mp4' },
+                        { src: url, type: 'video/webm' },
+                    ],
+                };
+            }
+            return { src: url, type: 'image' as const };
+        });
+        openLightbox(slides, index);
+    };
 
     return (
     <Card key={v.id} className={cn("relative shadow-sm", cardBorderColor, cardBgColor)}>
@@ -191,7 +160,7 @@ export function ViolationCard({
             {v.photos && v.photos.length > 0 && (
                 <div className="mt-2 flex gap-2 flex-wrap">
                     {v.photos.map((photo, index) => (
-                        <button key={index} onClick={() => openLightbox(v.photos, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
+                        <button key={index} onClick={() => handleOpenLightbox(v.photos!, index)} className="relative w-20 h-20 rounded-md overflow-hidden">
                             <Image src={photo} alt={`Evidence ${index + 1}`} fill className="object-cover" />
                         </button>
                     ))}
@@ -225,7 +194,7 @@ export function ViolationCard({
                                 </div>
                                 {shouldShowActions && (
                                     <div className="flex gap-2 self-start sm:self-center">
-                                        {submissionMedia.length > 0 && <Button size="sm" variant="secondary" onClick={() => openLightbox(submissionMedia, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submissionMedia.length})</Button>}
+                                        {submissionMedia.length > 0 && <Button size="sm" variant="secondary" onClick={() => handleOpenLightbox(submissionMedia, 0)}><Eye className="mr-2 h-4 w-4" />Xem ({submissionMedia.length})</Button>}
                                         <Button size="sm" variant="outline" onClick={() => onPenaltySubmit(v, violatedUser, 'both')}><FilePlus2 className="mr-2 h-4 w-4" />Bổ sung</Button>
                                     </div>
                                 )}
@@ -261,7 +230,7 @@ export function ViolationCard({
                     onCommentSubmit={onCommentSubmit}
                     onCommentEdit={onCommentEdit}
                     onCommentDelete={onCommentDelete}
-                    onOpenLightbox={openLightbox}
+                    onOpenLightbox={handleOpenLightbox}
                     isProcessing={isItemProcessing}
                 />
             )}
@@ -271,15 +240,6 @@ export function ViolationCard({
                 </div>
             )}
         </CardContent>
-        {lightboxOpen && (
-            <Lightbox
-                open={lightboxOpen}
-                close={closeLightbox}
-                slides={lightboxSlides}
-                index={lightboxIndex}
-                plugins={[Video]}
-            />
-        )}
     </Card>
     )
 }

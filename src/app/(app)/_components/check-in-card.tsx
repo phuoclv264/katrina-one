@@ -11,10 +11,8 @@ import { dataStore } from '@/lib/data-store';
 import CameraDialog from '@/components/camera-dialog';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
+import { useLightbox } from '@/contexts/lightbox-context';
 import { Timestamp } from 'firebase/firestore';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +21,7 @@ import { isToday } from 'date-fns';
 import WorkHistoryDialog from './work-history-dialog';
 
 export default function CheckInCard() {
+    const { openLightbox } = useLightbox();
     const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
     const [activeShift, setActiveShift] = useState<AssignedShift | null>(null);
     const [latestInProgressRecord, setLatestInProgressRecord] = useState<AttendanceRecord | null>(null);
@@ -42,10 +41,6 @@ export default function CheckInCard() {
     const [lateReasonPhotoId, setLateReasonPhotoId] = useState<string | null>(null);
     const [lateReasonPhotoUrl, setLateReasonPhotoUrl] = useState<string | null>(null);
 
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
-
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -60,27 +55,6 @@ export default function CheckInCard() {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000 * 60);
         return () => clearInterval(timer);
     }, []);
-
-    // Back button handling for Lightbox
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            if (isLightboxOpen) {
-                event.preventDefault();
-                setIsLightboxOpen(false);
-            }
-        };
-
-        if (isLightboxOpen) {
-            window.history.pushState({ lightbox: 'open' }, '');
-            window.addEventListener('popstate', handlePopState);
-        } else {
-            if (window.history.state?.lightbox) {
-                window.history.back();
-            }
-        }
-
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, [isLightboxOpen]);
 
     useEffect(() => {
         let isMounted = true;
@@ -233,12 +207,6 @@ export default function CheckInCard() {
 
     // Don't show the card if loading, or if there's no active shift AND no in-progress record to check out from.
     // This ensures the user can always check out.
-    const handleOpenLightbox = (slides: { src: string }[], index: number = 0) => {
-        setLightboxSlides(slides);
-        setLightboxIndex(index);
-        setIsLightboxOpen(true);
-    };
-
     const handleToggleBreak = async () => {
         if (!latestInProgressRecord) return;
         setCameraAction('break');
@@ -259,7 +227,7 @@ export default function CheckInCard() {
                         {attendanceRecords[0].lateReasonPhotoUrl && (
                             <div className="flex items-start gap-2">
                                 <strong>Bằng chứng:</strong>
-                                <button onClick={() => handleOpenLightbox([{ src: attendanceRecords[0].lateReasonPhotoUrl! }])} className="relative h-16 w-16 rounded-md overflow-hidden cursor-pointer shrink-0">
+                                <button onClick={() => openLightbox([{ src: attendanceRecords[0].lateReasonPhotoUrl! }])} className="relative h-16 w-16 rounded-md overflow-hidden cursor-pointer shrink-0">
                                     <Image src={attendanceRecords[0].lateReasonPhotoUrl} alt="Ảnh bằng chứng đi trễ" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                                 </button>
                             </div>
@@ -372,7 +340,7 @@ export default function CheckInCard() {
             <Card className="mb-6 shadow-lg border-primary/20 bg-gradient-to-br from-card to-primary/5">
                 <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
                     {latestInProgressRecord && latestInProgressRecord.photoInUrl && (
-                        <button onClick={() => handleOpenLightbox([{ src: latestInProgressRecord.photoInUrl! }], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
+                        <button onClick={() => openLightbox([{ src: latestInProgressRecord.photoInUrl! }], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
                             <Image src={latestInProgressRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                         </button>
                     )}
@@ -400,13 +368,6 @@ export default function CheckInCard() {
                 captureMode="photo"
                 singlePhotoMode={true}
                 isHD={true}
-            />
-            <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                slides={lightboxSlides}
-                index={lightboxIndex}
-                plugins={[Zoom]}
             />
             <AlertDialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
                 <AlertDialogContent>
@@ -455,7 +416,7 @@ export default function CheckInCard() {
                         </Button>
                         {lateReasonPhotoUrl && (
                             <div className="relative">
-                                <button onClick={() => handleOpenLightbox([{ src: lateReasonPhotoUrl! }])} className="block w-12 h-12 rounded-md overflow-hidden">
+                                <button onClick={() => openLightbox([{ src: lateReasonPhotoUrl! }])} className="block w-12 h-12 rounded-md overflow-hidden">
                                     <Image src={lateReasonPhotoUrl} alt="Ảnh bằng chứng đi trễ" layout="fill" objectFit="cover" />
                                 </button>
                                 <Button

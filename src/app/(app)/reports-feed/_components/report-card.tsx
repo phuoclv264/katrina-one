@@ -5,10 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff, Edit2, File as FileIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, Attachment } from '@/lib/types';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Video from "yet-another-react-lightbox/plugins/video";
+import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, Attachment, CommentMedia } from '@/lib/types';
 import Image from 'next/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
@@ -17,7 +14,7 @@ import { toast } from 'react-hot-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
-
+import { useLightbox } from '@/contexts/lightbox-context';
 
 export default function ReportCard({
   report,
@@ -37,7 +34,7 @@ export default function ReportCard({
   onVote: (reportId: string, voteType: 'up' | 'down') => Promise<void>;
   onDelete: (reportId: string) => void;
   onTogglePin: (reportId: string, currentPinStatus: boolean) => Promise<void>;
-  onCommentSubmit: (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => Promise<void>;
+  onCommentSubmit: (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => Promise<void>;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
   onEdit: (report: WhistleblowingReport) => void;
@@ -45,36 +42,29 @@ export default function ReportCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
-
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const { openLightbox } = useLightbox();
   
   const isMyReport = report.reporterId === currentUser.uid;
   const isOwner = currentUser.role === 'Chủ nhà hàng';
 
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (lightboxOpen) {
-        event.preventDefault();
-        setLightboxOpen(false);
-      }
-    };
-
-    if (lightboxOpen) {
-      window.history.pushState({ lightbox: 'open' }, '');
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [lightboxOpen]);
-
-  const openLightbox = (index: number = 0) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
+  const handleOpenLightbox = (index: number) => {
+          const slides = mediaAttachments.map(att => {
+              const type = att.type.startsWith('video') ? 'video' : 'image';
+              
+              if (type === 'video') {
+                  return {
+                      type: 'video' as const,
+                      sources: [
+                          { src: att.url, type: 'video/mp4' },
+                          { src: att.url, type: 'video/webm' },
+                      ],
+                  };
+              }
+              return { src: att.url, type: 'image' as const };
+          });
+          openLightbox(slides, index);
+      };
+  
   
   const hasVotedUp = report.upvotes?.includes(currentUser.uid);
   const hasVotedDown = report.downvotes?.includes(currentUser.uid);
@@ -117,10 +107,10 @@ export default function ReportCard({
     }
   }
 
-  const handleCommentDialogSubmit = async (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => {
+  const handleCommentDialogSubmit = async (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => {
     setIsProcessing(true);
     try {
-        await onCommentSubmit(reportId, commentText, photoIds, isAnonymous);
+        await onCommentSubmit(reportId, commentText, medias, isAnonymous);
     } finally {
         setIsProcessing(false);
     }
@@ -199,7 +189,7 @@ export default function ReportCard({
              {mediaAttachments.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {mediaAttachments.map((att, index) => (
-                         <button key={att.url} onClick={() => openLightbox(index)} className="relative aspect-square w-full rounded-lg overflow-hidden group">
+                         <button key={att.url} onClick={() => handleOpenLightbox(index)} className="relative aspect-square w-full rounded-lg overflow-hidden group">
                             {att.type.startsWith('image/') ? (
                                 <Image src={att.url} alt={att.name} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                             ) : (
@@ -314,19 +304,6 @@ export default function ReportCard({
             </div>
         </CardFooter>
       </Card>
-      {lightboxOpen && (
-        <Lightbox
-            open={lightboxOpen}
-            close={() => setLightboxOpen(false)}
-            slides={mediaAttachments.map(att => ({
-                type: att.type.startsWith('video') ? 'video' : 'image',
-                sources: att.type.startsWith('video') ? [{ src: att.url, type: att.type }] : undefined,
-                src: att.type.startsWith('image') ? att.url : undefined
-            }))}
-            index={lightboxIndex}
-            plugins={[Video]}
-        />
-      )}
 
       <CommentDialog
           isOpen={isCommentDialogOpen}
