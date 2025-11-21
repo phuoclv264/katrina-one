@@ -17,19 +17,13 @@ import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
-import Captions from "yet-another-react-lightbox/plugins/captions";
-import "yet-another-react-lightbox/plugins/captions.css";
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TaskItem } from '../../_components/task-item';
 import SubmissionNotesSection from '../../checklist/_components/submission-notes-section';
 import { format, getISOWeek } from 'date-fns';
 import WorkShiftGuard from '@/components/work-shift-guard';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -57,30 +51,7 @@ function ComprehensiveReportPageComponent() {
 
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
-  
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
-  // --- Back button handling for Lightbox ---
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isLightboxOpen) {
-        event.preventDefault();
-        setIsLightboxOpen(false);
-      }
-    };
-
-    if (isLightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isLightboxOpen]);
-
+  const { openLightbox } = useLightbox();
 
   // Initialize accordion to be all open by default
   useEffect(() => {
@@ -408,12 +379,6 @@ function ComprehensiveReportPageComponent() {
     });
   }, []);
     
-  const openLightbox = (photos: {src: string}[], startIndex: number) => {
-    setLightboxSlides(photos);
-    setLightboxIndex(startIndex);
-    setIsLightboxOpen(true);
-  };
-
   const handleToggleAll = () => {
     if (!tasks) return;
     if (openAccordionItems.length === tasks.length) {
@@ -599,21 +564,6 @@ function ComprehensiveReportPageComponent() {
       </AlertDialogContent>
     </AlertDialog>
 
-    <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={lightboxSlides}
-        index={lightboxIndex}
-        plugins={[Zoom, Counter, Captions]}
-        carousel={{ finite: true }}
-        zoom={{ maxZoomPixelRatio: 4 }}
-        counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-        captions={{ 
-            showToggle: true, 
-            descriptionTextAlign: 'center',
-            descriptionMaxLines: 5
-        }}
-    />
     </TooltipProvider>
   );
 }

@@ -15,9 +15,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus, ChevronsUpDown } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { toast } from 'react-hot-toast';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
+import { toast } from 'react-hot-toast'; 
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -32,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 
 function AddDocumentDialog({
@@ -144,6 +143,7 @@ function AddDocumentDialog({
 }
 
 export default function CashierReportsPage() {
+  const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const initialMonthSet = useRef(false);
@@ -182,10 +182,6 @@ export default function CashierReportsPage() {
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
   const [dateForNewEntry, setDateForNewEntry] = useState<string | null>(null);
   const [dateForCashHandover, setDateForCashHandover] = useState<string | null>(null);
-  
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -277,20 +273,6 @@ export default function CashierReportsPage() {
       }
   }, [isCashHandoverDialogOpen, cashHandoverToEdit, dateForNewEntry, revenueStats, expenseSlips, reportsForCurrentMonth]);
 
-
-  useEffect(() => {
-    if (lightboxOpen) {
-      window.history.pushState(null, '', window.location.href);
-      const handlePopState = (event: PopStateEvent) => {
-        if (lightboxOpen) {
-          event.preventDefault();
-          setLightboxOpen(false);
-        }
-      };
-      window.addEventListener('popstate', handlePopState);
-      return () => window.removeEventListener('popstate', handlePopState);
-    }
-  }, [lightboxOpen]);
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -543,12 +525,6 @@ export default function CashierReportsPage() {
     .finally(() => setProcessingItemId(null));
   }, [user]);
 
-  const openPhotoLightbox = useCallback((photos: string[], index = 0) => { 
-    setLightboxSlides(photos.map(p => ({ src: p }))); 
-    setLightboxIndex(index);
-    setLightboxOpen(true); 
-  }, []);
-  
   const handleCategoriesChange = useCallback(async (newCategories: IncidentCategory[]) => {
     await dataStore.updateIncidentCategories(newCategories);
   }, []);
@@ -642,7 +618,7 @@ export default function CashierReportsPage() {
                     onDeleteExpense={handleDeleteExpense}
                     onEditIncident={handleEditIncident}
                     onDeleteIncident={handleDeleteIncident}
-                    onOpenLightbox={openPhotoLightbox}
+                    onOpenLightbox={(photos, index) => openLightbox(photos.map(p => ({src: p})), index)}
                     onEditCashHandover={handleEditCashHandover}
                     onViewFinalHandover={handleViewFinalHandover}
                     onDeleteCashHandover={handleDeleteCashHandover}
@@ -708,7 +684,6 @@ export default function CashierReportsPage() {
         reporter={user}
       />
 
-      <Lightbox open={lightboxOpen} close={() => setLightboxOpen(false)} index={lightboxIndex} slides={lightboxSlides} carousel={{ finite: true }} />
     </>
   );
 }

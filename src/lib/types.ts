@@ -251,6 +251,12 @@ export type MediaAttachment = {
   type: 'photo' | 'video';
 };
 
+export type CommentMedia = {
+  id: string; // local ID from photoStore
+  url: string;
+  type: 'photo' | 'video';
+};
+
 export type PenaltySubmission = {
   userId: string;
   userName: string;
@@ -745,7 +751,9 @@ export type ReportComment = {
   isAnonymous: boolean;
   content: string;
   createdAt: string | Timestamp;
-  photos?: string[];
+  /** @deprecated Use media instead */
+  photos?: string[]; 
+  media?: MediaAttachment[];
 };
 
 export type WhistleblowingReport = {

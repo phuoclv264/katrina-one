@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { reportsStore } from '@/lib/reports-store';
 import { dataStore } from '@/lib/data-store';
-import type { WhistleblowingReport, ManagedUser, AssignedUser } from '@/lib/types';
+import type { WhistleblowingReport, ManagedUser, AssignedUser, CommentMedia } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, FileSignature, FileWarning } from 'lucide-react';
@@ -154,7 +154,7 @@ export default function ReportsFeedPage() {
     }
   };
 
-  const handleCommentSubmit = async (reportId: string, commentText: string, photoIds: string[], isAnonymous: boolean) => {
+  const handleCommentSubmit = async (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => {
     if (!user) return;
     
     const commentData = {
@@ -162,7 +162,7 @@ export default function ReportsFeedPage() {
         isAnonymous: isAnonymous,
         content: commentText,
     };
-    await reportsStore.addComment(reportId, commentData, photoIds);
+    await reportsStore.addComment(reportId, commentData, medias);
   };
   
   const handleCommentEdit = async (violationId: string, commentId: string, newText: string) => {

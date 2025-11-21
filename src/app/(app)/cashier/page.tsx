@@ -31,12 +31,11 @@ import { cn } from '@/lib/utils';
 import IncidentCategoryDialog from './_components/incident-category-dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
 import Link from 'next/link';
 import WorkShiftGuard from '@/components/work-shift-guard';
 import type { CashHandoverReport } from '@/lib/types';
 import { Timestamp } from 'firebase/firestore';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 function StartOfDayCashDialog({ 
     currentValue, 
@@ -133,6 +132,7 @@ const ChangeIndicator = ({ value }: { value: number }) => {
 
 
 function CashierDashboardPageComponent() {
+  const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -170,8 +170,6 @@ function CashierDashboardPageComponent() {
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
 
   const [cashCountToEdit, setCashCountToEdit] = useState<CashHandoverReport | null>(null);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
   
   const [isFinalHandoverViewOpen, setIsFinalHandoverViewOpen] = useState(false);
   const [finalHandoverToView, setFinalHandoverToView] = useState<CashHandoverReport | null>(null);
@@ -191,23 +189,6 @@ function CashierDashboardPageComponent() {
     const inventoryItem = inventoryList.find(i => i.id === item.itemId);
     return inventoryItem?.shortName || item.name;
   }, [inventoryList]);
-
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-        if (isLightboxOpen) {
-            event.preventDefault();
-            setIsLightboxOpen(false);
-        }
-    };
-
-    if (isLightboxOpen) {
-        window.history.pushState(null, '', window.location.href);
-        window.addEventListener('popstate', handlePopState);
-    }
-    return () => {
-        window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isLightboxOpen]);
 
 
   useEffect(() => {
@@ -599,11 +580,6 @@ function CashierDashboardPageComponent() {
       setIsProcessing(false);
     }
   };
-
-   const openPhotoLightbox = (photos: string[], index: number = 0) => {
-        setLightboxSlides(photos.map(p => ({ src: p })));
-        setIsLightboxOpen(true);
-   };
 
 
   const isShiftFinalized = useMemo(() => {
@@ -1014,7 +990,7 @@ function CashierDashboardPageComponent() {
                                                 <div className="text-sm">
                                                     {handover.discrepancyReason && <p className="text-muted-foreground italic">Lý do: {handover.discrepancyReason}</p>}
                                                     {handover.discrepancyProofPhotos && handover.discrepancyProofPhotos.length > 0 && (
-                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openPhotoLightbox(handover.discrepancyProofPhotos!)}>Xem {handover.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
+                                                        <Button variant="link" size="sm" className="h-auto p-0 mt-1" onClick={() => openLightbox(handover.discrepancyProofPhotos!.map(p => ({src: p})))}>Xem {handover.discrepancyProofPhotos.length} ảnh bằng chứng</Button>
                                                     )}
                                                 </div>
                                             </CardContent>
@@ -1068,7 +1044,7 @@ function CashierDashboardPageComponent() {
                                             </div>
                                              {canEdit && (
                                                 <div className="flex justify-end gap-2 mt-2 border-t pt-2">
-                                                    {incident.photos && incident.photos.length > 0 && <Button variant="outline" size="sm" onClick={() => openPhotoLightbox(incident.photos)}>Xem {incident.photos.length} ảnh</Button>}
+                                                    {incident.photos && incident.photos.length > 0 && <Button variant="outline" size="sm" onClick={() => openLightbox(incident.photos.map(p => ({src: p})))}>Xem {incident.photos.length} ảnh</Button>}
                                                     <Button variant="ghost" size="sm" onClick={() => handleEditIncident(incident)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
                                                     <AlertDialog>
                                                         <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
@@ -1147,12 +1123,6 @@ function CashierDashboardPageComponent() {
         linkedExpenseSlips={linkedExpensesForDialog}
       />
     )}
-     <Lightbox
-        open={isLightboxOpen}
-        close={() => setIsLightboxOpen(false)}
-        slides={lightboxSlides}
-        carousel={{ finite: true }}
-    />
     {finalHandoverToView && (
         <HandoverDialog
             open={isFinalHandoverViewOpen}

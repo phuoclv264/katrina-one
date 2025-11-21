@@ -11,10 +11,9 @@ import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
 import { toast } from 'react-hot-toast';
 import type { RevenueStats, ExpenseSlip } from '@/lib/types'; // Import types
+import { useLightbox } from '@/contexts/lightbox-context';
 import { v4 as uuidv4 } from 'uuid';
 import { Separator } from '@/components/ui/separator'; // Import Separator
 
@@ -52,8 +51,7 @@ export default function CashHandoverDialog({
   const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
   const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const { openLightbox } = useLightbox();
 
   const formatPaymentMethod = (method: string) => {
     switch (method) {
@@ -268,7 +266,7 @@ export default function CashHandoverDialog({
                           <div className="flex gap-2 flex-wrap">
                             {allPhotos.map((photo, i) => (
                               <div key={photo.id} className="relative h-16 w-16 group">
-                                <button onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }} className="w-full h-full rounded-md overflow-hidden"><Image src={photo.url} alt={`proof-${i}`} fill className="object-cover" /></button>
+                                <button onClick={() => openLightbox(allPhotos.map(p => ({ src: p.url })), i)} className="w-full h-full rounded-md overflow-hidden"><Image src={photo.url} alt={`proof-${i}`} fill className="object-cover" /></button>
                                 {(!countToEdit || isOwnerView) && (
                                   <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full" onClick={() => localPhotos.some(p => p.id === photo.id) ? handleDeleteLocalPhoto(photo.id) : handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
                                 )}
@@ -295,7 +293,6 @@ export default function CashHandoverDialog({
         </DialogContent>
       </Dialog>
       <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} captureMode="photo" />
-      <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} index={lightboxIndex} slides={allPhotos.map(p => ({ src: p.url }))} />
     </>
   );
 }

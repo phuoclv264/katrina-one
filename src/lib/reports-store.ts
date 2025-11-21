@@ -16,11 +16,13 @@ import {
     arrayRemove,
     runTransaction,
     getDoc,
+    Timestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject, getMetadata } from 'firebase/storage';
-import { photoStore } from './photo-store';
+import { photoStore } from './photo-store'; 
 import { v4 as uuidv4 } from 'uuid';
-import type { WhistleblowingReport, ReportComment, ManagedUser, AssignedUser, Attachment } from './types';
+import type { WhistleblowingReport, ReportComment, ManagedUser, AssignedUser, Attachment, MediaAttachment, CommentMedia } from './types';
+import { uploadMedia } from './data-store-helpers';
 
 
 // Helper function to upload attachments
@@ -81,8 +83,8 @@ export const reportsStore = {
             isPinned: false, // Default to not pinned
             upvotes: [],
             downvotes: [],
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+            createdAt: serverTimestamp() as Timestamp,
+            updatedAt: serverTimestamp() as Timestamp,
             commentCount: 0,
             anonymousNameMap: {},
         };
@@ -107,7 +109,7 @@ export const reportsStore = {
         const updatedReportData: Partial<WhistleblowingReport> = {
             ...reportData,
             attachments: [...(existingAttachments || []), ...newAttachmentUrls],
-            updatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp() as Timestamp,
         };
 
         await updateDoc(reportRef, updatedReportData);
@@ -173,14 +175,10 @@ export const reportsStore = {
 
     // --- Comments ---
 
-    async addComment(reportId: string, commentData: Omit<ReportComment, 'id' | 'createdAt' | 'photos'>, photoIds: string[]): Promise<void> {
+    async addComment(reportId: string, commentData: Omit<ReportComment, 'id' | 'createdAt' | 'photos'>, medias: CommentMedia[]): Promise<void> {
         const reportRef = doc(db, 'reports-feed', reportId);
         
-        // This is a simplified version, it assumes comments only have images.
-        const attachmentUrls = (await uploadAttachments(
-            `${reportId}/comments`, 
-            photoIds.map(id => ({ id, file: new File([], `${id}.jpg`, { type: 'image/jpeg' }) }))
-        )).map(att => att.url);
+        const newAttachments = await uploadMedia(medias.map((m) => {return {id: m.id, type: m.type}}), `${reportId}/comments`);
 
         await runTransaction(db, async (transaction) => {
             const reportDoc = await transaction.get(reportRef);
@@ -202,7 +200,7 @@ export const reportsStore = {
             const newComment: ReportComment = {
                 ...commentData,
                 id: uuidv4(),
-                photos: attachmentUrls,
+                media: newAttachments,
                 createdAt: new Date().toISOString(),
             };
 
@@ -216,7 +214,7 @@ export const reportsStore = {
             transaction.update(reportRef, updatedData);
         });
         
-        await photoStore.deletePhotos(photoIds);
+        await photoStore.deletePhotos(medias.map(m => m.id));
     },
 
     async editComment(reportId: string, commentId: string, newContent: string): Promise<void> {
@@ -251,8 +249,8 @@ export const reportsStore = {
             const existingComments: ReportComment[] = existingReport.comments || [];
             const commentToDelete = existingComments.find(c => c.id === commentId);
             
-            if (commentToDelete?.photos) {
-                await Promise.all(commentToDelete.photos.map(url => deleteObject(ref(storage, url))));
+            if (commentToDelete?.media) {
+                await Promise.all(commentToDelete.media.map(att => deleteObject(ref(storage, att.url))));
             }
             
             const updatedComments = existingComments.filter(c => c.id !== commentId);

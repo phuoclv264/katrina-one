@@ -14,15 +14,9 @@ import { Loader2, AlertTriangle, Camera, ListTodo, ThumbsDown, ThumbsUp, Users, 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Captions from "yet-another-react-lightbox/plugins/captions";
-import "yet-another-react-lightbox/plugins/captions.css";
-import Counter from "yet-another-react-lightbox/plugins/counter";
-import "yet-another-react-lightbox/plugins/counter.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 type MonthlyStaffReportDialogProps = {
     isOpen: boolean;
@@ -446,13 +440,10 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
     const [viewMode, setViewMode] = useState<'byStaff' | 'byTask'>('byStaff');
     const [monthlyData, setMonthlyData] = useState<Record<string, MonthlyUserData>>({});
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
+    const { openLightbox } = useLightbox();
     const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
     const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
     const [comprehensiveTasks, setComprehensiveTasks] = useState<ComprehensiveTaskSection[] | null>(null);
-
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxSlides, setLightboxSlides] = useState<{ src: string, description?: string }[]>([]);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
 
     const availableMonths = useMemo(() => {
         const months = new Set<string>();
@@ -463,25 +454,6 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
         }
         return Array.from(months);
     }, []);
-
-    // --- Back button handling for Lightbox ---
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            if (isLightboxOpen) {
-                event.preventDefault();
-                setIsLightboxOpen(false);
-            }
-        };
-
-        if (isLightboxOpen) {
-            window.history.pushState({ lightbox: 'open' }, '');
-            window.addEventListener('popstate', handlePopState);
-        }
-
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isLightboxOpen]);
 
     useEffect(() => {
         if (isOpen) {
@@ -535,12 +507,6 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
 
     const handleMonthChange = (direction: 'prev' | 'next') => {
         setCurrentMonth(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
-    };
-
-    const handleOpenLightbox = (slides: { src: string, description?: string }[], index: number = 0) => {
-        setLightboxSlides(slides);
-        setLightboxIndex(index);
-        setIsLightboxOpen(true);
     };
 
     const sortedUsers = useMemo(() => {
@@ -624,7 +590,7 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
                                                     </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent>
-                                                    <StaffMonthlyDetails user={user} data={userData} tasksByShift={tasksByShift} bartenderTasks={bartenderTasks} comprehensiveTasks={comprehensiveTasks} onOpenLightbox={handleOpenLightbox} />
+                                                    <StaffMonthlyDetails user={user} data={userData} tasksByShift={tasksByShift} bartenderTasks={bartenderTasks} comprehensiveTasks={comprehensiveTasks} onOpenLightbox={openLightbox} />
                                                 </AccordionContent>
                                             </AccordionItem>
                                         );
@@ -636,32 +602,16 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
                                     monthlyData={monthlyData}
                                     tasksByShift={tasksByShift} 
                                     bartenderTasks={bartenderTasks} 
-                                    comprehensiveTasks={comprehensiveTasks}
-                                    onOpenLightbox={handleOpenLightbox} />
+                                    comprehensiveTasks={comprehensiveTasks} 
+                                    onOpenLightbox={openLightbox} />
                             )}
                         </div>
                     </ScrollArea>
-
                     <DialogFooter>
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            <Lightbox
-                open={isLightboxOpen}
-                close={() => setIsLightboxOpen(false)}
-                slides={lightboxSlides}
-                index={lightboxIndex}
-                plugins={[Zoom, Captions, Counter]}
-                portal={{ root: document.getElementById("monthly-report-lightbox-portal") ?? undefined }}
-                carousel={{ finite: true }}
-                zoom={{ maxZoomPixelRatio: 4 }}
-                counter={{ container: { style: { top: "unset", bottom: 0 } } }}
-                captions={{ 
-                    showToggle: true, 
-                    descriptionTextAlign: 'center',
-                }}
-            />
         </>
     );
 }

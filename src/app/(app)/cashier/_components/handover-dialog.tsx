@@ -21,9 +21,6 @@ import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { Separator } from '@/components/ui/separator';
 import isEqual from 'lodash.isequal';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -31,6 +28,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseISO, format, isSameDay, isToday } from 'date-fns';
 import { Timestamp } from '@google-cloud/firestore';
+import { useLightbox } from '@/contexts/lightbox-context';
 import CameraDialog from '@/components/camera-dialog';
 import { get, set, del } from '@/lib/idb-keyval-store';
 
@@ -150,7 +148,7 @@ export default function HandoverDialog({
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
 
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const { openLightbox } = useLightbox();
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [shouldRescanAfterPhoto, setShouldRescanAfterPhoto] = useState(false);
     const [isManualEntry, setIsManualEntry] = useState(false);
@@ -237,17 +235,6 @@ export default function HandoverDialog({
         }
     }, [allPhotos, shouldRescanAfterPhoto]);
     
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            if (isLightboxOpen) { event.preventDefault(); setIsLightboxOpen(false); }
-        };
-        if (isLightboxOpen) {
-            window.history.pushState(null, '', window.location.href);
-            window.addEventListener('popstate', handlePopState);
-        }
-        return () => { window.removeEventListener('popstate', handlePopState); };
-    }, [isLightboxOpen]);
-
     const validateReportDate = useCallback((shiftEndTime: string): boolean => {
         try {
             const reportDate = parseISO(shiftEndTime);
@@ -527,8 +514,7 @@ export default function HandoverDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => {if (!isLightboxOpen) e.preventDefault();}}>
-                    <div id="handover-lightbox-container"></div>
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>{dialogDescription}</DialogDescription>
@@ -551,9 +537,7 @@ export default function HandoverDialog({
                                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                             {allPhotos.map((photo, index) => (
                                                 <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group bg-muted">
-                                                    <button onClick={() => setIsLightboxOpen(true)} className="w-full h-full">
-                                                        <Image src={photo.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover" />
-                                                    </button>
+                                                    <Image src={photo.url} alt={`Bằng chứng ${index + 1}`} fill className="object-cover" onClick={() => openLightbox(allPhotos.map(p => ({ src: p.url })), index)} />
                                                     <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full opacity-0 group-hover:opacity-100" onClick={() => {
                                                         const isLocal = localPhotos.some(p => p.id === photo.id);
                                                         if (isLocal) handleDeleteLocalPhoto(photo.id); else handleDeleteExistingPhoto(photo.url);
@@ -675,8 +659,6 @@ export default function HandoverDialog({
                     </div>
                 </AlertDialogContent>
             </AlertDialog>
-            
-            <Lightbox open={isLightboxOpen} close={() => setIsLightboxOpen(false)} slides={allPhotos.map(p => ({ src: p.url }))} plugins={[Zoom]} portal={{ root: document.getElementById("handover-lightbox-container") ?? undefined }} carousel={{ finite: true }} zoom={{ maxZoomPixelRatio: 5 }} />
         </>
     );
 }
