@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Users, CheckCircle, XCircle, Clock, MessageCircleWarning } from 'lucide-react';
@@ -45,6 +45,8 @@ const statusBadgeClass: Record<EmployeeStatus, string> = {
 };
 
 export function AttendanceOverviewCard({ activeShifts }: AttendanceOverviewCardProps) {
+  const router = useRouter();
+
   return (
     <Card className="md:col-span-2 lg:col-span-1 flex flex-col">
       <CardHeader>
@@ -86,7 +88,12 @@ export function AttendanceOverviewCard({ activeShifts }: AttendanceOverviewCardP
           </div>
         )}
       </CardContent>
-      <CardFooter><Button asChild variant="outline" className="w-full"><Link href="/attendance">Quản lý Chấm công<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></CardFooter>
+      <CardFooter>
+        <Button variant="outline" className="w-full" onClick={() => router.push('/attendance')}>
+          Quản lý Chấm công
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

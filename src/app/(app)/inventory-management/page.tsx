@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
@@ -317,7 +316,9 @@ export default function InventoryManagementPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                                <Button asChild variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors"><Link href="/inventory-history"><History className="mr-2 h-4 w-4" />Lịch sử Kho</Link></Button>
+                                <Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors" onClick={() => router.push('/inventory-history')}>
+                                    <History className="mr-2 h-4 w-4" />Lịch sử Kho
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-3 rounded-md">Xuất văn bản</Button>
                                 {isSorting ? (
                                     <Button variant="default" size="sm" onClick={toggleSortMode} className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors active:scale-95"><Check className="mr-2 h-4 w-4"/>Lưu thứ tự</Button>

@@ -1,7 +1,6 @@
 
 'use client';
 import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
-import Link from 'next/link';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -313,11 +312,9 @@ function InventoryReportView() {
     <>
     <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
        <header className="mb-8">
-          <Button asChild variant="ghost" className="-ml-4 mb-4">
-              <Link href="/reports">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Quay lại
-              </Link>
+          <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Quay lại
           </Button>
           <div className="flex flex-col md:flex-row gap-4 justify-between md:items-start">
             <div>

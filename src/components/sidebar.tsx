@@ -14,8 +14,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
 import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature, MessageSquare, Edit2, RotateCw, UserCheck, BarChart3, CalendarClock } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -26,15 +25,19 @@ export function AppSidebar() {
   const { user, logout, loading, isOnActiveShift } = useAuth();
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
   
   const handleLinkClick = () => {
     setOpenMobile(false);
   }
 
+  const navigate = (href: string) => {
+        router.push(href);
+        handleLinkClick();
+      }
+
   const getMenuItems = () => {
       if (!user) return { primaryItems: [], secondaryItems: [] };
-      
-      const isOwner = user.role === 'Chủ nhà hàng';
 
       const canManageViolations = user.role === 'Quản lý' || user.role === 'Chủ nhà hàng';
       const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
@@ -121,6 +124,11 @@ export function AppSidebar() {
       return { primaryItems, secondaryItems };
   }
 
+  const navigateHome = () => {
+    router.push(getHomeLink());
+    handleLinkClick();
+  }
+
   const getHomeLink = () => {
     switch(user?.role) {
         case 'Phục vụ': return '/shifts';
@@ -133,7 +141,6 @@ export function AppSidebar() {
   }
 
   const { primaryItems, secondaryItems } = getMenuItems();
-  const homeLink = getHomeLink();
   const displayName = user?.displayName ?? 'Đang tải...';
   const displayRole = user?.role ?? '';
   
@@ -163,15 +170,15 @@ export function AppSidebar() {
     <>
       <SidebarHeader className="flex flex-col gap-2 p-2">
          <div className="p-2 flex items-center justify-center gap-2">
-            <div className="w-full group-data-[collapsible=icon]:hidden">
-                <Link href={homeLink} className="flex justify-center" onClick={handleLinkClick}>
+            <div className="w-full group-data-[collapsible=icon]:hidden cursor-pointer">
+                <div onClick={navigateHome} className="flex justify-center">
                   <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6" alt="Katrina One Logo" width={1419} height={304} loading="lazy" className="h-auto w-32" />
-                </Link>
+                </div>
             </div>
-             <div className="w-full hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-                 <Link href={homeLink} className="flex justify-center" onClick={handleLinkClick}>
+             <div className="w-full hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center cursor-pointer">
+                 <div onClick={navigateHome} className="flex justify-center">
                     <Image src="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6" alt="Katrina One Logo" width={1419} height={304} loading="lazy" className="h-auto w-10" />
-                 </Link>
+                 </div>
             </div>
          </div>
         <div className="flex items-center justify-between p-2 rounded-md bg-muted group-data-[collapsible=icon]:hidden">
@@ -202,16 +209,14 @@ export function AppSidebar() {
           {primaryItems.map((item) => (
             <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
               <SidebarMenuButton
-                asChild
                 isActive={pathname === item.href}
                 tooltip={item.label}
+                onClick={() => navigate(item.href)}
               >
-                <Link href={item.href} onClick={handleLinkClick}>
                   <div className="flex items-center gap-2">
                     <item.icon />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </div>
-                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
@@ -228,16 +233,14 @@ export function AppSidebar() {
               {(items as any[]).map((item: any) => (
                 <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
                   <SidebarMenuButton
-                    asChild
                     isActive={pathname === item.href}
                     tooltip={item.label}
+                    onClick={() => navigate(item.href)}
                   >
-                    <Link href={item.href} onClick={handleLinkClick}>
                       <div className="flex items-center gap-2">
                         <item.icon />
                         <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                       </div>
-                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

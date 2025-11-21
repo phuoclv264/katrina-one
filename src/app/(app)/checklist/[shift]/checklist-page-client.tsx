@@ -2,7 +2,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, Task, Schedule } from '@/lib/types';
@@ -570,12 +569,9 @@ export default function ChecklistPageComponent() {
     <TooltipProvider>
     <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8 pb-32">
       <header className="mb-8">
-         <div className="flex justify-between items-center mb-4">
-            <Button asChild variant="ghost" className="-ml-4">
-                <Link href="/shifts">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại
-                </Link>
+        <div className="flex justify-between items-center mb-4">
+            <Button variant="ghost" className="-ml-4" onClick={() => router.back()}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
             </Button>
             <div className="flex items-center gap-2">
                  {getSyncBadge()}

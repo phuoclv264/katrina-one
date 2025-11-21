@@ -1,7 +1,6 @@
 
 'use client';
 
-import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch, Banknote, Loader2, Info, ClockIcon, MessageSquare } from 'lucide-react';
@@ -92,48 +91,38 @@ export default function BartenderDashboardPage() {
           <CardContent className="grid gap-4">
             {isCheckedIn ? (
               <>
-                <Button asChild size="lg">
-                  <Link href="/bartender/hygiene-report">
-                    <ClipboardList className="mr-2" />
-                    Báo cáo Vệ sinh quầy
-                  </Link>
+                <Button size="lg" onClick={() => router.push('/bartender/hygiene-report')}>
+                  <ClipboardList className="mr-2" />
+                  Báo cáo Vệ sinh quầy
                 </Button>
-                <Button asChild size="lg">
-                  <Link href="/bartender/inventory">
-                    <Archive className="mr-2" />
-                    Kiểm kê Tồn kho
-                  </Link>
+                <Button size="lg" onClick={() => router.push('/bartender/inventory')}>
+                  <Archive className="mr-2" />
+                  Kiểm kê Tồn kho
                 </Button>
               </>
             ) : (
                <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
-                <Info className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>
-                <AlertDescription className="text-amber-700 dark:text-amber-400">
-                  Vui lòng chấm công để bắt đầu thực hiện báo cáo.
-                </AlertDescription>
-              </Alert>
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>
+                  <AlertDescription className="text-amber-700 dark:text-amber-400">
+                    Vui lòng chấm công để bắt đầu thực hiện báo cáo.
+                  </AlertDescription>
+                </Alert>
             )}
 
             <Separator className="my-2" />
 
-            <Button asChild size="lg" variant="outline">
-              <Link href="/schedule">
-                  <CalendarDays className="mr-2" />
-                  Lịch làm việc
-              </Link>
+            <Button size="lg" variant="outline" onClick={() => router.push('/schedule')}>
+              <CalendarDays className="mr-2" />
+              Lịch làm việc
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/violations">
-                  <ShieldX className="mr-2" />
-                  Danh sách Vi phạm
-              </Link>
+            <Button size="lg" variant="outline" onClick={() => router.push('/violations')}>
+              <ShieldX className="mr-2" />
+              Danh sách Vi phạm
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/reports-feed">
-                  <MessageSquare className="mr-2" />
-                  Tố cáo
-              </Link>
+            <Button size="lg" variant="outline" onClick={() => router.push('/reports-feed')}>
+              <MessageSquare className="mr-2" />
+              Tố cáo
             </Button>
             
             {isCheckedIn && (hasServerSecondaryRole || hasManagerSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
@@ -141,11 +130,9 @@ export default function BartenderDashboardPage() {
             {isCheckedIn && hasServerSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/shifts">
-                    <CheckSquare className="mr-2" />
-                    Checklist Công việc
-                  </Link>
+                <Button size="lg" variant="outline" onClick={() => router.push('/shifts')}>
+                  <CheckSquare className="mr-2" />
+                  Checklist Công việc
                 </Button>
               </>
             )}
@@ -153,11 +140,9 @@ export default function BartenderDashboardPage() {
             {isCheckedIn && hasManagerSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
-                 <Button asChild size="lg" variant="outline">
-                  <Link href="/manager/comprehensive-report">
-                    <FileSearch className="mr-2" />
-                    Phiếu kiểm tra toàn diện
-                  </Link>
+                 <Button size="lg" variant="outline" onClick={() => router.push('/manager/comprehensive-report')}>
+                  <FileSearch className="mr-2" />
+                  Phiếu kiểm tra toàn diện
                 </Button>
               </>
             )}
@@ -165,11 +150,9 @@ export default function BartenderDashboardPage() {
             {isCheckedIn && hasCashierSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
-                 <Button asChild size="lg" variant="outline">
-                  <Link href="/cashier">
-                    <Banknote className="mr-2" />
-                    Báo cáo Thu ngân
-                  </Link>
+                 <Button size="lg" variant="outline" onClick={() => router.push('/cashier')}>
+                  <Banknote className="mr-2" />
+                  Báo cáo Thu ngân
                 </Button>
               </>
             )}
