@@ -5,7 +5,6 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -291,11 +290,9 @@ function InventoryHistoryView() {
     return (
         <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
             <header className="mb-8">
-                <Button asChild variant="ghost" className="-ml-4 mb-4">
-                    <Link href="/inventory-management">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Quay lại QL Hàng tồn kho
-                    </Link>
+                <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại QL Hàng tồn kho
                 </Button>
                 <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><History/> Lịch sử Kho</h1>
                 <p className="text-muted-foreground mt-2">

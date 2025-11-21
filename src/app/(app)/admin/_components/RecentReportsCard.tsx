@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { FileText, ArrowRight } from 'lucide-react';
 import type { ShiftReport } from '@/lib/types';
@@ -16,6 +16,8 @@ type RecentReportsCardProps = {
 };
 
 export function RecentReportsCard({ shiftReports }: RecentReportsCardProps) {
+  const router = useRouter();
+
   return (
     <ListCard
       title="Báo cáo mới nhất"
@@ -38,10 +40,8 @@ export function RecentReportsCard({ shiftReports }: RecentReportsCardProps) {
                 <p className="font-semibold">{report.staffName}</p>
                 <p className="text-muted-foreground">Đã nộp báo cáo ca {report.shiftKey} lúc {format(new Date(report.submittedAt as string), 'HH:mm')}</p>
               </div>
-              <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                <Link href={getReportLink(report.date, report.shiftKey)}>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => router.push(getReportLink(report.date, report.shiftKey))}>
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </motion.div>
           ))}
@@ -64,8 +64,8 @@ export function RecentReportsCard({ shiftReports }: RecentReportsCardProps) {
                         <p className="font-semibold">{report.staffName}</p>
                         <p className="text-muted-foreground">Đã nộp báo cáo ca {report.shiftKey} lúc {format(new Date(report.submittedAt as string), 'HH:mm')}</p>
                       </div>
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                        <Link href={getReportLink(report.date, report.shiftKey)}><ArrowRight className="h-4 w-4" /></Link>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => router.push(getReportLink(report.date, report.shiftKey))}>
+                        <ArrowRight className="h-4 w-4" />
                       </Button>
                     </motion.div>
                   ))}

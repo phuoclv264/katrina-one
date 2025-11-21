@@ -1,7 +1,6 @@
 
 'use client';
 
-import Link from 'next/link';
 import { isWithinInterval, set } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,11 +136,9 @@ export default function ShiftsPage() {
                     if (!info) return null;
                     const Icon = info.icon;
                     return (
-                      <Button asChild size="lg" key={key}>
-                        <Link href={info.href}>
-                          <Icon className="mr-2" />
-                          {info.name}
-                        </Link>
+                      <Button size="lg" key={key} onClick={() => router.push(info.href)}>
+                        <Icon className="mr-2" />
+                        {info.name}
                       </Button>
                     );
                   })
@@ -161,23 +158,17 @@ export default function ShiftsPage() {
             {isPrimaryServer && (
               <>
                 <Separator className="my-2" />
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/schedule">
-                      <CalendarDays className="mr-2" />
-                      Lịch làm việc
-                  </Link>
+                <Button size="lg" variant="outline" onClick={() => router.push('/schedule')}>
+                  <CalendarDays className="mr-2" />
+                  Lịch làm việc
                 </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/violations">
-                      <ShieldX className="mr-2" />
-                      Danh sách Vi phạm
-                  </Link>
+                <Button size="lg" variant="outline" onClick={() => router.push('/violations')}>
+                  <ShieldX className="mr-2" />
+                  Danh sách Vi phạm
                 </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/reports-feed">
-                      <MessageSquare className="mr-2" />
-                      Tố cáo
-                  </Link>
+                <Button size="lg" variant="outline" onClick={() => router.push('/reports-feed')}>
+                  <MessageSquare className="mr-2" />
+                  Tố cáo
                 </Button>
               </>
             )}
@@ -187,17 +178,13 @@ export default function ShiftsPage() {
             {isCheckedIn && hasBartenderSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/bartender/hygiene-report">
-                    <ClipboardList className="mr-2" />
-                    Báo cáo Vệ sinh quầy
-                  </Link>
+                <Button size="lg" variant="outline" onClick={() => router.push('/bartender/hygiene-report')}>
+                  <ClipboardList className="mr-2" />
+                  Báo cáo Vệ sinh quầy
                 </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/bartender/inventory">
-                    <Archive className="mr-2" />
-                    Kiểm kê Tồn kho
-                  </Link>
+                <Button size="lg" variant="outline" onClick={() => router.push('/bartender/inventory')}>
+                  <Archive className="mr-2" />
+                  Kiểm kê Tồn kho
                 </Button>
               </>
             )}
@@ -205,11 +192,9 @@ export default function ShiftsPage() {
             {isCheckedIn && hasManagerSecondaryRole && (
               <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Quản lý</p>
-                 <Button asChild size="lg" variant="outline">
-                  <Link href="/manager/comprehensive-report">
-                    <FileSearch className="mr-2" />
-                    Phiếu kiểm tra toàn diện
-                  </Link>
+                 <Button size="lg" variant="outline" onClick={() => router.push('/manager/comprehensive-report')}>
+                  <FileSearch className="mr-2" />
+                  Phiếu kiểm tra toàn diện
                 </Button>
               </>
             )}
@@ -217,11 +202,9 @@ export default function ShiftsPage() {
             {isCheckedIn && hasCashierSecondaryRole && (
                 <>
                 <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
-                 <Button asChild size="lg" variant="outline">
-                  <Link href="/cashier">
-                    <Banknote className="mr-2" />
-                    Báo cáo Thu ngân
-                  </Link>
+                 <Button size="lg" variant="outline" onClick={() => router.push('/cashier')}>
+                  <Banknote className="mr-2" />
+                  Báo cáo Thu ngân
                 </Button>
               </>
             )}

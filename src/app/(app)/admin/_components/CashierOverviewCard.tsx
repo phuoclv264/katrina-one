@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Banknote, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +27,7 @@ export type CashierOverviewCardProps = {
 };
 
 export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenueByMethod, expenseByMethod }: CashierOverviewCardProps) {
+  const router = useRouter();
   const formattedProfit = `${profit.toLocaleString('vi-VN')}đ`;
   const description = `Thu ${totalRevenue.toLocaleString('vi-VN')}đ - Chi ${totalExpense.toLocaleString('vi-VN')}đ`;
 
@@ -81,7 +82,12 @@ export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenu
             </Accordion>
           )}
         </CardContent>
-        <CardFooter><Button asChild variant="outline" className="w-full"><Link href="/reports/cashier">Đến trang thu ngân<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></CardFooter>
+        <CardFooter>
+          <Button variant="outline" className="w-full" onClick={() => router.push('/reports/cashier')}>
+            Đến trang thu ngân
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </CardFooter>
       </Card>
     </motion.div>
   );

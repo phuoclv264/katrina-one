@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CalendarCheck, ArrowRight, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ type SchedulingOverviewCardProps = {
 };
 
 export function SchedulingOverviewCard({ upcomingShifts }: SchedulingOverviewCardProps) {
+  const router = useRouter();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
   const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
@@ -75,7 +76,12 @@ export function SchedulingOverviewCard({ upcomingShifts }: SchedulingOverviewCar
             <p className="text-sm text-muted-foreground text-center h-full flex items-center justify-center">Không có ca làm việc nào sắp tới.</p>
           )}
         </CardContent>
-        <CardFooter><Button asChild variant="outline" className="w-full"><Link href="/shift-scheduling">Xem Xếp lịch<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></CardFooter>
+        <CardFooter>
+          <Button variant="outline" className="w-full" onClick={() => router.push('/shift-scheduling')}>
+            Xem Xếp lịch
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </CardFooter>
       </Card>
     </motion.div>
   );

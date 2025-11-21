@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton'; 
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
-import Link from 'next/link';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
@@ -307,11 +306,9 @@ export default function AttendancePageComponent() {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                 <Button asChild variant="ghost" className="-ml-4 mb-4">
-                    <Link href="/reports">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Quay lại
-                    </Link>
+                <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại
                 </Button>
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div>

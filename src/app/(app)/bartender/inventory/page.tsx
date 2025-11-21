@@ -13,7 +13,6 @@ import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, Inventor
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { ArrowLeft, Loader2, Send, ShoppingCart, ChevronsDownUp, Copy } from 'lucide-react';
-import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
@@ -485,12 +484,9 @@ function InventoryPageComponent() {
   return (
     <TooltipProvider>
     <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
-       <header className="mb-8">
-          <Button asChild variant="ghost" className="-ml-4 mb-4">
-              <Link href="/bartender">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Quay lại
-              </Link>
+      <header className="mb-8">
+          <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
           </Button>
           <div className="flex flex-col md:flex-row gap-4 justify-between md:items-center">
             <div>
