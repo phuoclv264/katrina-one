@@ -76,3 +76,9 @@ body {
         @apply absolute top-1/2 -translate-y-1/2 left-0 h-5 w-1 rounded-r-full bg-primary transition-opacity duration-200 opacity-0 data-[active=true]:opacity-100;
     }
 }
+
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}

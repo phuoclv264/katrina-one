@@ -10,7 +10,7 @@ import { PanelLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import PageTransitionIndicator from '@/components/page-transition-indicator';
 import { LightboxProvider } from '@/contexts/lightbox-context';
-
+import { BackButtonHandler } from '@/components/back-button-handler';
 
 export default function AppLayout({
   children,
@@ -23,6 +23,7 @@ export default function AppLayout({
         <Sidebar collapsible="icon">
           <AppSidebar />
         </Sidebar>
+        <BackButtonHandler />
         <SidebarInset>
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
             <div>
@@ -38,7 +39,7 @@ export default function AppLayout({
             </Suspense>
           </header>
           <Suspense fallback={<PageTransitionIndicator />}>
-              {children}
+            {children}
           </Suspense>
         </SidebarInset>
       </SidebarProvider>
